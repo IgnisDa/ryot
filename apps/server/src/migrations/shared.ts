@@ -48,6 +48,12 @@ export const legacyBootstrapGate = Effect.gen(function* () {
 	return row.present;
 });
 
+export const singletonRelationshipConflict = `ON CONFLICT (
+	(case when "user_id" is null then '0' else '1' || "user_id" end),
+	"source_entity_id", "target_entity_id", "relationship_schema_slug",
+	(case when "relationship_schema_plugin_id" is null then '0' else '1' || "relationship_schema_plugin_id" end)
+) WHERE "key" IS NULL DO NOTHING`;
+
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 export const quoteNullableSqlString = (value: null | string) =>

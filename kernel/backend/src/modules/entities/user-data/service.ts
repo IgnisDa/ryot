@@ -72,14 +72,18 @@ type RelationshipRow = Effect.Success<
 const relationshipKey = (
 	relationship: Pick<
 		RelationshipRow,
-		"sourceEntityId" | "targetEntityId" | "relationshipSchemaSlug" | "relationshipSchemaPluginId"
+		| "key"
+		| "sourceEntityId"
+		| "targetEntityId"
+		| "relationshipSchemaSlug"
+		| "relationshipSchemaPluginId"
 	>,
 ) =>
 	stableStringify([
 		relationship.relationshipSchemaPluginId,
 		relationship.relationshipSchemaSlug,
 		relationship.sourceEntityId,
-		relationship.targetEntityId,
+		relationship.key === undefined ? relationship.targetEntityId : ["key", relationship.key],
 	]);
 
 const stateConflict = () => new EntityUserDataBadRequest({ reason: { code: "state-conflict" } });
@@ -271,11 +275,15 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					sourceEntityId === relationship.sourceEntityId &&
 					targetEntityId === relationship.targetEntityId
 				) {
-					return { create: null, deletion: null };
+					return { create: null, deletion: null, retarget: false };
 				}
 				const destination = input.destinationRelationships.get(
 					relationshipKey({ ...relationship, sourceEntityId, targetEntityId }),
 				);
+				const retarget =
+					relationship.key !== undefined &&
+					sourceEntityId === relationship.sourceEntityId &&
+					sourceEntityId !== targetEntityId;
 				let create: null | PreparedUserRelationship = null;
 				if (sourceEntityId !== targetEntityId) {
 					create = yield* relationships
@@ -283,6 +291,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							{
 								userId,
 								scope: "user",
+								...(relationship.key === undefined ? {} : { key: relationship.key }),
 								sourceEntityId,
 								targetEntityId,
 								properties: { ...relationship.properties, ...destination?.properties },
@@ -293,6 +302,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							},
 							itemCommand(command, `relationship:${relationship.id}:create`),
 							"upsert",
+							[],
+							retarget ? relationship.targetEntityId : undefined,
 						)
 						.pipe(
 							Effect.catchTags({
@@ -302,27 +313,30 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						);
 				}
 
-				const deletion = yield* relationships
-					.prepareUserDelete(
-						{
-							userId,
-							scope: "user",
-							sourceEntityId: relationship.sourceEntityId,
-							targetEntityId: relationship.targetEntityId,
-							relationshipSchema: {
-								slug: relationship.relationshipSchemaSlug,
-								owner: definitionOwner(relationship.relationshipSchemaPluginId),
-							},
-						},
-						itemCommand(command, `relationship:${relationship.id}:delete`),
-					)
-					.pipe(
-						Effect.catchTags({
-							RelationshipNotFound: relationshipFailure("merge"),
-							RelationshipBadRequest: relationshipFailure("merge"),
-						}),
-					);
-				return { create, deletion };
+				const deletion = retarget
+					? null
+					: yield* relationships
+							.prepareUserDelete(
+								{
+									userId,
+									scope: "user",
+									...(relationship.key === undefined ? {} : { key: relationship.key }),
+									sourceEntityId: relationship.sourceEntityId,
+									targetEntityId: relationship.targetEntityId,
+									relationshipSchema: {
+										slug: relationship.relationshipSchemaSlug,
+										owner: definitionOwner(relationship.relationshipSchemaPluginId),
+									},
+								},
+								itemCommand(command, `relationship:${relationship.id}:delete`),
+							)
+							.pipe(
+								Effect.catchTags({
+									RelationshipNotFound: relationshipFailure("merge"),
+									RelationshipBadRequest: relationshipFailure("merge"),
+								}),
+							);
+				return { create, deletion, retarget };
 			});
 
 			/** Plans clearing the user's state for an entity of `entitySchema`, any schema when it is null. */
@@ -391,6 +405,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							{
 								userId,
 								scope: "user",
+								...(relationship.key === undefined ? {} : { key: relationship.key }),
 								sourceEntityId: relationship.sourceEntityId,
 								targetEntityId: relationship.targetEntityId,
 								relationshipSchema: {
@@ -653,6 +668,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					targetState.relationships.map((row) => [relationshipKey(row), row]),
 				);
 				const preparedRelationships: Array<{
+					retarget: boolean;
 					create: null | PreparedUserRelationship;
 					deletion: null | PreparedUserRelationship;
 				}> = [];
@@ -710,6 +726,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 											}),
 										);
 									dispatch.push(...work.dispatch);
+									if (prepared.retarget) {
+										movedRelationshipsCount += 1;
+									}
 								}
 								if (prepared.deletion) {
 									const work = yield* relationships

@@ -36,12 +36,9 @@ describe("adaptHardcoverCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]).toMatchObject({
+			copies: [{ details: {}, sourceId: "1001", source: "hardcover" }],
+			collectionMemberships: [{ collectionName: "Book Club" }, { collectionName: "Favorites" }],
 			entityRef: { externalId: "1001", entitySchemaSlug: "book", providerSlug: "book.hardcover" },
-			collectionMemberships: [
-				{ collectionName: "Book Club" },
-				{ collectionName: "Favorites" },
-				{ collectionName: "Owned" },
-			],
 		});
 		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{

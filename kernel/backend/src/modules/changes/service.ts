@@ -611,6 +611,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						scope: "user" as const,
 						userId: yield* requireUser,
 						relationshipSchema: relation.relationshipSchema,
+						...(relation.key === undefined ? {} : { key: relation.key }),
 						sourceEntityId: yield* referencedEntity(relation.source),
 						targetEntityId: yield* referencedEntity(relation.target),
 					};

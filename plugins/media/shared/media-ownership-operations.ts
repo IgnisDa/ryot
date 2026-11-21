@@ -1,35 +1,21 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
-const OwnedOn = Schema.NullOr(
-	Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))),
-);
+import { MediaCopyDetails } from "./media-copy";
 
-const EntityIds = Schema.Array(Schema.String).pipe(
-	Schema.check(Schema.isMinLength(1)),
-	Schema.check(Schema.isMaxLength(50)),
-);
+const CopyId = Schema.NonEmptyString.check(Schema.isMaxLength(512));
+const EntityId = Schema.NonEmptyString;
 
-const MediaOwnershipFoundResult = Schema.Struct({
-	ownedOn: OwnedOn,
-	owned: Schema.Boolean,
-	entityId: Schema.String,
-	status: Schema.Literal("found"),
-});
-
-const MediaOwnershipNotFoundResult = Schema.Struct({
-	entityId: Schema.String,
-	status: Schema.Literal("notFound"),
-});
-
-export const MediaOwnershipSetInput = Schema.Union([
-	Schema.Struct({ ownedOn: OwnedOn, entityIds: EntityIds, owned: Schema.Literal(true) }),
-	Schema.Struct({ entityIds: EntityIds, owned: Schema.Literal(false) }),
+export const MediaCopyWriteInput = Schema.Union([
+	Schema.Struct({
+		entityId: EntityId,
+		details: MediaCopyDetails,
+		action: Schema.Literal("add"),
+		copyId: Schema.NonEmptyString.check(Schema.isMaxLength(128)),
+	}),
+	Schema.Struct({ copyId: CopyId, details: MediaCopyDetails, action: Schema.Literal("update") }),
+	Schema.Struct({ copyId: CopyId, action: Schema.Literal("remove") }),
 ]);
 
-export type MediaOwnershipSetInput = Schema.Schema.Type<typeof MediaOwnershipSetInput>;
+export type MediaCopyWriteInput = typeof MediaCopyWriteInput.Type;
 
-export const MediaOwnershipOutput = Schema.Struct({
-	results: Schema.Array(Schema.Union([MediaOwnershipFoundResult, MediaOwnershipNotFoundResult])),
-});
-
-export type MediaOwnershipOutput = Schema.Schema.Type<typeof MediaOwnershipOutput>;
+export const MediaCopyWriteOutput = Schema.Struct({ copyId: CopyId });

@@ -71,6 +71,7 @@ export const preparedRelationshipEntityIds = ({
 }: PreparedUserRelationship): ReadonlyArray<EntityId> => [
 	mutation.input.sourceEntityId,
 	mutation.input.targetEntityId,
+	...(mutation.expectedTargetEntityId === undefined ? [] : [mutation.expectedTargetEntityId]),
 ];
 
 const concurrentChange = () =>
@@ -220,6 +221,7 @@ export const makePreparedRelationshipMutations = (
 		commandInput: DomainLifecycleCommand,
 		mode: "delete" | UserRelationshipMode,
 		createdEntities: ReadonlyArray<PreparedEntityCreate> = [],
+		expectedTargetEntityId?: EntityId,
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -234,7 +236,12 @@ export const makePreparedRelationshipMutations = (
 		yield* writes
 			.check(command, relationshipSchemaReference(input).owner, input.userId)
 			.pipe(Effect.mapError(relationshipWriteFailure));
-		let mutation: Mutation = { mode, input, command };
+		let mutation: Mutation = {
+			mode,
+			input,
+			command,
+			...(expectedTargetEntityId === undefined ? {} : { expectedTargetEntityId }),
+		};
 		if (mode !== "delete") {
 			if (!("properties" in submitted)) {
 				return yield* Effect.die("A prepared relationship write is missing properties");
@@ -288,7 +295,8 @@ export const makePreparedRelationshipMutations = (
 			command: DomainLifecycleCommand,
 			mode: UserRelationshipMode,
 			createdEntities: ReadonlyArray<PreparedEntityCreate> = [],
-		) => prepareUserMutation(input, command, mode, createdEntities),
+			expectedTargetEntityId?: EntityId,
+		) => prepareUserMutation(input, command, mode, createdEntities, expectedTargetEntityId),
 	);
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(
 		(input: UserRelationshipInput, command: DomainLifecycleCommand) =>
@@ -308,6 +316,7 @@ export const makePreparedRelationshipMutations = (
 			{
 				userId,
 				scope: "user",
+				...(row.key === undefined ? {} : { key: row.key }),
 				sourceEntityId: row.sourceEntityId,
 				targetEntityId: row.targetEntityId,
 				relationshipSchema: {

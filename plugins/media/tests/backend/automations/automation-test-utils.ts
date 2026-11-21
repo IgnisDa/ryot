@@ -175,11 +175,11 @@ export const integrationRecord = (
 	minimumProgress: 2,
 	id: "integration-1",
 	maximumProgress: 95,
-	syncOwnership: false,
 	lastFinishedAt: null,
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	providerSpecifics: {},
+	sourceKey: "integration-1-source",
 	extraSettings: { disableOnContinuousErrors: false },
 	...overrides,
 });

@@ -1,6 +1,10 @@
 import { parseCsvText } from "./csv";
 import { nowIso, parseDateTime, parseDateWithFormat } from "./dates";
-import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
+import {
+	getOrCreateMediaEntityGroup,
+	importEntityRefIdentifier,
+	type ImportMediaEntityGroupBuilder,
+} from "./groups";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -103,7 +107,9 @@ export const adaptHardcoverCsv = (csvText: string, importedAt = nowIso()) => {
 			}
 		}
 		if (normalizeBoolean(row["Owned"] ?? "")) {
-			addCollectionMembership(group, "Owned");
+			group.copies = [
+				{ details: {}, source: "hardcover", sourceId: importEntityRefIdentifier(group.entityRef) },
+			];
 		}
 	}
 	return {

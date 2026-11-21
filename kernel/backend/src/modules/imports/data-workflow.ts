@@ -587,6 +587,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 								itemIdentity,
 								propertiesMode: "replace",
 								relationshipSchema: item.record.relationshipSchema,
+								...(item.record.identityKey === undefined ? {} : { key: item.record.identityKey }),
 								source: yield* existing(item.record.sourceEntityKey),
 								target: yield* existing(item.record.targetEntityKey),
 							},

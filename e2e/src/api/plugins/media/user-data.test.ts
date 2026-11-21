@@ -39,6 +39,7 @@ import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/eve
 import {
 	insertLibraryMembership,
 	insertMediaMonitoring,
+	insertOwnedCopy,
 	queryInMediaLibraryRelationship,
 	seedMediaEntity,
 	seedShow,
@@ -308,10 +309,7 @@ describe("Media entity user data HTTP operations", () => {
 						payload: { collectionId: collection.id, entityId: EntityId.make(entity.id) },
 					}),
 				);
-				yield* insertLibraryMembership(client, {
-					mediaEntityId: entity.id,
-					properties: { owned: true },
-				});
+				yield* insertOwnedCopy(client, entity.id);
 				yield* insertMediaMonitoring(client, entity.id);
 			}
 			yield* waitForEventCount(client, collection.id, entities.length);
@@ -609,10 +607,7 @@ describe("Media entity user data HTTP operations", () => {
 				}),
 			);
 			for (const entity of treeEntities(source)) {
-				yield* insertLibraryMembership(client, {
-					mediaEntityId: entity.id,
-					properties: { owned: true },
-				});
+				yield* insertOwnedCopy(client, entity.id);
 				yield* insertMediaMonitoring(client, entity.id);
 			}
 			for (const entity of treeEntities(target)) {
@@ -868,14 +863,8 @@ describe("Media entity user data HTTP operations", () => {
 					name: `Mapping target ${yield* randomUuid}`,
 					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 				});
-				yield* insertLibraryMembership(client, {
-					properties: { owned: true },
-					mediaEntityId: source.show.id,
-				});
-				yield* insertLibraryMembership(client, {
-					properties: { owned: true },
-					mediaEntityId: source.episodeId(1, 2),
-				});
+				yield* insertOwnedCopy(client, source.show.id);
+				yield* insertOwnedCopy(client, source.episodeId(1, 2));
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
 					submissionId: yield* randomUuid,
@@ -978,10 +967,7 @@ describe("Media entity user data HTTP operations", () => {
 					name: `Ambiguous source ${yield* randomUuid}`,
 					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 2 }] }],
 				});
-				yield* insertLibraryMembership(client, {
-					properties: { owned: true },
-					mediaEntityId: ambiguousSource.episodeId(1, 2),
-				});
+				yield* insertOwnedCopy(client, ambiguousSource.episodeId(1, 2));
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
 					submissionId: yield* randomUuid,
@@ -1026,10 +1012,7 @@ describe("Media entity user data HTTP operations", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const tree = yield* customShowTree(client);
 				for (const entity of tree.entities) {
-					yield* insertLibraryMembership(client, {
-						mediaEntityId: entity.id,
-						properties: { owned: true },
-					});
+					yield* insertOwnedCopy(client, entity.id);
 				}
 				for (const entity of tree.entities) {
 					const schema = yield* findMediaEntitySchema(client, entity.schemaSlug);

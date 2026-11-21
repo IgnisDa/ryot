@@ -111,6 +111,7 @@ export const definitionEventSchema = snakeCase.table(
 export const definitionRelationshipSchema = snakeCase.table(
 	"definition_relationship_schema",
 	{
+		keyed: boolean().notNull().default(false),
 		...definitionColumns(),
 		sourceEntitySchemaSlug: text(),
 		targetEntitySchemaSlug: text(),
@@ -253,7 +254,6 @@ export const definitionIntegrationProvider = snakeCase.table(
 		entitlement: text().$type<Entitlement>(),
 		description: jsonb().$type<Message>().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
-		supportsOwnershipSync: boolean().notNull().default(false),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),
 		pluginRevisionId: text()
 			.notNull()

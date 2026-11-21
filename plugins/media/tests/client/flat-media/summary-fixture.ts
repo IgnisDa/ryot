@@ -12,8 +12,7 @@ export const fixtureSummaryRecipe = bindRecipe(
 	{ entityId: FLAT_SUMMARY_INPUT.entityId },
 );
 export const flatSummaryRow = {
-	owned: null,
-	ownedOn: null,
+	owned: false,
 	id: "media-1",
 	isCustom: false,
 	publishYear: 1999,

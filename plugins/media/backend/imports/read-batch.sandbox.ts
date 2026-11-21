@@ -42,7 +42,10 @@ export default defineActivity({
 					yield* Schema.encodeEffect(Schema.fromJsonString(MediaSourceRecord))(record),
 				).length;
 				const cost = record.group
-					? 3 + record.group.events.length + record.group.collectionMemberships.length
+					? 3 +
+						record.group.events.length +
+						record.group.collectionMemberships.length +
+						(record.group.copies?.length ?? 0)
 					: 1;
 				if (count && bytes + size > 512 * 1024) {
 					break;
@@ -82,10 +85,17 @@ export default defineActivity({
 					const sameEntity =
 						previous &&
 						importEntityRefKey(previous.entityRef) === importEntityRefKey(record.group.entityRef);
-					if (sameEntity && previous.events.length + record.group.events.length <= 6) {
+					if (
+						sameEntity &&
+						previous.events.length + record.group.events.length <= 6 &&
+						(previous.copies?.length ?? 0) + (record.group.copies?.length ?? 0) <= 12
+					) {
 						entityGroups[entityGroups.length - 1] = {
 							...previous,
 							events: [...previous.events, ...record.group.events],
+							...(previous.copies === undefined && record.group.copies === undefined
+								? {}
+								: { copies: [...(previous.copies ?? []), ...(record.group.copies ?? [])] }),
 							collectionMemberships: [
 								...new Map(
 									[...previous.collectionMemberships, ...record.group.collectionMemberships].map(

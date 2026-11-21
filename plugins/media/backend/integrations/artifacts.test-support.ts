@@ -59,10 +59,11 @@ export const integrationTestResult = (
 		if (!group) {
 			continue;
 		}
-		const key = JSON.stringify([group.itemIndex, group.entityRef, group.ownershipProvider]);
+		const key = JSON.stringify([group.itemIndex, group.entityRef, group.copies !== undefined]);
 		const previous = groups.get(key);
 		groups.set(key, {
 			...group,
+			...(group.copies ? { copies: [...(previous?.copies ?? []), ...group.copies] } : {}),
 			collectionMemberships: [
 				...(previous?.collectionMemberships ?? []),
 				...group.collectionMemberships,

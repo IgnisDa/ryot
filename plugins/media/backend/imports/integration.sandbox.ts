@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
+	defineScriptReference,
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
@@ -15,6 +16,11 @@ import {
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
+import {
+	authoritativeMediaInventoryAdapters,
+	inventoryReconcileInput,
+	inventoryReconcileOutput,
+} from "../integrations/inventory/reconciliation";
 import { MediaSortedRun } from "./collection-schemas";
 import {
 	MediaApplicationInput,
@@ -41,6 +47,12 @@ const collection = defineWorkflowReference({
 	output: MediaIntegrationCollectionOutput,
 	workflowSlug: "media-integration-collection",
 });
+const reconcile = defineScriptReference({
+	input: inventoryReconcileInput,
+	output: inventoryReconcileOutput,
+	scriptSlug: "integration.reconcile-inventory",
+});
+
 const checkpointSchema = Schema.Struct({
 	ordinal: Schema.Int,
 	segment: Schema.Int,
@@ -200,6 +212,18 @@ export default defineWorkflow({
 				...attribution,
 				operation: { action: "seal" },
 			});
+			if (
+				authoritativeMediaInventoryAdapters.has(state.integrationScriptSlug) &&
+				state.issues.length === 0 &&
+				sealed.summary.every(({ counts }) => counts.unsuccessful === 0 && counts.skipped === 0)
+			) {
+				const result = yield* step.activity(`inventory-reconcile:${state.segment}`, reconcile, {
+					runId: input.runId,
+				});
+				if (!result.done) {
+					return yield* step.save({ ...state, segment: state.segment + 1 });
+				}
+			}
 			return { output: { issues: state.issues, summary: sealed.summary } };
 		}),
 });

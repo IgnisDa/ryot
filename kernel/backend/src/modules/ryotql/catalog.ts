@@ -438,6 +438,7 @@ const relationship: TableBinding<"relationship"> = {
 	},
 	fields: {
 		id: column("id"),
+		key: column("key"),
 		userId: column("user_id"),
 		createdAt: column("created_at"),
 		properties: column("properties"),
@@ -732,7 +733,6 @@ const integrationProvider: TableBinding<"integrationProvider"> = {
 		scriptSlug: column("script_slug"),
 		entitlement: column("entitlement"),
 		settingsSchema: column("settings_schema"),
-		supportsOwnershipSync: column("supports_ownership_sync"),
 		readinessMetadata: {
 			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),
 		},
@@ -1041,7 +1041,6 @@ const integration: TableBinding<"integration"> = {
 		isDisabled: column("is_disabled"),
 		webhookToken: column("webhook_token"),
 		extraSettings: column("extra_settings"),
-		syncOwnership: column("sync_ownership"),
 		lastFinishedAt: column("last_finished_at"),
 		minimumProgress: column("minimum_progress"),
 		maximumProgress: column("maximum_progress"),

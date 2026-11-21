@@ -234,7 +234,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						repository.createForUser({
 							lot: "sink",
 							userId: user.id,
-							syncOwnership: false,
 							minimumProgress: "0",
 							providerSpecifics: {},
 							maximumProgress: "100",
@@ -284,7 +283,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							minimumProgress: String(minimumProgress),
 							maximumProgress: String(maximumProgress),
 							providerSpecifics: body.providerSpecifics,
-							syncOwnership: body.syncOwnership ?? false,
 							pluginInstallationId: registered.installationId,
 							extraSettings: body.extraSettings ?? defaultExtraSettings,
 						});
@@ -391,7 +389,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							providerSpecifics,
 							isDisabled: body.isDisabled,
 							extraSettings: body.extraSettings,
-							syncOwnership: body.syncOwnership,
 							lastFinishedAt: body.lastFinishedAt,
 							minimumProgress:
 								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,

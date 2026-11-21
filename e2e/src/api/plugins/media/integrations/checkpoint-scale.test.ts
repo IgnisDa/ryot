@@ -71,7 +71,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("Media sync checkpoints at scale", () =>
 					createIntegration(client, {
 						minimumProgress: 2,
 						maximumProgress: 95,
-						syncOwnership: false,
 						provider: { slug: "audiobookshelf", owner: definitionOwner(pluginId) },
 						providerSpecifics: {
 							baseUrl: upstream.url,

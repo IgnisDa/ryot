@@ -104,7 +104,7 @@ it.effect(
 			yield* writer.run(
 				{
 					...prepared.batch,
-					ownershipSyncedAt: "2026-01-01T12:00:00Z",
+
 					ingestionArtifacts: { runId: "run", captures: { batch: "batch" } },
 					integration: { importRunId: "run", integrationId: "integration-1" },
 					populationResults: prepared.batch.entityGroups.map((_group, index) => ({

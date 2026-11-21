@@ -95,7 +95,7 @@ export default defineActivity({
 				}
 				let context: TraktRecordContext;
 				if (entry.kind.type === "collection") {
-					context = { name: "Owned", type: "collection" };
+					context = { type: "ownership" };
 				} else if (entry.kind.type === "system-list") {
 					context = {
 						type: "collection",

@@ -528,7 +528,8 @@ const genericItemChanges = Effect.fnUntraced(function* (
 							source: yield* keyed(relationship.sourceAlias),
 							target: yield* keyed(relationship.targetAlias),
 							itemIdentity: identity(relationship.operationId),
-							propertiesMode: relationship.propertiesMode === "merge" ? "merge" : "replace",
+							propertiesMode: relationship.propertiesMode ?? "replace",
+							...(relationship.key === undefined ? {} : { key: relationship.key }),
 							relationshipSchema: {
 								owner,
 								slug: RelationshipSchemaSlug.make(relationship.relationshipSchemaSlug),

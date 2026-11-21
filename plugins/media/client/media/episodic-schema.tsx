@@ -95,6 +95,7 @@ export type MediaEpisodicPresentationValue = EpisodicCounts &
 
 export type MediaEpisodicSummaryValue = EpisodicCounts &
 	MediaSummaryValue & {
+		readonly ownedEpisodes: number;
 		readonly totalEpisodes: null | number;
 		readonly state: EpisodicLifecycleState;
 		readonly nextUp: null | { readonly id: string };
@@ -338,9 +339,17 @@ export const defineEpisodicMediaSchema = <
 		mediaSummaryHeaderDetail({
 			logActivity: descriptor.logActivity,
 			facts: (value: Summary) =>
-				[...descriptor.facts(value, copy), mediaEpisodicAiredFact(copy.text, value)].filter(
-					(fact) => fact !== undefined,
-				),
+				[
+					...descriptor.facts(value, copy),
+					mediaEpisodicAiredFact(copy.text, value),
+					value.ownedEpisodes === 0
+						? undefined
+						: {
+								icon: "box" as const,
+								label: copy.text("ownership.episodes-with-copies"),
+								value: copy.formatters.number().format(value.ownedEpisodes),
+							},
+				].filter((fact) => fact !== undefined),
 		})(summary, copy);
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({

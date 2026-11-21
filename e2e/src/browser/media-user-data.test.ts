@@ -11,7 +11,7 @@ import { logMediaActivity } from "~/fixtures/plugins/media/activity-log";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import {
-	insertLibraryMembership,
+	insertOwnedCopy,
 	queryInMediaLibraryRelationship,
 	seedGlobalMovieWithCollection,
 	seedShow,
@@ -60,10 +60,7 @@ const seedMovieWithUserData = (
 			eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "review").id,
 			properties: { rating: input.rating, text: "Browser user-data review" },
 		});
-		yield* insertLibraryMembership(client, {
-			properties: { owned: true },
-			mediaEntityId: seeded.movie.id,
-		});
+		yield* insertOwnedCopy(client, seeded.movie.id);
 		return { movie: seeded.movie, schemaSlug: schema.id };
 	});
 
@@ -193,14 +190,8 @@ it.live("keeps an episodic mapping conflict visible without changing either show
 			properties: { productionStatus: "Ended" },
 			seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 		});
-		yield* insertLibraryMembership(client, {
-			properties: { owned: true },
-			mediaEntityId: source.show.id,
-		});
-		yield* insertLibraryMembership(client, {
-			properties: { owned: true },
-			mediaEntityId: source.episodeId(1, 2),
-		});
+		yield* insertOwnedCopy(client, source.show.id);
+		yield* insertOwnedCopy(client, source.episodeId(1, 2));
 		yield* logMediaActivity(client, {
 			submittedAt: nowIso(),
 			submissionId: yield* randomUuid,

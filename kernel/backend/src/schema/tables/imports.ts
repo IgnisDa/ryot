@@ -54,11 +54,13 @@ export const integration = snakeCase.table(
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamptz().defaultNow().notNull(),
-		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
 		maximumProgress: numeric().notNull().default("95"),
 		provider: text().$type<IntegrationProvider>().notNull(),
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
+		sourceKey: text()
+			.notNull()
+			.default(sql`gen_random_uuid()::text`),
 		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		clientProviderSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		userId: text()
@@ -82,6 +84,7 @@ export const integration = snakeCase.table(
 			table.pluginInstallationId,
 			table.provider,
 		),
+		unique("integration_source_key_owner_unique").on(table.userId, table.sourceKey),
 		unique("integration_run_owner_unique").on(table.id, table.userId),
 		check(
 			"integration_owner_check",

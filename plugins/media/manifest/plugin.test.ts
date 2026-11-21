@@ -644,7 +644,7 @@ it.effect(
 				"https://coverartarchive.org",
 			);
 			expect(mediaPlugin.providers).toHaveLength(52);
-			expect(mediaPlugin.integrationProviders).toHaveLength(14);
+			expect(mediaPlugin.integrationProviders).toHaveLength(16);
 			expect(mediaPlugin.oauthProviders).toEqual([
 				{
 					scopes: [],
@@ -917,7 +917,7 @@ it("declares library membership for member creates, imports, events, and collect
 it("declares ownership sync only for integrations that import ownership", () => {
 	expect(
 		mediaPlugin.integrationProviders
-			.filter((provider) => "supportsOwnershipSync" in provider && provider.supportsOwnershipSync)
+			.filter((provider) => "syncCopies" in provider.settingsSchema.fields)
 			.map(({ slug }) => slug),
 	).toEqual(["komga", "plex_yank", "audiobookshelf"]);
 });

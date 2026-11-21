@@ -301,7 +301,6 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 					const integrationSettings = yield* Schema.decodeUnknownEffect(
 						ImportIntegrationExecutionSettings,
 					)({
-						syncOwnership: integration.syncOwnership,
 						minimumProgress: integration.minimumProgress,
 						maximumProgress: integration.maximumProgress,
 						providerSpecifics: integration.providerSpecifics,

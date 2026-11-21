@@ -53,7 +53,7 @@ const setup = (
 	items: readonly JsonValue[],
 	options: {
 		readonly baseUrl?: string;
-		readonly syncOwnership?: boolean;
+		readonly syncCopies?: boolean;
 		readonly routes?: Record<string, Route>;
 	} = {},
 ) => {
@@ -86,8 +86,12 @@ const setup = (
 			return hostSuccess(
 				integrationRecord({
 					provider: "audiobookshelf",
-					syncOwnership: options.syncOwnership ?? false,
-					providerSpecifics: { token: "key", baseUrl: options.baseUrl ?? "http://abs.test" },
+
+					providerSpecifics: {
+						token: "key",
+						syncCopies: options.syncCopies ?? false,
+						baseUrl: options.baseUrl ?? "http://abs.test",
+					},
 				}),
 			);
 		},
@@ -101,7 +105,7 @@ const setup = (
 };
 
 const ownedGroups = (result: MediaIntegrationAdapterResult) =>
-	result.entityGroups.filter((group) => group.ownershipProvider === "audiobookshelf");
+	result.entityGroups.filter((group) => group.copies?.length);
 
 const rootFailures: Array<{ name: string; routes: Record<string, Route> }> = [
 	{ name: "malformed account snapshot", routes: { "/api/me": { mediaProgress: "not-an-array" } } },
@@ -392,7 +396,7 @@ describe("Audiobookshelf yank", () => {
 					),
 				];
 				const state = setup([], {
-					syncOwnership: true,
+					syncCopies: true,
 					routes: {
 						"/api/libraries": { libraries: [{ id: "library", name: "Library" }] },
 						"/api/libraries/library/items?expanded=1&limit=100&page=0": { results: ownedItems },
@@ -410,7 +414,7 @@ describe("Audiobookshelf yank", () => {
 				for (const group of owned) {
 					expect(group.events).toEqual([]);
 					expect(group.collectionMemberships).toEqual([]);
-					expect(group.ownershipProvider).toBe("audiobookshelf");
+					expect(group.copies?.[0]?.source).toBe("audiobookshelf");
 				}
 				expect(
 					state.requests.some(({ url }) => routeKey(url).startsWith("/api/me/progress/")),
@@ -431,7 +435,7 @@ describe("Audiobookshelf yank", () => {
 					audiobookItem("library-two", { asin: "ASIN-TWO", title: "Library Two" }),
 				];
 				const state = setup([], {
-					syncOwnership: true,
+					syncCopies: true,
 					routes: {
 						"/api/libraries/broken/items?expanded=1&limit=100&page=0": requestFailure,
 						"/api/libraries/one/items?expanded=1&limit=100&page=1": { results: pageOne },

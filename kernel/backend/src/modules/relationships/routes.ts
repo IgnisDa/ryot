@@ -46,6 +46,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 								propertiesMode: "replace" as const,
 								properties: payload.properties ?? {},
 								relationshipSchema: payload.relationshipSchema,
+								...(payload.key === undefined ? {} : { key: payload.key }),
 								source: { kind: "existing" as const, entityId: payload.sourceEntityId },
 								target: { kind: "existing" as const, entityId: payload.targetEntityId },
 							},

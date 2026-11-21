@@ -1,6 +1,7 @@
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Result, Schema } from "effect";
 
+import { RelationshipKey } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import type { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
@@ -36,6 +37,7 @@ export const entityDataFields = {
 export const relationshipDataFields = {
 	properties: DataRecordProperties,
 	relationshipSchema: RelationshipSchemaReference,
+	identityKey: Schema.optionalKey(RelationshipKey),
 };
 
 export const eventDataFields = {

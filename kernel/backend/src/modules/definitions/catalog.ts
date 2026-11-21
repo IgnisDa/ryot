@@ -346,7 +346,6 @@ const dataJsonIntegrationProvider = (userId: string): CatalogIntegrationProvider
 	installationId: null,
 	configRevisionId: null,
 	pluginRevisionId: null,
-	supportsOwnershipSync: false,
 	id: `kernel:data-json:${userId}`,
 	settingsSchema: dataJsonIntegrationSettingsSchema,
 	name: kernelMessage("definition.integration-provider.data-json.name"),

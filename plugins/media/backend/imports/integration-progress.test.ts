@@ -110,7 +110,7 @@ it.live.each(["not-a-number", "", 3])(
 		Effect.gen(function* () {
 			const { host, logs, calls } = createHost({ minimum: 5 });
 			const admitted = yield* admitIntegrationProgress(input({ progressPercent }), host);
-			const chunk = createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z");
+			const chunk = createMediaImportChunk(admitted);
 			expect(chunk.items[0]?.events).toEqual([]);
 			expect(chunk.items[0]?.relationships).toHaveLength(1);
 			expect(calls).not.toContain("query");
@@ -342,7 +342,7 @@ it.live(
 			const { host, calls } = createHost();
 			const unresolved = { ...input(), populationResults: [] };
 			const admitted = yield* admitIntegrationProgress(unresolved, host);
-			expect(createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z")).toMatchObject({
+			expect(createMediaImportChunk(admitted)).toMatchObject({
 				items: [],
 				failures: [{ stage: "provider_resolution" }],
 			});

@@ -67,7 +67,6 @@ const providerPackage = (version: string, endpointSecret: boolean, packageId?: P
 const integration = {
 	isDisabled: false,
 	lot: "push" as const,
-	syncOwnership: false,
 	minimumProgress: "2",
 	maximumProgress: "95",
 	extraSettings: { disableOnContinuousErrors: false },
@@ -360,6 +359,7 @@ describe("integration client settings projection", () => {
 							id,
 							provider,
 							name: null,
+							sourceKey: id,
 							userId: owner,
 							lastFinishedAt: null,
 							createdAt: timestamp,

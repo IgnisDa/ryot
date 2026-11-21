@@ -121,12 +121,17 @@ export const validatePageArtifact = Effect.fn(function* (
 	return artifact;
 });
 
+const artifactFileCountLimit = (metadata: ArchiveClientArtifact) =>
+	"packageId" in metadata || "kind" in metadata
+		? CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount
+		: CLIENT_PLUGIN_COMPILER_LIMITS.runtimeArtifactFileCount;
+
 const readClientArtifactFiles = Effect.fn(function* (
 	metadata: ArchiveClientArtifact,
 	blobs: ReadonlyMap<string, ValidatedArchiveBinary>,
 ) {
 	let size = 0;
-	if (metadata.files.length > CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount) {
+	if (metadata.files.length > artifactFileCountLimit(metadata)) {
 		return yield* archiveError("invalid_entry", "Too many page artifact files", "pages.ndjson");
 	}
 	const files = [];

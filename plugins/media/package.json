@@ -22,6 +22,10 @@
 			"types": "./shared/consumption.ts",
 			"default": "./shared/consumption.ts"
 		},
+		"./shared/media-copy-recipes": {
+			"types": "./shared/media-copy-recipes.ts",
+			"default": "./shared/media-copy-recipes.ts"
+		},
 		"./shared/media-genres": {
 			"types": "./shared/media-genres.ts",
 			"default": "./shared/media-genres.ts"

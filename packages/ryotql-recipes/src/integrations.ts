@@ -32,7 +32,6 @@ const selection = {
 	lot: selectedField(column(integration, "lot"), IntegrationSnapshot.fields.lot),
 	name: selectedField(column(integration, "name"), Schema.NullOr(Schema.String)),
 	pluginId: selectedField(column(integration, "pluginId"), Schema.NullOr(PluginId)),
-	syncOwnership: selectedField(column(integration, "syncOwnership"), Schema.Boolean),
 	minimumProgress: selectedField(column(integration, "minimumProgress"), Schema.Finite),
 	maximumProgress: selectedField(column(integration, "maximumProgress"), Schema.Finite),
 	lastFinishedAt: selectedField(

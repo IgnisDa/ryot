@@ -10,11 +10,11 @@ export const showSummaryFixtureRecipe = bindRecipe(
 	{ entityId: "show-1" },
 );
 export const showSummaryRow = {
-	owned: null,
+	owned: false,
 	id: "show-1",
-	ownedOn: null,
 	totalSeasons: 1,
 	isCustom: false,
+	ownedEpisodes: 0,
 	totalEpisodes: 4,
 	airedEpisodes: 4,
 	state: "complete",

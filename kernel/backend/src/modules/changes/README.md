@@ -20,7 +20,8 @@ atomically under the writer's principal (`command.writeContext`) after translati
   writer's `null` schema accepts the entity's own), `updates` of existing entities (each shaped and
   checked like a root entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
-  endpoints are the root, existing entities or keyed entities. Kernel writers may also send `updates`
+  endpoints are the root, existing entities or keyed entities, and a change of a keyed relationship
+  schema names the relationship's `key` (see [relationships](../relationships/README.md)). Kernel writers may also send `updates`
   (the relationship must exist), `ensures` (written only when absent), `deletesById`, and `events`
   that a relationship change records from what it wrote (no event when its `properties` returns
   `null`); see [relationships](../relationships/README.md).

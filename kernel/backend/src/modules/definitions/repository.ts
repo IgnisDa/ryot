@@ -131,6 +131,7 @@ const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDef
 	propertiesSchema: row.propertiesSchema,
 	sourceEntitySchemaSlug: row.sourceEntitySchemaSlug,
 	targetEntitySchemaSlug: row.targetEntitySchemaSlug,
+	...(row.keyed ? { keyed: true as const } : {}),
 	...(row.projection === null ? {} : { projection: row.projection }),
 	...(row.userWritePolicy === null ? {} : { userWritePolicy: row.userWritePolicy }),
 });
@@ -348,6 +349,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										pluginRevisionId,
 										slug: definition.slug,
 										name: text(definition.name),
+										keyed: definition.keyed === true,
 										retention: definition.retention ?? null,
 										projection: definition.projection ?? null,
 										propertiesSchema: definition.propertiesSchema,
@@ -478,7 +480,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										description: text(definition.description),
 										settingsSchema: definition.settingsSchema,
 										entitlement: definition.entitlement ?? null,
-										supportsOwnershipSync: definition.supportsOwnershipSync ?? false,
 										plan: definition.lot === "push" ? null : (definition.plan ?? null),
 										scriptSlug: definition.lot === "push" ? null : definition.scriptSlug,
 									})),
@@ -641,6 +642,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										position,
 										slug: definition.slug,
 										pluginRevisionId: null,
+										keyed: definition.keyed === true,
 										retention: definition.retention ?? null,
 										projection: definition.projection ?? null,
 										name: definitionText(null, definition.name),
@@ -657,6 +659,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									],
 									set: {
 										name: sql`excluded.name`,
+										keyed: sql`excluded.keyed`,
 										position: sql`excluded.position`,
 										retention: sql`excluded.retention`,
 										projection: sql`excluded.projection`,
@@ -892,6 +895,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							.select({
 								name: schema.definitionRelationshipSchema.name,
 								slug: schema.definitionRelationshipSchema.slug,
+								keyed: schema.definitionRelationshipSchema.keyed,
 								projection: schema.definitionRelationshipSchema.projection,
 								userWritePolicy: schema.definitionRelationshipSchema.userWritePolicy,
 								propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
@@ -910,11 +914,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					if (!row) {
 						return undefined;
 					}
-					const { projection, userWritePolicy, ...definition } = row;
+					const { keyed, projection, userWritePolicy, ...definition } = row;
 					return {
 						...definition,
 						...(projection === null ? {} : { projection }),
 						...(userWritePolicy === null ? {} : { userWritePolicy }),
+						...(keyed ? { keyed: true as const } : {}),
 					};
 				}),
 			};

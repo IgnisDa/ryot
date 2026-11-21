@@ -32,6 +32,8 @@ export const ConnectedAppId = Schema.String.pipe(Schema.brand("ConnectedAppId"))
 
 export type ConnectedAppId = typeof ConnectedAppId.Type;
 
+export const RelationshipKey = Schema.NonEmptyString.check(Schema.isMaxLength(512));
+
 export const RelationshipId = Schema.String.pipe(Schema.brand("RelationshipId"));
 
 export type RelationshipId = typeof RelationshipId.Type;

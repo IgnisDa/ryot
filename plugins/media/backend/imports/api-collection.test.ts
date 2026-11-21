@@ -206,8 +206,8 @@ it.live(
 				'["media-event",3,0]',
 				'["media-event",4,0]',
 				'["media-event",5,0]',
-				'["media-membership",6,"Owned"]',
-				'["media-membership",7,"Owned"]',
+				'["media-copy",6,0]',
+				'["media-copy",7,0]',
 				'["media-membership",10,"Custom"]',
 			]);
 			expect(records[1]?.failure).toEqual({

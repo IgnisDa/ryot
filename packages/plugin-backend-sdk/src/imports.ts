@@ -9,6 +9,7 @@ import {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
+import { RelationshipKey } from "@ryot-app/contract/schema/brands";
 import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
@@ -168,12 +169,13 @@ export const genericImportCollectionMembershipIntentSchema = strictStruct({
 });
 
 export const genericImportRelationshipIntentSchema = strictStruct({
+	key: Schema.optionalKey(RelationshipKey),
 	...ingestionIntentFields,
 	sourceAlias: Schema.String,
 	targetAlias: Schema.String,
 	properties: importRecordSchema,
 	relationshipSchemaSlug: Schema.String,
-	propertiesMode: Schema.optional(Schema.Literals(["preserve", "merge"])),
+	propertiesMode: Schema.optional(Schema.Literals(["merge", "replace"])),
 });
 
 export const genericImportWriteItemSchema = strictStruct({

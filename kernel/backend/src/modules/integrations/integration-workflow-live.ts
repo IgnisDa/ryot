@@ -40,6 +40,7 @@ import { finalizeIntegrationRun } from "./worker";
 const IntegrationRecordSchema = Schema.Struct({
 	...IntegrationSnapshot.fields,
 	userId: UserId,
+	sourceKey: Schema.NonEmptyString,
 	pluginInstallationId: Schema.NullOr(Schema.String),
 });
 

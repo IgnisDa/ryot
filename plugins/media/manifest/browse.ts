@@ -28,6 +28,7 @@ import {
 import { libraryLinkExists, type Table } from "../shared/entity-selections";
 import { libraryMembershipValue, librarySummary } from "../shared/library-summary";
 import { sameSchemaOwner } from "../shared/lifecycle-expressions";
+import { mediaHasCopies } from "../shared/media-copy-recipes";
 import { builtinMediaEntitySchemaSlugs, mediaGroupMemberSlugs } from "../shared/media-schema-slugs";
 import { catalogMessage } from "../shared/messages.generated";
 import { averageUserRating } from "../shared/user-rating";
@@ -254,13 +255,8 @@ const titleFields = (
 		key: "owned",
 		kind: "value",
 		type: "boolean",
+		expression: mediaHasCopies(subject),
 		label: catalogMessage("property.owned"),
-		expression: coalesce(
-			libraryMembershipValue(subject, (membership) =>
-				castBoolean(jsonPath(column(membership, "properties"), "owned")),
-			),
-			literal(false),
-		),
 	},
 	{
 		kind: "value",

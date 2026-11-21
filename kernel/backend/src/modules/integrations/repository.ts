@@ -25,6 +25,7 @@ import { integrationHealthExcludedFailureCodes } from "./health";
 
 export type IntegrationRecord = IntegrationSnapshot & {
 	readonly userId: UserId;
+	readonly sourceKey: string;
 	readonly pluginInstallationId: null | string;
 };
 
@@ -41,10 +42,10 @@ const integrationSelection = {
 	provider: schema.integration.provider,
 	createdAt: schema.integration.createdAt,
 	updatedAt: schema.integration.updatedAt,
+	sourceKey: schema.integration.sourceKey,
 	isDisabled: schema.integration.isDisabled,
 	webhookToken: schema.integration.webhookToken,
 	extraSettings: schema.integration.extraSettings,
-	syncOwnership: schema.integration.syncOwnership,
 	lastFinishedAt: schema.integration.lastFinishedAt,
 	minimumProgress: schema.integration.minimumProgress,
 	maximumProgress: schema.integration.maximumProgress,
@@ -77,10 +78,10 @@ const normalizeIntegration = (row: IntegrationRow): IntegrationRecord => {
 		lot: row.lot,
 		name: row.name,
 		provider: row.provider,
+		sourceKey: row.sourceKey,
 		isDisabled: row.isDisabled,
 		id: IntegrationId.make(row.id),
 		userId: UserId.make(row.userId),
-		syncOwnership: row.syncOwnership,
 		extraSettings: row.extraSettings,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
@@ -230,7 +231,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				lot: IntegrationLot;
 				isDisabled: boolean;
 				name?: null | string;
-				syncOwnership: boolean;
 				minimumProgress: string;
 				maximumProgress: string;
 				provider: IntegrationProvider;
@@ -269,7 +269,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							provider: input.provider,
 							isDisabled: input.isDisabled,
 							extraSettings: input.extraSettings,
-							syncOwnership: input.syncOwnership,
 							minimumProgress: input.minimumProgress,
 							maximumProgress: input.maximumProgress,
 							clientProviderSpecifics: clientSpecifics,
@@ -443,7 +442,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				integrationId: IntegrationId;
 				name?: null | string | undefined;
 				isDisabled?: boolean | undefined;
-				syncOwnership?: boolean | undefined;
 				minimumProgress?: string | undefined;
 				maximumProgress?: string | undefined;
 				lastFinishedAt?: Date | null | undefined;
@@ -458,9 +456,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				if (input.isDisabled !== undefined) {
 					updates.isDisabled = input.isDisabled;
 				}
-				if (input.syncOwnership !== undefined) {
-					updates.syncOwnership = input.syncOwnership;
-				}
+
 				if (input.minimumProgress !== undefined) {
 					updates.minimumProgress = input.minimumProgress;
 				}

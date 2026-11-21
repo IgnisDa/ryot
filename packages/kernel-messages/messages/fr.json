@@ -1689,8 +1689,6 @@
 	"definition.property.integration-minimum-progress-hint": "Pourcentage minimal de progression à synchroniser",
 	"definition.property.integration-name": "Nom",
 	"definition.property.integration-name-hint": "Nom facultatif de cette intégration",
-	"definition.property.integration-sync-ownership": "Synchroniser les possessions",
-	"definition.property.integration-sync-ownership-hint": "Synchroniser les possessions depuis cette intégration",
 	"definition.property.item": "Élément",
 	"definition.property.membership-field": "Champ",
 	"definition.property.membership-fields": "Champs d’appartenance",

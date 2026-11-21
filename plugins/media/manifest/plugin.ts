@@ -41,7 +41,7 @@ import {
 	MediaMonitoringOutput,
 	MediaMonitoringStatusInput,
 } from "../shared/media-monitoring-operations";
-import { MediaOwnershipOutput, MediaOwnershipSetInput } from "../shared/media-ownership-operations";
+import { MediaCopyWriteInput, MediaCopyWriteOutput } from "../shared/media-ownership-operations";
 import {
 	MediaReviewCreateInput,
 	MediaReviewDeleteInput,
@@ -362,7 +362,36 @@ const providerSettings = (kind: string, fields = {}) => ({
 	fields: { kind: kindSetting(kind), ...fields },
 });
 
+const syncCopiesSetting = {
+	type: "boolean",
+	defaultValue: false,
+	label: catalogMessage("ownership.integration-setting"),
+	description: "Synchronize individually addressable copies from the source library",
+} as const;
+
+const mediaServerInventoryFields = {
+	baseUrl: stringSetting(catalogMessage("property.base-url"), "Media server URL"),
+	userId: stringSetting(catalogMessage("ownership.server-user-id"), "Media server user ID"),
+	apiKey: stringSetting(catalogMessage("property.api-key"), "Media server API key", true, true),
+};
+
 const integrationProviders = [
+	{
+		lot: "yank",
+		slug: "jellyfin_inventory",
+		scriptSlug: "integration.jellyfin-inventory",
+		name: catalogMessage("ownership.jellyfin-inventory"),
+		description: catalogMessage("ownership.jellyfin-inventory-description"),
+		settingsSchema: providerSettings("jellyfin_inventory", mediaServerInventoryFields),
+	},
+	{
+		lot: "yank",
+		slug: "emby_inventory",
+		scriptSlug: "integration.emby-inventory",
+		name: catalogMessage("ownership.emby-inventory"),
+		description: catalogMessage("ownership.emby-inventory-description"),
+		settingsSchema: providerSettings("emby_inventory", mediaServerInventoryFields),
+	},
 	{
 		lot: "sink",
 		slug: "plex_sink",
@@ -473,11 +502,11 @@ const integrationProviders = [
 	{
 		lot: "yank",
 		slug: "komga",
-		supportsOwnershipSync: true,
 		scriptSlug: "integration.komga",
 		name: catalogMessage("integration-provider.komga.name"),
 		description: catalogMessage("integration-provider.komga.description"),
 		settingsSchema: providerSettings("komga", {
+			syncCopies: syncCopiesSetting,
 			baseUrl: stringSetting(catalogMessage("property.base-url"), "Komga instance URL"),
 			apiKey: stringSetting(catalogMessage("property.api-key"), "Komga API key", true, true),
 		}),
@@ -485,11 +514,11 @@ const integrationProviders = [
 	{
 		lot: "yank",
 		slug: "plex_yank",
-		supportsOwnershipSync: true,
 		scriptSlug: "integration.plex-yank",
 		name: catalogMessage("integration-provider.plex-yank.name"),
 		description: catalogMessage("integration-provider.plex-yank.description"),
 		settingsSchema: providerSettings("plex_yank", {
+			syncCopies: syncCopiesSetting,
 			baseUrl: stringSetting(catalogMessage("property.base-url"), "Plex instance URL"),
 			token: stringSetting(catalogMessage("property.token"), "Plex access token", true, true),
 		}),
@@ -497,11 +526,11 @@ const integrationProviders = [
 	{
 		lot: "yank",
 		slug: "audiobookshelf",
-		supportsOwnershipSync: true,
 		scriptSlug: "integration.audiobookshelf",
 		name: catalogMessage("import-source.audiobookshelf.name"),
 		description: catalogMessage("integration-provider.audiobookshelf.description"),
 		settingsSchema: providerSettings("audiobookshelf", {
+			syncCopies: syncCopiesSetting,
 			baseUrl: stringSetting(catalogMessage("property.base-url"), "Audiobookshelf instance URL"),
 			token: stringSetting(
 				catalogMessage("property.token"),
@@ -1202,15 +1231,15 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
-			title: "Set ownership",
 			demoAccess: "protected",
-			slug: "media-ownership-set",
-			scriptSlug: "operation.media-ownership-set",
-			output: operationJsonSchema(MediaOwnershipOutput),
-			input: operationJsonSchema(MediaOwnershipSetInput),
+			slug: "media-copy-write",
+			title: "Manage an owned copy",
+			scriptSlug: "operation.media-copy-write",
+			input: operationJsonSchema(MediaCopyWriteInput),
+			output: operationJsonSchema(MediaCopyWriteOutput),
 			hints: { readOnly: false, idempotent: true, destructive: true },
 			description:
-				"Set or clear personal ownership of a title, including the acquisition date. This changes the title’s library relationship.",
+				"Add, update, or remove an owned copy by its stable client-selected ID. Adding the copy also saves its title to the media library.",
 		},
 		{
 			auth: "integration",

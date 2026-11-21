@@ -1711,8 +1711,6 @@
 	"definition.property.integration-minimum-progress": "最低进度",
 	"definition.property.integration-minimum-progress-hint": "同步的最低进度百分比",
 	"definition.property.integration-name-hint": "此集成的可选名称",
-	"definition.property.integration-sync-ownership": "同步所有权",
-	"definition.property.integration-sync-ownership-hint": "从此集成同步所有权",
 	"definition.property.item": "条目",
 	"definition.property.membership-field": "字段",
 	"definition.property.membership-fields": "成员字段",

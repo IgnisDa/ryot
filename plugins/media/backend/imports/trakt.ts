@@ -1,7 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../lib/failures";
-import type { ImportMediaEntityGroupBuilder } from "./groups";
+import { importEntityRefIdentifier, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
 	addCollectionMembership,
 	createBacklogEvent,
@@ -42,6 +42,7 @@ const ExportItem = Schema.Struct({
 	watched_at: Schema.optional(Schema.String),
 	season: Schema.optional(ExportCoordinates),
 	episode: Schema.optional(ExportCoordinates),
+	collected_at: Schema.optional(Schema.String),
 });
 type ExportItem = typeof ExportItem.Type;
 
@@ -61,6 +62,7 @@ const exportReviewTarget = (item: ExportItem) =>
 		: { type: "show-season" as const, seasonNumber: item.season.number });
 
 export type TraktRecordContext =
+	| { type: "ownership" }
 	| { name: string; type: "collection" }
 	| { type: "backlog"; importedAt: string }
 	| { type: "rating" | "history" | "comment" };
@@ -83,7 +85,7 @@ export const traktApiRecordContext = (
 		return { name: listName, type: "collection" };
 	}
 	if (kind === "collection") {
-		return { name: "Owned", type: "collection" };
+		return { type: "ownership" };
 	}
 	if (kind === "watchlist") {
 		return { importedAt, type: "backlog" };
@@ -173,6 +175,21 @@ export const normalizeTraktRecord = (
 	};
 	if (context.type === "collection") {
 		addCollectionMembership(group, context.name);
+	} else if (context.type === "ownership") {
+		const episode = exportCoordinates(item);
+		group.copies = [
+			{
+				source: "trakt",
+				details: item.collected_at === undefined ? {} : { sourceAddedAt: item.collected_at },
+				sourceId: JSON.stringify([
+					entitySchemaSlug,
+					source.ids.trakt ?? importEntityRefIdentifier(entityRef),
+					episode?.seasonNumber,
+					episode?.episodeNumber,
+				]),
+				...(episode === undefined ? {} : { unresolvedEpisode: episode }),
+			},
+		];
 	} else if (context.type === "backlog") {
 		group.events.push(createBacklogEvent(item.listed_at ?? context.importedAt));
 	}

@@ -239,7 +239,6 @@ layer(
 						executionSettings: {
 							userSettings: { timezone: "Pacific/Auckland" },
 							integration: {
-								syncOwnership: true,
 								minimumProgress: 10,
 								maximumProgress: 90,
 								providerSpecifics: { token: marker, provider: "provider" },

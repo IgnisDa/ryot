@@ -10,7 +10,6 @@ const item = {
 	isDisabled: false,
 	id: "integration-1",
 	maximumProgress: 95,
-	syncOwnership: true,
 	minimumProgress: 2.5,
 	pluginId: "plugin-a",
 	provider: "provider-1",

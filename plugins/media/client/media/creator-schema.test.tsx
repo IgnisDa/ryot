@@ -95,7 +95,7 @@ describe("creator detail screen", () => {
 		expect(text).toContain("1 collection");
 		expect(text).toContain("Rate or review");
 		expect(text).not.toContain("Status: ");
-		expect(text).not.toContain("Mark owned");
+		expect(text).not.toContain("Owned copies");
 		expect(text).not.toContain("Log activity");
 		unmount();
 	});

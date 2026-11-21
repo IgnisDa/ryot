@@ -65,9 +65,10 @@ const readyResponse = {
 		requested: rows([{ schemaSlug: "show" }]),
 		summary: rows([
 			{
-				owned: null,
+				owned: false,
 				id: "show-1",
-				ownedOn: null,
+				ownedEpisodes: 0,
+
 				totalSeasons: 2,
 				isCustom: false,
 				totalEpisodes: 12,
@@ -650,10 +651,11 @@ describe("ShowScreen", () => {
 							requested: rows([{ schemaSlug: "show" }]),
 							summary: rows([
 								{
-									owned: null,
+									owned: false,
 									id: "show-1",
 									images: null,
-									ownedOn: null,
+									ownedEpisodes: 0,
+
 									isCustom: false,
 									airedEpisodes: 0,
 									publishYear: null,

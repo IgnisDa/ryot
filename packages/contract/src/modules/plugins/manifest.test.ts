@@ -1882,7 +1882,7 @@ describe("definePlugin", () => {
 				const [yank, push] = manifest.integrationProviders;
 				const decoded = yield* Schema.decodeEffect(PluginManifest)({
 					...manifest,
-					integrationProviders: [{ ...yank, supportsOwnershipSync: true }, push],
+					integrationProviders: [yank, push],
 				});
 				const sink = yield* Schema.decodeEffect(PluginManifest)({
 					...manifest,
@@ -1891,7 +1891,6 @@ describe("definePlugin", () => {
 
 				expect(decoded.integrationProviders[0]).toMatchObject({
 					lot: "yank",
-					supportsOwnershipSync: true,
 					scriptSlug: "automation.test",
 				});
 				expect(sink.integrationProviders[0]).toMatchObject({
@@ -1899,15 +1898,6 @@ describe("definePlugin", () => {
 					scriptSlug: "automation.test",
 				});
 				expect(sink.integrationProviders[1]).not.toHaveProperty("scriptSlug");
-				yield* Effect.flip(
-					Schema.decodeEffect(PluginManifest)({
-						...manifest,
-						integrationProviders: [
-							{ ...yank, lot: "sink", slug: "integration.sink", supportsOwnershipSync: true },
-							push,
-						],
-					}),
-				);
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(PluginManifest)({
 						...manifest,

@@ -13,8 +13,13 @@ import { DatabaseOwner } from "@ryot-app/kernel-backend/platform/db/ownership";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
+import {
+	MediaCopyCutoverLive,
+	MoveMediaInventorySettingsLive,
+} from "./migrations/media-copy-cutover";
 
 const SchemaReadyLive = LegacyTableRenameLive.pipe(
+	Layer.flatMap(() => MoveMediaInventorySettingsLive),
 	Layer.flatMap(() => SchemaMigrationLive),
 	Layer.provide(MigrationDatabaseLive),
 );
@@ -22,6 +27,7 @@ const SchemaReadyLive = LegacyTableRenameLive.pipe(
 const MigrationSequenceLive = InternalOAuthProvisioningLive.pipe(
 	Layer.flatMap(() => SystemPluginIngestionLive),
 	Layer.flatMap(() => LegacyDataMigrationLive),
+	Layer.flatMap(() => MediaCopyCutoverLive),
 );
 
 const AppLive = MigrationSequenceLive.pipe(Layer.flatMap(() => RuntimeServerLive));

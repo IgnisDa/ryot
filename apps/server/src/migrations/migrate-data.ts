@@ -678,7 +678,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(
-				buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchema),
+				buildOwnedCollectionOwnershipMigrationSql(
+					inLibraryRelationshipSchema,
+					relationshipSchema(mediaPluginId, "media-copy"),
+				),
 				[],
 			);
 			yield* connection.executeRaw(

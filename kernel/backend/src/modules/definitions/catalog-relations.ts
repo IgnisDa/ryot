@@ -115,7 +115,6 @@ export const integrationProviderQuery = (rows: ReadonlyArray<CatalogIntegrationP
 			scriptSlug: optionalText("scriptSlug", "script_slug"),
 			lot: literal<CatalogIntegrationProvider["lot"]>("lot", "lot"),
 			plan: json<CatalogIntegrationProvider["plan"]>("plan", "plan"),
-			supportsOwnershipSync: flag("supportsOwnershipSync", "supports_ownership_sync"),
 			entitlement: literal<CatalogIntegrationProvider["entitlement"]>("entitlement", "entitlement"),
 			settingsSchema: json<CatalogIntegrationProvider["settingsSchema"]>(
 				"settingsSchema",

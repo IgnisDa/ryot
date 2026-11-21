@@ -1,7 +1,7 @@
 import { TrustedLocalMessage } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
-import { EntityId, EventId } from "../../schema/brands";
+import { EntityId, EventId, RelationshipKey } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { FoldRequest } from "../events/folds";
@@ -77,6 +77,7 @@ const relationshipEndpoints = {
 	relationshipSchemaSlug: slug,
 	source: ChangeSetEntityReference,
 	target: ChangeSetEntityReference,
+	key: Schema.optionalKey(RelationshipKey),
 };
 
 const distinctEntityIds = Schema.makeFilter(

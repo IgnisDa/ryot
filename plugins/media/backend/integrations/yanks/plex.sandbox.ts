@@ -7,6 +7,7 @@ import { ImportEntityRef, type MediaIntegrationAdapterResult } from "../../impor
 import { movieOrShowImportRef, sourceFetchFailure } from "../../imports/source-helpers";
 import { captureIntegrationWindow } from "../artifacts";
 import { integrationRecordId } from "../identity";
+import { technicalCopyDetails } from "../inventory/technical-details";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
 import { baseUrl, requestJson } from "../shared";
 
@@ -18,14 +19,41 @@ export const manifest = defineManifest({
 
 const StringOrNumber = Schema.Union([Schema.String, Schema.Finite]);
 
+const Stream = Schema.Struct({
+	streamType: Schema.Finite,
+	codec: Schema.optional(Schema.String),
+	title: Schema.optional(Schema.String),
+	profile: Schema.optional(Schema.String),
+	bitrate: Schema.optional(Schema.Finite),
+	channels: Schema.optional(Schema.Finite),
+	scanType: Schema.optional(Schema.String),
+	colorTrc: Schema.optional(Schema.String),
+	DOVIPresent: Schema.optional(Schema.Boolean),
+	audioChannelLayout: Schema.optional(Schema.String),
+	extendedDisplayTitle: Schema.optional(Schema.String),
+});
+
 const Item = Schema.Struct({
 	title: Schema.String,
 	key: Schema.optional(Schema.String),
 	index: Schema.optional(Schema.Finite),
+	addedAt: Schema.optional(StringOrNumber),
 	ratingKey: Schema.optional(StringOrNumber),
 	parentIndex: Schema.optional(Schema.Finite),
 	lastViewedAt: Schema.optional(StringOrNumber),
 	Guid: Schema.optional(Schema.Array(Schema.Struct({ id: Schema.String }))),
+	Media: Schema.optional(
+		Schema.Array(
+			Schema.Struct({
+				id: Schema.optional(StringOrNumber),
+				width: Schema.optional(Schema.Finite),
+				height: Schema.optional(Schema.Finite),
+				Part: Schema.optional(
+					Schema.Array(Schema.Struct({ Stream: Schema.optional(Schema.Array(Stream)) })),
+				),
+			}),
+		),
+	),
 });
 
 const MediaContainer = Schema.Struct({ Metadata: Schema.optional(Schema.Array(Item)) });
@@ -113,17 +141,86 @@ export default defineActivity({
 			let itemIndex = cursor.itemIndex;
 			let continuation = cursor.continuation;
 			let eventIndexBase = 0;
-			const finishItem = (entityRef: ImportEntityRef, currentIndex: number) => {
-				if (integration.syncOwnership) {
-					entityGroups.push({
-						entityRef,
-						events: [],
-						itemIndex: currentIndex,
-						collectionMemberships: [],
-						ownershipProvider: "plex_yank",
-					});
+			const syncCopies = settings?.["syncCopies"] === true;
+			const addCopies = Effect.fnUntraced(function* (
+				entityRef: ImportEntityRef,
+				currentIndex: number,
+				item: typeof Item.Type,
+				unresolvedEpisode?: { type: "show"; seasonNumber: number; episodeNumber: number },
+			) {
+				if (!syncCopies) {
+					return;
 				}
-			};
+				const itemId = item.ratingKey;
+				const apiUrl =
+					itemId === undefined
+						? undefined
+						: `${url}/library/metadata/${encodeURIComponent(String(itemId))}`;
+				const detail =
+					apiUrl === undefined
+						? Option.none()
+						: yield* requestJson(host, "GET", apiUrl, { headers }).pipe(
+								Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)),
+								Effect.option,
+							);
+				const versions = Option.getOrUndefined(detail)?.MediaContainer?.Metadata?.[0]?.Media;
+				if (
+					itemId === undefined ||
+					!versions?.length ||
+					versions.some(({ id }) => id === undefined)
+				) {
+					failures.push(
+						sourceFetchFailure({
+							itemIndex: currentIndex,
+							sourceLabel: item.title,
+							sourceIdentifier: item.key,
+							message: "Failed to read identified Plex media versions",
+						}),
+					);
+					return;
+				}
+				const timestamp = Number(item.addedAt);
+				entityGroups.push({
+					entityRef,
+					events: [],
+					itemIndex: currentIndex,
+					collectionMemberships: [],
+					copies: versions.map((version) => {
+						const streams = version.Part?.[0]?.Stream ?? [];
+						const video = streams.find(({ streamType }) => streamType === 1);
+						const baseRange = video?.colorTrc === "arib-std-b67" ? "HLG" : undefined;
+						return {
+							source: "plex",
+							unresolvedEpisode,
+							sourceId: JSON.stringify([String(itemId), String(version.id)]),
+							details: technicalCopyDetails({
+								addedAt:
+									versions.length === 1 && Number.isFinite(timestamp)
+										? DateTime.formatIso(DateTime.makeUnsafe(timestamp * 1_000))
+										: undefined,
+								video: {
+									width: version.width,
+									height: version.height,
+									range: video?.DOVIPresent === true ? "Dolby Vision" : baseRange,
+									interlaced:
+										video?.scanType === undefined ? undefined : video.scanType === "interlaced",
+								},
+								audio: streams
+									.filter(({ streamType }) => streamType === 2)
+									.map((track) => ({
+										codec: track.codec,
+										title: track.title,
+										profile: track.profile,
+										bitrate: track.bitrate,
+										channels: track.channels,
+										layout: track.audioChannelLayout,
+										spatial: track.extendedDisplayTitle,
+									})),
+							}),
+						};
+					}),
+				});
+			});
 			const directory = cursor.directories[cursor.directoryIndex];
 			if (directory && (directory.type === "movie" || directory.type === "show")) {
 				if (continuation.phase === "directory") {
@@ -153,7 +250,7 @@ export default defineActivity({
 						const ref = refFor(item, directory.type);
 						const currentIndex = itemIndex;
 						itemIndex++;
-						if (!ref && item.lastViewedAt) {
+						if (!ref && (item.lastViewedAt || syncCopies)) {
 							failures.push({
 								itemIndex: currentIndex,
 								sourceLabel: item.title,
@@ -185,7 +282,11 @@ export default defineActivity({
 									});
 								}
 							}
-							if (directory.type === "show" && item.lastViewedAt && !item.ratingKey) {
+							if (
+								directory.type === "show" &&
+								(item.lastViewedAt || syncCopies) &&
+								!item.ratingKey
+							) {
 								failures.push({
 									itemIndex: currentIndex,
 									sourceLabel: item.title,
@@ -194,7 +295,11 @@ export default defineActivity({
 									message: "Plex show has no rating key",
 								});
 							}
-							if (directory.type === "show" && item.lastViewedAt && item.ratingKey) {
+							if (
+								directory.type === "show" &&
+								(item.lastViewedAt || syncCopies) &&
+								item.ratingKey
+							) {
 								const leavesResult = yield* requestJson(
 									host,
 									"GET",
@@ -230,8 +335,8 @@ export default defineActivity({
 									collectionMemberships: [],
 								});
 							}
-							if (continuation.phase !== "episodes") {
-								finishItem(ref, currentIndex);
+							if (directory.type === "movie") {
+								yield* addCopies(ref, currentIndex, item);
 							}
 						}
 					}
@@ -243,8 +348,24 @@ export default defineActivity({
 						MediaIntegrationAdapterResult["entityGroups"][number]["events"][number]
 					> = [];
 					for (const [eventIndex, leaf] of (active.leaves.MediaContainer?.Metadata ?? [])
-						.slice(active.leafOffset, active.leafOffset + 128)
+						.slice(active.leafOffset, active.leafOffset + (syncCopies ? 12 : 128))
 						.entries()) {
+						if (syncCopies && leaf.parentIndex != null && leaf.index != null) {
+							yield* addCopies(active.entityRef, active.itemIndex, leaf, {
+								type: "show",
+								episodeNumber: leaf.index,
+								seasonNumber: leaf.parentIndex,
+							});
+						} else if (syncCopies) {
+							failures.push(
+								sourceFetchFailure({
+									sourceLabel: leaf.title,
+									sourceIdentifier: leaf.key,
+									itemIndex: active.itemIndex,
+									message: "Plex episode has no season or episode number",
+								}),
+							);
+						}
 						if (leaf.lastViewedAt && leaf.parentIndex != null && leaf.index != null) {
 							const timestamp = Number(leaf.lastViewedAt);
 							if (!Number.isFinite(timestamp)) {
@@ -283,11 +404,10 @@ export default defineActivity({
 							itemIndex: active.itemIndex,
 						});
 					}
-					const leafOffset = active.leafOffset + 128;
+					const leafOffset = active.leafOffset + (syncCopies ? 12 : 128);
 					if (leafOffset < (active.leaves.MediaContainer?.Metadata?.length ?? 0)) {
 						continuation = { ...active, leafOffset };
 					} else {
-						finishItem(active.entityRef, active.itemIndex);
 						continuation = active.resume;
 					}
 				}

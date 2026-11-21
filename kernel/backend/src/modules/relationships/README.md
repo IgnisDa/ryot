@@ -38,6 +38,14 @@ match the source.
 
 Every writing transaction runs domain write checks with `lock=true` once per distinct writer, kernel-collection flag, definition owner, and scope, then locks entity references (`FOR KEY SHARE`, sorted ids), then relationship identities (one sorted `hashtextextended(key, 0)` advisory-lock statement over the repository's deterministic lock keys), then the schema catalog. Only then does each item validate once, against the verified pin of its write check; that result feeds the request, the policy-transform reparse, and the stable-source check. Planned reconciliation takes the catalog lock before the identity locks; both are shared with the write checks' ingestion lock. Entity and relationship reads, and source inserts, updates, and deletes are one statement per phase. A later item whose identity an earlier item of the same batch wrote fails with `concurrent-relationship-change`. Population counts are computed before change planning; the first newly changed item is the leader. Ordinary batches include replayed item operations in their counts, while active-transaction reconciliation counts newly prepared requests. Replayed dispatch references retain their original order.
 
+Relationship declarations with `keyed: true` use a bounded `key` unique within the user, source
+entity, and qualified schema; every write of one names its key, and a key on another declaration
+fails with `invalid-relationship-key`. A change set's relationship upserts and deletes carry the key,
+and an upsert whose key exists with another target fails with `concurrent-relationship-change`. An
+entity user-data merge moves a keyed relationship's target in place: it checks the target it read
+and preserves the row ID. Other declarations use their endpoint pair as identity. Keyed
+relationships are user-scoped and carry their key through change sets, imports, RyotQL, and backups.
+
 ## Projections
 
 A plugin relationship schema may declare `projection: { propertiesSchema }`. The fold of the link's

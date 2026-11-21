@@ -4,6 +4,7 @@ import {
 	EntityId,
 	PluginId,
 	RelationshipId,
+	RelationshipKey,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -25,6 +26,7 @@ type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
 	| "id"
+	| "key"
 	| "createdAt"
 	| "updatedAt"
 	| "properties"
@@ -37,6 +39,7 @@ type RelationshipSnapshotRow = Pick<
 const relationshipIdentityFields = {
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
+	key: Schema.optionalKey(RelationshipKey),
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 	relationshipSchemaPluginId: Schema.NullOr(Schema.String),
 };
@@ -64,7 +67,7 @@ export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 		input.relationshipSchemaPluginId,
 		input.relationshipSchemaSlug,
 		input.sourceEntityId,
-		input.targetEntityId,
+		input.key === undefined ? input.targetEntityId : ["key", input.key],
 	]);
 
 const globalRelationshipListFields = {
@@ -89,6 +92,7 @@ export type RelationshipReconciliationListInput = GlobalRelationshipListInput &
 
 const relationshipSnapshotSelection = {
 	id: schema.relationship.id,
+	key: schema.relationship.key,
 	createdAt: schema.relationship.createdAt,
 	updatedAt: schema.relationship.updatedAt,
 	properties: schema.relationship.properties,
@@ -116,6 +120,7 @@ const ownedRelationshipSelection = {
 const toRelationship = (row: RelationshipSnapshotRow) => ({
 	properties: row.properties,
 	id: RelationshipId.make(row.id),
+	...(row.key === null ? {} : { key: row.key }),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	sourceEntityId: EntityId.make(row.sourceEntityId),
@@ -133,6 +138,7 @@ const toSavedRelationship = (row: RelationshipRow) => ({
 const storedRelationshipKey = (row: RelationshipSnapshotRow & { readonly userId: null | string }) =>
 	relationshipMutationLockKey({
 		sourceEntityId: EntityId.make(row.sourceEntityId),
+		...(row.key === null ? {} : { key: row.key }),
 		targetEntityId: EntityId.make(row.targetEntityId),
 		relationshipSchemaPluginId: row.relationshipSchemaPluginId,
 		relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
@@ -142,6 +148,7 @@ const storedRelationshipKey = (row: RelationshipSnapshotRow & { readonly userId:
 	});
 
 const relationshipValues = (input: CreateRelationshipInput) => ({
+	key: input.key,
 	properties: input.properties,
 	sourceEntityId: input.sourceEntityId,
 	targetEntityId: input.targetEntityId,
@@ -157,37 +164,27 @@ const relationshipSchemaPluginWhere = (pluginId: null | string) =>
 	pluginIdWhere(schema.relationship.relationshipSchemaPluginId, pluginId);
 
 const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
-	input.scope === "user"
-		? and(
-				eq(schema.relationship.userId, input.userId),
-				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-				eq(schema.relationship.targetEntityId, input.targetEntityId),
-				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
-				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
-			)
-		: and(
-				isNull(schema.relationship.userId),
-				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-				eq(schema.relationship.targetEntityId, input.targetEntityId),
-				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
-				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
-			);
+	and(
+		input.scope === "user"
+			? eq(schema.relationship.userId, input.userId)
+			: isNull(schema.relationship.userId),
+		eq(schema.relationship.sourceEntityId, input.sourceEntityId),
+		eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+		relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
+		input.key === undefined
+			? and(
+					isNull(schema.relationship.key),
+					eq(schema.relationship.targetEntityId, input.targetEntityId),
+				)
+			: eq(schema.relationship.key, input.key),
+	);
 
 const preparedRelationshipWhere = (before: ReturnType<typeof toRelationship>) =>
 	and(
 		eq(schema.relationship.id, before.id),
+		eq(schema.relationship.targetEntityId, before.targetEntityId),
 		sql`${schema.relationship.properties} = ${JSON.stringify(before.properties)}::jsonb`,
 	);
-
-const relationshipConflictTarget = {
-	target: [
-		schema.relationship.userId,
-		schema.relationship.sourceEntityId,
-		schema.relationship.targetEntityId,
-		schema.relationship.relationshipSchemaSlug,
-		schema.relationship.relationshipSchemaPluginId,
-	],
-};
 
 const relationshipReconciliationWhere = (input: RelationshipReconciliationListInput) =>
 	and(
@@ -337,7 +334,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					db
 						.insert(schema.relationship)
 						.values(relationshipValues(prepared))
-						.onConflictDoNothing(relationshipConflictTarget)
+						.onConflictDoNothing()
 						.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 				);
 
@@ -372,7 +369,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 								db
 									.insert(schema.relationship)
 									.values(chunk.map(relationshipValues))
-									.onConflictDoNothing(relationshipConflictTarget)
+									.onConflictDoNothing()
 									.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 							),
 					);
@@ -458,6 +455,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					db
 						.update(schema.relationship)
 						.set({
+							targetEntityId: input.targetEntityId,
 							properties: preserveCollectionRank(sql`${JSON.stringify(input.properties)}::jsonb`),
 						})
 						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))

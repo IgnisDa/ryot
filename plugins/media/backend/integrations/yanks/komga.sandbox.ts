@@ -5,6 +5,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { readMediaCapture } from "../../imports/collection";
+import { importEntityRefIdentifier } from "../../imports/groups";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
 import { hardcoverGql } from "../../lib/vendors/hardcover";
@@ -307,7 +308,13 @@ export default defineActivity({
 						entityRef: ref,
 						itemIndex: index,
 						collectionMemberships: [],
-						ownershipProvider: "komga",
+						copies: [
+							{
+								source: "komga",
+								details: { format: "digital" },
+								sourceId: book.id ?? importEntityRefIdentifier(ref),
+							},
+						],
 					});
 					continue;
 				}
@@ -348,7 +355,7 @@ export default defineActivity({
 			let next: null | typeof Cursor.Type = null;
 			if (cursor.page + 1 < (response.totalPages ?? 1)) {
 				next = { ...cursor, itemIndex, page: cursor.page + 1 };
-			} else if (!cursor.ownership && integration.syncOwnership) {
+			} else if (!cursor.ownership && integration.providerSpecifics["syncCopies"] === true) {
 				next = { page: 0, itemIndex, occurredAt, ownership: true };
 			}
 			return yield* captureIntegrationWindow(

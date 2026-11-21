@@ -61,6 +61,7 @@ type RestoreCustomViewInput = {
 type RestoreRelationshipInput = Pick<
 	typeof schema.relationship.$inferInsert,
 	| "id"
+	| "key"
 	| "userId"
 	| "createdAt"
 	| "properties"
@@ -689,10 +690,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly userId: UserId;
 					readonly createdAt: Date;
 					readonly updatedAt: Date;
+					readonly sourceKey: string;
 					readonly lot: IntegrationLot;
 					readonly name: null | string;
 					readonly isDisabled: boolean;
-					readonly syncOwnership: boolean;
 					readonly minimumProgress: string;
 					readonly maximumProgress: string;
 					readonly lastFinishedAt: Date | null;

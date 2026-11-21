@@ -496,7 +496,6 @@ it.effect(
 				...integration,
 				minimumProgress: 15,
 				maximumProgress: 85,
-				syncOwnership: true,
 				providerSpecifics: { filters: ["item"], provider: "provider" },
 			};
 			const test = yield* runCase();
@@ -512,7 +511,6 @@ it.effect(
 						executionSettings: {
 							userSettings: { timezone: "Pacific/Auckland" },
 							integration: {
-								syncOwnership: true,
 								minimumProgress: 15,
 								maximumProgress: 85,
 								providerSpecifics: selected.providerSpecifics,

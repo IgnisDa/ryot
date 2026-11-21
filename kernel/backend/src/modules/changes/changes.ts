@@ -173,10 +173,9 @@ type Keyed<T extends { readonly source: unknown; readonly target: unknown }> = O
 > & { readonly source: EntityReference; readonly target: EntityReference };
 
 /** Kernel writers pass properties and update baselines that the write validates. */
-type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = { readonly target: UnknownExpected<T["target"]> } & Omit<
-	UnknownProperties<OwnedEntity<T>>,
-	"target"
->;
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
+	readonly target: UnknownExpected<T["target"]>;
+};
 
 /**
  * A provider entity upsert. An existing entity its external ID names is updated when `updateExisting`

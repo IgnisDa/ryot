@@ -30,6 +30,7 @@ import {
 import { historyCategory, mediaEventHistoryRecipe } from "../shared/history-recipes";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
 import { libraryByLifecycleStateRecipe } from "../shared/lifecycle-list-recipes";
+import { mediaCopiesRecipe } from "../shared/media-copy-recipes";
 import {
 	creditCharacterSelection,
 	mediaCollectionEventsQuery,
@@ -101,6 +102,12 @@ const entity = table("entity", "reviewTitle"),
 	event = table("event", reviews.from.alias);
 
 export const mediaDeclaredQueries = {
+	"owned-copies": {
+		title: "Find owned copies",
+		document: mediaCopiesRecipe(reference).document,
+		description:
+			"Read owned copies, optionally filtered by title, copy ID, format, or technical properties. Page the copies query to continue.",
+	},
 	"analytics-trend": {
 		title: "Read media trend",
 		document: mediaAnalyticsTrendRecipe({ reference }).document,

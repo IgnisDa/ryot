@@ -433,6 +433,7 @@ export const PluginRelationshipSchema = strictStruct({
 	name: ManifestText,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	keyed: Schema.optional(Schema.Literal(true)),
 	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
@@ -811,7 +812,6 @@ const PluginIntegrationProviderFields = {
 	description: ManifestText,
 	settingsSchema: IntegrationSettingsSchema,
 	entitlement: Schema.optional(Entitlement),
-	supportsOwnershipSync: Schema.optional(Schema.Boolean),
 };
 
 export const PluginIntegrationProvider = Schema.Union([
@@ -822,16 +822,7 @@ export const PluginIntegrationProvider = Schema.Union([
 		lot: Schema.Literals(["yank", "sink"]),
 	}),
 	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
-]).pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(provider) =>
-				!provider.supportsOwnershipSync ||
-				provider.lot === "yank" ||
-				"Expected ownership sync support only on yank integrations",
-		),
-	),
-);
+]);
 
 export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
 

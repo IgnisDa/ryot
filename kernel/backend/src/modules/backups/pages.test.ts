@@ -15,8 +15,10 @@ import {
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot-app/plugin-client-compiler/limits";
 import {
 	clientArtifactFile,
+	clientRuntimeArtifactMetadata,
 	pageClientArtifactMetadata,
 	pageDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
@@ -54,7 +56,12 @@ import { createArchiveStream, validateArchiveStream } from "./archive/archive";
 import { archiveError } from "./archive/error";
 import { BackupExportRepository } from "./export/repository";
 import { BackupExportSnapshot } from "./export/snapshot";
-import { exportPageDefinition, importPageDefinition, readPageArtifact } from "./pages";
+import {
+	exportPageDefinition,
+	importPageDefinition,
+	readClientArtifact,
+	readPageArtifact,
+} from "./pages";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupRestorePersistence } from "./restore/persistence";
 import { BackupRestoreWriter } from "./restore/writer";
@@ -112,6 +119,65 @@ it.effect(
 			expect(pageDeclarationHash(restored.definition)).toBe(pageDeclarationHash(source));
 			expect(restored.definitionHash).not.toBe(
 				(yield* preparePageDefinition(source)).definitionHash,
+			);
+		}),
+	testTimeout,
+);
+
+const descriptors = (count: number) =>
+	Array.from({ length: count }, (_, index) => ({
+		size: 0,
+		sha256: "0".repeat(64),
+		name: `file-${index}.js`,
+		contentType: "text/javascript; charset=utf-8",
+	}));
+
+it.effect(
+	"bounds page artifacts and kernel runtime artifacts by their own file counts",
+	() =>
+		Effect.gen(function* () {
+			const runtime = clientRuntimeArtifactMetadata("runtime", []);
+			const pageMetadata = pageClientArtifactMetadata("page", [], {
+				imports: [],
+				pageDeclarationHash: pageDeclarationHash(definition),
+			});
+			const missingBinary = archiveError(
+				"invalid_entry",
+				"Page artifact binary is missing or invalid",
+				"pages.ndjson",
+			);
+			assertExitFails(
+				yield* Effect.exit(
+					readClientArtifact(
+						{ ...runtime, files: descriptors(CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount + 1) },
+						new Map(),
+					),
+				),
+				missingBinary,
+			);
+			assertExitFails(
+				yield* Effect.exit(
+					readClientArtifact(
+						{
+							...runtime,
+							files: descriptors(CLIENT_PLUGIN_COMPILER_LIMITS.runtimeArtifactFileCount + 1),
+						},
+						new Map(),
+					),
+				),
+				archiveError("invalid_entry", "Too many page artifact files", "pages.ndjson"),
+			);
+			assertExitFails(
+				yield* Effect.exit(
+					readClientArtifact(
+						{
+							...pageMetadata,
+							files: descriptors(CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount + 1),
+						},
+						new Map(),
+					),
+				),
+				archiveError("invalid_entry", "Too many page artifact files", "pages.ndjson"),
 			);
 		}),
 	testTimeout,

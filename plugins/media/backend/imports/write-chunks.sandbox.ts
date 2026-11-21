@@ -1,8 +1,11 @@
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
+import { mediaImportedCopyKey } from "../../shared/media-copy";
+import { mediaCopiesRecipe, mediaCopyBatchSize } from "../../shared/media-copy-recipes";
 import { createMediaImportChunk } from "./chunks";
 import { readMediaCapture, writeMediaCapture } from "./collection";
 import { admitIntegrationProgress } from "./integration-progress";
@@ -51,7 +54,42 @@ export default defineActivity({
 				})),
 			};
 			const admitted = yield* admitIntegrationProgress(restored, host);
-			const chunk = createMediaImportChunk(admitted, input.ownershipSyncedAt);
+			const integrationSourceKey =
+				admitted.integration && admitted.entityGroups.some((group) => group.copies?.length)
+					? (yield* host.getCurrentIntegration()).sourceKey
+					: undefined;
+			const copyKey = (copy: { source: string; sourceId: string }) =>
+				mediaImportedCopyKey(integrationSourceKey, copy.source, copy.sourceId);
+			const copyKeys = Array.fromIterable(
+				new Set(admitted.entityGroups.flatMap((group) => (group.copies ?? []).map(copyKey))),
+			);
+			const existing = yield* Effect.forEach(Array.chunksOf(copyKeys, mediaCopyBatchSize), (keys) =>
+				executeRyotqlRecipe(
+					host.executeRyotql,
+					mediaCopiesRecipe({ kind: "self" }),
+					{ copyKeys: keys },
+					{ pages: { copies: { limit: mediaCopyBatchSize } } },
+				),
+			);
+			const targets = new Map(existing.flatMap(({ items }) => items.map((row) => [row.id, row])));
+			const entityGroups = admitted.entityGroups.map((group) =>
+				group.copies === undefined
+					? group
+					: {
+							...group,
+							copies: group.copies.map((copy) => {
+								const previous = targets.get(copyKey(copy));
+								return previous === undefined
+									? copy
+									: {
+											...copy,
+											subjectEntityId: previous.entityId,
+											subjectEntitySchemaSlug: previous.entitySchemaSlug,
+										};
+							}),
+						},
+			);
+			const chunk = createMediaImportChunk({ ...admitted, entityGroups }, integrationSourceKey);
 			const contents = yield* Schema.encodeEffect(Schema.fromJsonString(genericImportChunkSchema))(
 				chunk,
 			);

@@ -8,6 +8,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { CLIENT_DEPENDENCY_SPECIFIERS } from "./dependencies";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { pluginClientCompilerPlatformLayer } from "./platform";
 import { buildClientRuntime } from "./runtime";
 
@@ -167,6 +168,42 @@ it.layer(
 		testTimeout,
 	);
 });
+
+for (const [extraFiles, accepted] of [
+	[
+		CLIENT_PLUGIN_COMPILER_LIMITS.runtimeArtifactFileCount -
+			CLIENT_DEPENDENCY_SPECIFIERS.length -
+			2,
+		true,
+	],
+	[
+		CLIENT_PLUGIN_COMPILER_LIMITS.runtimeArtifactFileCount -
+			CLIENT_DEPENDENCY_SPECIFIERS.length -
+			1,
+		false,
+	],
+] satisfies readonly (readonly [number, boolean])[]) {
+	it.layer(
+		emittedRuntime(
+			"export default 1;",
+			"",
+			Array.from({ length: extraFiles }, (_, index) => ({
+				code: "export default 1;",
+				fileName: `chunk-${index}.js`,
+			})),
+		),
+	)(`runtime file count with ${extraFiles} extra files`, (test) => {
+		test.effect(
+			accepted ? "accepts the artifact" : "rejects the artifact",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildClientRuntime.pipe(Effect.result);
+					expect(result._tag).toBe(accepted ? "Success" : "Failure");
+				}),
+			testTimeout,
+		);
+	});
+}
 
 it.layer(emittedRuntime('export * from "./missing.js";'))("runtime missing import", (test) => {
 	test.effect(

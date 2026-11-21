@@ -13,7 +13,6 @@ import type {
 } from "../../shared/media-recipes";
 import type { CountKind, MediaCopy, MediaText } from "../messages";
 import type { MediaActivityLogger } from "./activity-log/state";
-import { formatDateOnlyLabel } from "./date";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
@@ -105,8 +104,7 @@ export type MediaSummaryHeaderDetail = {
 
 export type MediaStatusRailConfig = {
 	readonly logActivity: undefined | MediaActivityLogger;
-	readonly ownership?:
-		undefined | { readonly owned: null | boolean; readonly ownedOn: null | string };
+	readonly ownership?: undefined | { readonly owned: boolean };
 	readonly status?:
 		| undefined
 		| {
@@ -222,11 +220,6 @@ const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	caught_up: "success",
 	in_progress: "accent",
 };
-
-export const mediaOwnedLabel = ({ text, formatters }: MediaCopy, ownedOn: null | string) =>
-	ownedOn === null
-		? text("property.owned")
-		: text("ownership.owned-since", { date: formatDateOnlyLabel(formatters, ownedOn) });
 
 export const mediaProductionStatusFact = (
 	text: MediaText,
@@ -344,7 +337,7 @@ export const mediaSummaryHeaderDetail =
 		].filter((fact) => fact !== undefined),
 		rail: {
 			logActivity: input.logActivity,
-			ownership: { owned: summary.owned, ownedOn: summary.ownedOn },
+			ownership: { owned: summary.owned },
 			status: {
 				progress: input.progress?.(summary),
 				tone: MEDIA_LIFECYCLE_TONES[summary.state],

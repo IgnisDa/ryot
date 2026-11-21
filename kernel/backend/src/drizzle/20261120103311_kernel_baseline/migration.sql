@@ -381,7 +381,6 @@ CREATE TABLE "definition_integration_provider" (
 	"entitlement" text,
 	"description" jsonb NOT NULL,
 	"settings_schema" jsonb NOT NULL,
-	"supports_ownership_sync" boolean DEFAULT false NOT NULL,
 	"lot" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_integration_provider_revision_slug_unique" UNIQUE("plugin_revision_id","slug"),
@@ -405,6 +404,7 @@ CREATE TABLE "definition_provider_operation" (
 );
 --> statement-breakpoint
 CREATE TABLE "definition_relationship_schema" (
+	"keyed" boolean DEFAULT false NOT NULL,
 	"slug" text NOT NULL,
 	"position" integer NOT NULL,
 	"name" jsonb NOT NULL,
@@ -674,16 +674,17 @@ CREATE TABLE "integration" (
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
 	"maximum_progress" numeric DEFAULT '95' NOT NULL,
 	"provider" text NOT NULL,
 	"extra_settings" jsonb NOT NULL,
+	"source_key" text DEFAULT gen_random_uuid() NOT NULL,
 	"provider_specifics" jsonb NOT NULL,
 	"client_provider_specifics" jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "integration_oauth_owner_unique" UNIQUE("id","user_id","plugin_installation_id","provider"),
+	CONSTRAINT "integration_source_key_owner_unique" UNIQUE("user_id","source_key"),
 	CONSTRAINT "integration_run_owner_unique" UNIQUE("id","user_id"),
 	CONSTRAINT "integration_owner_check" CHECK (("plugin_installation_id" is null and "provider" = 'data-json' and "lot" = 'sink') or ("plugin_installation_id" is not null and "provider" <> 'data-json')),
 	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
@@ -1140,6 +1141,7 @@ CREATE TABLE "publication_link" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
+	"key" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"relationship_schema_slug" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -1149,8 +1151,8 @@ CREATE TABLE "relationship" (
 	"id" text PRIMARY KEY,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id"),
-	CONSTRAINT "relationship_collection_rank_valid" CHECK ("relationship_schema_slug" <> 'member-of' or "relationship_schema_plugin_id" is not null or coalesce(("user_id" is not null and jsonb_typeof("properties" -> 'rank') = 'number' and ("properties" ->> 'rank')::numeric = trunc(("properties" ->> 'rank')::numeric) and abs(("properties" ->> 'rank')::numeric) < 4503599627370496), false))
+	CONSTRAINT "relationship_collection_rank_valid" CHECK ("relationship_schema_slug" <> 'member-of' or "relationship_schema_plugin_id" is not null or coalesce(("user_id" is not null and jsonb_typeof("properties" -> 'rank') = 'number' and ("properties" ->> 'rank')::numeric = trunc(("properties" ->> 'rank')::numeric) and abs(("properties" ->> 'rank')::numeric) < 4503599627370496), false)),
+	CONSTRAINT "relationship_key_user_scope" CHECK ("key" is null or "user_id" is not null)
 );
 --> statement-breakpoint
 CREATE TABLE "reminder" (
@@ -1535,6 +1537,8 @@ CREATE INDEX "relationship_source_schema_idx" ON "relationship" ("source_entity_
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "relationship_collection_order_idx" ON "relationship" ("target_entity_id",(case when "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null then ("properties" ->> 'rank')::double precision end),"source_entity_id") WHERE "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "relationship_identity_unique" ON "relationship" ((case when "user_id" is null then '0' else '1' || "user_id" end),"source_entity_id","target_entity_id","relationship_schema_slug",(case when "relationship_schema_plugin_id" is null then '0' else '1' || "relationship_schema_plugin_id" end)) WHERE "key" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "relationship_key_unique" ON "relationship" ("user_id","source_entity_id","relationship_schema_slug",(case when "relationship_schema_plugin_id" is null then '0' else '1' || "relationship_schema_plugin_id" end),"key") WHERE "key" is not null;--> statement-breakpoint
 CREATE INDEX "reminder_due_idx" ON "reminder" ("state","due_at","id");--> statement-breakpoint
 CREATE INDEX "reminder_reconcile_idx" ON "reminder" ("state","reconcile_at","id");--> statement-breakpoint
 CREATE INDEX "reminder_owner_idx" ON "reminder" ("user_id","state","created_at","id");--> statement-breakpoint
