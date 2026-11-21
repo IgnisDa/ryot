@@ -144,12 +144,20 @@ type RelationshipWrite = Omit<RelationshipUpsert, "propertiesMode">;
 type RelationshipDelete = NonNullable<RelationshipParts["deletes"]>[number];
 /** Kernel writers pass properties that the write validates against the relationship schema. */
 type UnknownProperties<T> = Omit<T, "properties"> & { readonly properties: unknown };
+type ExpectedTarget<T extends { readonly target: unknown }> = {
+	readonly target: UnknownExpected<T["target"]>;
+};
+
 type RelationshipUpsert = KernelCollection &
 	UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
-
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
 	readonly entitySchema: EntitySchemaReference;
 };
+
+/** Kernel writers pass properties and update baselines that the write validates. */
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> =
+	ExpectedTarget<T> & Omit<UnknownProperties<OwnedEntity<T>>, "target">;
+
 /** A clear or merge of user data; a kernel writer's `null` schema accepts the entity's own. */
 type UserDataEntity<T extends { readonly entitySchemaSlug: string }> = Omit<
 	OwnedEntity<T>,
@@ -171,11 +179,6 @@ type Keyed<T extends { readonly source: unknown; readonly target: unknown }> = O
 	T,
 	"source" | "target"
 > & { readonly source: EntityReference; readonly target: EntityReference };
-
-/** Kernel writers pass properties and update baselines that the write validates. */
-type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
-	readonly target: UnknownExpected<T["target"]>;
-};
 
 /**
  * A provider entity upsert. An existing entity its external ID names is updated when `updateExisting`
