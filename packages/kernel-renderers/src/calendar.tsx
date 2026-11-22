@@ -1,4 +1,5 @@
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import type { PluginUserPreferences } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ViewFiltersSheet } from "@ryot-app/plugin-client-sdk/filters";
 import {
@@ -12,6 +13,7 @@ import {
 	createRyotQuery,
 	localDay,
 	ManagedAssetProvider,
+	PreferencesGate,
 	useAssetUrl,
 	useFormatters,
 	useRyot,
@@ -368,13 +370,18 @@ export default function CalendarPage() {
 		);
 	} else if (view.layout === "month") {
 		content = (
-			<MonthGrid
-				today={today}
-				byDay={byDay}
-				compact={compact}
-				month={view.month}
-				onShowDay={showDay}
-			/>
+			<PreferencesGate>
+				{({ weekStart }) => (
+					<MonthGrid
+						today={today}
+						byDay={byDay}
+						compact={compact}
+						month={view.month}
+						onShowDay={showDay}
+						weekStart={weekStart}
+					/>
+				)}
+			</PreferencesGate>
 		);
 	} else {
 		content = (
@@ -899,6 +906,7 @@ function MonthGrid({
 	today,
 	byDay,
 	compact,
+	weekStart,
 	onShowDay,
 }: {
 	readonly month: string;
@@ -906,14 +914,15 @@ function MonthGrid({
 	readonly compact: boolean;
 	readonly onShowDay: (day: string) => void;
 	readonly byDay: ReadonlyMap<string, readonly Entry[]>;
+	readonly weekStart: PluginUserPreferences["weekStart"];
 }) {
 	const t = useT();
 	const labels = useCalendarLabels();
 	const weekdayHeaders = Array.from({ length: 7 }, (_, offset) =>
-		labels.weekday(new Date(2024, 0, 1 + offset), "short"),
+		labels.weekday(new Date(2024, 0, 7 + weekStart + offset), "short"),
 	);
 	const { year, index } = monthParts(month);
-	const offset = (new Date(year, index - 1, 1).getDay() + 6) % 7;
+	const offset = (new Date(year, index - 1, 1).getDay() - weekStart + 7) % 7;
 	const length = new Date(year, index, 0).getDate();
 	const weeks = Array.from({ length: Math.ceil((offset + length) / 7) }, (_row, week) =>
 		Array.from(
