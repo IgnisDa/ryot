@@ -450,8 +450,16 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 			yield* Semaphore.release(permits, 1);
 		});
 
+	const lease = Effect.acquireRelease(acquire, release).pipe(
+		Effect.map((slot) => ({
+			run: <E2>(encode: (job: CompilerWorkerJob) => Effect.Effect<string, E2>) =>
+				runJob(slot, encode),
+		})),
+	);
+
 	return {
+		lease,
 		run: <E2>(encode: (job: CompilerWorkerJob) => Effect.Effect<string, E2>) =>
-			Effect.acquireUseRelease(acquire, (slot) => runJob(slot, encode), release),
+			Effect.scoped(Effect.flatMap(lease, (leased) => leased.run(encode))),
 	};
 });

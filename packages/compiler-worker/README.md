@@ -20,6 +20,10 @@ lazily, and warm-up has its own startup timeout so it never counts against a job
 worker serves later jobs ahead of an empty slot, so compilers pay process startup and dependency
 loading once instead of per compile, and only concurrent jobs start more workers.
 
+`run` serves one job from any free worker. `lease` reserves one worker slot for a scope, so a
+caller's consecutive jobs share one process; the slot is released, and its idle timeout starts, when
+the scope closes.
+
 Each job receives a fresh `{ parentPath, jobId }` workspace address beneath a private pool directory,
 and the pool removes that directory after the job, including after forced termination. The pool
 enforces the job's CPU-time budget, the hard Linux process-tree proportional memory limit, and the

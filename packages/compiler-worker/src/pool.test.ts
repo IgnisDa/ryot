@@ -129,6 +129,22 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 	);
 
 	test.effect(
+		"serves every job of a lease from one worker even without an idle timeout",
+		() =>
+			Effect.gen(function* () {
+				const pool = yield* makePool({ idleTimeoutMs: 0 });
+				const [first, second] = yield* Effect.scoped(
+					Effect.flatMap(pool.lease, (leased) =>
+						Effect.all([leased.run(request("pid")), leased.run(request("pid"))]),
+					),
+				);
+
+				expect(second).toBe(first);
+			}).pipe(Effect.scoped),
+		testTimeout,
+	);
+
+	test.effect(
 		"retires a worker after its idle timeout",
 		() =>
 			Effect.gen(function* () {
