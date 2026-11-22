@@ -179,7 +179,10 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 					eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
 					entitySchemaSlug: EntitySchemaSlug.make(input.member.entitySchemaSlug),
 				};
-				const schema = yield* schemas.getScopeForUser({ ...scope, userId: input.userId });
+				const schema = yield* schemas.getScopeForUser(
+					{ ...scope, userId: input.userId },
+					transaction,
+				);
 				if (!schema) {
 					return null;
 				}

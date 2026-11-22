@@ -224,12 +224,13 @@ export class Folds extends Context.Service<Folds>()(
 			const { route, collect, declarations, queuePending, queueResolved } = marks;
 
 			const outputTargets = Effect.fn("Folds.outputTargets")(function* (
+				transaction: WriteTransaction,
 				userId: UserId,
 				pluginId: PluginId,
 				subjects: ReadonlyArray<FoldDeclaration>,
 				outputs: ReadonlyArray<FoldSubjectOutput>,
 			) {
-				const catalog = yield* definitions.forUser(userId);
+				const catalog = yield* definitions.forUser(userId, transaction);
 				const eventIds = outputs.flatMap((output) => output.events.map(({ eventId }) => eventId));
 				const events =
 					eventIds.length === 0
@@ -238,9 +239,11 @@ export class Folds extends Context.Service<Folds>()(
 								session,
 								sql`v.user_id = ${userId} and v.id in (${foldValuesSql(eventIds)})`,
 							);
-				const sessions = yield* declarations(userId, [
-					...new Set(events.flatMap((row) => (row.sessionEntityId ? [row.sessionEntityId] : []))),
-				]);
+				const sessions = yield* declarations(
+					userId,
+					[...new Set(events.flatMap((row) => (row.sessionEntityId ? [row.sessionEntityId] : [])))],
+					transaction,
+				);
 				const owners = new Map<string, FoldDeclaration>([
 					...sessions,
 					...subjects.map((declaration) => [declaration.entityId, declaration] as const),
@@ -608,6 +611,7 @@ export class Folds extends Context.Service<Folds>()(
 
 			/** Validates and writes a run's results, returning the changes each subject asked for. */
 			const persist = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
 				userId: UserId,
 				pluginId: PluginId,
 				binding: Binding,
@@ -619,6 +623,7 @@ export class Folds extends Context.Service<Folds>()(
 					return changed;
 				}
 				const found = yield* outputTargets(
+					transaction,
 					userId,
 					pluginId,
 					results.map(({ prepared }) => prepared.entry.declaration),
@@ -683,6 +688,7 @@ export class Folds extends Context.Service<Folds>()(
 
 			/** Folds one fold's subjects in as few runs as fit, under their locks, returning the changes each asked for. */
 			const runFold = Effect.fn("Folds.runFold")(function* (
+				transaction: WriteTransaction,
 				entries: Arr.NonEmptyReadonlyArray<FoldRun>,
 				lane: ExecutionLane,
 			) {
@@ -697,6 +703,7 @@ export class Folds extends Context.Service<Folds>()(
 				for (const subjects of pack(prepared)) {
 					changed.push(
 						...(yield* persist(
+							transaction,
 							userId,
 							pluginId,
 							binding,
@@ -736,7 +743,7 @@ export class Folds extends Context.Service<Folds>()(
 					}
 					const changed = [];
 					for (const entries of byFold.values()) {
-						changed.push(...(yield* runFold(entries, lane)));
+						changed.push(...(yield* runFold(transaction, entries, lane)));
 					}
 					yield* changed.some(({ subject }) => (runs.get(foldJobKey(subject)) ?? 0) >= MAX_RUNS)
 						? failure("Fold kept changing its own events")
@@ -816,7 +823,7 @@ export class Folds extends Context.Service<Folds>()(
 				}
 				yield* applyChanges(
 					transaction,
-					yield* persist(run.userId, run.pluginId, run.binding, "background", matched),
+					yield* persist(transaction, run.userId, run.pluginId, run.binding, "background", matched),
 					apply,
 				);
 				return results.flatMap(({ prepared }) =>

@@ -65,8 +65,11 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()(
 					),
 				);
 			};
-			const getScopeForUser = (input: { userId: UserId } & EventSchemaScopeInput) =>
-				getScopesForUser(input.userId, [input]).pipe(Effect.map(([scope]) => scope ?? null));
+			const getScopeForUser = (
+				input: { userId: UserId } & EventSchemaScopeInput,
+				scope?: WriteScope,
+			) =>
+				getScopesForUser(input.userId, [input], scope).pipe(Effect.map(([found]) => found ?? null));
 
 			return { lockCatalog, getScopeForUser, getScopesForUser };
 		}),
