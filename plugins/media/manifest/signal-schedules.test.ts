@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/authored";
+import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
@@ -62,6 +63,17 @@ describe("media signal schedules", () => {
 			episodeNumber: "episodeNumber",
 		});
 		expect(schedule("flat-releases").properties).toEqual({ entityName: "entityName" });
+	});
+
+	it("bounds every schedule's global reads to the schemas it queries", () => {
+		const materialized = revisionDefinitions("media-plugin", {
+			...mediaPlugin,
+			scripts: [],
+		}).signalSchedules;
+		expect(materialized.map(({ slug }) => slug)).toEqual(signalSchedules.map(({ slug }) => slug));
+		for (const { slug, readSchemaSlugs } of materialized) {
+			expect(readSchemaSlugs, slug).not.toBeNull();
+		}
 	});
 
 	it.each([
