@@ -399,9 +399,15 @@ and its named tests, then its e2e files.
    | Boot full set  | 1.95 s → 13 ms → 15 ms                                              | 2.0 → 2.5 → 2.6 s   |
 
    The remaining Media stall is the in-process manifest decode, which the rest of ingestion reads
-   and Effect Schema cannot decode without its checks. The worker peaks at about 640 MB during a
-   Media update, since it holds the 23 MB of compiled scripts it audits, and 370 MB for the full set;
-   the parent's peak is unchanged at 230 to 400 MB.
+   and Effect Schema cannot decode without its checks. The worker peaks at 600 to 660 MB during a
+   Media update and 370 MB for the full set; the parent's peak is unchanged at 230 to 400 MB. The peak
+   is the source check's garbage, not retained sources: from a 55 MB idle worker, reading the 30 MB
+   request line adds about 50 MB, parsing it about 80 to 100 MB, decoding the manifest 130 to 215 MB
+   and the script audits and hash 35 to 90 MB, about 400 to 500 MB in all. The definition set alone
+   peaks at 330 MB, and in the same lease it runs on the heap the check leaves, since Bun returns
+   little of it to the system. Forcing a full collection between and inside the jobs did not lower
+   the peak reliably (595 MB against 493 MB without it in one run). Getting below about 500 MB needs
+   a larger change, such as auditing scripts as they stream in or not decoding the manifest twice.
 
 ## Code placement
 

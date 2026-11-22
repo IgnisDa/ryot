@@ -231,9 +231,10 @@ manifest decode, down from 1.3 s; Fitness is about 40 ms. A failed check or inva
 with an invalid result fails with `CompilerWorkerUnavailable`, which ingestion raises as a defect so
 its transaction rolls back like a database failure.
 
-The worker exits when its lease ends. It peaks at about 640 MB during a Media update, holding the
-source's 23 MB of compiled scripts while auditing them, and at about 370 MB for boot's full set; that
-would otherwise stay resident on a small server for an operation that runs at boot and on rare
+The worker exits when its lease ends. It peaks at 600 to 660 MB during a Media update and about 370 MB
+for boot's full set. Nothing outlives a job; the peak is garbage from receiving and parsing the 30 MB
+request and decoding the manifest, which the definition-set job then runs on top of, since Bun
+returns little freed memory to the system. That memory would otherwise stay resident on a small server for an operation that runs at boot and on rare
 administrative installs. Starting it costs about 130 ms.
 
 Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
