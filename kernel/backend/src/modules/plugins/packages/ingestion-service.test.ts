@@ -31,6 +31,7 @@ import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { loadPluginSource, withCatalogs } from "../source.test-support";
 import { fixturePackageRoot } from "../test-support";
+import { DefinitionSetValidator } from "./definition-set-validator";
 import { PluginIngestionRetirement } from "./ingestion-retirement";
 import { PluginIngestionService } from "./ingestion-service";
 import { toPluginScriptDescriptor } from "./pipeline";
@@ -474,6 +475,7 @@ const makeLayer = (input?: {
 		}),
 	);
 	return PluginIngestionService.layer.pipe(
+		Layer.provide(DefinitionSetValidator.layer),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
 		Layer.provideMerge(Layer.merge(databaseLayer, pluginBackendCompilerPlatformLayer)),

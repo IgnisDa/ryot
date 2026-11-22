@@ -26,6 +26,7 @@ import {
 import { PluginInstallationRepository } from "./installations/repository";
 import { PluginInstallationService } from "./installations/service";
 import { PluginBackupRestore } from "./packages/backup-restore";
+import { DefinitionSetValidator } from "./packages/definition-set-validator";
 import { PluginIngestionLock } from "./packages/ingestion-lock";
 import { PluginIngestionRetirement } from "./packages/ingestion-retirement";
 import { PluginIngestionService } from "./packages/ingestion-service";
@@ -72,6 +73,7 @@ export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
 			SystemPlugins.layer,
 			PluginCatalogInvalidatorLive,
 			pluginIngestionRetirement,
+			DefinitionSetValidator.layer,
 		),
 	),
 );

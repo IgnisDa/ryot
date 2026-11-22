@@ -379,6 +379,23 @@ and its named tests, then its e2e files.
    entity inserts, 11 µs for single-row updates, 7 to 9 µs for user relationship inserts and none
    measurable for a 2,000-row insert.
 
+9. **Definition-set validation off the event loop** (done). System set validation (boot, a changed
+   system package, runtime system install, update and uninstall) checks deployment rules and manifest
+   references in process, then validates the definition set in a worker: a pool of one
+   `@ryot-app/compiler-worker` worker serving the definitions-owned
+   `@ryot-app/definitions/definition-set-protocol`, which exits after every job. An invalid set keeps
+   its `PluginValidationError` and message; a worker that cannot start, exits or times out raises a
+   defect inside the ingestion transaction, which rolls back. Measured on the shipped Media and
+   Fitness archives against PostgreSQL, the longest event-loop stall of a Media update went from
+   1.3 s to 0.82 s (wall 2.6 s to 2.95 s), of a Fitness update from 0.84 s to 0.17 s (wall 1.2 s to
+   1.58 s) and of boot's full validation from 1.95 s to 13 ms (wall 2.0 s to 2.5 s); the definition
+   set's own share of an update now blocks for 15 to 20 ms. The remaining Media stall is source
+   normalization: about 140 ms of manifest decoding and 590 ms auditing 218 compiled scripts (23 MB).
+   The worker peaks at about 310 MB during a Media update and 355 MB for the full set, and the
+   parent's peak is unchanged at 260 to 390 MB. User installations still validate in process (75 to
+   100 ms), since the worker would take 290 to 450 ms, add its memory per install and serialize
+   concurrent installs.
+
 ## Code placement
 
 Code shared by plugins lives in the plugin SDK or a package, and kernel code shared by features

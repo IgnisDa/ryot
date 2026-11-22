@@ -12,3 +12,6 @@ install, so packages in that source closure declare the `@types/*` packages thei
 dependencies. `tooling/smoke-compiler-workers.ts` validates the built client page artifact graph and
 compiles an agent SDK script through the backend worker, checking capability metadata and workspace
 cleanup. The Docker image runs both checks before startup.
+
+The build also emits the kernel's `definition-set-worker.js` entry point. It is bundled like the
+server, since definition-set validation has no runtime dependencies of its own.

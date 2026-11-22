@@ -1,20 +1,11 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import {
-	type DefinitionSetChange,
-	type DefinitionSetPlugin,
-	validateDefinitionSet,
-} from "@ryot-app/definitions/definition-set";
-import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
+import type { DefinitionSetPlugin } from "@ryot-app/definitions/definition-set";
 
 import { buildHttpRateLimitLookups } from "../catalog/http-rate-limits";
 
-export const validateSystemPluginSet = (
-	kernel: DefinitionSource,
-	plugins: ReadonlyArray<DefinitionSetPlugin>,
-	change?: DefinitionSetChange,
-) => {
+export const validateSystemPluginDeployment = (plugins: ReadonlyArray<DefinitionSetPlugin>) => {
 	const packageIds = new Set<PluginManifest["metadata"]["packageId"]>();
 	for (const plugin of plugins) {
 		const packageId = plugin.manifest.metadata.packageId;
@@ -38,5 +29,4 @@ export const validateSystemPluginSet = (
 			httpRateLimits: manifest.httpRateLimits,
 		})),
 	);
-	return validateDefinitionSet(kernel, plugins, change);
 };

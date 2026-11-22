@@ -14,6 +14,7 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
+import { DefinitionSetValidator } from "./definition-set-validator";
 import {
 	PluginIngestionRetirement,
 	quarantinePackageConflicts,
@@ -29,7 +30,7 @@ import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import { SystemPlugins } from "./system";
-import { validateSystemPluginSet } from "./system-set";
+import { validateSystemPluginDeployment } from "./system-set";
 import type { NormalizedPlugin, PluginSource, StoredPlugin } from "./types";
 import {
 	PluginValidationError,
@@ -62,6 +63,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
 			const retirement = yield* PluginIngestionRetirement;
+			const definitionSets = yield* DefinitionSetValidator;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
@@ -70,16 +72,15 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				changedPluginIds?: ReadonlySet<string>,
 			) {
 				const kernel = yield* definitions.readKernelSource;
-				const snapshot = yield* Effect.try({
+				yield* Effect.try({
+					try: () => validateSystemPluginDeployment(plugins),
 					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-					try: () =>
-						validateSystemPluginSet(
-							kernel,
-							plugins,
-							changedPluginIds && { scope: "system", pluginIds: changedPluginIds },
-						),
 				});
-				yield* validateSignalSchemaFormatterReferences(snapshot, kernelScripts, kernelSignalSlugs);
+				yield* validateSignalSchemaFormatterReferences(
+					kernel.signalSchemas,
+					kernelScripts,
+					kernelSignalSlugs,
+				);
 				yield* Effect.forEach(
 					plugins,
 					(plugin) =>
@@ -90,6 +91,13 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						),
 					{ discard: true },
 				);
+				yield* definitionSets
+					.validate(
+						kernel,
+						plugins,
+						changedPluginIds && { scope: "system", pluginIds: changedPluginIds },
+					)
+					.pipe(Effect.catchTag("CompilerWorkerUnavailable", Effect.die));
 			});
 			const validateActiveSystemPlugins = Effect.fn(
 				"PluginIngestionService.validateActiveSystemPlugins",

@@ -16,7 +16,7 @@ import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schem
 import { PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
-import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import type { SignalSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Effect, Result, Schema } from "effect";
 
@@ -583,7 +583,7 @@ export const validatePluginExecutableScripts = (plugin: {
 type ScriptDescriptor = Pick<PluginScript, "kind" | "slug">;
 
 export const validateSignalSchemaFormatterReferences = (
-	snapshot: DefinitionSnapshot,
+	kernelSignalSchemas: ReadonlyArray<SignalSchemaDefinition>,
 	kernelScripts: ReadonlyArray<ScriptDescriptor>,
 	kernelSignalSlugs: ReadonlySet<string>,
 ) =>
@@ -596,10 +596,7 @@ export const validateSignalSchemaFormatterReferences = (
 			}
 			scriptSlugs.add(script.slug);
 		}
-		for (const signalSchema of Object.values(snapshot.signalSchemas)) {
-			if (signalSchema.pluginId != null) {
-				continue;
-			}
+		for (const signalSchema of kernelSignalSchemas) {
 			if (
 				kernelScriptSlugs.has(signalSchema.notificationHookSlug) &&
 				!kernelSignalSlugs.has(signalSchema.slug)

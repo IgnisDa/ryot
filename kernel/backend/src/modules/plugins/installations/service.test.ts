@@ -16,6 +16,7 @@ import {
 	manifestCatalogs,
 	testPluginPackageId,
 } from "@ryot-app/contract/testing";
+import { validateDefinitionSet } from "@ryot-app/definitions/definition-set";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
 import { column, field, rows, table } from "@ryot-app/ryotql";
@@ -51,7 +52,6 @@ import { pluginContentHash } from "../packages/pipeline";
 import { PluginRepository } from "../packages/repository";
 import { PluginRevisionActivation } from "../packages/revision-activation";
 import { SystemPlugins } from "../packages/system";
-import { validateSystemPluginSet } from "../packages/system-set";
 import type { StoredPlugin } from "../packages/types";
 import { PluginInstallationLifecycleDispatcher } from "./job";
 import {
@@ -357,7 +357,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				}),
 				Layer.mock(DefinitionRepository)({
 					getGlobalSnapshot: Effect.map(Ref.get(systemPlugins), (plugins) =>
-						validateSystemPluginSet(kernelDefinitionSource(), [...plugins]),
+						validateDefinitionSet(kernelDefinitionSource(), [...plugins]),
 					),
 				}),
 				Layer.succeed(PluginCatalogInvalidator, {
