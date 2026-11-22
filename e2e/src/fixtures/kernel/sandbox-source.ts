@@ -500,7 +500,7 @@ export default defineActivityWithChanges({
           externalId: item.externalId,
         })),
         globalRelationships: [{
-          selector: { type: "self" as const },
+          selector: { type: "self" as const, entitySchemaSlug: "movie" },
           relationshipSchemaSlug: "media-trending",
           relationships: trendingResult.items.map((item, index) => {
             const entity = upsertedGlobalEntity("movie", item.externalId);
