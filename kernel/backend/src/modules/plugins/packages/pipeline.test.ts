@@ -19,6 +19,7 @@ import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes"
 import { withCatalogs } from "#modules/plugins/source.test-support";
 
 import { normalizePluginSource, pluginContentHash, structurePluginFailure } from "./pipeline";
+import type { PluginSource } from "./types";
 
 const encoder = new TextEncoder();
 
@@ -369,7 +370,7 @@ it.effect(
 				format: 1,
 				javascript: "export {};",
 			}));
-			const issues = (catalogs: Parameters<typeof pluginContentHash>[1]) =>
+			const issues = (catalogs: PluginSource["catalogs"]) =>
 				Effect.map(
 					Effect.flip(normalizePluginSource({ manifest, catalogs, compiledScripts })),
 					(error) => error.issues,

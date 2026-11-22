@@ -33,7 +33,7 @@ const build = Effect.gen(function* () {
 				`${serverRoot}/tooling/plugin-backend-compiler-worker.ts`,
 				`${serverRoot}/tooling/smoke-compiler-workers.ts`,
 				Bun.resolveSync(
-					"@ryot-app/kernel-backend/modules/plugins/packages/definition-set-worker",
+					"@ryot-app/kernel-backend/modules/plugins/packages/plugin-validation-worker",
 					serverRoot,
 				),
 			],

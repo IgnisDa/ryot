@@ -201,28 +201,41 @@ controls independently, and builds the definition snapshot. Invalid declarations
 `ryot plugin build` runs the same definition validator over the plugin and its declared dependency
 closure; ingestion still validates every archive.
 
-System set validation (boot, a changed system package, runtime system install, update and uninstall)
-first checks the deployment rules for active system packages in process with
-`validateSystemPluginDeployment` (unique package IDs, configuration environment keys and HTTP
-rate-limit lookups), then each package's manifest references, and only then the definition set.
-`DefinitionSetValidator` runs that last step in a worker process: a pool of one
-`@ryot-app/compiler-worker` worker serving the `@ryot-app/definitions/definition-set-protocol`
-protocol from `packages/definition-set-worker.ts`, which the production build emits as
-`definition-set-worker.js`. In process, validating the full shipped set blocked the event loop for
-about 2 s and a changed Media package for about 1.2 s; the parent now only writes the request as JSON
-and reads the answer, which blocks it for about 15 to 20 ms. Normalizing a package's source, which
-decodes its manifest and audits its compiled scripts, still runs in process. An invalid set fails with the `PluginValidationError` and message the in-process validator
-threw. CPU time and memory above the worker limits also fail as `PluginValidationError`; a worker
-that cannot start, exits, outlasts its elapsed-time limit or answers with an invalid result fails
-with `CompilerWorkerUnavailable`, which ingestion raises as a defect so its transaction rolls back
-like a database failure.
+System package ingestion keeps its event loop free by running its CPU-heavy checks in a worker.
+`PluginValidationWorker` is a pool of one `@ryot-app/compiler-worker` worker started from
+`packages/plugin-validation-worker.ts` (`plugin-validation-worker.js` in the production build) and
+speaking `packages/validation-worker-protocol.ts`. An ingestion leases the worker for its whole
+operation, before it takes the ingestion lock so a lock holder never waits for the worker, and runs
+two jobs on the one process:
 
-The worker exits after every job. It needs about 310 MB while validating Media and the full set
-about 345 MB, which would otherwise stay resident on a small server for an operation that runs at
-boot and on rare administrative installs; starting it costs about 130 ms. User installations
-validate in process: their scoped validation blocks for 75 to 100 ms, while the worker would take
-about 290 ms warm or 450 ms cold, add its memory per install and serialize concurrent users'
-installs behind one worker.
+- `checkSource` runs `checkPluginSource`: catalogs, integration and import schemas, compiled script
+  matching, encoding and output audits, the client artifact, and the content hash.
+- `validateDefinitionSet` runs `@ryot-app/definitions/definition-set-protocol` over the active system
+  set inside the ingestion transaction.
+
+In process stay the manifest decode, which the rest of ingestion (policy, schema evolution,
+persistence and catalog invalidation) reads and Effect Schema cannot decode without its checks; the
+deployment rules for active system packages, `validateSystemPluginDeployment` (unique package IDs,
+configuration environment keys and HTTP rate-limit lookups); and each package's manifest references.
+These run before the worker jobs and report the same errors in the same order as before. Boot's
+kernel definition replacement runs through `validateActiveSystemPlugins`, which takes the lease
+before the lock. User installations still check sources and definition sets in process through
+`normalizePluginSource` and `buildValidatedDefinitionSnapshot`: their scoped validation blocks for 75
+to 100 ms, while the worker would take about 290 ms warm or 450 ms cold, add its memory per install
+and serialize concurrent users' installs behind one worker.
+
+On the shipped Media archive an update's longest event-loop stall is about 160 ms, the in-process
+manifest decode, down from 1.3 s; Fitness is about 40 ms. A failed check or invalid set keeps its
+`PluginValidationError` and message. CPU time and memory above the worker limits also fail as
+`PluginValidationError`; a worker that cannot start, exits, outlasts its elapsed-time limit or answers
+with an invalid result fails with `CompilerWorkerUnavailable`, which ingestion raises as a defect so
+its transaction rolls back like a database failure.
+
+The worker exits when its lease ends. It peaks at about 640 MB during a Media update, holding the
+source's 23 MB of compiled scripts while auditing them, and at about 370 MB for boot's full set; that
+would otherwise stay resident on a small server for an operation that runs at boot and on rare
+administrative installs. Starting it costs about 130 ms.
+
 Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
 `makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and
 `testing/effect` package entry points. Seed through the exported `platform/db/session` and

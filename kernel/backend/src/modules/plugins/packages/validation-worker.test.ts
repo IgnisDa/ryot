@@ -4,15 +4,17 @@ import { BunServices } from "@effect/platform-bun";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { validateDefinitionSet } from "@ryot-app/definitions/definition-set";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Duration, Effect, Fiber, Schedule } from "effect";
+import { Duration, Effect, Fiber, Layer, Schedule } from "effect";
 
-import {
-	DEFINITION_SET_WORKER_LIMITS,
-	makeDefinitionSetValidator,
-} from "./definition-set-validator";
+import { loadPluginSource } from "../source.test-support";
+import { fixturePackageRoot } from "../test-support";
+import { normalizePluginSource } from "./pipeline";
+import { makePluginValidationWorker, PLUGIN_VALIDATION_WORKER_LIMITS } from "./validation-worker";
+import { heavyDefinitionBaseline } from "./validation-worker.test-support";
 
 const PROBE_INTERVAL_MS = 5;
 
@@ -25,20 +27,6 @@ const invalidPlugin = {
 		...manifest,
 		entitySchemas: [{ ...entitySchema, mergeIdentityProperties: ["missing"] }],
 	},
-};
-
-/** Hundreds of stored saved views, which take the worker about a second to validate. */
-const heavyBaseline = () => {
-	const kernel = kernelDefinitionSource();
-	const view = kernel.savedViews.find(({ dataSources }) => dataSources !== null);
-	assert(view);
-	return {
-		...kernel,
-		savedViews: [
-			...kernel.savedViews,
-			...Array.from({ length: 600 }, (_, index) => ({ ...view, slug: `${view.slug}-${index}` })),
-		],
-	};
 };
 
 const longestEventLoopStall = <A, E, R>(work: Effect.Effect<A, E, R>) =>
@@ -57,23 +45,45 @@ const longestEventLoopStall = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 		return { elapsedMs, stallMs: probe.longest };
 	});
 
-layer(BunServices.layer, { excludeTestServices: true })((test) => {
+layer(Layer.merge(BunServices.layer, pluginBackendCompilerPlatformLayer), {
+	excludeTestServices: true,
+})((test) => {
 	test.effect(
 		"returns the in-process validation error across the worker boundary",
 		() =>
 			Effect.gen(function* () {
-				const validator = yield* makeDefinitionSetValidator(DEFINITION_SET_WORKER_LIMITS);
+				const { session } = yield* makePluginValidationWorker(PLUGIN_VALIDATION_WORKER_LIMITS);
+				const worker = yield* session;
 				const thrown = yield* Effect.try({
 					catch: String,
 					try: () => validateDefinitionSet(kernelDefinitionSource(), [invalidPlugin]),
 				}).pipe(Effect.flip);
 
-				const failure = yield* validator
-					.validate(kernelDefinitionSource(), [invalidPlugin])
+				const failure = yield* worker
+					.validateDefinitionSet(kernelDefinitionSource(), [invalidPlugin])
 					.pipe(Effect.flip);
 
 				expect(failure).toMatchObject({ issues: [thrown], _tag: "PluginValidationError" });
-				yield* validator.validate(kernelDefinitionSource(), [{ manifest, id: "valid" }]);
+				yield* worker.validateDefinitionSet(kernelDefinitionSource(), [{ manifest, id: "valid" }]);
+			}).pipe(Effect.scoped),
+		testTimeout,
+	);
+
+	test.effect(
+		"checks a package source with the in-process content hash and errors",
+		() =>
+			Effect.gen(function* () {
+				const { session } = yield* makePluginValidationWorker(PLUGIN_VALIDATION_WORKER_LIMITS);
+				const worker = yield* session;
+				const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
+				const missingCatalog = { ...source, catalogs: {} };
+
+				expect(yield* worker.checkSource(source)).toBe(
+					(yield* normalizePluginSource(source)).contentHash,
+				);
+				expect(yield* worker.checkSource(missingCatalog).pipe(Effect.flip)).toEqual(
+					yield* normalizePluginSource(missingCatalog).pipe(Effect.flip),
+				);
 			}).pipe(Effect.scoped),
 		testTimeout,
 	);
@@ -82,12 +92,15 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 		"reports a worker that outlasts its time limit as unavailable",
 		() =>
 			Effect.gen(function* () {
-				const validator = yield* makeDefinitionSetValidator({
-					...DEFINITION_SET_WORKER_LIMITS,
+				const { session } = yield* makePluginValidationWorker({
+					...PLUGIN_VALIDATION_WORKER_LIMITS,
 					timeoutMs: 1,
 				});
+				const worker = yield* session;
 
-				const failure = yield* validator.validate(heavyBaseline(), []).pipe(Effect.flip);
+				const failure = yield* worker
+					.validateDefinitionSet(heavyDefinitionBaseline(), [])
+					.pipe(Effect.flip);
 
 				expect(failure).toMatchObject({ _tag: "CompilerWorkerUnavailable" });
 			}).pipe(Effect.scoped),
@@ -98,10 +111,11 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 		"keeps the event loop responsive while the worker validates",
 		() =>
 			Effect.gen(function* () {
-				const validator = yield* makeDefinitionSetValidator(DEFINITION_SET_WORKER_LIMITS);
+				const { session } = yield* makePluginValidationWorker(PLUGIN_VALIDATION_WORKER_LIMITS);
+				const worker = yield* session;
 
 				const { stallMs, elapsedMs } = yield* longestEventLoopStall(
-					validator.validate(heavyBaseline(), []),
+					worker.validateDefinitionSet(heavyDefinitionBaseline(), []),
 				);
 
 				expect(elapsedMs).toBeGreaterThan(500);

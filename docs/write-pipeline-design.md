@@ -379,22 +379,29 @@ and its named tests, then its e2e files.
    entity inserts, 11 µs for single-row updates, 7 to 9 µs for user relationship inserts and none
    measurable for a 2,000-row insert.
 
-9. **Definition-set validation off the event loop** (done). System set validation (boot, a changed
-   system package, runtime system install, update and uninstall) checks deployment rules and manifest
-   references in process, then validates the definition set in a worker: a pool of one
-   `@ryot-app/compiler-worker` worker serving the definitions-owned
-   `@ryot-app/definitions/definition-set-protocol`, which exits after every job. An invalid set keeps
-   its `PluginValidationError` and message; a worker that cannot start, exits or times out raises a
-   defect inside the ingestion transaction, which rolls back. Measured on the shipped Media and
-   Fitness archives against PostgreSQL, the longest event-loop stall of a Media update went from
-   1.3 s to 0.82 s (wall 2.6 s to 2.95 s), of a Fitness update from 0.84 s to 0.17 s (wall 1.2 s to
-   1.58 s) and of boot's full validation from 1.95 s to 13 ms (wall 2.0 s to 2.5 s); the definition
-   set's own share of an update now blocks for 15 to 20 ms. The remaining Media stall is source
-   normalization: about 140 ms of manifest decoding and 590 ms auditing 218 compiled scripts (23 MB).
-   The worker peaks at about 310 MB during a Media update and 355 MB for the full set, and the
-   parent's peak is unchanged at 260 to 390 MB. User installations still validate in process (75 to
-   100 ms), since the worker would take 290 to 450 ms, add its memory per install and serialize
-   concurrent installs.
+9. **System package validation off the event loop** (done). A system package ingestion (a changed
+   package at boot, runtime system install, update and uninstall) and boot's kernel definition
+   replacement lease one `@ryot-app/compiler-worker` worker before taking the ingestion lock and run
+   two jobs on it: the source check (catalogs, compiled script matching and audits, the client
+   artifact and the content hash) and the definition set, through the definitions-owned
+   `@ryot-app/definitions/definition-set-protocol`. The worker exits when the lease ends. The manifest
+   decode, deployment rules and manifest references stay in process and keep their errors and order;
+   a failed check or invalid set keeps its `PluginValidationError` and message, and a worker that
+   cannot start, exits or times out raises a defect inside the ingestion transaction, which rolls
+   back. User installations still validate in process (75 to 100 ms), since the worker would take
+   290 to 450 ms, add its memory per install and serialize concurrent installs. Measured on the
+   shipped Media and Fitness archives against PostgreSQL:
+
+   | Operation      | Longest stall: in process → definition set in worker → source too | Wall time           |
+   | -------------- | ------------------------------------------------------------------- | ------------------- |
+   | Media update   | 1.3 s → 0.82 s → 0.16 s                                             | 2.6 → 2.95 → 3.4 s  |
+   | Fitness update | 0.84 s → 0.17 s → 0.04 s                                            | 1.2 → 1.58 → 1.73 s |
+   | Boot full set  | 1.95 s → 13 ms → 15 ms                                              | 2.0 → 2.5 → 2.6 s   |
+
+   The remaining Media stall is the in-process manifest decode, which the rest of ingestion reads
+   and Effect Schema cannot decode without its checks. The worker peaks at about 640 MB during a
+   Media update, since it holds the 23 MB of compiled scripts it audits, and 370 MB for the full set;
+   the parent's peak is unchanged at 230 to 400 MB.
 
 ## Code placement
 

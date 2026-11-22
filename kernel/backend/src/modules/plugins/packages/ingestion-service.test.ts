@@ -31,7 +31,6 @@ import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { loadPluginSource, withCatalogs } from "../source.test-support";
 import { fixturePackageRoot } from "../test-support";
-import { DefinitionSetValidator } from "./definition-set-validator";
 import { PluginIngestionRetirement } from "./ingestion-retirement";
 import { PluginIngestionService } from "./ingestion-service";
 import { toPluginScriptDescriptor } from "./pipeline";
@@ -39,6 +38,7 @@ import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
 import { SystemPlugins } from "./system";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
+import { PluginValidationWorker } from "./validation-worker";
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
@@ -475,7 +475,7 @@ const makeLayer = (input?: {
 		}),
 	);
 	return PluginIngestionService.layer.pipe(
-		Layer.provide(DefinitionSetValidator.layer),
+		Layer.provide(PluginValidationWorker.layer),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
 		Layer.provideMerge(Layer.merge(databaseLayer, pluginBackendCompilerPlatformLayer)),
@@ -871,7 +871,7 @@ layer(makeLayer({ initialInstalled: [danglingFormatterPlugin] }))((test) => {
 		() => {
 			return Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
-				const exit = yield* Effect.exit(ingestion.validateActiveSystemPlugins());
+				const exit = yield* Effect.exit(ingestion.validateActiveSystemPlugins(Effect.void));
 
 				assert(Exit.isFailure(exit));
 				const failure = Cause.findErrorOption(exit.cause);
