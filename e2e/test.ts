@@ -2,9 +2,11 @@ import { availableParallelism } from "node:os";
 
 import { BunRuntime } from "@effect/platform-bun";
 import { runTests } from "@ryot-app/testing/runner";
-import { Effect, Result } from "effect";
+import { Config, Effect, Option, Result } from "effect";
 
 import setup from "./global-setup";
+import { provideE2eServices } from "./src/support/e2e-runtime";
+import { externalTargetEnv } from "./src/support/external-target";
 
 BunRuntime.runMain(
 	Effect.scoped(
@@ -13,7 +15,21 @@ BunRuntime.runMain(
 			if (!args.some((argument) => argument.endsWith(".test.ts"))) {
 				return yield* Effect.die(new Error("Select specific e2e .test.ts files"));
 			}
-			const env = yield* setup;
+			const target = yield* Config.option(
+				Config.all({
+					url: Config.String("E2E_TARGET_URL"),
+					credentials: Config.String("E2E_TARGET_CREDENTIALS"),
+				}),
+			);
+			const env = Option.isNone(target)
+				? yield* setup
+				: yield* provideE2eServices(
+						externalTargetEnv(
+							target.value.url,
+							target.value.credentials,
+							args.filter((argument) => argument.endsWith(".test.ts")),
+						),
+					);
 			const groups = [true, false]
 				.map((pages) =>
 					args.filter(

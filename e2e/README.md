@@ -60,6 +60,60 @@ Provider fixtures install offline scripts through the real admin plugin endpoint
 
 The SSE catalog and live-updates fixtures validate transport headers/frames and support OAuth or API keys. The live-updates fixture asks for population through the populate endpoint, buffers `entity-updated` frames for later waits, and closes its stream with the test scope; the protocol is described in [`kernel/client/src/modules/entity-watches/README.md`](../kernel/client/src/modules/entity-watches/README.md).
 
+## Real-data probes
+
+`src/api/perf/library-check.test.ts` (`RUN_LIBRARY_CHECK=1`) times the reads behind the Media and
+Fitness pages, entity detail and the plugin catalog for the user with the largest library and the
+user with the most workouts. `src/api/perf/warm-writes.test.ts` (`RUN_WARM_WRITES=1`) times review
+deletes, progress logs, episode logs (including the largest show) and workout saves against the
+longest and shortest histories of the user with the most events, undoing each write after its
+sample. Both find their users and targets with discovery queries, run `3` warmup and `10` (reads) or
+`20` (writes) samples after the database goes quiet, and append one aggregate JSON line per read or
+scenario to `LIBRARY_CHECK_OUT` or `WARM_WRITES_OUT`: sample count, p50/p95 round-trip milliseconds,
+statements per request and their execution time, response bytes, and for reads the slowest
+statements' per-request time, length and parameter count. Failures report only their tag. Other
+knobs are `*_WARMUP`, `*_SAMPLES`, `LIBRARY_CHECK_ONLY` (read labels), `WARM_WRITES_ONLY` (scenario
+prefixes), `LIBRARY_CHECK_PAGE_LOADS` and `LIBRARY_CHECK_TODAY`. `LIBRARY_CHECK_WRITES=1` adds
+lifecycle writes that leave fixture titles behind, so never set it against real data.
+
+They run against a server the harness did not start when `E2E_TARGET_URL` names its origin and
+`E2E_TARGET_CREDENTIALS` a JSON file `{ "adminAccessToken": "...", "databaseUrl": "..." }`; the test
+launcher then skips global setup and refuses files outside `src/api/perf`. The probes impersonate
+users through the admin token and only read through `databaseUrl`, so give that role
+`pg_read_all_stats` and `pg_read_all_data` and nothing more; the server's database needs
+`pg_stat_statements`. Turbo does not pass these variables, so run the package script from `e2e`:
+
+```bash
+E2E_TARGET_URL=http://127.0.0.1:18000 E2E_TARGET_CREDENTIALS=/path/to/credentials.json \
+  RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT=/tmp/reads.ndjson \
+  bun run test --timeout=3600000 'src/api/perf/library-check.test.ts'
+```
+
+To measure a V1 backup, keep the data and the server on a Docker network created with `--internal`:
+
+1. Start `postgres:18-alpine` on that network with `shared_preload_libraries=pg_stat_statements`,
+   restore the dump with `pg_restore`, then create the extension and the read-only probe role.
+2. Build the image from the checkout and start it on the same network with `--cpus=2 --memory=4g`,
+   `DATABASE_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `SCHEDULER_DISABLE_DISPATCHERS=true` and
+   `SERVER_DISABLE_NOTIFICATIONS=true`. Its first start runs the
+   [V1 to V2 migration](../apps/server/src/migrations/README.md). Set `PORT` and `FRONTEND_URL` to the
+   same loopback origin the probes use (for example `PORT=18000`,
+   `FRONTEND_URL=http://127.0.0.1:18000`): the server fetches its own OAuth keys from that origin.
+   Analytics need Pro, so run a stub verifier on the network that answers every request with
+   `{"valid":true,"expiry":"2030-01-01"}` and point `SERVER_PRO_KEY` and
+   `SERVER_PRO_KEY_VERIFICATION_URL` at it.
+3. Check egress from a container on the network, for example
+   `bun -e 'await fetch("https://example.com", { signal: AbortSignal.timeout(5000) })'`, which must fail.
+4. Publish the server and database to the host through a forwarding container attached to the
+   internal network and to an ordinary bridge network (for example `socat`, or Bun's `node:net`
+   piping), so the server itself never joins a network with a route out.
+5. For traces, add `OTEL_EXPORTER_OTLP_ENDPOINT` pointing at a collector on the internal network; a
+   `Bun.serve` that appends each `/v1/traces` body to a file is enough. Server time per request is the
+   root HTTP span's duration.
+
+Compare reports by label. Round-trip time includes the forwarder; statements per request count every
+application statement that ran during the request, so background work shows up as noise in the max.
+
 ## Assertions
 
 `pluginNamespacePackages` creates independent Whiskey packages A/B with identical metadata and
