@@ -322,10 +322,25 @@ and its named tests, then its e2e files.
    workout makes one fold run instead of seven. On the clone the 34-set workout save went from 382 ms to
    258 ms warm (p50), and a full rebuild of 29,241 subjects from about 17 minutes to 5. Settling runs once for every subject that returned
    changes. Fold jobs carry up to 25 subjects of one fold, so a rebuild batches too; a failed
-   multi-subject job queues its subjects one by one. Pending fold marks, event group captures and
-   reference clears are still ambient per-transaction `Context.Reference`s; wiring them explicitly
-   would thread a pending-state argument through the events, entities and relationships repositories
-   and `EventMutations`, a separate refactor.
+   multi-subject job queues its subjects one by one.
+6. **Incremental background folds and explicit write state** (done). Every write transaction has a
+   `WriteTransaction` that its owner creates and hands to the repositories, `EventMutations` and the
+   planner; fold marks, event group captures and reference clears are per-transaction state keyed on
+   it, and the ambient `Context.Reference`s are gone. `PreparedPins` stays ambient: it is a read memo
+   across one commit's preparation, outside any transaction, and a missing memo only rereads. A
+   background-lane transaction stores each subject's changed events with their first image before in
+   `derived_change`, marks the subject row `pending` and bumps its `revision`; a fold job builds the
+   same change list a commit would, runs the fold with no transaction open, and writes in a short
+   transaction that rechecks the revision, rerunning a changed subject at most twice before folding it
+   under its lock. Interactive commits keep folding inline: on the clone the lock on the subject's
+   entity row is held 112 ms for the largest show and 107 ms for the 34-set workout (p50), of which the
+   fold script is 91 ms and 44 ms, but folding after commit would let a save succeed without its
+   derived state, and keeping the guarantee would repeat the source writes in a second transaction.
+   For background jobs the lock hold fell from 616 ms to 20 ms (p50) while importing 981 events into
+   50 existing subjects (36.6 s to 34.9 s wall, SQL time 19.2 s to 8.0 s), and seeding 3,817 events
+   went from 353 s to 118 s because imports no longer wait on fold jobs' locks. The Fitness workout
+   exercise policy now reads its batch's taxonomy in one query instead of two per exercise, which took
+   the 34-set workout save from 258 ms to 231 ms (p50).
 
 ## Code placement
 

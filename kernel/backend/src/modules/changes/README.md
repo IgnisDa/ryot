@@ -153,8 +153,11 @@ reconciliation, population claims and stamps, triggers, signal plans, notificati
 requests, the precondition's `written` when the commit wrote anything, and the receipt's `record`. Lifecycle dispatch starts
 after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
-A background-lane commit, or one passing `queueFolds` (provider population), queues its folds; an
-interactive commit folds inline.
+Each commit transaction is an events transaction: its `WriteTransaction` is handed to every
+repository write and to `EventMutations`, which keep their per-transaction state on it. A
+background-lane commit, or one passing `queueFolds` (provider population), stores its change lists and
+queues fold jobs, which fold outside any transaction; an interactive commit folds inline, so a
+successful save includes its derived state (see [folds](../derived-values/README.md#when-a-fold-runs-and-in-which-mode)).
 
 ### Preconditions
 

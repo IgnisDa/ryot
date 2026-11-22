@@ -83,8 +83,11 @@ dependent schemas belong to the same entity schema. Each dependent must match on
 and declared properties, and each anchor must retain at least one dependent of each declared schema.
 
 Event writes run inside the events-owned transaction (`EventMutations.transaction`), which validates every touched group once as its last statement and
-fails with the typed error. Persisting a source mutation captures its user, entity, session, and
-prior anchor bindings into that transaction's collector; persisting outside it fails. Multi-write
+fails with the typed error. It creates the transaction's `WriteTransaction` and hands it to every
+write; the event repository and `EventMutations` take it explicitly, and the group collector, fold
+marks and reference clears are per-transaction state keyed on it, so no event write can run outside
+one. Persisting a source mutation captures its user, entity, session, and prior anchor bindings into
+that transaction's collector. Multi-write
 owners call `captureGroups` first for the whole batch, which prelocks the old and
 proposed source references through `EventsRepository.lockMutationReferences` and the affected
 entity/session rows in canonical order before stream and event rows. Later persists of already
@@ -127,7 +130,7 @@ and, after its work and after each applied fold change, removes those properties
 still hold them: their revision advances, their scopes are touched and their subjects refold before
 the transaction settles. The clear runs no policies or hooks. This covers direct and batch deletes,
 events a fold deletes, entity cascades and user-data clears; a referrer deleted in the same
-transaction is simply gone. A delete outside an events transaction clears immediately. Merges move
+transaction is simply gone. Merges move
 events by ID, so references to moved events stay valid; references to the transient evidence a merge
 resets are cleared.
 
