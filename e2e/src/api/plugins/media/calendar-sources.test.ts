@@ -2,7 +2,7 @@ import {
 	type CalendarOccurrence,
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
-	calendarWindowBounds,
+	calendarWindowArguments,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
@@ -49,10 +49,7 @@ const occurrences = (client: Client, slug: string) =>
 		return yield* collectRyotQLRecipeItems(
 			client,
 			Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
-			{
-				windowEnd: calendarWindowBounds(source.precision, window).end,
-				windowStart: calendarWindowBounds(source.precision, window).start,
-			},
+			calendarWindowArguments(source, window),
 			"calendarOccurrences",
 		);
 	});

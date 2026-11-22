@@ -134,6 +134,7 @@ export const CalendarSourceDefinition = Schema.Struct({
 	caption: Schema.NullOr(RowText),
 	art: Schema.NullOr(Schema.String),
 	done: Schema.NullOr(Schema.String),
+	instantAt: Schema.optional(Schema.String),
 });
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;

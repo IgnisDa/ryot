@@ -9,7 +9,8 @@ schedule table. Calendar sources are display-only and do not notify.
 A schedule names its `signal`, a date `dueAt` field with `date` or `instant` precision, a text
 `occurrence` field, signal `properties` mapped to projected fields, an optional positive
 `delayDays`, optional `freshness` (a date `confirmedAt` field and `maxAgeHours`), and an optional
-`entitlement`. Manifest validation checks projected fields, the subject alias, and that the
+`entitlement`. A date-precision schedule may also bind an `instantAt` field for rows with a known
+time. Manifest validation checks projected fields, the subject alias, and that the
 signal is an actor-audience signal of the same plugin. Installation validates the query with
 plugin-audience access and the field kinds; `self` references bind to the installed plugin. The query
 owns eligibility through its `where` clause.
@@ -19,7 +20,8 @@ owns eligibility through its `where` clause.
 The frequent cron scans effective schedules for users with an active subscription to the declared
 signal, skipping schedules whose `entitlement` the account does not hold. Each user's
 reporting timezone defines their day. A row is due when `dueAt` plus `delayDays`
-falls in the local day or the two catch-up days before it; instants are bounded by now. Rows older
+falls in the local day or the two catch-up days before it. Rows with an instant use that value and
+are bounded by now. Rows older
 than the window are skipped, not sent late. A null `confirmedAt` has no freshness requirement; an
 older value defers the row until the owner refreshes the data.
 

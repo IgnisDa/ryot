@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
+	and,
 	castDate,
 	castText,
 	column,
@@ -104,6 +105,50 @@ describe("signal schedule recipe", () => {
 			page({ bounds: { ...bounds, confirmedAfter: null } }).document.queries["signalScheduleDue"],
 		);
 		expect(unbounded.where).toMatchObject({ predicates: { length: 5 } });
+	});
+
+	it("uses the instant window exclusively for rows with an airtime", () => {
+		const instant = column(entity, "updatedAt");
+		const instantStart = "2026-03-12T05:00:00.000Z";
+		const instantEnd = "2026-03-14T21:30:00.000Z";
+		const recipe = Result.getOrThrow(
+			signalSchedulePageRecipe({
+				schedule: {
+					...schedule,
+					instantAt: "instant",
+					query: {
+						...schedule.query,
+						output: {
+							...schedule.query.output,
+							fields: [...schedule.query.output.fields, field("instant", instant)],
+						},
+					},
+				},
+			}),
+		);
+		const query = requireRowsQuery(
+			bindRecipe(recipe, { ...bounds, instantEnd, instantStart }).document.queries[
+				"signalScheduleDue"
+			],
+		);
+		expect(query.where).toMatchObject({
+			predicates: [
+				{},
+				{},
+				or(
+					and(
+						isNull(instant),
+						gte(dueAt, castDate(literal(bounds.start))),
+						lt(dueAt, castDate(literal(bounds.end))),
+					),
+					and(
+						gte(instant, castDate(literal(instantStart))),
+						lt(instant, castDate(literal(instantEnd))),
+					),
+				),
+				{},
+			],
+		});
 	});
 
 	it("decodes declared properties and omits null values", () => {

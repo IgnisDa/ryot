@@ -6,18 +6,19 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
+	coalesce,
 	column,
 	defineRecipe,
 	field,
 	gte,
 	isNull,
-	lt,
 	or,
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
+import { rowSourceTimeWindow } from "./row-source-time";
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
 const DUE_QUERY = "signalScheduleDue";
@@ -33,6 +34,7 @@ export type SignalScheduleSource = {
 	readonly dueAt: string;
 	readonly occurrence: string;
 	readonly query: RowSourceQuery;
+	readonly instantAt?: null | string;
 	readonly subject: SavedViewSubject;
 	readonly properties: Readonly<Record<string, string>>;
 	readonly freshness: null | { readonly confirmedAt: string };
@@ -70,6 +72,18 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 				description: "Inclusive bounded scan start",
 				label: kernelMessage("recipe.parameter.start"),
 			},
+			instantEnd: {
+				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				label: kernelMessage("recipe.parameter.end"),
+				description: "Exclusive scan end for timed rows",
+			},
+			instantStart: {
+				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				label: kernelMessage("recipe.parameter.start"),
+				description: "Inclusive scan start for timed rows",
+			},
 		},
 	});
 	const fields = schedule.query.output.fields.flatMap((selection) =>
@@ -77,9 +91,10 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 	);
 	const expression = (key: string) => fields.find((selection) => selection.key === key)?.expr;
 	const dueAt = expression(schedule.dueAt);
+	const instantAt = schedule.instantAt == null ? null : expression(schedule.instantAt);
 	const occurrence = expression(schedule.occurrence);
 	const confirmedAt = schedule.freshness ? expression(schedule.freshness.confirmedAt) : null;
-	if (!dueAt || !occurrence || confirmedAt === undefined) {
+	if (!dueAt || !occurrence || confirmedAt === undefined || instantAt === undefined) {
 		return Result.fail(new Error(`Signal schedule '${schedule.slug}' does not project its fields`));
 	}
 	const subject = table("entity", schedule.subject.entityAlias);
@@ -118,7 +133,10 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 					output: {
 						...schedule.query.output,
 						pagination: { limit: 100, maxLimit: 1000 },
-						orderBy: [ascending(dueAt), ascending(occurrence)],
+						orderBy: [
+							ascending(instantAt === null ? dueAt : coalesce(instantAt, dueAt)),
+							ascending(occurrence),
+						],
 						fields: [
 							...fields.filter(({ key }) => propertyKeys.has(key)),
 							field(idKey, column(subject, "id")),
@@ -128,8 +146,19 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 					where: and(
 						...(schedule.query.where === undefined ? [] : [schedule.query.where]),
 						subjectSchemaPredicate(schedule.subject, subject),
-						gte(dueAt, recipeParameters.value("start")),
-						lt(dueAt, recipeParameters.value("end")),
+						...rowSourceTimeWindow(
+							dueAt,
+							{ end: recipeParameters.value("end"), start: recipeParameters.value("start") },
+							instantAt === null
+								? null
+								: {
+										at: instantAt,
+										bounds: {
+											end: recipeParameters.value("instantEnd"),
+											start: recipeParameters.value("instantStart"),
+										},
+									},
+						),
 						...(confirmedAt === null
 							? []
 							: [

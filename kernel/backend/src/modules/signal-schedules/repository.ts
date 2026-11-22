@@ -42,6 +42,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 							signal: schedule.signal,
 							subject: schedule.subject,
 							pluginId: plugin.pluginId,
+							instantAt: schedule.instantAt,
 							delayDays: schedule.delayDays,
 							freshness: schedule.freshness,
 							precision: schedule.precision,

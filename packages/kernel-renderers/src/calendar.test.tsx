@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect } from "bun:test";
 
 import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import type { ClientPageContext, PluginUserPreferences } from "@ryot-app/plugin-client-contract";
-import { deviceTimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { deviceTimeZone, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -65,6 +65,7 @@ const source = (
 		slug: alias,
 		done: "done",
 		startAt: "at",
+		instantAt: null,
 		isHidden: false,
 		precision: "date",
 		pluginId: "plugin-1",
@@ -84,6 +85,7 @@ const source = (
 				type: "rows",
 				fields: [
 					field("at", castDate(jsonPath(column(entity, "properties"), "at"))),
+					field("instant", column(entity, "updatedAt")),
 					field("caption", jsonPath(column(entity, "properties"), "caption")),
 					field("art", castJson(jsonPath(column(entity, "properties"), "art"))),
 					field("done", literal(false)),
@@ -126,6 +128,7 @@ const open = (options: {
 	readonly now: number;
 	readonly search?: string;
 	readonly compact?: boolean;
+	readonly timeZone?: PluginUserPreferences["timeZone"];
 	readonly weekStart?: PluginUserPreferences["weekStart"];
 }) =>
 	Effect.gen(function* () {
@@ -138,8 +141,8 @@ const open = (options: {
 			bootstrap: clock.bootstrap,
 			userPreferences: {
 				ratingScale: "hundred",
-				timeZone: deviceTimeZone(),
 				weekStart: options.weekStart ?? 1,
+				timeZone: options.timeZone ?? deviceTimeZone(),
 			},
 		});
 		pageClocks.set(page, clock);
@@ -726,4 +729,29 @@ describe("calendar renderer", () => {
 			);
 		});
 	}
+	it.live(
+		"uses the account zone for a timed row next to a date-only row",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({
+					now: Date.UTC(2026, 10, 22, 12),
+					timeZone: TimeZone.make("Europe/Stockholm"),
+				});
+				yield* answerSources(page, [source("tasks", { instantAt: "instant" })]);
+				const response = yield* answerOccurrences(page, "tasks", [
+					occurrence("Date only", "2026-11-22T00:00:00.000Z", "Due", { instant: null }),
+					occurrence("Timed appointment", "2026-11-22T00:00:00.000Z", "Scheduled", {
+						instant: "2026-11-23T01:00:00.000Z",
+					}),
+				]);
+				expect(yield* encodeJson(response.request)).toContain("2026-10-31T23:00:00.000Z");
+				expect(rowTexts(yield* daySection("2026-11-22"))).toEqual<unknown>([
+					stringContaining("Date only"),
+				]);
+				const nextDay = yield* daySection("2026-11-23");
+				expect(rowTexts(nextDay)).toEqual<unknown>([stringContaining("Timed appointment")]);
+				expect(within(nextDay).getByTestId("calendar-time").textContent).toBe("02:00");
+			}),
+		testTimeout,
+	);
 });

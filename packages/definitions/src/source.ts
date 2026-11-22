@@ -136,6 +136,7 @@ export const materializeCalendarSource = (
 	name: definition.name,
 	slug: definition.slug,
 	startAt: definition.startAt,
+	...(definition.instantAt === undefined ? {} : { instantAt: definition.instantAt }),
 	art: definition.art ?? null,
 	done: definition.done ?? null,
 	precision: definition.precision,

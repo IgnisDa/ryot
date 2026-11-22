@@ -158,13 +158,17 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				target: SignalScheduleTarget,
 				now: Date,
 			) {
-				const bounds = signalScheduleBounds({
+				const timing = {
 					now,
 					delayDays: target.delayDays,
-					precision: target.precision,
 					timeZone: target.preferences.reportingTimeZone,
 					maxAgeHours: target.freshness?.maxAgeHours ?? null,
-				});
+				};
+				const bounds = signalScheduleBounds({ ...timing, precision: target.precision });
+				const instantBounds =
+					target.instantAt === null
+						? null
+						: signalScheduleBounds({ ...timing, precision: "instant" });
 				const ledger = {
 					scheduleSlug: target.slug,
 					pluginId: target.pluginId,
@@ -193,6 +197,9 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							arguments: {
 								end: bounds.end,
 								start: bounds.start,
+								...(instantBounds === null
+									? {}
+									: { instantEnd: instantBounds.end, instantStart: instantBounds.start }),
 								...(bounds.confirmedAfter === null
 									? {}
 									: { confirmedAfter: bounds.confirmedAfter }),

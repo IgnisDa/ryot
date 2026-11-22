@@ -485,6 +485,7 @@ export const PluginCalendarSource = strictStruct({
 	query: Schema.toType(RowSourceQuery),
 	done: Schema.optional(OutputFieldKey),
 	caption: Schema.optional(AuthoredRowText),
+	instantAt: Schema.optional(OutputFieldKey),
 });
 
 export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;
@@ -501,6 +502,7 @@ export const PluginSignalSchedule = strictStruct({
 	query: Schema.toType(RowSourceQuery),
 	delayDays: Schema.optional(positiveInt),
 	entitlement: Schema.optional(Entitlement),
+	instantAt: Schema.optional(OutputFieldKey),
 	properties: Schema.Record(Schema.String, OutputFieldKey),
 	freshness: Schema.optional(
 		strictStruct({ maxAgeHours: positiveInt, confirmedAt: OutputFieldKey }),

@@ -87,9 +87,19 @@ const rowSourceIssue = (
 	return undefined;
 };
 
+const timeBindingIssue = (source: {
+	readonly precision: string;
+	readonly instantAt?: string | undefined;
+}) =>
+	source.instantAt !== undefined && source.precision !== "date"
+		? "instantAt requires a date-precision source"
+		: undefined;
+
 export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
+	timeBindingIssue(source) ??
 	rowSourceIssue(source, [
 		["startAt", source.startAt, "date"],
+		["instantAt", source.instantAt ?? null, "date"],
 		["art", source.art, "json"],
 		["done", source.done, "boolean"],
 		...Object.entries(source.caption?.params ?? {}).map(
@@ -98,8 +108,10 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 	]);
 
 export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>
+	timeBindingIssue(schedule) ??
 	rowSourceIssue(schedule, [
 		["dueAt", schedule.dueAt, "date"],
+		["instantAt", schedule.instantAt ?? null, "date"],
 		["occurrence", schedule.occurrence, "text"],
 		["confirmedAt", schedule.freshness?.confirmedAt ?? null, "date"],
 		...Object.entries(schedule.properties).map(

@@ -175,6 +175,7 @@ export const definitionCalendarSource = snakeCase.table(
 		...definitionColumns(),
 		art: text(),
 		done: text(),
+		instantAt: text(),
 		icon: text().notNull(),
 		startAt: text().notNull(),
 		caption: jsonb().$type<RowText>(),
@@ -197,6 +198,7 @@ export const definitionCalendarSource = snakeCase.table(
 export const definitionSignalSchedule = snakeCase.table(
 	"definition_signal_schedule",
 	{
+		instantAt: text(),
 		delayDays: integer(),
 		slug: text().notNull(),
 		dueAt: text().notNull(),

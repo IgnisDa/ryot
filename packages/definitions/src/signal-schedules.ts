@@ -15,6 +15,7 @@ import { signalScheduleIssue } from "./row-source-validation";
 export type SignalScheduleDefinition = {
 	readonly slug: string;
 	readonly dueAt: string;
+	readonly instantAt?: string;
 	readonly occurrence: string;
 	readonly query: RowSourceQuery;
 	readonly signal: SignalSchemaSlug;
@@ -33,6 +34,7 @@ export const materializeSignalSchedule = (
 	const schedule: SignalScheduleDefinition = {
 		slug: definition.slug,
 		dueAt: definition.dueAt,
+		...(definition.instantAt === undefined ? {} : { instantAt: definition.instantAt }),
 		signal: definition.signal,
 		precision: definition.precision,
 		occurrence: definition.occurrence,

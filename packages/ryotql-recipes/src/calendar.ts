@@ -14,13 +14,12 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
+	coalesce,
 	column,
 	defineRecipe,
 	eq,
 	field,
-	gte,
 	join,
-	lt,
 	type Recipe,
 	selectedField,
 	selectedRows,
@@ -29,6 +28,7 @@ import {
 import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
+import { rowSourceTimeWindow } from "./row-source-time";
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
 const CALENDAR_OCCURRENCE_PAGE_SIZE = 100;
@@ -68,6 +68,7 @@ export const calendarSourcesRecipe = defineRecipe({
 				done: selectedField(column(calendarSource, "done"), Schema.NullOr(Schema.String)),
 				precision: selectedField(column(calendarSource, "precision"), RowSourcePrecision),
 				caption: selectedField(column(calendarSource, "caption"), Schema.NullOr(RowText)),
+				instantAt: selectedField(column(calendarSource, "instantAt"), Schema.NullOr(Schema.String)),
 			},
 		}),
 	},
@@ -88,10 +89,17 @@ const nextMonth = (month: string) => {
 		: `${String(year).padStart(4, "0")}-${String(index + 1).padStart(2, "0")}`;
 };
 
-export const calendarWindowBounds = (precision: RowSourcePrecision, window: CalendarWindow) =>
-	precision === "date"
-		? { start: `${window.month}-01`, end: `${nextMonth(window.month)}-01` }
-		: { end: window.localEnd, start: window.localStart };
+export const calendarWindowArguments = (
+	source: Pick<CalendarSource, "precision" | "instantAt">,
+	window: CalendarWindow,
+) => ({
+	...(source.precision === "date"
+		? { windowStart: `${window.month}-01`, windowEnd: `${nextMonth(window.month)}-01` }
+		: { windowEnd: window.localEnd, windowStart: window.localStart }),
+	...(source.instantAt === null
+		? {}
+		: { instantEnd: window.localEnd, instantStart: window.localStart }),
+});
 
 export type CalendarOccurrence = {
 	readonly key: string;
@@ -153,11 +161,19 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 		"key" in selection ? [selection] : [],
 	);
 	const startAt = fields.find(({ key }) => key === source.startAt);
-	if (startAt === undefined) {
+	const instantAt =
+		source.instantAt === null ? null : fields.find(({ key }) => key === source.instantAt);
+	if (startAt === undefined || instantAt === undefined) {
 		return Result.fail(new Error(`Calendar source '${source.slug}' does not project its start`));
 	}
 	const captionFields = Object.values(source.caption?.params ?? {});
-	const named = new Set([source.art, source.done, source.startAt, ...captionFields]);
+	const named = new Set([
+		source.art,
+		source.done,
+		source.startAt,
+		source.instantAt,
+		...captionFields,
+	]);
 	const subject = table("entity", source.subject.entityAlias);
 	const idKey = unusedFieldKey(fields, "__calendarSubjectId");
 	const nameKey = unusedFieldKey(fields, "__calendarSubjectName");
@@ -177,11 +193,25 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 				label: kernelMessage("recipe.parameter.window-start"),
 				type: source.precision === "date" ? "date" : "datetime",
 			},
+			instantEnd: {
+				...(instantAt !== null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				description: "Exclusive scan end for timed rows",
+				label: kernelMessage("recipe.parameter.window-end"),
+			},
+			instantStart: {
+				...(instantAt !== null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				description: "Inclusive scan start for timed rows",
+				label: kernelMessage("recipe.parameter.window-start"),
+			},
 		},
 	});
 	const decodeRow = (row: OccurrenceRow) =>
 		Result.gen(function* () {
-			const start = yield* textValue(row, source.startAt);
+			const timed =
+				source.instantAt === null ? null : yield* nullableTextValue(row, source.instantAt);
+			const start = timed ?? (yield* textValue(row, source.startAt));
 			const subjectId = yield* textValue(row, idKey);
 			const caption = captionValue(row, source.caption);
 			const art = decodeArt(rowValue(row, source.art));
@@ -189,9 +219,9 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 				caption,
 				startAt: start,
 				sourceKey: source.sourceKey,
-				precision: source.precision,
 				done: rowValue(row, source.done) === true,
 				art: Result.isSuccess(art) ? art.success : null,
+				precision: timed === null ? source.precision : "instant",
 				key: identityTupleKey(subjectId, start, ...captionFields.map((key) => row[key] ?? null)),
 				subject: {
 					id: subjectId,
@@ -220,12 +250,28 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 					where: and(
 						...(source.query.where === undefined ? [] : [source.query.where]),
 						subjectSchemaPredicate(source.subject, subject),
-						gte(startAt.expr, recipeParameters.value("windowStart")),
-						lt(startAt.expr, recipeParameters.value("windowEnd")),
+						...rowSourceTimeWindow(
+							startAt.expr,
+							{
+								end: recipeParameters.value("windowEnd"),
+								start: recipeParameters.value("windowStart"),
+							},
+							instantAt === null
+								? null
+								: {
+										at: instantAt.expr,
+										bounds: {
+											end: recipeParameters.value("instantEnd"),
+											start: recipeParameters.value("instantStart"),
+										},
+									},
+						),
 					),
 					output: {
 						...source.query.output,
-						orderBy: [ascending(startAt.expr)],
+						orderBy: [
+							ascending(instantAt === null ? startAt.expr : coalesce(instantAt.expr, startAt.expr)),
+						],
 						pagination: {
 							limit: CALENDAR_OCCURRENCE_PAGE_SIZE,
 							maxLimit: CALENDAR_OCCURRENCE_PAGE_SIZE,

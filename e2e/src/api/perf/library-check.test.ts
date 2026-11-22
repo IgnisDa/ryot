@@ -32,7 +32,7 @@ import { upcomingRecipe } from "@ryot-app/media-plugin/shared/upcoming-recipes";
 import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
-	calendarWindowBounds,
+	calendarWindowArguments,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { savedViewRecordsRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
@@ -269,10 +269,7 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 				executeRyotQLRecipe(
 					pageClient,
 					Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
-					{
-						windowEnd: calendarWindowBounds(source.precision, window).end,
-						windowStart: calendarWindowBounds(source.precision, window).start,
-					},
+					calendarWindowArguments(source, window),
 				),
 			),
 		]),

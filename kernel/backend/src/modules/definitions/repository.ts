@@ -73,6 +73,7 @@ type CalendarSourceRow = Pick<
 	| "startAt"
 	| "subject"
 	| "pluginId"
+	| "instantAt"
 	| "precision"
 >;
 
@@ -168,6 +169,7 @@ const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => (
 	query: row.query,
 	caption: row.caption,
 	startAt: row.startAt,
+	...(row.instantAt === null ? {} : { instantAt: row.instantAt }),
 	subject: row.subject,
 	pluginId: row.pluginId,
 	precision: row.precision,
@@ -417,6 +419,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										caption: definition.caption,
 										startAt: definition.startAt,
 										subject: definition.subject,
+										instantAt: definition.instantAt,
 										precision: definition.precision,
 									})),
 								),
