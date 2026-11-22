@@ -128,6 +128,12 @@ export class LifecycleWork extends Context.Service<
 export class LifecyclePlanner extends Context.Service<
 	LifecyclePlanner,
 	{
+		/**
+		 * Takes the users' catalog lock on the caller's transaction: their ingestion fence, every
+		 * plugin's configuration lock and shared locks on its plugin and installation rows, held to the
+		 * transaction's end.
+		 */
+		lockCatalog: (users: ReadonlyArray<null | UserId>) => Effect.Effect<void, DbError>;
 		planBatch: (
 			input: LifecycleBatchInput,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
@@ -144,13 +150,14 @@ export class LifecyclePlanner extends Context.Service<
 			input: { trigger: AutomationTrigger },
 			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
-		prepareBatch: (
-			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
-		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
 		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
 		planChanges: (
 			triggers: ReadonlyArray<AutomationTrigger>,
 			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError>;
+		prepareBatch: (
+			transaction: WriteTransaction,
+			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
+		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecyclePlanner") {}

@@ -37,6 +37,7 @@ import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/princip
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { projectAutomationPolicyInput } from "./input-projection";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
@@ -62,12 +63,15 @@ export const LifecyclePoliciesLive = Layer.effect(
 		const calls = yield* ScriptCalls;
 		const random = yield* SecureRandom.SecureRandom;
 
-		const match = Effect.fn("LifecyclePolicies.match")(function* (trigger: AutomationTrigger) {
+		const match = Effect.fn("LifecyclePolicies.match")(function* (
+			trigger: AutomationTrigger,
+			transaction: WriteTransaction,
+		) {
 			if (trigger.payload?.category !== "request") {
 				return yield* new DbError({ message: "Policies match only request triggers" });
 			}
 			yield* resolver.lockCatalog([trigger.scopeUserId]);
-			const matches = yield* resolver.resolve(trigger, trigger.scopeUserId);
+			const matches = yield* resolver.resolve(trigger, trigger.scopeUserId, transaction);
 			const policies = yield* Effect.forEach(
 				matches,
 				({ hook, plugin, script, executionUserId }) => {

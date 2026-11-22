@@ -62,12 +62,13 @@ export const makePlannedRelationshipReconciliation = (
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
 		const pinOf = yield* primitives.verifyWrites(
 			groups.map((group) => ({ command, scopeUserId, owner: group.relationshipSchema.owner })),
+			transaction,
 		);
 		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId));
 		const references = groups.map((group) => group.relationshipSchema);
 		const schemas =
 			scope.scope === "user"
-				? yield* definitions.findUserRelationshipSchemas(scope.userId, references)
+				? yield* definitions.findUserRelationshipSchemas(scope.userId, references, transaction)
 				: yield* definitions.findGlobalRelationshipSchemas(references);
 		const dispatch: LifecycleDispatchPlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
@@ -190,7 +191,10 @@ export const makePlannedRelationshipReconciliation = (
 				resource: "relationship" as const,
 				identity: [`group:${groupIndex}`],
 			};
-			const decision = yield* planner.prepareBatch({ ...batchScope, scopes: [scopeUserId] });
+			const decision = yield* planner.prepareBatch(transaction, {
+				...batchScope,
+				scopes: [scopeUserId],
+			});
 			yield* primitives.lockMutations(mutations);
 			const reads = yield* primitives.readEntities(mutations);
 			const rows = yield* repository.findRelationships(mutations.map(({ input }) => input));
@@ -205,7 +209,12 @@ export const makePlannedRelationshipReconciliation = (
 			for (const mutation of mutations) {
 				const row = rows.get(relationshipMutationLockKey(mutation.input));
 				const before = row ? yield* snapshot(row) : null;
-				const validated = yield* primitives.validateMutation(mutation, reads, pinOf(mutation));
+				const validated = yield* primitives.validateMutation(
+					mutation,
+					reads,
+					transaction,
+					pinOf(mutation),
+				);
 				const request = yield* primitives.prepareRequest(
 					{ ...mutation, propertiesSchema: definition.propertiesSchema },
 					before,

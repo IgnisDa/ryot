@@ -99,6 +99,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		});
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
+			transaction?: WriteTransaction;
 			recipients?: ReadonlyArray<UserId>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
@@ -177,7 +178,9 @@ export const LifecyclePlannerLive = Layer.effect(
 								pluginConfigRevisionId: references.pluginConfigRevisionId,
 							},
 						}))
-				: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat();
+				: (yield* Effect.forEach(users, (userId) =>
+						resolver.resolve(trigger, userId, input.transaction),
+					)).flat();
 			const queuedAt = DateTime.formatIso(yield* DateTime.now);
 			const planned = yield* Effect.forEach(
 				matches,
@@ -282,6 +285,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			),
 		);
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
+			transaction: WriteTransaction,
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) {
 			const id = batchId(input);
@@ -295,6 +299,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			const candidates = (yield* Effect.forEach(scopes, (userId) =>
 				resolver.resolveBatchCandidates({
 					userId,
+					transaction,
 					resource: input.resource,
 					source: input.command.causation.source,
 				}),
@@ -375,7 +380,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					return [];
 				}
 				const plans = yield* Effect.forEach(changes, (trigger) =>
-					Effect.map(plan({ trigger }), (planned) =>
+					Effect.map(plan({ trigger, transaction }), (planned) =>
 						planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)],
 					),
 				);
@@ -388,6 +393,14 @@ export const LifecyclePlannerLive = Layer.effect(
 			});
 		const planChange = (input: { trigger: AutomationTrigger }, transaction: WriteTransaction) =>
 			Effect.map(planChanges([input.trigger], transaction), (plans) => plans.flat());
-		return { plan, planBatch, planChange, planChanges, prepareBatch, recordBatchChange };
+		return {
+			plan,
+			planBatch,
+			planChange,
+			planChanges,
+			prepareBatch,
+			recordBatchChange,
+			lockCatalog: resolver.lockCatalog,
+		};
 	}),
 );

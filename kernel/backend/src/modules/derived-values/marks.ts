@@ -13,7 +13,7 @@ import { Array as Arr, Context, Duration, Effect, Layer, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
-import { transactionState, type WriteTransaction } from "#platform/db/write-transaction";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 
 /** An event as it was before the transaction first changed it, with the fields that route it to a subject. */
@@ -42,7 +42,7 @@ type FoldMark = {
 	readonly before: null | FoldEventRow;
 };
 
-export const pendingFolds = transactionState((): PendingFolds => ({
+export const pendingFolds = writeState((): PendingFolds => ({
 	refolds: [],
 	replays: [],
 	runs: new Map(),
@@ -218,6 +218,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			const declarations = Effect.fn("FoldMarks.declarations")(function* (
 				userId: UserId,
 				entityIds: ReadonlyArray<string>,
+				transaction?: WriteTransaction,
 			) {
 				const ids = [...new Set(entityIds)].sort();
 				if (ids.length === 0) {
@@ -232,7 +233,8 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						"objects",
 					),
 				);
-				const schemas = entities.length > 0 ? (yield* catalog.forUser(userId)).entitySchemas : [];
+				const schemas =
+					entities.length > 0 ? (yield* catalog.forUser(userId, transaction)).entitySchemas : [];
 				return new Map(
 					entities.flatMap((entity) => {
 						const schema = schemas.find(
@@ -295,7 +297,8 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			});
 
 			/** Drains `pending` into one run per subject, pairing each changed event's images by subject. */
-			const collect = Effect.fn("FoldMarks.collect")(function* (pending: PendingFolds) {
+			const collect = Effect.fn("FoldMarks.collect")(function* (transaction: WriteTransaction) {
+				const pending = pendingFolds(transaction);
 				const marks = [...pending.events.values()];
 				pending.events.clear();
 				const replays = pending.replays.splice(0);
@@ -326,12 +329,16 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					const now = new Map<string, FoldEventRow>(current.map((row) => [row.id, row]));
 					const replayed = replays.filter((subject) => subject.userId === user);
 					const refolded = refolds.filter((subject) => subject.userId === user);
-					const known = yield* declarations(userId, [
-						...changed.flatMap((mark) => (mark.before ? sourceEntities(mark.before) : [])),
-						...current.flatMap(sourceEntities),
-						...replayed.map((subject) => subject.entityId),
-						...refolded.map((subject) => subject.entityId),
-					]);
+					const known = yield* declarations(
+						userId,
+						[
+							...changed.flatMap((mark) => (mark.before ? sourceEntities(mark.before) : [])),
+							...current.flatMap(sourceEntities),
+							...replayed.map((subject) => subject.entityId),
+							...refolded.map((subject) => subject.entityId),
+						],
+						transaction,
+					);
 					const run = (declaration: FoldDeclaration) => {
 						const subject = { userId, entityId: declaration.entityId };
 						const key = foldJobKey(subject);
@@ -526,13 +533,19 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					const changed = marks.filter((mark) => mark.userId === user);
 					const replayed = replays.filter((subject) => subject.userId === user);
 					const refolded = refolds.filter((subject) => subject.userId === user);
-					const known = yield* declarations(userId, [
-						...changed.flatMap((mark) =>
-							[mark.before, mark.after].flatMap((source) => (source ? sourceEntities(source) : [])),
-						),
-						...replayed.map((subject) => subject.entityId),
-						...refolded.map((subject) => subject.entityId),
-					]);
+					const known = yield* declarations(
+						userId,
+						[
+							...changed.flatMap((mark) =>
+								[mark.before, mark.after].flatMap((source) =>
+									source ? sourceEntities(source) : [],
+								),
+							),
+							...replayed.map((subject) => subject.entityId),
+							...refolded.map((subject) => subject.entityId),
+						],
+						transaction,
+					);
 					const queued = (declaration: FoldDeclaration) => {
 						const subject = { userId, entityId: declaration.entityId };
 						const key = foldJobKey(subject);

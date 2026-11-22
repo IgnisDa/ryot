@@ -10,6 +10,7 @@ import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { job } from "#schema/tables/jobs";
@@ -63,6 +64,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const outcome = yield* session
 					.transaction(
 						Effect.gen(function* () {
+							const transaction = new WriteTransaction();
 							yield* runtime.lockCatalog([input.userId]);
 							yield* session.acquireUserWriteLock(input.userId);
 							yield* admission.admitAccount(input.userId);
@@ -87,7 +89,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 									payload.command,
 									definitionOwner(payload.pluginId),
 									payload.entityScope.type === "user" ? input.userId : null,
-									true,
+									transaction,
 								)
 								.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 							const key = stableStringify([

@@ -17,7 +17,7 @@ import { Context, Effect, Schema } from "effect";
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { transactionState, type WriteTransaction } from "#platform/db/write-transaction";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 
 const violation = (message: string) =>
 	rejectWithLoggedCause(new EventBadRequest({ reason: { code: "mutation-conflict" } }), message);
@@ -66,7 +66,7 @@ type ValidationScope = {
 	readonly declarations: ReadonlyArray<EventGroupDeclaration>;
 	readonly before: ReadonlyArray<typeof StoredGroupRecord.Type>;
 };
-const pendingGroups = transactionState(() => new Map<UserId, PendingGroups>());
+const pendingGroups = writeState(() => new Map<UserId, PendingGroups>());
 const selectionKey = (row: Pick<GroupSource, "entitySchemaSlug" | "eventSchemaPluginId">) =>
 	stableStringify([row.eventSchemaPluginId, row.entitySchemaSlug]);
 const pendingFor = (transaction: WriteTransaction, userId: UserId) => {

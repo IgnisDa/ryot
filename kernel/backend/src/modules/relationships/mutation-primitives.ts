@@ -25,7 +25,7 @@ import {
 } from "#modules/entities/write-context";
 import { mutationUserIds } from "#modules/mutations/account-admission";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import { type WriteScope, WriteTransaction } from "#platform/db/write-transaction";
 
 import { isCollectionMember } from "./collection-order";
 import {
@@ -107,8 +107,13 @@ export const makeRelationshipMutationPrimitives = ({
 				new DbError({ message: "Relationship mutation primitives require an active transaction" }),
 		),
 	);
-	const verifyWrites = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
-		const pinOf = yield* writes.checkMany(checks).pipe(Effect.mapError(relationshipWriteFailure));
+	const verifyWrites = Effect.fnUntraced(function* (
+		checks: ReadonlyArray<DomainWriteCheck>,
+		transaction: WriteTransaction,
+	) {
+		const pinOf = yield* writes
+			.checkMany(checks, transaction)
+			.pipe(Effect.mapError(relationshipWriteFailure));
 		return (mutation: Mutation) => pinOf(mutationWriteCheck(mutation));
 	});
 	const readEntities = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {
@@ -135,6 +140,7 @@ export const makeRelationshipMutationPrimitives = ({
 	const validateMutation = Effect.fnUntraced(function* (
 		mutation: Mutation,
 		reads: MutationEntities,
+		scope: WriteScope,
 		verified?: null | DomainWritePin,
 	) {
 		const reference = relationshipSchemaReference(mutation.input);
@@ -152,16 +158,14 @@ export const makeRelationshipMutationPrimitives = ({
 				},
 			});
 		}
+		const scopeUserId = mutation.input.scope === "user" ? mutation.input.userId : null;
 		const pin =
 			verified === undefined
-				? yield* writes
-						.check(
-							mutation.command,
-							reference.owner,
-							mutation.input.scope === "user" ? mutation.input.userId : null,
-							true,
-						)
-						.pipe(Effect.mapError(relationshipWriteFailure))
+				? yield* (
+						scope instanceof WriteTransaction
+							? writes.check(mutation.command, reference.owner, scopeUserId, scope)
+							: writes.preparePin(mutation.command, reference.owner, scopeUserId, scope)
+					).pipe(Effect.mapError(relationshipWriteFailure))
 				: verified;
 		const { pinned: declared, active: activeDeclaration } = yield* writes.resolvePinnedDeclaration(
 			"relationship",
@@ -175,9 +179,11 @@ export const makeRelationshipMutationPrimitives = ({
 		if (!activeDeclaration) {
 			if (mutation.input.scope === "user") {
 				active =
-					(yield* definitions.findUserRelationshipSchemas(mutation.input.userId, [reference]))[
-						definitionKey("relationship", reference.owner, reference.slug)
-					] ?? null;
+					(yield* definitions.findUserRelationshipSchemas(
+						mutation.input.userId,
+						[reference],
+						scope,
+					))[definitionKey("relationship", reference.owner, reference.slug)] ?? null;
 			} else {
 				active = yield* definitions.findGlobalRelationshipSchema(reference);
 			}
@@ -304,6 +310,7 @@ export const makeRelationshipMutationPrimitives = ({
 				} satisfies AutomationRelationshipRequestPayload);
 	});
 	const revalidateRequest = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
 		mutation: Mutation,
 		request: AutomationRelationshipRequestPayload,
 		validated: ValidatedMutation,
@@ -318,9 +325,11 @@ export const makeRelationshipMutationPrimitives = ({
 			definition = resolved.definition;
 		} else if (mutation.input.scope === "user") {
 			const reference = relationshipSchemaReference(mutation.input);
-			definition = (yield* definitions.findUserRelationshipSchemas(mutation.input.userId, [
-				reference,
-			]))[definitionKey("relationship", reference.owner, reference.slug)];
+			definition = (yield* definitions.findUserRelationshipSchemas(
+				mutation.input.userId,
+				[reference],
+				transaction,
+			))[definitionKey("relationship", reference.owner, reference.slug)];
 		} else {
 			definition = yield* definitions.findGlobalRelationshipSchema(
 				relationshipSchemaReference(mutation.input),

@@ -23,7 +23,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import type { WriteScope, WriteTransaction } from "#platform/db/write-transaction";
 import { slugify, slugSql } from "#platform/slug";
 import * as schema from "#schema/tables/combined";
 
@@ -268,9 +268,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findUserEntitySchema = Effect.fn(function* (
 				userId: UserId,
 				reference: EntitySchemaReference,
+				writeScope?: WriteScope,
 			) {
 				return (
-					(yield* definitions.findUserEntitySchemas(userId, [reference]))[
+					(yield* definitions.findUserEntitySchemas(userId, [reference], writeScope))[
 						definitionKey("entity", reference.owner, reference.slug)
 					] ?? null
 				);
@@ -344,16 +345,23 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}
 				},
 			);
-			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (input: {
-				name: string;
-				userId: UserId;
-				prefer?: EntityId;
-				scope?: "user" | "global";
-				nameNormalization: "slug" | "exact";
-				entitySchema: EntitySchemaReference;
-				properties: Readonly<Record<string, unknown>>;
-			}) {
-				const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
+			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (
+				input: {
+					name: string;
+					userId: UserId;
+					prefer?: EntityId;
+					scope?: "user" | "global";
+					nameNormalization: "slug" | "exact";
+					entitySchema: EntitySchemaReference;
+					properties: Readonly<Record<string, unknown>>;
+				},
+				writeScope?: WriteScope,
+			) {
+				const definition = yield* findUserEntitySchema(
+					input.userId,
+					input.entitySchema,
+					writeScope,
+				);
 				if (!definition) {
 					return null;
 				}
@@ -467,8 +475,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const findEntitySchemaForUser = Effect.fn("EntitiesRepository.findEntitySchemaForUser")(
-				function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
-					const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
+				function* (
+					input: { userId: UserId; entitySchema: EntitySchemaReference },
+					writeScope?: WriteScope,
+				) {
+					const definition = yield* findUserEntitySchema(
+						input.userId,
+						input.entitySchema,
+						writeScope,
+					);
 					const scope: null | EntitySchemaScope = definition
 						? {
 								userId: null,

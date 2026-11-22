@@ -1,21 +1,32 @@
+export type WriteScope = WritePreparation | WriteTransaction;
+
 /**
- * The writes of one transaction. Whoever opens the transaction creates one and passes it to every write
- * in it; each feature keeps the state its writes collect for it through `transactionState`.
+ * The reads one commit makes before its transaction to decide what it writes. The commit creates one and
+ * passes it to every preparation step and to the transactions that write what they prepared.
  */
-export class WriteTransaction {
+export class WritePreparation {
 	declare private readonly brand: never;
 }
 
-/** State a feature collects for each write transaction, created when the transaction first needs it. */
-export const transactionState = <A>(make: () => A) => {
-	const states = new WeakMap<WriteTransaction, A>();
-	return (transaction: WriteTransaction) => {
-		const existing = states.get(transaction);
+/**
+ * The writes of one transaction. Whoever opens the transaction creates one, with the preparation it
+ * commits when there is one, and passes it to every write in it.
+ */
+export class WriteTransaction {
+	declare private readonly brand: never;
+	constructor(readonly preparation: null | WritePreparation = null) {}
+}
+
+/** State a feature keeps for each write scope, created when the scope first needs it. */
+export const writeState = <A>(make: () => A) => {
+	const states = new WeakMap<WriteScope, A>();
+	return (scope: WriteScope) => {
+		const existing = states.get(scope);
 		if (existing !== undefined) {
 			return existing;
 		}
 		const created = make();
-		states.set(transaction, created);
+		states.set(scope, created);
 		return created;
 	};
 };

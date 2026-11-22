@@ -1042,15 +1042,17 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareSave: (input) =>
+					prepareSave: (preparation, input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareSave(input)),
+							Effect.andThen(entities.prepareSave(preparation, input)),
 						),
 				},
 				relationships: {
-					prepareUserWrite: (input, lifecycle, mode, created) =>
+					prepareUserWrite: (preparation, input, lifecycle, mode, created) =>
 						Ref.update(seen, (all) => [...all, lifecycle]).pipe(
-							Effect.andThen(relationships.prepareUserWrite(input, lifecycle, mode, created)),
+							Effect.andThen(
+								relationships.prepareUserWrite(preparation, input, lifecycle, mode, created),
+							),
 						),
 				},
 			});
@@ -1246,9 +1248,9 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareSave: (input) =>
+					prepareSave: (preparation, input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareSave(input)),
+							Effect.andThen(entities.prepareSave(preparation, input)),
 						),
 				},
 			});

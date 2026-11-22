@@ -49,7 +49,11 @@ import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-r
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import {
+	type WritePreparation,
+	type WriteScope,
+	WriteTransaction,
+} from "#platform/db/write-transaction";
 import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
@@ -335,10 +339,12 @@ const schemaKeyOf = (mutation: PreparedMutation) =>
 /** Matches the policies of every prepared entity write in one scope, in the caller's transaction. */
 export const matchEntityPolicies = (input: {
 	readonly userId: null | UserId;
+	readonly transaction: WriteTransaction;
 	readonly command: DomainLifecycleCommand;
 	readonly items: ReadonlyArray<EntityPolicyItem>;
 }) =>
 	matchPolicyChunks(
+		input.transaction,
 		subjectChunks(input.items, (item) => item.mutation.entityId),
 		(items, index) =>
 			Effect.succeed({
@@ -451,10 +457,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const entitySchema = Effect.fnUntraced(function* (
 				scopeUserId: null | UserId,
 				reference: EntitySchemaReference,
+				scope: WriteScope,
 			) {
 				const definition = yield* scopeUserId === null
 					? repository.findSystemEntitySchemaByReference(reference)
-					: repository.findEntitySchemaForUser({ userId: scopeUserId, entitySchema: reference });
+					: repository.findEntitySchemaForUser(
+							{ userId: scopeUserId, entitySchema: reference },
+							scope,
+						);
 				if (!definition) {
 					return yield* new EntityNotFound({
 						reason: { schema: reference, code: "entity-schema-not-found" },
@@ -470,8 +480,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				scopeUserId: null | UserId,
 				owner: DefinitionOwner,
 				lifecycle: DomainLifecycleCommand,
-				commit?: boolean,
+				scope: WriteScope,
 				verified?: null | DomainWritePin,
+				commit?: boolean,
 			) {
 				const entitySchemaPluginId = definitionOwnerPluginId(owner);
 				if (
@@ -491,9 +502,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				const pin =
 					verified === undefined
 						? yield* (
-								commit
-									? writeChecks.check(lifecycle, owner, scopeUserId, true)
-									: writeChecks.preparePin(lifecycle, owner, scopeUserId)
+								scope instanceof WriteTransaction
+									? writeChecks.check(lifecycle, owner, scopeUserId, scope)
+									: writeChecks.preparePin(lifecycle, owner, scopeUserId, scope)
 							).pipe(Effect.catch(writeFailure))
 						: verified;
 				const { pinned: pinnedDeclaration, active: activeDeclaration } =
@@ -507,7 +518,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							pluginId: entitySchemaPluginId,
 							propertiesSchema: activeDeclaration.propertiesSchema,
 						}
-					: yield* entitySchema(scopeUserId, { owner, slug: draft.entitySchemaSlug });
+					: yield* entitySchema(scopeUserId, { owner, slug: draft.entitySchemaSlug }, scope);
 				if (draft.providerId !== null) {
 					const provider = yield* writeChecks
 						.checkProvider(draft.providerId, owner)
@@ -583,6 +594,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				entity: EntitySnapshotResult["entity"],
 				scopeUserId: null | UserId,
 				lifecycle: DomainLifecycleCommand,
+				scope: WriteScope,
 				pin?: null | DomainWritePin,
 			) {
 				if (!lifecycle.writeContext?.pluginRevision) {
@@ -593,7 +605,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					scopeUserId,
 					definitionOwner(entity.entitySchemaPluginId),
 					lifecycle,
-					false,
+					scope,
 					pin,
 				).pipe(
 					Effect.catch(() => conflict("Current entity cannot be processed by the pinned writer")),
@@ -604,6 +616,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return yield* Effect.void;
 			});
 			const accepted = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
 				mutation: PreparedMutation,
 				accept: EntityPolicyAcceptance,
 				pin: null | undefined | DomainWritePin,
@@ -615,8 +628,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					decided.scopeUserId,
 					definitionOwner(decided.entitySchemaPluginId),
 					decided.lifecycle,
-					true,
+					transaction,
 					pin,
+					true,
 				);
 				if (
 					validated.entitySchemaPluginId !== decided.entitySchemaPluginId ||
@@ -640,11 +654,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				...persistence,
 				resultOf: (entity, wasInserted) => ({ wasInserted, entityId: entity.id }),
 			});
-			const verifyWrites = (checks: ReadonlyArray<DomainWriteCheck>) =>
-				writeChecks.checkMany(checks).pipe(Effect.catch(writeFailure));
+			const verifyWrites = (
+				checks: ReadonlyArray<DomainWriteCheck>,
+				transaction: WriteTransaction,
+			) => writeChecks.checkMany(checks, transaction).pipe(Effect.catch(writeFailure));
 
 			/** Seals an entity lifecycle batch after the writer's authority is checked again. */
 			const planEntityBatch = Effect.fn("EntitiesService.planEntityBatch")(function* (
+				transaction: WriteTransaction,
 				batch: EntityUpsertBatchScope,
 			) {
 				const pin = batch.command.writeContext?.pluginRevision;
@@ -653,7 +670,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						batch.command,
 						definitionOwner(pin?.id ?? null),
 						pin?.scope === "user" ? pin.ownerId : null,
-						true,
+						transaction,
 					)
 					.pipe(Effect.catch(writeFailure));
 				return yield* planner.planBatch({ ...batch, resource: "entity" });
@@ -692,6 +709,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 * stub, and kept otherwise.
 			 */
 			const planCreates = Effect.fnUntraced(function* (
+				scope: WriteScope,
 				inputs: ReadonlyArray<{
 					readonly updateExisting: boolean;
 					readonly scopeUserId: null | UserId;
@@ -748,6 +766,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								existing,
 								input.scopeUserId,
 								input.lifecycle,
+								scope,
 								input.pin,
 							);
 						}
@@ -772,6 +791,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				);
 			});
 			const planCreate = Effect.fnUntraced(function* (
+				preparation: WritePreparation,
 				input: Omit<PrepareEntitySaveInput, "target"> &
 					Omit<Extract<PrepareEntitySaveInput["target"], { kind: "create" }>, "kind" | "unmatched">,
 			) {
@@ -796,8 +816,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					scopeUserId,
 					input.entitySchema.owner,
 					lifecycle,
+					preparation,
 				);
-				const plan = planCreates([
+				const plan = planCreates(preparation, [
 					{ lifecycle, validated, scopeUserId, updateExisting: provider?.updateExisting ?? false },
 				]);
 				const [planned] = provider
@@ -827,7 +848,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* repository.lockSchemaCatalog(
 					entries.flatMap(({ lifecycle, scopeUserId }) => mutationUserIds(lifecycle, scopeUserId)),
 				);
-				const decision = yield* planner.prepareBatch({
+				const decision = yield* planner.prepareBatch(transaction, {
 					...batch,
 					resource: "entity",
 					scopes: entries.map(({ scopeUserId }) => scopeUserId),
@@ -841,12 +862,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							? [{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) }]
 							: [];
 					}),
+					transaction,
 				);
 				const unmatched = entries.flatMap((entry) => (entry.unmatched ? [entry.unmatched] : []));
 				if (unmatched.length > 0) {
 					yield* repository.lockMutationKeys(unmatched.map(matchLockKey));
 					for (const lookup of unmatched) {
-						if ((yield* repository.findImportMatch(lookup)) !== null) {
+						if ((yield* repository.findImportMatch(lookup, transaction)) !== null) {
 							return yield* new EntityMatchAppeared();
 						}
 					}
@@ -859,7 +881,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							accepted:
 								mutation === null
 									? null
-									: yield* accepted(mutation, accept, pins(preparedWriteCheck(mutation))),
+									: yield* accepted(
+											transaction,
+											mutation,
+											accept,
+											pins(preparedWriteCheck(mutation)),
+										),
 						};
 					}),
 				);
@@ -968,7 +995,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* repository.lockSchemaCatalog(
 					items.flatMap(({ item, scopeUserId }) => mutationUserIds(item.lifecycle, scopeUserId)),
 				);
-				const pins = yield* verifyWrites(items.map(({ check }) => check));
+				const pins = yield* verifyWrites(
+					items.map(({ check }) => check),
+					transaction,
+				);
 				const representedItems = items.flatMap((entry, index) =>
 					representatives[index] === index ? [{ ...entry, index }] : [],
 				);
@@ -990,7 +1020,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							entry.scopeUserId,
 							entry.item.entitySchema.owner,
 							lifecycle,
-							false,
+							transaction,
 							pin,
 						);
 						return {
@@ -1003,7 +1033,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						};
 					}),
 				);
-				const planned = yield* planCreates(unique);
+				const planned = yield* planCreates(transaction, unique);
 				const saves = yield* Effect.forEach(unique, (entry, index) => {
 					const plan = planned[index];
 					return plan
@@ -1031,18 +1061,24 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						? Effect.succeed({ entity })
 						: Effect.die("Planned provider upsert is missing its result");
 				});
-				return { results, dispatch: [...saved.dispatch, ...(yield* planEntityBatch(input.batch))] };
+				return {
+					results,
+					dispatch: [...saved.dispatch, ...(yield* planEntityBatch(transaction, input.batch))],
+				};
 			});
 			/**
 			 * Prepares keeping the entity `match` finds unchanged, or null when it finds none. Committing it
 			 * rechecks the entity unchanged and records its import item.
 			 */
-			const prepareMatch = Effect.fn("EntitiesService.prepareMatch")(function* (input: {
-				readonly userId: UserId;
-				readonly match: EntityMatch;
-				readonly lifecycle: DomainLifecycleCommand;
-				readonly entitySchema: EntitySchemaReference;
-			}) {
+			const prepareMatch = Effect.fn("EntitiesService.prepareMatch")(function* (
+				preparation: WritePreparation,
+				input: {
+					readonly userId: UserId;
+					readonly match: EntityMatch;
+					readonly lifecycle: DomainLifecycleCommand;
+					readonly entitySchema: EntitySchemaReference;
+				},
+			) {
 				const { match, userId, entitySchema: reference } = input;
 				const inScope = (owner: null | UserId) =>
 					match.scope === undefined || (match.scope === "user" ? owner === userId : owner === null);
@@ -1062,11 +1098,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 					kept = inScope(current.userId) ? current.entity : null;
 				} else {
-					const found = yield* repository.findImportMatch({
-						...match,
-						userId,
-						entitySchema: reference,
-					});
+					const found = yield* repository.findImportMatch(
+						{ ...match, userId, entitySchema: reference },
+						preparation,
+					);
 					kept =
 						found === null ? null : ((yield* repository.getMutationEntity(found))?.entity ?? null);
 				}
@@ -1091,6 +1126,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			});
 			/** Prepares an entity create or update outside the commit; its policies run with its batch. */
 			const prepareSave = Effect.fn("EntitiesService.prepareSave")(function* (
+				preparation: WritePreparation,
 				input: PrepareEntitySaveInput,
 			) {
 				yield* assertOwner;
@@ -1103,7 +1139,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 					return yield* savedToken({
 						...common,
-						...(yield* planCreate({ ...input, ...identity })),
+						...(yield* planCreate(preparation, { ...input, ...identity })),
 						userEditable: false,
 						...(unmatched === undefined || scopeUserId === null
 							? {}
@@ -1126,6 +1162,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						lifecycle,
 						definitionOwner(current.entity.entitySchemaPluginId),
 						current.userId,
+						preparation,
 					)
 					.pipe(Effect.catch(writeFailure));
 				const before = yield* snapshot(current.entity);
@@ -1138,7 +1175,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				) {
 					return yield* new EntityStale({ reason: { entityId, code: "entity-stale" } });
 				}
-				yield* validateExistingEntity(current.entity, current.userId, lifecycle);
+				yield* validateExistingEntity(current.entity, current.userId, lifecycle, preparation);
 				const validated = yield* validateDraft(
 					{
 						...draftOf(before),
@@ -1149,6 +1186,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					current.userId,
 					definitionOwner(current.entity.entitySchemaPluginId),
 					lifecycle,
+					preparation,
 				);
 				return yield* savedToken({
 					...common,
@@ -1172,6 +1210,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 * with the deletes of the events that reference them.
 			 */
 			const prepareDeletes = Effect.fn("EntitiesService.prepareDeletes")(function* (
+				preparation: WritePreparation,
 				ids: readonly [EntityId, ...EntityId[]],
 				lifecycle: DomainLifecycleCommand,
 				target: {
@@ -1200,6 +1239,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								lifecycle,
 								definitionOwner(current.entity.entitySchemaPluginId),
 								current.userId,
+								preparation,
 							)
 							.pipe(Effect.catch(writeFailure));
 					}
@@ -1247,18 +1287,20 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 						}
 						const before = yield* snapshot(current.entity);
-						yield* validateExistingEntity(current.entity, current.userId, command);
+						yield* validateExistingEntity(current.entity, current.userId, command, preparation);
 						const validated = yield* validateDraft(
 							draftOf(before),
 							current.userId,
 							definitionOwner(current.entity.entitySchemaPluginId),
 							command,
+							preparation,
 						);
 						yield* writeChecks
 							.preparePin(
 								command,
 								definitionOwner(current.entity.entitySchemaPluginId),
 								current.userId,
+								preparation,
 							)
 							.pipe(Effect.catch(writeFailure));
 						const mutation: PreparedMutation = {
@@ -1307,13 +1349,20 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								scopeUserId = writeContext.pluginRevision.ownerId;
 							}
 							const settled = prepared.filter((item) => item !== null);
-							const pins = yield* verifyWrites([
-								{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) },
-								...settled.map((item) => preparedWriteCheck(item.prepared)),
-							]);
+							const pins = yield* verifyWrites(
+								[
+									{
+										scopeUserId,
+										command: lifecycle,
+										owner: principalOwner(lifecycle.writeContext),
+									},
+									...settled.map((item) => preparedWriteCheck(item.prepared)),
+								],
+								transaction,
+							);
 							const pending = yield* Effect.forEach(settled, (item, index) => {
 								const pin = pins(preparedWriteCheck(item.prepared));
-								return Effect.map(accepted(item.prepared, accept, pin), (decided) => ({
+								return Effect.map(accepted(transaction, item.prepared, accept, pin), (decided) => ({
 									...decided,
 									pin,
 									index,
@@ -1327,7 +1376,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								});
 							}
 							const batchScope = { command: lifecycle, identity: ["deletes"] };
-							const decision = yield* planner.prepareBatch({
+							const decision = yield* planner.prepareBatch(transaction, {
 								...batchScope,
 								resource: "entity",
 								scopes: settled.map((item) => item.scopeUserId),
@@ -1345,7 +1394,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								decision,
 								rows,
 							);
-							const batch = yield* planEntityBatch(batchScope);
+							const batch = yield* planEntityBatch(transaction, batchScope);
 							const dispatch = [...written.results.flatMap((item) => item.dispatch), ...batch];
 							return { dispatch, deleted: persisted.map(({ input }) => input.entityId) };
 						}),
@@ -1361,17 +1410,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
 			);
 			const prepareEnsures = Effect.fn("EntitiesService.prepareEnsures")(function* (
+				preparation: WritePreparation,
 				userId: UserId,
 				items: ReadonlyArray<EnsureUserEntityItem>,
 				lifecycle: DomainLifecycleCommand,
 			) {
 				yield* assertOwner;
 				yield* writeChecks
-					.preparePin(lifecycle, principalOwner(lifecycle.writeContext), userId)
+					.preparePin(lifecycle, principalOwner(lifecycle.writeContext), userId, preparation)
 					.pipe(Effect.catch(writeFailure));
 				for (const item of items) {
 					yield* writeChecks
-						.preparePin(lifecycle, item.entitySchema.owner, userId)
+						.preparePin(lifecycle, item.entitySchema.owner, userId, preparation)
 						.pipe(Effect.catch(writeFailure));
 				}
 				const entries = items.map((item) => {
@@ -1396,7 +1446,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						if (existing || representatives[index] !== index) {
 							return { item, existing, prepared: null, policyItem: null };
 						}
-						const planned = yield* planCreate({ ...item, lifecycle: command, scopeUserId: userId });
+						const planned = yield* planCreate(preparation, {
+							...item,
+							lifecycle: command,
+							scopeUserId: userId,
+						});
 						return {
 							item,
 							existing,
@@ -1440,9 +1494,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								scopeUserId: userId,
 								owner: item.entitySchema.owner,
 							})),
+							transaction,
 						);
 						const batchScope = { command: lifecycle, identity: ["ensure"] };
-						const decision = yield* planner.prepareBatch({
+						const decision = yield* planner.prepareBatch(transaction, {
 							...batchScope,
 							scopes: [userId],
 							resource: "entity",
@@ -1477,7 +1532,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								return yield* conflict("Ensured entity disappeared while policies ran");
 							}
 							const pin = pins(preparedWriteCheck(entry.prepared));
-							const decided = yield* accepted(entry.prepared, accept, pin);
+							const decided = yield* accepted(transaction, entry.prepared, accept, pin);
 							persisted.push({
 								pin,
 								input: decided.mutation,
@@ -1493,7 +1548,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							}
 							settled.set(batchIndex, { ...work.result, dispatch: work.dispatch });
 						}
-						const batch = yield* planEntityBatch(batchScope);
+						const batch = yield* planEntityBatch(transaction, batchScope);
 						return yield* Effect.forEach(representatives, (representative, index) => {
 							const saved = settled.get(representative);
 							if (!saved) {
@@ -1518,6 +1573,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 * complete, at the command's time, under the writer's authority and each entity's lock.
 			 */
 			const persistPopulation = Effect.fn("EntitiesService.persistPopulation")(function* (
+				transaction: WriteTransaction,
 				input: {
 					readonly relatedPopulated: ReadonlyArray<EntityId>;
 					readonly claims: ReadonlyArray<{
@@ -1530,7 +1586,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			) {
 				yield* assertActiveTransaction;
 				yield* writeChecks
-					.check(lifecycle, principalOwner(lifecycle.writeContext), scopeUserId, true)
+					.check(lifecycle, principalOwner(lifecycle.writeContext), scopeUserId, transaction)
 					.pipe(Effect.catch(writeFailure));
 				yield* repository.lockMutationKeys([
 					...input.claims.map(({ entityId }) => entityId),

@@ -12,6 +12,7 @@ import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entitie
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 
 import { preRegisterProviderDetails } from "./details-principal";
@@ -89,7 +90,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								payload.command,
 								definitionOwner(provider.pluginId),
 								payload.entityScope.type === "user" ? payload.entityScope.userId : null,
-								true,
+								new WriteTransaction(),
 							);
 							return yield* admitPopulation(payload, {
 								entityId: input.entityId,

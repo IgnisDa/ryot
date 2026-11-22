@@ -56,7 +56,7 @@ import {
 	makeUserPrincipal,
 } from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import type { MockOverrides } from "#testing/effect";
 import { databaseLayer } from "#testing/effect";
 
@@ -247,6 +247,7 @@ const recordingServiceLayer = <A>(
 const clear = (entityId: EntityId, lifecycle: DomainLifecycleCommand = command) =>
 	Effect.gen(function* () {
 		const prepared = yield* (yield* EntityUserDataService).prepareClear(
+			new WritePreparation(),
 			user.id,
 			{ entityId, entitySchema: null },
 			lifecycle,
@@ -268,6 +269,7 @@ const merge = (
 ) =>
 	Effect.gen(function* () {
 		const prepared = yield* (yield* EntityUserDataService).prepareMerge(
+			new WritePreparation(),
 			user.id,
 			{ ...payload, entitySchema },
 			lifecycle,
@@ -688,7 +690,7 @@ const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 	relationshipsService: makeRelationshipsService({
 		persistPrepared: () =>
 			record("persist").pipe(Effect.as({ dispatch: [], result: persistedRelationship })),
-		prepareUserDelete: (input) =>
+		prepareUserDelete: (_preparation, input) =>
 			record(`prepare:${input.targetEntityId}`).pipe(
 				Effect.andThen(
 					input.targetEntityId === "target-relationship-1"
@@ -970,11 +972,11 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")])),
 	}),
 	relationshipsService: makeRelationshipsService({
-		prepareUserWrite: (input, item) =>
+		prepareUserWrite: (_preparation, input, item) =>
 			record(
 				`prepare:${input.sourceEntityId}->${input.targetEntityId}:create:${item.itemIdentity}`,
 			).pipe(Effect.as(preparedRelationshipCreate)),
-		prepareUserDelete: (input, item) =>
+		prepareUserDelete: (_preparation, input, item) =>
 			record(
 				`prepare:${input.sourceEntityId}->${input.targetEntityId}:delete:${item.itemIdentity}`,
 			).pipe(Effect.as(preparedRelationshipDelete)),
@@ -1148,8 +1150,10 @@ const commandRecordings = recordingServiceLayer<DomainLifecycleCommand>(({ recor
 	}),
 	relationshipsService: makeRelationshipsService({
 		persistPrepared: () => Effect.succeed({ dispatch: [], result: persistedRelationship }),
-		prepareUserWrite: (_input, item) => record(item).pipe(Effect.as(preparedRelationshipCreate)),
-		prepareUserDelete: (_input, item) => record(item).pipe(Effect.as(preparedRelationshipDelete)),
+		prepareUserWrite: (_preparation, _input, item) =>
+			record(item).pipe(Effect.as(preparedRelationshipCreate)),
+		prepareUserDelete: (_preparation, _input, item) =>
+			record(item).pipe(Effect.as(preparedRelationshipDelete)),
 	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () =>

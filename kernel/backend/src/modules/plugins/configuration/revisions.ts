@@ -20,6 +20,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/core";
 
 import { availablePluginConfigKeys } from "../catalog/readiness-metadata";
+import { pluginConfigLockKey } from "../packages/ingestion-fence";
 import { PluginConfigEncryptionKey } from "./encryption-key";
 import { concretePluginConfigSecretPaths, redactPluginConfig } from "./redaction";
 
@@ -298,7 +299,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			const encryptionKey = yield* PluginConfigEncryptionKey;
 			const lock = Effect.fn("PluginConfigRevisions.lock")(function* (pluginId: string) {
 				yield* database.run((db) =>
-					db.execute(sql`select pg_advisory_xact_lock(hashtext(${"plugin-config:" + pluginId}))`),
+					db.execute(sql`select pg_advisory_xact_lock(hashtext(${pluginConfigLockKey(pluginId)}))`),
 				);
 			});
 			const decrypt = (row: ConfigRow) =>

@@ -75,7 +75,7 @@ import { insertPluginRevision } from "#modules/plugins/test-support";
 import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
@@ -1366,7 +1366,7 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					assertExitFails(
 						yield* Effect.exit(
-							service.prepareSave({
+							service.prepareSave(new WritePreparation(), {
 								scopeUserId: owner,
 								name: "Editor edit",
 								properties: { title: "editor" },
@@ -1407,7 +1407,7 @@ describe("EntitiesService committed lifecycle", () => {
 						)
 						.pipe(Effect.flatMap(savedEntity));
 					const lifecycle = command("prepared-custom-update");
-					const prepared = yield* service.prepareSave({
+					const prepared = yield* service.prepareSave(new WritePreparation(), {
 						lifecycle,
 						name: "User edit",
 						scopeUserId: owner,

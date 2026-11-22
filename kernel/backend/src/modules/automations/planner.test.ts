@@ -61,6 +61,7 @@ import {
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -577,16 +578,19 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						);
 						const resolver = yield* AutomationPlannerResolver.make;
 						const spans: Tracer.Span[] = [];
+						const transaction = new WriteTransaction();
 						const pins = yield* nested(
 							Effect.gen(function* () {
 								yield* resolver.lockCatalog([owner]);
 								const selected = yield* resolver.resolveBatchCandidates({
+									transaction,
 									userId: owner,
 									source: "api",
 									resource: "entity",
 								});
 								expect(
 									yield* resolver.resolveBatchCandidates({
+										transaction,
 										userId: owner,
 										source: "api",
 										resource: "entity",
@@ -620,7 +624,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						}
 						const fresh: Tracer.Span[] = [];
 						yield* nested(
-							resolver.resolveBatchCandidates({ userId: owner, source: "api", resource: "entity" }),
+							resolver.resolveBatchCandidates({
+								userId: owner,
+								source: "api",
+								resource: "entity",
+								transaction: new WriteTransaction(),
+							}),
 						).pipe(Effect.withTracer(makeRecordingTracer(fresh)));
 						expect(
 							recordedStatements(fresh).filter((text) => text.includes('from "sandbox_script"')),
@@ -1452,7 +1461,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						};
 						const chunked = yield* nested(
 							Effect.gen(function* () {
-								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								const decision = yield* planner.prepareBatch(new WriteTransaction(), {
+									...input,
+									scopes: [owner],
+								});
 								expect(decision.hasCandidates).toBe(true);
 								for (const [index, id] of ["first", "second", "third"].entries()) {
 									yield* planner.recordBatchChange(decision.id, {
@@ -1517,7 +1529,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						);
 						const dispatch = yield* nested(
 							Effect.gen(function* () {
-								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								const decision = yield* planner.prepareBatch(new WriteTransaction(), {
+									...input,
+									scopes: [owner],
+								});
 								expect(decision.hasCandidates).toBe(true);
 								for (const [batchIndex, id] of ids.entries()) {
 									yield* planner.recordBatchChange(decision.id, {
@@ -1602,7 +1617,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
 						const dispatch = yield* nested(
 							Effect.gen(function* () {
-								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								const decision = yield* planner.prepareBatch(new WriteTransaction(), {
+									...input,
+									scopes: [owner],
+								});
 								for (const [batchIndex, id] of ids.entries()) {
 									yield* planner.recordBatchChange(decision.id, {
 										index: batchIndex,
@@ -1700,7 +1718,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);
 						const dispatch = yield* nested(
 							Effect.gen(function* () {
-								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								const decision = yield* planner.prepareBatch(new WriteTransaction(), {
+									...input,
+									scopes: [owner],
+								});
 								for (const [batchIndex, id] of ids.entries()) {
 									yield* planner.recordBatchChange(decision.id, {
 										index: batchIndex,
@@ -1956,7 +1977,7 @@ describe("LifecyclePolicies PostgreSQL", () => {
 						const trigger = yield* entityTrigger(installed.pluginId, "request", "request");
 						const request = trigger.payload;
 						assert(request?.category === "request" && request.operation !== "batch");
-						const matched = yield* policies.match(trigger);
+						const matched = yield* policies.match(trigger, new WriteTransaction());
 						expect(matched.map(({ hook }) => hook.slug)).toEqual([
 							"fixture.z-first",
 							"fixture.a-second",
@@ -2012,7 +2033,7 @@ describe("LifecyclePolicies PostgreSQL", () => {
 								request.operation !== "batch" &&
 								request.resource === "event",
 						);
-						const [policy] = yield* policies.match(trigger);
+						const [policy] = yield* policies.match(trigger, new WriteTransaction());
 						assert(policy);
 						const other = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
 							...request,

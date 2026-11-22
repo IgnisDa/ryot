@@ -27,6 +27,7 @@ import {
 	type DomainWriteConflict,
 	type DomainWritePin,
 } from "#modules/entities/write-context";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { EventsRepository } from "./repository";
 
@@ -181,6 +182,7 @@ const schemaInputKey = (input: EventCreateSchemaInput) =>
 export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes")(
 	function* (input: {
 		readonly userId: UserId;
+		readonly transaction: WriteTransaction;
 		readonly writeCommand: DomainLifecycleCommand;
 		readonly items: ReadonlyArray<CreateEventItem>;
 		readonly commands: ReadonlyArray<DomainLifecycleCommand>;
@@ -231,14 +233,16 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				schemaInputs.set(schemaInputKey(schemaInput), schemaInput);
 			}
 		}
-		const schemaScopes = yield* eventSchemasRepository.getScopesForUser(input.userId, [
-			...schemaInputs.values(),
-		]);
+		const schemaScopes = yield* eventSchemasRepository.getScopesForUser(
+			input.userId,
+			[...schemaInputs.values()],
+			input.transaction,
+		);
 		const eventSchemaScopes = new Map(
 			[...schemaInputs.keys()].map((key, index) => [key, schemaScopes[index] ?? null]),
 		);
 		const check = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
-			checks.check(command, owner, input.userId, true);
+			checks.check(command, owner, input.userId, input.transaction);
 		const precheck = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
 			check(command, owner).pipe(
 				Effect.catchTags({

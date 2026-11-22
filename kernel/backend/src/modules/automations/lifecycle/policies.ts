@@ -26,6 +26,7 @@ import { Context, Effect, Schema } from "effect";
 import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { lifecycleTrigger } from "./command";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
@@ -59,7 +60,10 @@ export class LifecyclePolicies extends Context.Service<
 	LifecyclePolicies,
 	{
 		/** The request's matching policies in call order, read on the caller's transaction. */
-		match: (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<LifecyclePolicy>, DbError>;
+		match: (
+			trigger: AutomationTrigger,
+			transaction: WriteTransaction,
+		) => Effect.Effect<ReadonlyArray<LifecyclePolicy>, DbError>;
 		/** Calls the policy once with every item it targets; untargeted items get no decision. */
 		run: (input: {
 			readonly policy: LifecyclePolicy;
@@ -123,6 +127,7 @@ type MatchedPolicyBatch = {
 /** Matches a batch's policies on the caller's transaction; null means none matched. */
 export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
 	input: PolicyBatchPayload,
+	transaction: WriteTransaction,
 ): Effect.fn.Return<null | MatchedPolicyBatch, DbError, LifecyclePolicies> {
 	if (input.items.length === 0) {
 		return null;
@@ -135,7 +140,7 @@ export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
 		items: input.items.map((item) => item.request),
 		itemIdentities: input.items.map((item) => item.itemIdentity),
 	});
-	const policies = yield* (yield* LifecyclePolicies).match(trigger);
+	const policies = yield* (yield* LifecyclePolicies).match(trigger, transaction);
 	return policies.length === 0 ? null : { trigger, policies };
 });
 
@@ -165,13 +170,14 @@ export const subjectChunks = <T>(items: ReadonlyArray<T>, subjectOf: (item: T) =
 
 /** Matches each chunk's policies on the caller's transaction. */
 export const matchPolicyChunks = <T, E, R>(
+	transaction: WriteTransaction,
 	chunks: ReadonlyArray<ReadonlyArray<T>>,
 	batch: (items: ReadonlyArray<T>, index: number) => Effect.Effect<PolicyBatchPayload, E, R>,
 ) =>
 	Effect.forEach(chunks, (items, index) =>
 		Effect.gen(function* () {
 			const policyBatch = yield* batch(items, index);
-			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch) };
+			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch, transaction) };
 		}),
 	);
 

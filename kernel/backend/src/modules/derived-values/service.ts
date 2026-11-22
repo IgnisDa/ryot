@@ -718,9 +718,9 @@ export class Folds extends Context.Service<Folds>()(
 				const pending = pendingFolds(transaction);
 				const { runs } = pending;
 				for (
-					let resolved = yield* collect(pending);
+					let resolved = yield* collect(transaction);
 					resolved.length > 0;
-					resolved = yield* collect(pending)
+					resolved = yield* collect(transaction)
 				) {
 					const byFold = new Map<string, Arr.NonEmptyArray<FoldRun>>();
 					for (const entry of resolved) {

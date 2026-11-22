@@ -26,6 +26,7 @@ import { and, eq, isNull, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteScope } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import {
@@ -840,45 +841,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				) => Effect.Effect<undefined | RevisionDeclarations[K], DbError>;
 			} = {
 				entity: Effect.fnUntraced(function* (input) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select({ propertiesSchema: schema.definitionEntitySchema.propertiesSchema })
-							.from(schema.definitionEntitySchema)
-							.where(
-								and(
-									eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
-									eq(schema.definitionEntitySchema.slug, input.slug),
-								),
-							)
-							.limit(1),
+					const row = (yield* catalog.revision(input.revisionId)).entitySchemas.find(
+						({ slug }) => slug === input.slug,
 					);
-					return row;
+					return row && { propertiesSchema: row.propertiesSchema };
 				}),
 				event: Effect.fnUntraced(function* (input) {
-					const { entitySchemaSlug } = input;
-					if (entitySchemaSlug === undefined) {
-						return undefined;
-					}
-					const [row] = yield* session.run((db) =>
-						db
-							.select({
-								projection: schema.definitionEventSchema.projection,
-								eventGroup: schema.definitionEventSchema.eventGroup,
-								propertiesSchema: schema.definitionEventSchema.propertiesSchema,
-							})
-							.from(schema.definitionEventSchema)
-							.innerJoin(
-								schema.definitionEntitySchema,
-								eq(schema.definitionEntitySchema.id, schema.definitionEventSchema.entitySchemaId),
-							)
-							.where(
-								and(
-									eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
-									eq(schema.definitionEntitySchema.slug, entitySchemaSlug),
-									eq(schema.definitionEventSchema.slug, input.slug),
-								),
-							)
-							.limit(1),
+					const row = (yield* catalog.revision(input.revisionId)).eventSchemas.find(
+						({ slug, entitySchemaSlug }) =>
+							slug === input.slug && entitySchemaSlug === input.entitySchemaSlug,
 					);
 					if (!row) {
 						return undefined;
@@ -890,36 +861,21 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					};
 				}),
 				relationship: Effect.fnUntraced(function* (input) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select({
-								name: schema.definitionRelationshipSchema.name,
-								slug: schema.definitionRelationshipSchema.slug,
-								keyed: schema.definitionRelationshipSchema.keyed,
-								projection: schema.definitionRelationshipSchema.projection,
-								userWritePolicy: schema.definitionRelationshipSchema.userWritePolicy,
-								propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
-								sourceEntitySchemaSlug: schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
-								targetEntitySchemaSlug: schema.definitionRelationshipSchema.targetEntitySchemaSlug,
-							})
-							.from(schema.definitionRelationshipSchema)
-							.where(
-								and(
-									eq(schema.definitionRelationshipSchema.pluginRevisionId, input.revisionId),
-									eq(schema.definitionRelationshipSchema.slug, input.slug),
-								),
-							)
-							.limit(1),
+					const row = (yield* catalog.revision(input.revisionId)).relationshipSchemas.find(
+						({ slug }) => slug === input.slug,
 					);
 					if (!row) {
 						return undefined;
 					}
-					const { keyed, projection, userWritePolicy, ...definition } = row;
 					return {
-						...definition,
-						...(projection === null ? {} : { projection }),
-						...(userWritePolicy === null ? {} : { userWritePolicy }),
-						...(keyed ? { keyed: true as const } : {}),
+						name: row.name,
+						slug: row.slug,
+						propertiesSchema: row.propertiesSchema,
+						sourceEntitySchemaSlug: row.sourceEntitySchemaSlug,
+						targetEntitySchemaSlug: row.targetEntitySchemaSlug,
+						...(row.projection === null ? {} : { projection: row.projection }),
+						...(row.userWritePolicy === null ? {} : { userWritePolicy: row.userWritePolicy }),
+						...(row.keyed ? { keyed: true as const } : {}),
 					};
 				}),
 			};
@@ -1064,11 +1020,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				);
 			});
 			const findUserEntitySchemas = Effect.fn("DefinitionRepository.findUserEntitySchemas")(
-				function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
+				function* (
+					userId: UserId,
+					references: ReadonlyArray<DeclarationReference>,
+					scope?: WriteScope,
+				) {
 					if (references.length === 0) {
 						return {};
 					}
-					const rows = yield* catalog.forUser(userId);
+					const rows = yield* catalog.forUser(userId, scope);
 					const events = eventsByEntitySchema(byPosition(rows.eventSchemas));
 					return yield* recordByIdentity(
 						"entity",
@@ -1081,11 +1041,15 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findUserRelationshipSchemas = Effect.fn(
 				"DefinitionRepository.findUserRelationshipSchemas",
-			)(function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
+			)(function* (
+				userId: UserId,
+				references: ReadonlyArray<DeclarationReference>,
+				scope?: WriteScope,
+			) {
 				if (references.length === 0) {
 					return {};
 				}
-				const rows = yield* catalog.forUser(userId);
+				const rows = yield* catalog.forUser(userId, scope);
 				return yield* recordByIdentity(
 					"relationship",
 					placed(rows.relationshipSchemas, effective, matches(references)).map(

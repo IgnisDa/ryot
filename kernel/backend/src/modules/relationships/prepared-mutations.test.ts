@@ -27,7 +27,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -254,6 +254,7 @@ describe("Prepared relationship mutations", () => {
 					).toEqual(entityNotFound(reconciled));
 
 					const creation = yield* service.prepareUserWrite(
+						new WritePreparation(),
 						{ ...baseInput, targetEntityId: preparedCreate },
 						command("deleted-prepared-create"),
 						"upsert",
@@ -268,6 +269,7 @@ describe("Prepared relationship mutations", () => {
 						targetEntityId: preparedDelete,
 					});
 					const deletion = yield* service.prepareUserDelete(
+						new WritePreparation(),
 						{ ...baseInput, targetEntityId: preparedDelete },
 						command("deleted-prepared-delete"),
 					);
@@ -319,12 +321,17 @@ describe("Prepared relationship mutations", () => {
 					).toEqual(entityNotFound(foreign));
 					expect(
 						yield* service
-							.prepareUserWrite(foreignInput, command("foreign-create"), "upsert")
+							.prepareUserWrite(
+								new WritePreparation(),
+								foreignInput,
+								command("foreign-create"),
+								"upsert",
+							)
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(
 						yield* service
-							.prepareUserDelete(foreignInput, command("foreign-delete"))
+							.prepareUserDelete(new WritePreparation(), foreignInput, command("foreign-delete"))
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
@@ -350,11 +357,18 @@ describe("Prepared relationship mutations", () => {
 						reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
 					});
 					expect(
-						yield* service.prepareUserDelete(missing, command("missing-delete")).pipe(Effect.flip),
+						yield* service
+							.prepareUserDelete(new WritePreparation(), missing, command("missing-delete"))
+							.pipe(Effect.flip),
 					).toEqual(notFound);
 					expect(
 						yield* service
-							.prepareUserWrite(missing, command("missing-create"), "upsert")
+							.prepareUserWrite(
+								new WritePreparation(),
+								missing,
+								command("missing-create"),
+								"upsert",
+							)
 							.pipe(Effect.flip),
 					).toEqual(notFound);
 				}),
@@ -373,6 +387,7 @@ describe("Prepared relationship mutations", () => {
 						const session = yield* DatabaseSession;
 						const service = yield* RelationshipsService;
 						const prepared = yield* service.prepareUserWrite(
+							new WritePreparation(),
 							baseInput,
 							command("schema-change"),
 							"upsert",
@@ -397,6 +412,7 @@ describe("Prepared relationship mutations", () => {
 					const installed = yield* installRevisionPackage(original, userId);
 					const slug = RelationshipSchemaSlug.make("revised-writer-link");
 					const prepared = yield* service.prepareUserWrite(
+						new WritePreparation(),
 						{
 							userId,
 							scope: "user",

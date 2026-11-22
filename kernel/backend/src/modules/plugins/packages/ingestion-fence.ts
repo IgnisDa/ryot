@@ -7,24 +7,20 @@ export const PLUGIN_INGESTION_ADVISORY_LOCK_KEY = "ryot-plugin-ingestion";
 
 // User-scoped plugins run only for their owner, so one user's plugin changes need to exclude only
 // readers of that user's catalog. System-wide changes take the global key exclusively. Keys are
-// always taken global first, then users in sorted order, in one statement. A transaction skips the
-// shared keys it already holds; a savepoint has its own executor, so its keys never outlive its
-// rollback.
+// always taken global first, then users in sorted order, in one statement. A plugin's configuration
+// changes take its `plugin-config:` key exclusively. A transaction skips the shared keys it already
+// holds; a savepoint has its own executor, so its keys never outlive its rollback.
 const userKey = (userId: string) => `${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}:user:${userId}`;
+
+export const pluginConfigLockKey = (pluginId: string) => `plugin-config:${pluginId}`;
 
 const heldShared = new WeakMap<object, Set<string>>();
 
-export const lockPluginIngestionShared = (
-	session: DatabaseSession["Service"],
-	userIds: ReadonlyArray<string>,
-) =>
+const lockShared = (session: DatabaseSession["Service"], ordered: ReadonlyArray<string>) =>
 	Effect.flatMap(session.isTransactionActive, (active) =>
 		session.run((db) => {
 			const held = (active ? heldShared.get(db) : undefined) ?? new Set<string>();
-			const keys = [
-				PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
-				...[...new Set(userIds)].sort().map(userKey),
-			].filter((key) => !held.has(key));
+			const keys = ordered.filter((key) => !held.has(key));
 			if (keys.length === 0) {
 				return Effect.void;
 			}
@@ -51,6 +47,21 @@ export const lockPluginIngestionShared = (
 				);
 		}),
 	).pipe(Effect.asVoid);
+
+export const lockPluginIngestionShared = (
+	session: DatabaseSession["Service"],
+	userIds: ReadonlyArray<string>,
+) =>
+	lockShared(session, [
+		PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
+		...[...new Set(userIds)].sort().map(userKey),
+	]);
+
+/** Takes the plugins' configuration keys shared, in the caller's order. */
+export const lockPluginConfigShared = (
+	session: DatabaseSession["Service"],
+	pluginIds: ReadonlyArray<string>,
+) => lockShared(session, [...new Set(pluginIds)].map(pluginConfigLockKey));
 
 export const lockPluginIngestionForUser = (session: DatabaseSession["Service"], userId: string) =>
 	session

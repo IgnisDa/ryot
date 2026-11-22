@@ -31,7 +31,7 @@ import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
@@ -45,6 +45,7 @@ import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { StatementLog } from "#modules/entities/statement-recording.test-support";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
@@ -383,6 +384,47 @@ layer(testLayer(false))((test) => {
 							.where(eq(tables.event.entityId, entityId)),
 					),
 				).toEqual([{ properties: { value: "Transformed" } }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reads the user's plugins once per phase and the writer's configuration lock and pin once per commit",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const log = yield* StatementLog;
+				const spans: Tracer.Span[] = [];
+				const transactions = (yield* log.transactions).length;
+				for (const item of ["first", "second"]) {
+					yield* commitUserCommand({
+						input: input.input,
+						command: {
+							...command(`${input.command.causation.executionId}:${item}`),
+							writeContext: input.command.writeContext,
+							accountUserId: input.command.accountUserId,
+						},
+					}).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				}
+				const statements = recordedStatements(spans);
+				expect({
+					userPlugins: statements.filter((text) => text.includes("from plugin_installation i")),
+					pins: statements.filter((text) =>
+						text.includes('from "plugin_revision" inner join "plugin"'),
+					),
+					configLocks: (yield* log.transactions)
+						.slice(transactions)
+						.flat()
+						.filter(({ params }) =>
+							params.some(
+								(param) => typeof param === "string" && param.startsWith("plugin-config:"),
+							),
+						),
+				}).toMatchObject({
+					pins: { length: 2 },
+					userPlugins: { length: 4 },
+					configLocks: { length: 2 },
+				});
 			}),
 		testTimeout,
 	);

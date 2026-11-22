@@ -56,7 +56,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { type WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 
 import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
@@ -222,10 +222,12 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 /** Matches each subject chunk's event policies, in the transaction that prepared the changes. */
 export const matchEventPolicies = (input: {
 	readonly userId: UserId;
+	readonly transaction: WriteTransaction;
 	readonly prepared: PreparedEventChanges;
 	readonly command: DomainLifecycleCommand;
 }) =>
 	matchPolicyChunks(
+		input.transaction,
 		subjectChunks(input.prepared.items, (item) => item.draft.entityId),
 		(items, index) =>
 			Effect.map(eventPolicyItems({ ...input.prepared, items }), (policyItems) => ({
@@ -376,6 +378,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				});
 			});
 			const authorizeCascade = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
 				command: DomainLifecycleCommand,
 				userId: UserId,
 				cascadeEntityIds: ReadonlyArray<EntityId>,
@@ -396,7 +399,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					});
 				}
 				yield* writes
-					.check(command, definitionOwner(source.entity.entitySchemaPluginId), source.userId, true)
+					.check(
+						command,
+						definitionOwner(source.entity.entitySchemaPluginId),
+						source.userId,
+						transaction,
+					)
 					.pipe(Effect.catch(writeFailure));
 				return yield* Effect.void;
 			});
@@ -409,18 +417,21 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					...preparedMutationReferences(input),
 				});
 			});
-			const prepare = Effect.fn("EventMutations.prepare")(function* (input: {
-				userId: UserId;
-				independent?: boolean;
-				verbatimIdentities?: boolean;
-				command: DomainLifecycleCommand;
-				changes: ReadonlyArray<EventMutation>;
-				proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
-			}) {
+			const prepare = Effect.fn("EventMutations.prepare")(function* (
+				transaction: WriteTransaction,
+				input: {
+					userId: UserId;
+					independent?: boolean;
+					verbatimIdentities?: boolean;
+					command: DomainLifecycleCommand;
+					changes: ReadonlyArray<EventMutation>;
+					proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
+				},
+			) {
 				const writer = input.command.writeContext?.pluginRevision;
 				if (writer) {
 					yield* writes
-						.check(input.command, definitionOwner(writer.id), input.userId, true)
+						.check(input.command, definitionOwner(writer.id), input.userId, transaction)
 						.pipe(
 							Effect.catchTag(
 								"DomainWriteConflict",
@@ -449,7 +460,13 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 						}
 						if (change.kind === "delete" && change.cascadeEntityIds) {
-							yield* authorizeCascade(input.command, input.userId, change.cascadeEntityIds, before);
+							yield* authorizeCascade(
+								transaction,
+								input.command,
+								input.userId,
+								change.cascadeEntityIds,
+								before,
+							);
 						}
 						if (change.kind === "move") {
 							const references = new Map<EntityId, EntityId>([
@@ -508,6 +525,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				const scopes = yield* readEventCreateChunkScopes({
 					...input,
+					transaction,
 					commands: [input.command],
 					writeCommand: input.command,
 					items: pending.map((item) => item.item),
@@ -732,7 +750,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				};
 				const preparedBatch = input.derived
 					? null
-					: yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
+					: yield* planner.prepareBatch(transaction, { ...batch, scopes: [input.userId] });
 				const selections = new Map(
 					input.validated.items.flatMap((item) =>
 						item.request.resource === "event"
@@ -749,9 +767,11 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							: [],
 					),
 				);
-				const currentSchemas = yield* schemas.getScopesForUser(input.userId, [
-					...selections.values(),
-				]);
+				const currentSchemas = yield* schemas.getScopesForUser(
+					input.userId,
+					[...selections.values()],
+					transaction,
+				);
 				const schemasByScope = new Map(
 					[...selections.keys()].map((key, index) => [key, currentSchemas[index] ?? null]),
 				);
@@ -811,7 +831,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					const command = { ...input.command, itemIdentity: row.identity.itemIdentity };
 					const owner = definitionOwner(draft.eventSchemaPluginId);
 					yield* writes
-						.check(checkCommand(command, row.change), owner, input.userId, true)
+						.check(checkCommand(command, row.change), owner, input.userId, transaction)
 						.pipe(Effect.catch((error) => conflict(error.message)));
 					const schema = schemasByScope.get(scopeKey(draft));
 					if (
@@ -983,7 +1003,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
 			const applyFoldChanges: ApplyFoldChanges = Effect.fnUntraced(function* (transaction, input) {
-				const prepared = yield* prepare(input);
+				const prepared = yield* prepare(transaction, input);
 				const validated = unchangedPolicyBatch({
 					resource: "event",
 					userId: input.userId,
@@ -1004,11 +1024,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const transaction = <A, E, R>(
 				work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>,
 				mode: FoldMode = "inline",
+				preparation: null | WritePreparation = null,
 			) =>
 				runRootTransaction(
 					session,
 					Effect.gen(function* () {
-						const state = new WriteTransaction();
+						const state = new WriteTransaction(preparation);
 						const result = yield* work(state);
 						yield* clearPendingReferences(state);
 						yield* mode === "queue"

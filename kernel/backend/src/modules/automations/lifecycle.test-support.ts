@@ -87,12 +87,13 @@ export const withLifecycleBatchPlanning = (
 		);
 	return {
 		plan: recordPlan,
+		lockCatalog: () => Effect.void,
 		recordBatchChange: () => Effect.void,
 		planChange: (input) =>
 			Effect.map(recordPlan(input), (result) =>
 				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
 			),
-		prepareBatch: (input) =>
+		prepareBatch: (_transaction, input) =>
 			Effect.succeed({
 				hasCandidates,
 				id: stableStringify([input.command.itemIdentity, ...input.identity]),

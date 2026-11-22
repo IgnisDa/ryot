@@ -11,7 +11,9 @@ import { and, asc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } fro
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Result } from "effect";
 
+import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { DatabaseSession } from "#platform/db/session";
+import { type WriteScope, writeState, WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 export type PluginScope = "user" | "system";
@@ -74,6 +76,7 @@ export type UserPlugin = {
 	readonly isExecutable: boolean;
 	readonly installationId: string;
 	readonly activeRevisionId: string;
+	readonly isAccountDisabled: boolean;
 	readonly ownerUserId: null | string;
 	readonly packageId: PluginPackageId;
 	readonly health: InstallationHealth;
@@ -245,6 +248,7 @@ const resolveUserPlugin = (row: {
 	readonly isHidden: boolean;
 	readonly sortOrder: number;
 	readonly installationId: string;
+	readonly accountDisabled: boolean;
 	readonly ownerUserId: null | string;
 	readonly packageId: PluginPackageId;
 	readonly health: InstallationHealth;
@@ -275,6 +279,7 @@ const resolveUserPlugin = (row: {
 			scope: system ? "system" : "user",
 			installationId: row.installationId,
 			activeRevisionId: row.activeRevisionId,
+			isAccountDisabled: row.accountDisabled,
 			isListed: row.health !== "incompatible",
 			isExecutable: !row.isHidden && row.health === "ready" && configIsUsable,
 			configRevisionId: system ? row.environmentConfigRevisionId : row.installationConfigRevisionId,
@@ -290,6 +295,7 @@ const installationConfig = sql.raw("installation_config");
 const userPluginsQuery = (where: SQL) => sql`
 	select i.user_id as "userId", i.plugin_id as "pluginId", i.id as "installationId", i.health,
 		i.is_hidden as "isHidden", i.sort_order as "sortOrder", p.package_id as "packageId",
+		u.disabled_at is not null as "accountDisabled",
 		p.owner_user_id as "ownerUserId", p.active_revision_id as "activeRevisionId",
 		p.environment_config_revision_id as "environmentConfigRevisionId",
 		i.active_config_revision_id as "installationConfigRevisionId",
@@ -300,6 +306,7 @@ const userPluginsQuery = (where: SQL) => sql`
 			and ${environmentConfig}.owner_user_id is null, false) as "environmentConfigIsUsable"
 	from plugin_installation i
 	join plugin p on p.id = i.plugin_id
+	join "user" u on u.id = i.user_id
 	left join plugin_config_revision ${installationConfig} on ${installationConfig}.id = i.active_config_revision_id
 	left join plugin_config_revision ${environmentConfig} on ${environmentConfig}.id = p.environment_config_revision_id
 	where i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)
@@ -518,6 +525,8 @@ const resolveGlobalCatalog = (
 };
 
 const revisionCacheLimit = 256;
+
+const scopedUserPlugins = writeState(() => new Map<string, ReadonlyArray<UserPlugin>>());
 
 type RunUserPluginsSlot = {
 	readonly userId: string;
@@ -793,9 +802,27 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 				return rows.flatMap(resolveUserPlugin);
 			});
 
-			const userPlugins = (userId: string) =>
+			/**
+			 * Reads a user's installed plugins, once per write scope when given one. A transaction reads
+			 * them under the user's ingestion fence, which it holds to its end, so no installation change
+			 * makes its reading stale.
+			 */
+			const userPlugins = (userId: string, scope?: WriteScope) =>
 				Effect.flatMap(RunUserPlugins, (run) => {
 					const load = listUserPlugins(sql`i.user_id = ${userId}`);
+					if (scope) {
+						const known = scopedUserPlugins(scope);
+						const read = known.get(userId);
+						if (read) {
+							return Effect.succeed(read);
+						}
+						return Effect.tap(
+							scope instanceof WriteTransaction
+								? Effect.andThen(lockPluginIngestionShared(session, [userId]), load)
+								: load,
+							(plugins) => Effect.sync(() => known.set(userId, plugins)),
+						);
+					}
 					if (run?.userId !== userId) {
 						return load;
 					}
@@ -808,8 +835,11 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 						: Effect.succeed(run.plugins);
 				});
 
-			const forUser = Effect.fn("DefinitionCatalog.forUser")(function* (userId: string) {
-				const plugins = yield* userPlugins(userId);
+			const forUser = Effect.fn("DefinitionCatalog.forUser")(function* (
+				userId: string,
+				scope?: WriteScope,
+			) {
+				const plugins = yield* userPlugins(userId, scope);
 				const resolved = yield* catalogs(plugins.map(({ activeRevisionId }) => activeRevisionId));
 				return resolveUserCatalog(userId, plugins, resolved.kernel, resolved.revisions);
 			});

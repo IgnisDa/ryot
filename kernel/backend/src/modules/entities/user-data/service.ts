@@ -40,7 +40,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import type { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import { trimToNull } from "#platform/validation";
 
 import { EntityUserDataAttachments } from "./attachments";
@@ -261,7 +261,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* input.recheck;
 					}),
 					write: Effect.fnUntraced(function* (transaction: WriteTransaction, accept: Accept) {
-						yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
+						yield* planner.prepareBatch(transaction, { ...batch, scopes: [input.userId] });
 						const written = yield* input.write(transaction, batch, accept);
 						return {
 							result: written.result,
@@ -273,12 +273,13 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 
 			const prepareRelationshipMove = Effect.fnUntraced(function* (input: {
 				userId: UserId;
+				preparation: WritePreparation;
 				relationship: RelationshipRow;
 				command: DomainLifecycleCommand;
 				references: ReadonlyMap<EntityId, EntityId>;
 				destinationRelationships: ReadonlyMap<string, RelationshipRow>;
 			}) {
-				const { userId, command, references, relationship } = input;
+				const { userId, command, references, preparation, relationship } = input;
 				const sourceEntityId =
 					references.get(relationship.sourceEntityId) ?? relationship.sourceEntityId;
 				const targetEntityId =
@@ -300,6 +301,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				if (sourceEntityId !== targetEntityId) {
 					create = yield* relationships
 						.prepareUserWrite(
+							preparation,
 							{
 								userId,
 								scope: "user",
@@ -329,6 +331,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					? null
 					: yield* relationships
 							.prepareUserDelete(
+								preparation,
 								{
 									userId,
 									scope: "user",
@@ -356,6 +359,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			 * leaving the relationships `written` names to the change set that writes them.
 			 */
 			const prepareClear = Effect.fn("EntityUserDataService.prepareClear")(function* (
+				preparation: WritePreparation,
 				userId: UserId,
 				input: { readonly entityId: EntityId; readonly entitySchema: MergeAuthority },
 				command: DomainLifecycleCommand,
@@ -391,7 +395,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					owner: definitionOwner(scope.entitySchemaPluginId),
 				};
 				const entitySchema = (yield* definitions
-					.findUserEntitySchemas(userId, [entitySchemaReference])
+					.findUserEntitySchemas(userId, [entitySchemaReference], preparation)
 					.pipe(Effect.orDie))[
 					definitionKey("entity", entitySchemaReference.owner, entitySchemaReference.slug)
 				];
@@ -418,6 +422,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				for (const relationship of captured.relationships) {
 					const prepared = yield* relationships
 						.prepareUserDelete(
+							preparation,
 							{
 								userId,
 								scope: "user",
@@ -479,6 +484,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			 * null, leaving the relationships `written` names to the change set that writes them.
 			 */
 			const prepareMerge = Effect.fn("EntityUserDataService.prepareMerge")(function* (
+				preparation: WritePreparation,
 				userId: UserId,
 				payload: MergeEntityUserDataBody & { readonly entitySchema: MergeAuthority },
 				command: DomainLifecycleCommand,
@@ -545,7 +551,11 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					owner: definitionOwner(intoScope.entitySchemaPluginId),
 				};
 				const entitySchemas = yield* definitions
-					.findUserEntitySchemas(userId, [fromEntitySchemaReference, intoEntitySchemaReference])
+					.findUserEntitySchemas(
+						userId,
+						[fromEntitySchemaReference, intoEntitySchemaReference],
+						preparation,
+					)
 					.pipe(Effect.orDie);
 				const fromEntitySchema =
 					entitySchemas[
@@ -696,6 +706,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					preparedRelationships.push(
 						yield* prepareRelationshipMove({
 							command,
+							preparation,
 							relationship,
 							userId: userId,
 							references: referenceMap,

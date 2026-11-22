@@ -28,7 +28,7 @@ import { type AccountAdmission, mutationUserIds } from "#modules/mutations/accou
 import type { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { isUniqueConstraintError } from "#platform/db/errors";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import type { WriteScope, WriteTransaction } from "#platform/db/write-transaction";
 
 import type { EntitiesRepository, MutationEntity } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
@@ -119,7 +119,7 @@ export const makePersistMutation = <E, R, Result>({
 		scopeUserId: null | UserId,
 		owner: DefinitionOwner,
 		lifecycle: DomainLifecycleCommand,
-		commit?: boolean,
+		scope: WriteScope,
 		pin?: null | DomainWritePin,
 	) => Effect.Effect<
 		{ propertiesSchema: AppSchema } & Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">,
@@ -196,7 +196,7 @@ export const makePersistMutation = <E, R, Result>({
 					input.scopeUserId,
 					definitionOwner(input.entitySchemaPluginId),
 					input.lifecycle,
-					false,
+					transaction,
 					item.pin,
 				).pipe(
 					Effect.catch(() => conflict("Current entity cannot be processed by the pinned writer")),

@@ -15,6 +15,7 @@ import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 import type * as schema from "#schema/tables/combined";
 
@@ -240,6 +241,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {
+							const transaction = new WriteTransaction();
 							const owner = definitionOwner(payload.entitySchemaPluginId);
 							const entity = yield* repository.findEntityForUser(payload);
 							const provider = yield* runtime.findProviderAvailableToUser(
@@ -266,8 +268,8 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 									message: "Translation entity or provider identity is unavailable",
 								});
 							}
-							yield* checks.check({ writeContext: principal }, owner, entity.userId, true);
-							yield* checks.check(payload.command, owner, entity.userId, true);
+							yield* checks.check({ writeContext: principal }, owner, entity.userId, transaction);
+							yield* checks.check(payload.command, owner, entity.userId, transaction);
 							const properties = yield* selectProviderInputProperties(
 								"Translation",
 								entity.properties,
@@ -302,14 +304,15 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			) {
 				return yield* session.transaction(
 					Effect.gen(function* () {
+						const transaction = new WriteTransaction();
 						const owner = definitionOwner(payload.entitySchemaPluginId);
 						yield* checks.check(
 							{ writeContext: execution.principal },
 							owner,
 							execution.entityScopeUserId,
-							true,
+							transaction,
 						);
-						yield* checks.check(payload.command, owner, execution.entityScopeUserId, true);
+						yield* checks.check(payload.command, owner, execution.entityScopeUserId, transaction);
 						yield* requests.lockTarget(
 							`translation-commit:${payload.entityId}:${payload.language}`,
 						);

@@ -6,11 +6,15 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { Context, Effect, Layer, type Result, Schema, Struct } from "effect";
+import { and, eq, isNull } from "drizzle-orm";
+import { Context, Effect, Layer, Result, Schema, Struct } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
+import {
+	lockPluginConfigShared,
+	lockPluginIngestionShared,
+} from "#modules/plugins/packages/ingestion-fence";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import {
 	isUserBootstrapPrincipal,
@@ -19,6 +23,11 @@ import {
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { ownerWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import {
+	type WritePreparation,
+	writeState,
+	type WriteTransaction,
+} from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 export const DomainLifecycleCommand = Schema.Struct({
@@ -168,23 +177,17 @@ const once = <A, E, R>(
 				});
 	});
 
-const PreparedPins = Context.Reference<null | Map<
-	string,
-	Result.Result<undefined | DomainWritePin, DbError>
->>("DomainWriteChecks.PreparedPins", { defaultValue: () => null });
-
-/**
- * Reads each writer's pinned and active revision once across one commit's preparation, which reads
- * and plans but writes nothing. The commit transaction's locked checks read them again.
- */
-export const sharePreparedPins = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.suspend(() => work.pipe(Effect.provideService(PreparedPins, new Map())));
+/** Each writer's pinned and active revision, read once across one commit's preparation. */
+const preparedPins = writeState(
+	() => new Map<string, Result.Result<undefined | DomainWritePin, DbError>>(),
+);
 
 export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 	"@ryot-app/kernel-backend/modules/entities/write-context/DomainWriteChecks",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 			const definitions = yield* DefinitionRepository;
 			const authority = yield* SandboxExecutionAuthority;
 			const readRevision: AuthorityReads["revision"] = (principal, plugin) =>
@@ -282,26 +285,56 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					installation: (pluginId, userId) => readInstallation(pluginId, userId, false),
 				},
 			};
-			const preparedReads = (
-				pins: null | Map<string, Result.Result<undefined | DomainWritePin, DbError>>,
-			): AuthorityReads => ({
+			const preparedReads = (preparation: WritePreparation): AuthorityReads => ({
 				current: null,
 				fence: () => Effect.void,
 				revision: (principal, plugin) =>
-					pins === null
-						? readRevision(principal, plugin)
-						: once(pins, stableStringify(principal), readRevision(principal, plugin)),
+					once(
+						preparedPins(preparation),
+						stableStringify(principal),
+						readRevision(principal, plugin),
+					),
+			});
+			/**
+			 * Under the configuration lock and the catalog lock its commit took first, a writer whose
+			 * prepared pin still names the plugin's active revision and active configuration revision reads
+			 * nothing again: revision, script and configuration rows never change, the catalog lock keeps
+			 * the plugin active on that revision, and an active configuration revision is never pruned.
+			 */
+			const lockedRevision = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
+				principal: Principal,
+				plugin: NonNullable<Principal["pluginRevision"]>,
+			) {
+				yield* lockPluginConfigShared(session, [plugin.id]);
+				const userId = sandboxSubjectUserId(principal.subject);
+				const prepared = transaction.preparation
+					? preparedPins(transaction.preparation).get(stableStringify(principal))
+					: undefined;
+				const pin = prepared && Result.isSuccess(prepared) ? prepared.success : undefined;
+				if (pin && userId !== null) {
+					const current = (yield* catalogs.userPlugins(userId, transaction)).find(
+						({ pluginId }) => pluginId === plugin.id,
+					);
+					if (
+						current?.isExecutable &&
+						current.activeRevisionId === pin.activeRevisionId &&
+						current.configRevisionId === plugin.configRevisionId
+					) {
+						return pin;
+					}
+				}
+				return yield* readRevision(principal, plugin);
 			});
 			// A transaction's locked reads hold their locks until it ends, and the commit changes no
 			// plugin, installation, or account rows, so each read stays valid for the rest of it. A
 			// savepoint has its own executor, so its reads and locks never outlive its rollback.
 			const lockedAuthority = new WeakMap<object, AuthorityReads>();
-			const lockedReads = (db: object) => {
+			const lockedReads = (db: object, transaction: WriteTransaction) => {
 				const known = lockedAuthority.get(db);
 				if (known) {
 					return known;
 				}
-				const configs = new Map<string, Result.Result<unknown, DbError>>();
 				const revisions = new Map<string, Result.Result<undefined | DomainWritePin, DbError>>();
 				const resolved = new Map<string, Result.Result<unknown, DbError>>();
 				const accounts = new Map<
@@ -315,17 +348,10 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				const reads: AuthorityReads = {
 					fence: (userIds) => lockPluginIngestionShared(session, userIds),
 					revision: (principal, plugin) =>
-						Effect.andThen(
-							once(
-								configs,
-								plugin.id,
-								session.run((tx) =>
-									tx.execute(
-										sql`select pg_advisory_xact_lock_shared(hashtext(${`plugin-config:${plugin.id}`}))`,
-									),
-								),
-							),
-							once(revisions, stableStringify(principal), readRevision(principal, plugin)),
+						once(
+							revisions,
+							stableStringify(principal),
+							lockedRevision(transaction, principal, plugin),
 						),
 					current: {
 						account: (userId) => once(accounts, userId, readAccount(userId, true)),
@@ -418,46 +444,49 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				return pinned ? revision : null;
 			});
 			/**
-			 * Checks a domain write against its writer's stored authority. A locked check runs in the
-			 * commit transaction and takes the ingestion fence, the writer's configuration lock, and shared
-			 * row locks on its installation and account, reading each once per transaction.
+			 * Checks a domain write against its writer's stored authority. A check given its transaction
+			 * is locked: it takes the ingestion fence, the writer's configuration lock, and shared row locks
+			 * on its installation and account, reading each once per transaction.
 			 */
 			const check = (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
 				scopeUserId: null | string,
-				lock?: boolean,
+				transaction?: WriteTransaction,
 			) =>
-				lock
+				transaction
 					? session.requireTransaction.pipe(
 							Effect.mapError(
 								() =>
 									new DbError({ message: "Domain authority commit checks require a transaction" }),
 							),
 							Effect.andThen(
-								session.run((db) => authorize(command, owner, scopeUserId, lockedReads(db))),
+								session.run((db) =>
+									authorize(command, owner, scopeUserId, lockedReads(db, transaction)),
+								),
 							),
 						)
 					: authorize(command, owner, scopeUserId, unlockedReads);
 			/**
 			 * Resolves the pin a prepared write validates against from the owner and scope rules and the
-			 * writer's revisions, unlocked. The commit's locked check decides installation, account, and
-			 * execution authority.
+			 * writer's revisions, unlocked and once per preparation. The commit's locked check decides
+			 * installation, account, and execution authority.
 			 */
 			const preparePin = (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
 				scopeUserId: null | string,
-			) =>
-				Effect.flatMap(PreparedPins, (pins) =>
-					authorize(command, owner, scopeUserId, preparedReads(pins)),
-				);
-			const checkMany = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
+				preparation: WritePreparation,
+			) => authorize(command, owner, scopeUserId, preparedReads(preparation));
+			const checkMany = Effect.fnUntraced(function* (
+				checks: ReadonlyArray<DomainWriteCheck>,
+				transaction: WriteTransaction,
+			) {
 				const pins = new Map<string, null | DomainWritePin>();
 				for (const input of checks) {
 					pins.set(
 						domainWriteCheckKey(input),
-						yield* check(input.command, input.owner, input.scopeUserId, true),
+						yield* check(input.command, input.owner, input.scopeUserId, transaction),
 					);
 				}
 				return (input: DomainWriteCheck) => pins.get(domainWriteCheckKey(input));
@@ -535,6 +564,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 export const DomainWriteChecksLive = DomainWriteChecks.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
+			DefinitionCatalog.layer,
 			DefinitionRepository.layer,
 			SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
 		),

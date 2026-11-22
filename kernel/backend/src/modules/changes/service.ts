@@ -73,7 +73,6 @@ import {
 	DomainWriteChecks,
 	DomainWriteConflict,
 	kernelCollectionLifecycleCommand,
-	sharePreparedPins,
 } from "#modules/entities/write-context";
 import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
@@ -108,7 +107,7 @@ import type {
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, type WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	authorizeChangeSet,
@@ -442,6 +441,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				return yield* Effect.void;
 			});
 			const prepareChanges = Effect.fn("ChangeSets.prepareChanges")(function* (
+				preparation: WritePreparation,
 				input: Changes,
 				command: DomainLifecycleCommand,
 				pluginRevision: null | ScriptPluginRevision,
@@ -485,10 +485,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						readonly entitySchema: NonNullable<Changes["entity"]>["entitySchema"];
 					},
 					itemIdentity: string,
-					target: Parameters<typeof entities.prepareSave>[0]["target"],
+					target: Parameters<typeof entities.prepareSave>[1]["target"],
 				) =>
 					entities
-						.prepareSave({
+						.prepareSave(preparation, {
 							target,
 							name: item.name,
 							scopeUserId: userId,
@@ -528,7 +528,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const matched =
 						match === undefined
 							? null
-							: yield* entities.prepareMatch({
+							: yield* entities.prepareMatch(preparation, {
 									match,
 									userId: yield* requireUser,
 									entitySchema: item.entitySchema,
@@ -554,7 +554,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				}
 				for (const [index, item] of (input.entities?.references ?? []).entries()) {
 					const itemIdentity = item.itemIdentity ?? `entity-reference:${index}`;
-					const prepared = yield* entities.prepareMatch({
+					const prepared = yield* entities.prepareMatch(preparation, {
 						userId: yield* requireUser,
 						entitySchema: item.entitySchema,
 						match: { entityId: item.entityId },
@@ -628,6 +628,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					preparedRelations.push({
 						itemIdentity,
 						prepared: yield* relationships.prepareUserWrite(
+							preparation,
 							{ ...(yield* relationshipInput(relation)), properties: relation.properties },
 							identityCommand(options.relationships, itemIdentity, relation),
 							mode,
@@ -661,6 +662,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					preparedRelations.push({
 						itemIdentity,
 						prepared: yield* relationships.prepareUserDelete(
+							preparation,
 							yield* relationshipInput(relation),
 							identityCommand(options.relationships, itemIdentity),
 						),
@@ -671,6 +673,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					preparedRelations.push({
 						itemIdentity,
 						prepared: yield* relationships.prepareUserDeleteById(
+							preparation,
 							yield* requireUser,
 							relation.relationshipId,
 							identityCommand(options.relationships, itemIdentity),
@@ -687,6 +690,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				);
 				const ensures = input.entities?.ensures?.length
 					? yield* entities.prepareEnsures(
+							preparation,
 							yield* requireUser,
 							input.entities.ensures,
 							itemCommand(command, "ensures"),
@@ -716,17 +720,19 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const deletes = yield* Effect.forEach(
 					deletesBySchema.entries(),
 					([key, { ids, entitySchema, preserveHistory }]) =>
-						entities.prepareDeletes(ids, itemCommand(command, `entity-deletes:${key}`), {
-							entitySchema,
-							preserveHistory,
-							scopeUserId: userId,
-						}),
+						entities.prepareDeletes(
+							preparation,
+							ids,
+							itemCommand(command, `entity-deletes:${key}`),
+							{ entitySchema, preserveHistory, scopeUserId: userId },
+						),
 				);
 				const clears = yield* Effect.forEach(
 					(input.entities?.clears ?? []).entries(),
 					([index, item]) =>
 						Effect.flatMap(requireUser, (owner) =>
 							userData.prepareClear(
+								preparation,
 								owner,
 								item,
 								kernelCollectionLifecycleCommand(itemCommand(command, `entity-clear:${index}`)),
@@ -739,6 +745,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					([index, item]) =>
 						Effect.flatMap(requireUser, (owner) =>
 							userData.prepareMerge(
+								preparation,
 								owner,
 								item,
 								kernelCollectionLifecycleCommand(itemCommand(command, `entity-merge:${index}`)),
@@ -818,55 +825,58 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				const proposedEntities = Object.fromEntries(yield* drafts());
 				const entityBatch = { command, identity: ["entities"] };
-				const planEvents = Effect.forEach(eventGroups, (group) =>
-					Effect.gen(function* () {
-						const prepared = yield* eventMutations
-							.prepare({
+				const planEvents = (transaction: WriteTransaction) =>
+					Effect.forEach(eventGroups, (group) =>
+						Effect.gen(function* () {
+							const prepared = yield* eventMutations
+								.prepare(transaction, {
+									userId: group.userId,
+									command: group.command,
+									changes: group.changes,
+									...(group.main
+										? {
+												independent,
+												proposedEntities,
+												verbatimIdentities: options.events?.verbatimIdentities === true,
+											}
+										: {}),
+								})
+								.pipe(
+									Effect.mapError((error) =>
+										independent && error._tag !== "DbError"
+											? new EventCreateRejected({
+													kept: [],
+													reason:
+														error._tag === "EventCreateItemError"
+															? error.reason
+															: { code: "invalid-properties" },
+												})
+											: error,
+									),
+								);
+							if (group.main) {
+								kept = prepared.failures.map(({ reason, itemIdentity }) => ({
+									reason,
+									status: "failed" as const,
+									index: indexOf(itemIdentity),
+								}));
+							}
+							const chunks = yield* matchEventPolicies({
+								prepared,
+								transaction,
 								userId: group.userId,
 								command: group.command,
-								changes: group.changes,
-								...(group.main
-									? {
-											independent,
-											proposedEntities,
-											verbatimIdentities: options.events?.verbatimIdentities === true,
-										}
-									: {}),
-							})
-							.pipe(
-								Effect.mapError((error) =>
-									independent && error._tag !== "DbError"
-										? new EventCreateRejected({
-												kept: [],
-												reason:
-													error._tag === "EventCreateItemError"
-														? error.reason
-														: { code: "invalid-properties" },
-											})
-										: error,
-								),
-							);
-						if (group.main) {
-							kept = prepared.failures.map(({ reason, itemIdentity }) => ({
-								reason,
-								status: "failed" as const,
-								index: indexOf(itemIdentity),
-							}));
-						}
-						const chunks = yield* matchEventPolicies({
-							prepared,
-							userId: group.userId,
-							command: group.command,
-						}).pipe(Effect.provideContext(policyContext));
-						return { group, chunks, prepared };
-					}),
-				);
-				const planPolicies = Effect.gen(function* () {
+							}).pipe(Effect.provideContext(policyContext));
+							return { group, chunks, prepared };
+						}),
+					);
+				const planPolicies = Effect.fnUntraced(function* (transaction: WriteTransaction) {
 					return {
-						events: yield* planEvents,
+						events: yield* planEvents(transaction),
 						entities: yield* matchEntityPolicies({
 							userId,
 							command,
+							transaction,
 							items: entityTokens.flatMap(entityPolicyItems),
 						}).pipe(Effect.provideContext(policyContext)),
 						relationships:
@@ -874,12 +884,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								? []
 								: yield* matchRelationshipPolicies({
 										command,
+										transaction,
 										userId: yield* requireUser,
 										prepared: relationshipTokens,
 									}).pipe(Effect.provideContext(policyContext)),
 					};
 				});
-				type PlannedPolicies = Effect.Success<typeof planPolicies>;
+				type PlannedPolicies = Effect.Success<ReturnType<typeof planPolicies>>;
 				const validatePolicies = Effect.fnUntraced(function* (planned: PlannedPolicies) {
 					const acceptEntity = acceptEntityPolicies(
 						yield* applyEntityPolicies(planned.entities).pipe(Effect.provideContext(policyContext)),
@@ -1088,7 +1099,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								identity: ["relationships"],
 								resource: "relationship" as const,
 							};
-							yield* planner.prepareBatch({ ...batch, scopes: [userId] });
+							yield* planner.prepareBatch(transaction, { ...batch, scopes: [userId] });
 							for (const [index, { prepared, itemIdentity }] of preparedRelations.entries()) {
 								if (prepared === null) {
 									relationshipResults.push({ itemIdentity, operation: "noop", relationship: null });
@@ -1125,7 +1136,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							}
 						}
 						if (recordedChanges.length > 0) {
-							const prepared = yield* eventMutations.prepare({
+							const prepared = yield* eventMutations.prepare(transaction, {
 								userId,
 								command,
 								changes: recordedChanges,
@@ -1151,7 +1162,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}
 					}
 					const eventBatch = { command, identity: ["events"], resource: "event" as const };
-					yield* planner.prepareBatch({
+					yield* planner.prepareBatch(transaction, {
 						...eventBatch,
 						scopes: [
 							...new Set([
@@ -1263,7 +1274,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						dispatch.push(...work.dispatch);
 					}
 					if (written.entities.length > 0) {
-						dispatch.push(...(yield* entities.planEntityBatch(entityBatch)));
+						dispatch.push(...(yield* entities.planEntityBatch(transaction, entityBatch)));
 					}
 					const outcomes = independent
 						? sortedOutcomes([
@@ -1332,7 +1343,14 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						message: "A global relationship names an entity the change set does not upsert",
 					});
 				}
-				const prepared = yield* prepareChanges(input, command, pluginRevision, options);
+				const preparation = new WritePreparation();
+				const prepared = yield* prepareChanges(
+					preparation,
+					input,
+					command,
+					pluginRevision,
+					options,
+				);
 				const scope =
 					input.userId === null
 						? ({ scope: "global" } as const)
@@ -1463,6 +1481,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					dispatch.push(...global.dispatch);
 					if (input.population) {
 						yield* entities.persistPopulation(
+							transaction,
 							{
 								claims: input.population.claims ?? [],
 								relatedPopulated: input.population.relatedPopulated ?? [],
@@ -1472,7 +1491,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						);
 					}
 					for (const [index, trigger] of (input.triggers ?? []).entries()) {
-						yield* writeChecks.check(command, trigger.owner, input.userId, true);
+						yield* writeChecks.check(command, trigger.owner, input.userId, transaction);
 						dispatch.push(
 							...(yield* planner.planChange(
 								{
@@ -1537,7 +1556,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					eventMutations.transaction(
 						work,
 						command.causation.lane === "background" || options.queueFolds ? "queue" : "inline",
+						preparation,
 					);
+				// Every catalog read and write check of a commit transaction follows its catalog lock, so they
+				// share one current reading of the user's plugins.
+				const lockCatalog = planner.lockCatalog([input.userId]);
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {
@@ -1545,7 +1568,8 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							if (stopped !== null) {
 								return { committed: stopped, kind: "committed" as const };
 							}
-							const planned = yield* prepared.planPolicies;
+							yield* lockCatalog;
+							const planned = yield* prepared.planPolicies(writes);
 							if (
 								[
 									...planned.events.flatMap(({ chunks }) => chunks),
@@ -1572,7 +1596,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const validated = yield* prepared.validatePolicies(started.planned);
 					return yield* transaction((writes) =>
 						Effect.gen(function* () {
-							return (yield* unchecked) ?? (yield* writeAll(writes, validated));
+							const stopped = yield* unchecked;
+							if (stopped !== null) {
+								return stopped;
+							}
+							yield* lockCatalog;
+							return yield* writeAll(writes, validated);
 						}),
 					).pipe(
 						Effect.catchTags({
@@ -1654,7 +1683,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					return yield* rematchOnce(
 						retryWhileExpectedHolds(
 							input,
-							sharePreparedPins(apply(input, command, { kind: "kernel" }, receipt, options)),
+							apply(input, command, { kind: "kernel" }, receipt, options),
 						),
 					);
 				});
@@ -1728,50 +1757,39 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				if (stored !== null) {
 					return stored;
 				}
-				return yield* sharePreparedPins(
-					Effect.gen(function* () {
-						const principal = command.writeContext;
-						if (!principal) {
-							return yield* new DbError({
-								message: "A change set requires its writer's principal",
-							});
-						}
-						const authorized = authorizeChangeSet(input, principal);
-						if (Result.isFailure(authorized)) {
-							return yield* authorized.failure;
-						}
-						const authority = authorized.success;
-						const { userId, pluginRevision } = authority;
-						if (pluginRevision) {
-							const undeclared = undeclaredSchema(
-								input,
-								yield* scripts.getSchemaScope(pluginRevision.revisionId),
-							);
-							if (undeclared !== undefined) {
-								return yield* new ChangeSetRejected({
-									part: "schemas",
-									message: `Schema ${undeclared} is not declared by the writing plugin revision`,
-								});
-							}
-							if (userId !== null) {
-								yield* rejectForeignReferences(input, userId, pluginRevision.id);
-							}
-						}
-						return yield* rematchOnce(
-							apply(
-								fromScriptChangeSet(
-									input,
-									userId,
-									pluginRevision?.id ?? null,
-									principal.providerId,
-								),
-								command,
-								{ principal, authority, kind: "script" },
-								receipt,
-								{},
-							),
-						);
-					}),
+				const principal = command.writeContext;
+				if (!principal) {
+					return yield* new DbError({ message: "A change set requires its writer's principal" });
+				}
+				const authorized = authorizeChangeSet(input, principal);
+				if (Result.isFailure(authorized)) {
+					return yield* authorized.failure;
+				}
+				const authority = authorized.success;
+				const { userId, pluginRevision } = authority;
+				if (pluginRevision) {
+					const undeclared = undeclaredSchema(
+						input,
+						yield* scripts.getSchemaScope(pluginRevision.revisionId),
+					);
+					if (undeclared !== undefined) {
+						return yield* new ChangeSetRejected({
+							part: "schemas",
+							message: `Schema ${undeclared} is not declared by the writing plugin revision`,
+						});
+					}
+					if (userId !== null) {
+						yield* rejectForeignReferences(input, userId, pluginRevision.id);
+					}
+				}
+				return yield* rematchOnce(
+					apply(
+						fromScriptChangeSet(input, userId, pluginRevision?.id ?? null, principal.providerId),
+						command,
+						{ principal, authority, kind: "script" },
+						receipt,
+						{},
+					),
 				);
 			});
 			return { commit, commitOnce, commitScript, commitEventsKeyed };

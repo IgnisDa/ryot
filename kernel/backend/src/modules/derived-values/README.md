@@ -60,7 +60,7 @@ step collects whatever they marked.
 
 Every write runs in one write transaction. Whoever opens it creates a `WriteTransaction` and hands it
 to every write in it; fold marks, event group captures and reference clears are kept per transaction
-through `transactionState`, never in ambient context. Each event create, update, delete, merge move
+through `writeState`, never in ambient context. Each event create, update, delete, merge move
 and reference clear records the event's image before the transaction first changes it; entity deletes
 record the events whose subject survives the cascade. After the transaction's work and before the
 event-group check, the kernel reads the current image of each changed event, routes both images to

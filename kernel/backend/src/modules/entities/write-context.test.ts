@@ -6,11 +6,13 @@ import {
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema, type Tracer } from "effect";
 
 import {
 	installRevisionPackage,
@@ -20,6 +22,7 @@ import {
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { DomainWriteChecks, DomainWriteChecksLive, DomainWriteConflict } from "./write-context";
@@ -27,7 +30,11 @@ import { DomainWriteChecks, DomainWriteChecksLive, DomainWriteConflict } from ".
 const userId = UserId.make("owner");
 
 const installedWriter = Effect.gen(function* () {
-	const installed = yield* installRevisionPackage(revisionPackage("write-checks"), userId);
+	const packageId = testPluginPackageId();
+	const installed = yield* installRevisionPackage(
+		revisionPackage("write-checks", "v1", undefined, packageId),
+		userId,
+	);
 	const session = yield* DatabaseSession;
 	const [script] = yield* session.run((db) =>
 		db
@@ -50,6 +57,10 @@ const installedWriter = Effect.gen(function* () {
 		command: {
 			writeContext: yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject }),
 		},
+		upgrade: installRevisionPackage(
+			revisionPackage("write-checks", "v2", undefined, packageId),
+			userId,
+		),
 	};
 });
 
@@ -61,7 +72,9 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				const session = yield* DatabaseSession;
 				const checks = yield* DomainWriteChecks;
 				const { command, pluginId, revisionId } = yield* installedWriter;
-				const check = checks.check(command, definitionOwner(pluginId), userId, true);
+				const check = Effect.suspend(() =>
+					checks.check(command, definitionOwner(pluginId), userId, new WriteTransaction()),
+				);
 				const outcome = yield* session.transaction(
 					Effect.gen(function* () {
 						const first = yield* check;
@@ -81,9 +94,14 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				);
 				expect(outcome.reused).toEqual(outcome.first);
 				expect(outcome.first).toEqual({ id: revisionId, activeRevisionId: revisionId });
-				expect(yield* checks.preparePin(command, definitionOwner(pluginId), userId)).toEqual(
-					outcome.first,
-				);
+				expect(
+					yield* checks.preparePin(
+						command,
+						definitionOwner(pluginId),
+						userId,
+						new WritePreparation(),
+					),
+				).toEqual(outcome.first);
 				assertExitFails(
 					yield* Effect.exit(session.transaction(check)),
 					new DbError({ message: "Current domain write installation authority is unavailable" }),
@@ -107,15 +125,16 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				const kernel = definitionOwner(null);
 				const outcomes = yield* session.transaction(
 					Effect.gen(function* () {
-						yield* checks.check(command, definitionOwner(pluginId), userId, true);
+						const transaction = new WriteTransaction();
+						yield* checks.check(command, definitionOwner(pluginId), userId, transaction);
 						return {
-							kernel: yield* Effect.exit(checks.check(command, kernel, userId, true)),
-							foreign: yield* Effect.exit(checks.check(command, foreign, userId, true)),
+							kernel: yield* Effect.exit(checks.check(command, kernel, userId, transaction)),
+							foreign: yield* Effect.exit(checks.check(command, foreign, userId, transaction)),
 							collection: yield* checks.check(
 								{ ...command, kernelCollection: true },
 								kernel,
 								userId,
-								true,
+								transaction,
 							),
 						};
 					}),
@@ -124,8 +143,68 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				assertExitFails(outcomes.kernel, mismatch(kernel));
 				expect(outcomes.collection).toBeNull();
 				assertExitFails(
-					yield* Effect.exit(checks.preparePin(command, foreign, userId)),
+					yield* Effect.exit(checks.preparePin(command, foreign, userId, new WritePreparation())),
 					mismatch(foreign),
+				);
+			}),
+	);
+
+	test.effect(
+		"reads a writer's pin once per preparation and verifies it under the commit's locks",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const checks = yield* DomainWriteChecks;
+				const { command, pluginId, revisionId } = yield* installedWriter;
+				const owner = definitionOwner(pluginId);
+				const spans: Tracer.Span[] = [];
+				const preparation = new WritePreparation();
+				const pin = yield* Effect.gen(function* () {
+					const prepared = yield* checks.preparePin(command, owner, userId, preparation);
+					expect(yield* checks.preparePin(command, owner, userId, preparation)).toEqual(prepared);
+					return yield* session.transaction(
+						checks.check(command, owner, userId, new WriteTransaction(preparation)),
+					);
+				}).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				expect(pin).toEqual({ id: revisionId, activeRevisionId: revisionId });
+				expect(
+					recordedStatements(spans).filter((text) =>
+						text.includes('from "plugin_revision" inner join "plugin"'),
+					),
+				).toHaveLength(1);
+			}),
+	);
+
+	test.effect(
+		"rejects or repins a prepared writer whose installation or active revision changed",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const checks = yield* DomainWriteChecks;
+				const { command, upgrade, pluginId, revisionId } = yield* installedWriter;
+				const owner = definitionOwner(pluginId);
+				const preparation = new WritePreparation();
+				const commit = session.transaction(
+					checks.check(command, owner, userId, new WriteTransaction(preparation)),
+				);
+				yield* checks.preparePin(command, owner, userId, preparation);
+				const upgraded = yield* upgrade;
+				expect(upgraded.pluginId).toBe(pluginId);
+				expect(yield* commit).toEqual({ id: revisionId, activeRevisionId: upgraded.revisionId });
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ uninstalledAt: new Date() })
+						.where(
+							and(
+								eq(tables.pluginInstallation.pluginId, pluginId),
+								eq(tables.pluginInstallation.userId, userId),
+							),
+						),
+				);
+				assertExitFails(
+					yield* Effect.exit(commit),
+					new DbError({ message: "Current domain write installation authority is unavailable" }),
 				);
 			}),
 	);

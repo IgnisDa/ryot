@@ -24,7 +24,7 @@ import {
 } from "#modules/entities/prepared-entity-create";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import type { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	makeRelationshipMutationPrimitives,
@@ -86,6 +86,7 @@ const schemaKey = (mutation: Mutation) => {
 /** Matches the policies of every prepared write with a request, in the caller's transaction. */
 export const matchRelationshipPolicies = (input: {
 	readonly userId: UserId;
+	readonly transaction: WriteTransaction;
 	readonly command: DomainLifecycleCommand;
 	readonly prepared: ReadonlyArray<PreparedUserRelationship>;
 }) => {
@@ -94,6 +95,7 @@ export const matchRelationshipPolicies = (input: {
 		return request === null ? [] : [{ token, request, mutation }];
 	});
 	return matchPolicyChunks(
+		input.transaction,
 		subjectChunks(requested, (item) => item.mutation.input.sourceEntityId),
 		(items, index) =>
 			Effect.succeed({
@@ -218,6 +220,7 @@ export const makePreparedRelationshipMutations = (
 	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);
 	const prepareUserMutation = Effect.fnUntraced(function* (
+		preparation: WritePreparation,
 		submitted: UserRelationshipInput | UserRelationshipWrite,
 		commandInput: DomainLifecycleCommand,
 		mode: "delete" | UserRelationshipMode,
@@ -235,7 +238,7 @@ export const makePreparedRelationshipMutations = (
 			),
 		);
 		const pin = yield* writes
-			.preparePin(command, relationshipSchemaReference(input).owner, input.userId)
+			.preparePin(command, relationshipSchemaReference(input).owner, input.userId, preparation)
 			.pipe(Effect.mapError(relationshipWriteFailure));
 		let mutation: Mutation = {
 			mode,
@@ -248,9 +251,11 @@ export const makePreparedRelationshipMutations = (
 				return yield* Effect.die("A prepared relationship write is missing properties");
 			}
 			const reference = relationshipSchemaReference(input);
-			const definition = (yield* definitions.findUserRelationshipSchemas(input.userId, [
-				reference,
-			]))[definitionKey("relationship", reference.owner, reference.slug)];
+			const definition = (yield* definitions.findUserRelationshipSchemas(
+				input.userId,
+				[reference],
+				preparation,
+			))[definitionKey("relationship", reference.owner, reference.slug)];
 			if (!definition) {
 				return yield* new RelationshipNotFound({
 					reason: { schema: reference, code: "relationship-schema-not-found" },
@@ -280,6 +285,7 @@ export const makePreparedRelationshipMutations = (
 						mutation,
 						createdEntities,
 					),
+					preparation,
 					pin,
 				);
 				const row = yield* repository.findRelationship(mutation.input);
@@ -291,19 +297,32 @@ export const makePreparedRelationshipMutations = (
 	});
 	const prepareUserWrite = Effect.fn("RelationshipsService.prepareUserWrite")(
 		(
+			preparation: WritePreparation,
 			input: UserRelationshipWrite,
 			command: DomainLifecycleCommand,
 			mode: UserRelationshipMode,
 			createdEntities: ReadonlyArray<PreparedEntityCreate> = [],
 			expectedTargetEntityId?: EntityId,
-		) => prepareUserMutation(input, command, mode, createdEntities, expectedTargetEntityId),
+		) =>
+			prepareUserMutation(
+				preparation,
+				input,
+				command,
+				mode,
+				createdEntities,
+				expectedTargetEntityId,
+			),
 	);
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(
-		(input: UserRelationshipInput, command: DomainLifecycleCommand) =>
-			prepareUserMutation(input, command, "delete"),
+		(
+			preparation: WritePreparation,
+			input: UserRelationshipInput,
+			command: DomainLifecycleCommand,
+		) => prepareUserMutation(preparation, input, command, "delete"),
 	);
 	/** Prepares deleting the user's relationship by ID; null when the user has no such relationship. */
 	const prepareUserDeleteById = Effect.fn("RelationshipsService.prepareUserDeleteById")(function* (
+		preparation: WritePreparation,
 		userId: UserId,
 		relationshipId: RelationshipId,
 		command: DomainLifecycleCommand,
@@ -313,6 +332,7 @@ export const makePreparedRelationshipMutations = (
 			return null;
 		}
 		return yield* prepareUserMutation(
+			preparation,
 			{
 				userId,
 				scope: "user",
@@ -339,7 +359,7 @@ export const makePreparedRelationshipMutations = (
 	) {
 		yield* assertActiveTransaction;
 		const { before, request, mutation } = token;
-		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)]);
+		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)], transaction);
 		yield* primitives.lockMutations([mutation]);
 		// An ensure stands when its relationship exists by commit, including one written since it was prepared.
 		if (request === null || mutation.mode === "ensure") {
@@ -363,16 +383,22 @@ export const makePreparedRelationshipMutations = (
 			command: batchInput?.command ?? mutation.command,
 			identity: batchInput?.identity ?? [mutation.command.itemIdentity],
 		};
-		const batch = yield* planner.prepareBatch({
+		const batch = yield* planner.prepareBatch(transaction, {
 			...batchScope,
 			scopes: [mutation.input.scope === "user" ? mutation.input.userId : null],
 		});
 		const validated = yield* primitives.validateMutation(
 			mutation,
 			yield* primitives.readEntities([mutation]),
+			transaction,
 			pinOf(mutation),
 		);
-		const revalidated = yield* primitives.revalidateRequest(mutation, request, validated);
+		const revalidated = yield* primitives.revalidateRequest(
+			transaction,
+			mutation,
+			request,
+			validated,
+		);
 		const { payload, ...persisted } = yield* primitives.persistPreparedSource(
 			transaction,
 			mutation,

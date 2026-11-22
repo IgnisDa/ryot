@@ -33,7 +33,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -1230,7 +1230,11 @@ describe("Relationships lifecycle owner", () => {
 						const repository = yield* RelationshipsRepository;
 
 						const created = yield* repository.createRelationship(new WriteTransaction(), baseInput);
-						const stale = yield* service.prepareUserDelete(baseInput, command("prepared-stale"));
+						const stale = yield* service.prepareUserDelete(
+							new WritePreparation(),
+							baseInput,
+							command("prepared-stale"),
+						);
 						yield* repository.updateRelationshipsById([
 							{ id: created.id, properties: { rank: 9 } },
 						]);
@@ -1246,10 +1250,12 @@ describe("Relationships lifecycle owner", () => {
 						};
 						yield* repository.createRelationship(new WriteTransaction(), deletionInput);
 						const deletion = yield* service.prepareUserDelete(
+							new WritePreparation(),
 							deletionInput,
 							command("prepared-delete"),
 						);
 						const creation = yield* service.prepareUserWrite(
+							new WritePreparation(),
 							createInput,
 							command("prepared-create"),
 							"upsert",

@@ -612,8 +612,8 @@ layer(
 				expect(
 					count(
 						({ params, statement }) =>
-							statement === "select pg_advisory_xact_lock_shared(hashtext($1))" &&
-							params[0] === `plugin-config:${fixture.installed.pluginId}`,
+							statement.includes("pg_advisory_xact_lock_shared") &&
+							params.includes(`plugin-config:${fixture.installed.pluginId}`),
 					),
 				).toBe(1);
 				expect(
@@ -624,7 +624,7 @@ layer(
 						'from "sandbox_script" left join "kernel_script"',
 						'from "plugin" inner join "plugin_revision"',
 					].map((fragment) => count(({ statement }) => statement.includes(fragment))),
-				).toEqual([1, 1, 1, 1, 0]);
+				).toEqual([0, 1, 1, 1, 0]);
 				yield* fixture.apply;
 				expect(
 					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [

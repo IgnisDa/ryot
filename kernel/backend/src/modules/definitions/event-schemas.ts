@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import type { WriteScope } from "#platform/db/write-transaction";
 
 import { definitionText } from "./text";
 
@@ -32,12 +33,16 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()(
 			const definitions = yield* DefinitionRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const lockCatalog = pluginRuntime.lockCatalog;
-			const getScopesForUser = (userId: UserId, inputs: ReadonlyArray<EventSchemaScopeInput>) => {
+			const getScopesForUser = (
+				userId: UserId,
+				inputs: ReadonlyArray<EventSchemaScopeInput>,
+				scope?: WriteScope,
+			) => {
 				const references = inputs.map((input) => ({
 					slug: input.entitySchemaSlug,
 					owner: definitionOwner(input.entitySchemaPluginId),
 				}));
-				return definitions.findUserEntitySchemas(userId, references).pipe(
+				return definitions.findUserEntitySchemas(userId, references, scope).pipe(
 					Effect.map((found) =>
 						inputs.map((input) => {
 							const entity =

@@ -17,8 +17,10 @@ import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { lockPluginConfigShared } from "#modules/plugins/packages/ingestion-fence";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
@@ -179,15 +181,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (!ids.length) {
 					return;
 				}
-				// Shared: planners coexist; PluginConfigRevisions.lock takes these same keys exclusively.
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock_shared(hashtext(k)) from unnest(array[${sql.join(
-							ids.map((id) => sql`${"plugin-config:" + id}`),
-							sql`, `,
-						)}]::text[]) with ordinality t(k, n) order by n`,
-					),
-				);
+				yield* lockPluginConfigShared(session, ids);
 				yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -214,13 +208,14 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const catalogUncached = Effect.fn(function* (
 				userId: null | UserId,
+				transaction: undefined | WriteTransaction,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
 				const plugins =
 					userId === null
 						? (yield* catalogs.globalPlugins()).filter(({ isExecutable }) => isExecutable)
-						: (yield* catalogs.listUserPlugins(
-								sql`i.user_id = ${userId} and exists (select 1 from "user" u where u.id = i.user_id and u.disabled_at is null)`,
-							)).filter(({ isExecutable }) => isExecutable);
+						: (yield* catalogs.userPlugins(userId, transaction)).filter(
+								({ isExecutable, isAccountDisabled }) => isExecutable && !isAccountDisabled,
+							);
 				const revisions = yield* catalogs.revisions(
 					plugins.map(({ activeRevisionId }) => activeRevisionId),
 				);
@@ -273,7 +268,10 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					}),
 				);
 			});
-			const catalog = Effect.fn(function* (userId: null | UserId) {
+			const catalog = Effect.fn(function* (
+				userId: null | UserId,
+				transaction: undefined | WriteTransaction,
+			) {
 				return yield* session.run((db) =>
 					Effect.gen(function* () {
 						const memo = memoFor(db);
@@ -281,7 +279,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						if (cached) {
 							return cached;
 						}
-						const resolved = yield* catalogUncached(userId);
+						const resolved = yield* catalogUncached(userId, transaction);
 						memo.catalogs.set(userId, resolved);
 						return resolved;
 					}),
@@ -342,8 +340,9 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,
 				executionUserId: null | UserId,
+				transaction?: WriteTransaction,
 			) {
-				const available = yield* catalog(executionUserId);
+				const available = yield* catalog(executionUserId, transaction);
 				const result: Array<{
 					hook: PluginHook;
 					plugin: null | PlannerPlugin;
@@ -508,10 +507,11 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const resolveBatchCandidates = Effect.fn(function* (input: {
 				userId: null | UserId;
+				transaction: WriteTransaction;
 				resource: "event" | "entity" | "relationship";
 				source: AutomationTrigger["causation"]["source"];
 			}) {
-				const available = yield* catalog(input.userId);
+				const available = yield* catalog(input.userId, input.transaction);
 				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
