@@ -310,8 +310,9 @@ CREATE TABLE "client_page_composition" (
 --> statement-breakpoint
 CREATE TABLE "data_change" (
 	"user_id" text,
+	"schema_slug" text,
 	"transaction_id" xid8 NOT NULL,
-	CONSTRAINT "data_change_user_transaction_unique" UNIQUE NULLS NOT DISTINCT("user_id","transaction_id")
+	CONSTRAINT "data_change_user_schema_transaction_unique" UNIQUE NULLS NOT DISTINCT("user_id","schema_slug","transaction_id")
 );
 --> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
@@ -455,6 +456,7 @@ CREATE TABLE "definition_signal_schedule" (
 	"precision" text NOT NULL,
 	"properties" jsonb NOT NULL,
 	"freshness" jsonb,
+	"read_schema_slugs" text[],
 	"id" text PRIMARY KEY,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_signal_schedule_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
@@ -484,12 +486,12 @@ CREATE TABLE "derived_change" (
 CREATE TABLE "derived_value" (
 	"target_id" text,
 	"plugin_revision_id" text NOT NULL,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"replay" boolean DEFAULT false NOT NULL,
 	"value" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"kind" text,
 	"status" text DEFAULT 'ready' NOT NULL,
-	"revision" integer DEFAULT 0 NOT NULL,
-	"replay" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"plugin_id" text NOT NULL,
 	"subject_entity_id" text NOT NULL,

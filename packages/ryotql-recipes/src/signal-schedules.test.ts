@@ -2,16 +2,22 @@ import { describe, expect, it } from "bun:test";
 
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
+	and,
 	castDate,
 	castText,
 	column,
 	eq,
+	exists,
 	field,
 	gte,
+	inArray,
+	isNotNull,
 	isNull,
+	join,
 	jsonPath,
 	literal,
 	lt,
+	not,
 	or,
 	pluginId,
 	table,
@@ -19,7 +25,11 @@ import {
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 
-import { signalScheduleRecipe, type SignalScheduleSource } from "./signal-schedules";
+import {
+	signalScheduleReadSchemaSlugs,
+	signalScheduleRecipe,
+	type SignalScheduleSource,
+} from "./signal-schedules";
 import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const entity = table("entity", "record");
@@ -169,5 +179,71 @@ describe("signal schedule recipe", () => {
 		]) {
 			expect(Result.isFailure(signalScheduleRecipe({ schedule: candidate }))).toBe(true);
 		}
+	});
+});
+
+const reads = (query: Partial<SignalScheduleSource["query"]>) =>
+	Result.getOrThrow(
+		signalScheduleReadSchemaSlugs({ ...schedule, query: { ...schedule.query, ...query } }),
+	);
+
+describe("signal schedule read schemas", () => {
+	const link = table("relationship", "link");
+	const target = table("entity", "target");
+	const event = table("event", "event");
+	const linkSlug = eq(column(link, "relationshipSchemaSlug"), literal("linked-to"));
+
+	it("bounds the subject by its declared schemas", () => {
+		expect(reads({})).toEqual(["record"]);
+	});
+
+	it("bounds joined and correlated tables by their schema conditions", () => {
+		expect(
+			reads({
+				where: and(
+					where,
+					linkSlug,
+					not(exists(event, { where: eq(column(event, "entityId"), column(entity, "id")) })),
+				),
+				joins: [
+					join("inner", link, eq(column(link, "sourceEntityId"), column(entity, "id"))),
+					join(
+						"left",
+						target,
+						and(
+							eq(column(target, "id"), column(link, "targetEntityId")),
+							or(
+								eq(column(target, "entitySchemaSlug"), literal("book")),
+								inArray(column(target, "entitySchemaSlug"), [literal("movie"), literal("show")]),
+							),
+						),
+					),
+				],
+			}),
+		).toEqual(["book", "linked-to", "movie", "record", "show"]);
+	});
+
+	it("leaves a table without a schema condition unbounded", () => {
+		const joins = [
+			join("inner", link, eq(column(link, "sourceEntityId"), column(entity, "id"))),
+		] as const;
+		expect(reads({ joins })).toBeNull();
+		expect(reads({ joins, where: or(linkSlug, where) })).toBeNull();
+		expect(reads({ joins, where: not(not(linkSlug)) })).toBeNull();
+		expect(
+			reads({
+				where: exists(link, { where: eq(column(link, "sourceEntityId"), column(entity, "id")) }),
+			}),
+		).toBeNull();
+		expect(
+			reads({
+				where: linkSlug,
+				joins: [join("left", link, eq(column(link, "sourceEntityId"), column(entity, "id")))],
+			}),
+		).toEqual(["linked-to", "record"]);
+	});
+
+	it("leaves a schedule reading every related relationship unbounded", () => {
+		expect(reads({ where: isNotNull(column(entity, "relatedPopulationStatus")) })).toBeNull();
 	});
 });

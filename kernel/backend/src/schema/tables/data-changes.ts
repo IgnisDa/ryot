@@ -4,10 +4,10 @@ const transactionId = customType<{ data: string; driverData: string }>({ dataTyp
 
 export const dataChange = snakeCase.table(
 	"data_change",
-	{ userId: text(), transactionId: transactionId().notNull() },
+	{ userId: text(), schemaSlug: text(), transactionId: transactionId().notNull() },
 	(table) => [
-		unique("data_change_user_transaction_unique")
-			.on(table.userId, table.transactionId)
+		unique("data_change_user_schema_transaction_unique")
+			.on(table.userId, table.schemaSlug, table.transactionId)
 			.nullsNotDistinct(),
 	],
 );

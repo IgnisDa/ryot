@@ -34,7 +34,7 @@ import { type SignalScheduleCursor, SignalScheduleRepository } from "./repositor
 const CATCH_UP_DAYS = 2;
 const RETENTION_DAYS = 30;
 const PRUNE_LIMIT = 500;
-const REFRESH_HOURS = 24;
+const SNAPSHOT_HOURS = 1;
 const EVALUATION_RETENTION_HOURS = 48;
 const TARGET_PAGE_SIZE = 50;
 const TARGET_PAGE_LIMIT = 10;
@@ -263,6 +263,17 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						),
 					);
 				const snapshot = yield* repository.currentSnapshot();
+				yield* repository
+					.advanceSnapshots({
+						now,
+						snapshot,
+						before: DateTime.toDate(DateTime.subtract(at, { hours: SNAPSHOT_HOURS })),
+					})
+					.pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("Signal schedule snapshot advance failed", cause),
+						),
+					);
 				const active = yield* entitlements.current;
 				let after: null | SignalScheduleCursor = null;
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
@@ -270,7 +281,6 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						now,
 						after,
 						limit: TARGET_PAGE_SIZE,
-						refreshBefore: DateTime.toDate(DateTime.subtract(at, { hours: REFRESH_HOURS })),
 					});
 					const evaluations = [];
 					for (const target of targets) {

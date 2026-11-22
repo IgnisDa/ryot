@@ -8,7 +8,8 @@ import {
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, type SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
-import { Array as Arr } from "effect";
+import { signalScheduleReadSchemaSlugs } from "@ryot-app/ryotql-recipes/signal-schedules";
+import { Array as Arr, Result } from "effect";
 
 import { signalScheduleIssue } from "./row-source-validation";
 
@@ -22,6 +23,8 @@ export type SignalScheduleDefinition = {
 	readonly subject: SavedViewSubject;
 	readonly precision: RowSourcePrecision;
 	readonly entitlement: null | Entitlement;
+	/** The schema slugs of the global rows the evaluation reads, null when they are not bounded. */
+	readonly readSchemaSlugs: null | readonly string[];
 	readonly properties: Readonly<Record<string, string>>;
 	readonly freshness: null | { readonly confirmedAt: string; readonly maxAgeHours: number };
 };
@@ -30,7 +33,7 @@ export const materializeSignalSchedule = (
 	definition: NonNullable<PluginManifest["signalSchedules"]>[number],
 	pluginId: string,
 ): SignalScheduleDefinition => {
-	const schedule: SignalScheduleDefinition = {
+	const schedule: Omit<SignalScheduleDefinition, "readSchemaSlugs"> = {
 		slug: definition.slug,
 		dueAt: definition.dueAt,
 		signal: definition.signal,
@@ -55,5 +58,8 @@ export const materializeSignalSchedule = (
 	if (issue) {
 		throw new Error(`Invalid signal schedule ${definition.slug}: ${issue}`);
 	}
-	return schedule;
+	return {
+		...schedule,
+		readSchemaSlugs: Result.getOrThrow(signalScheduleReadSchemaSlugs(schedule)),
+	};
 };

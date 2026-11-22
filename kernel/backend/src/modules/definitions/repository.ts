@@ -428,11 +428,14 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							db
 								.insert(schema.definitionSignalSchedule)
 								.values(
-									definitions.signalSchedules.map((definition, position) => ({
-										...definition,
-										position,
-										pluginRevisionId,
-									})),
+									definitions.signalSchedules.map(
+										({ readSchemaSlugs, ...definition }, position) => ({
+											...definition,
+											position,
+											pluginRevisionId,
+											readSchemaSlugs: readSchemaSlugs && [...readSchemaSlugs],
+										}),
+									),
 								),
 						);
 					}

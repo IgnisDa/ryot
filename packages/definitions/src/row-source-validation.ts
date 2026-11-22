@@ -101,7 +101,9 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 /** The tables whose writes record a data change, which decides when a schedule is evaluated again. */
 const signalScheduleTables = new Set(["event", "entity", "relationship"]);
 
-export const signalScheduleIssue = (schedule: SignalScheduleDefinition) => {
+export const signalScheduleIssue = (
+	schedule: Omit<SignalScheduleDefinition, "readSchemaSlugs">,
+) => {
 	const document = rowSourceDocument(schedule.query);
 	if (documentReadsClock(document)) {
 		return "query must not read the clock; the kernel owns the due window";

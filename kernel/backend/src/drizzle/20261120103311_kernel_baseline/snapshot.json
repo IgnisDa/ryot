@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "48d2aa40-ed42-49a8-9e50-7d664ec902af",
+	"id": "d108a42f-81d2-4e18-8f46-62251176c1de",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -311,7 +311,7 @@
 				"e|tbl|public.data_change",
 				"n|rel|public.data_change",
 				"n|type|public.data_change",
-				"n|rel|public.data_change_user_transaction_unique"
+				"n|rel|public.data_change_user_schema_transaction_unique"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -10033,6 +10033,19 @@
 		{
 			"schema": "public",
 			"table": "data_change",
+			"name": "schema_slug",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "data_change",
 			"name": "transaction_id",
 			"type": "xid8",
 			"typeSchema": null,
@@ -11385,6 +11398,19 @@
 		{
 			"schema": "public",
 			"table": "definition_signal_schedule",
+			"name": "read_schema_slugs",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 1,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_signal_schedule",
 			"name": "id",
 			"type": "text",
 			"typeSchema": null,
@@ -11606,6 +11632,32 @@
 		{
 			"schema": "public",
 			"table": "derived_value",
+			"name": "revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "replay",
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
 			"name": "value",
 			"type": "jsonb",
 			"typeSchema": null,
@@ -11651,32 +11703,6 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": "'ready'",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "derived_value",
-			"name": "revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "derived_value",
-			"name": "replay",
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -26755,9 +26781,9 @@
 		{
 			"schema": "public",
 			"table": "data_change",
-			"name": "data_change_user_transaction_unique",
+			"name": "data_change_user_schema_transaction_unique",
 			"nameExplicit": true,
-			"columns": ["user_id", "transaction_id"],
+			"columns": ["user_id", "schema_slug", "transaction_id"],
 			"nullsNotDistinct": true,
 			"entityType": "uniques"
 		},

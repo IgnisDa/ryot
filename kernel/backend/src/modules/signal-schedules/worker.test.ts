@@ -5,8 +5,9 @@ import { EntitySchemaSlug, SignalSchemaSlug, UserId } from "@ryot-app/contract/s
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { castDate, column, field, jsonPath, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -265,6 +266,7 @@ const insertEntity = Effect.fn(function* (
 	id: string,
 	dueAt: number,
 	userId: null | UserId = owner,
+	entitySchemaSlug: EntitySchemaSlug = EntitySchemaSlug.make("fixture-entity"),
 ) {
 	const { pluginId } = yield* Fixture;
 	yield* (yield* DatabaseSession).run((db) =>
@@ -274,8 +276,8 @@ const insertEntity = Effect.fn(function* (
 				id,
 				userId,
 				name: id,
+				entitySchemaSlug,
 				entitySchemaPluginId: pluginId,
-				entitySchemaSlug: "fixture-entity",
 				properties: { dueAt: new Date(dueAt).toISOString() },
 			}),
 	);
@@ -355,6 +357,74 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(services))))((test) => 
 			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
 			yield* insertEntity("global", start + hours(48), null);
 			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: [] });
+		}),
+	);
+
+	test.effect("skips a change to global data of a schema the schedule does not read", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			yield* insertEntity(
+				"unrelated",
+				start - hours(1),
+				null,
+				EntitySchemaSlug.make("unrelated-entity"),
+			);
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
+		}),
+	);
+
+	test.effect("evaluates again after its plugin or installation changes", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const { pluginId } = yield* Fixture;
+			const session = yield* DatabaseSession;
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			yield* session.run((db) =>
+				db.update(tables.plugin).set({ status: "active" }).where(eq(tables.plugin.id, pluginId)),
+			);
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 1, delivered: [] });
+			yield* session.run((db) =>
+				db
+					.update(tables.pluginInstallation)
+					.set({ sortOrder: 1 })
+					.where(eq(tables.pluginInstallation.userId, owner)),
+			);
+			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: [] });
+			expect(yield* runAt(start + 180_000)).toEqual({ queries: 0, delivered: [] });
+		}),
+	);
+
+	test.effect("keeps an unchanged evaluation without refreshing it and advances its snapshot", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const session = yield* DatabaseSession;
+			const evaluated = session.run((db) =>
+				db
+					.select({
+						evaluatedAt: tables.signalScheduleEvaluation.evaluatedAt,
+						snapshot: sql<string>`${tables.signalScheduleEvaluation.snapshot}::text`,
+					})
+					.from(tables.signalScheduleEvaluation),
+			);
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			const [first] = yield* evaluated;
+			assert(first);
+			yield* insertEntity(
+				"unrelated",
+				start - hours(1),
+				null,
+				EntitySchemaSlug.make("unrelated-entity"),
+			);
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
+			expect(yield* evaluated).toEqual([first]);
+			expect(yield* runAt(start + hours(2))).toEqual({ queries: 0, delivered: [] });
+			const [advanced] = yield* evaluated;
+			assert(advanced);
+			expect(advanced.evaluatedAt.getTime()).toBe(start + hours(2));
+			expect(advanced.snapshot).not.toBe(first.snapshot);
+			expect(yield* runAt(start + hours(25))).toEqual({ queries: 0, delivered: [] });
+			expect(yield* runAt(start + hours(49))).toEqual({ queries: 0, delivered: [] });
 		}),
 	);
 

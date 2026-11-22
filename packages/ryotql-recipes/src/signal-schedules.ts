@@ -1,4 +1,9 @@
-import type { Predicate } from "@ryot-app/contract/modules/ryotql/authored";
+import {
+	Join,
+	Predicate,
+	type ScalarExpression,
+	TableReference,
+} from "@ryot-app/contract/modules/ryotql/authored";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import type { RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -17,7 +22,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
-import { Result, Schema } from "effect";
+import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
+import { Option, Result, Schema } from "effect";
 
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
@@ -171,3 +177,149 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 	});
 	return Result.succeed(recipe);
 };
+
+/** The column naming a row's schema, for the tables whose rows can be global data. */
+const globalSchemaColumns: Readonly<Record<string, string>> = {
+	entity: "entitySchemaSlug",
+	relationship: "relationshipSchemaSlug",
+};
+
+/** Reads relationships of every schema that touch the entity. */
+const UNBOUNDED_FIELD = "relatedPopulationStatus";
+
+const QuerySet = Schema.Struct({
+	from: TableReference,
+	where: Schema.optional(Predicate),
+	joins: Schema.optional(Schema.Array(Join)),
+});
+type QuerySet = typeof QuerySet.Type;
+
+const textLiteral = (expression: ScalarExpression) =>
+	expression.type === "literal" && typeof expression.value === "string"
+		? expression.value
+		: undefined;
+
+const isColumn = (expression: ScalarExpression, alias: string, name: string) =>
+	expression.type === "column" && expression.tableAlias === alias && expression.field === name;
+
+const columnValue = (
+	left: ScalarExpression,
+	right: ScalarExpression,
+	alias: string,
+	name: string,
+) => (isColumn(left, alias, name) ? textLiteral(right) : undefined);
+
+/** The values a predicate that holds for every result row allows `alias.name` to take, if bounded. */
+const allowedValues = (
+	predicate: Predicate,
+	alias: string,
+	name: string,
+): undefined | ReadonlySet<string> => {
+	if (predicate.type === "comparison") {
+		const value =
+			predicate.operator === "eq"
+				? (columnValue(predicate.left, predicate.right, alias, name) ??
+					columnValue(predicate.right, predicate.left, alias, name))
+				: undefined;
+		return value === undefined ? undefined : new Set([value]);
+	}
+	if (predicate.type === "in") {
+		if ("type" in predicate.values || !isColumn(predicate.expr, alias, name)) {
+			return undefined;
+		}
+		const values = predicate.values.map(textLiteral);
+		return values.every((value): value is string => value !== undefined)
+			? new Set(values)
+			: undefined;
+	}
+	if (predicate.type === "and") {
+		const bounded = predicate.predicates.flatMap((child) => {
+			const values = allowedValues(child, alias, name);
+			return values === undefined ? [] : [values];
+		});
+		const [first, ...rest] = bounded;
+		return first === undefined
+			? undefined
+			: new Set([...first].filter((value) => rest.every((values) => values.has(value))));
+	}
+	if (predicate.type === "or") {
+		const branches = predicate.predicates.map((child) => allowedValues(child, alias, name));
+		return branches.length > 0 && branches.every((values) => values !== undefined)
+			? new Set(branches.flatMap((values) => Array.from(values)))
+			: undefined;
+	}
+	return undefined;
+};
+
+/**
+ * The schemas whose global rows a query set's tables can read, or null when a table's are not
+ * bounded. A table's rows are bounded by its query set's `where` and inner join conditions, and by
+ * its own condition when left joined; event rows are never global.
+ */
+const querySetSchemas = ({ from, where, joins = [] }: QuerySet): null | ReadonlySet<string> => {
+	const shared = [
+		...(where === undefined ? [] : [where]),
+		...joins.flatMap((join) => (join.type === "inner" ? [join.on] : [])),
+	];
+	const tables: ReadonlyArray<{
+		readonly source: TableReference;
+		readonly own: readonly Predicate[];
+	}> = [
+		{ own: [], source: from },
+		...joins.flatMap((join) =>
+			join.type === "jsonElements"
+				? []
+				: [{ source: join.table, own: join.type === "left" ? [join.on] : [] }],
+		),
+	];
+	const schemas = new Set<string>();
+	for (const { own, source } of tables) {
+		if (!("table" in source)) {
+			return null;
+		}
+		if (source.table === "event") {
+			continue;
+		}
+		const slugColumn = globalSchemaColumns[source.table];
+		const allowed =
+			slugColumn === undefined
+				? undefined
+				: allowedValues({ type: "and", predicates: [...shared, ...own] }, source.alias, slugColumn);
+		if (allowed === undefined) {
+			return null;
+		}
+		for (const slug of allowed) {
+			schemas.add(slug);
+		}
+	}
+	return schemas;
+};
+
+const documentReads = (value: unknown): ReadonlyArray<null | ReadonlySet<string>> => {
+	if (isUnknownArray(value)) {
+		return value.flatMap(documentReads);
+	}
+	if (!isObjectRecord(value) || value["type"] === "literal") {
+		return [];
+	}
+	const own =
+		value["type"] === "column" && value["field"] === UNBOUNDED_FIELD
+			? [null]
+			: Option.match(Schema.decodeUnknownOption(QuerySet)(value), {
+					onNone: () => [],
+					onSome: (querySet) => [querySetSchemas(querySet)],
+				});
+	return [...own, ...Object.values(value).flatMap(documentReads)];
+};
+
+/**
+ * The schema slugs of the global rows a schedule's evaluation can read, sorted, or null when they
+ * are not bounded. A global row of another schema cannot change what the evaluation returns.
+ */
+export const signalScheduleReadSchemaSlugs = (schedule: SignalScheduleSource) =>
+	Result.map(signalScheduleRecipe({ schedule }), (recipe) => {
+		const reads = documentReads(recipe.document.queries);
+		return reads.every((read) => read !== null)
+			? [...new Set(reads.flatMap((read) => Array.from(read)))].sort()
+			: null;
+	});

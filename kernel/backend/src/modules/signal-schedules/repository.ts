@@ -1,6 +1,20 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	eq,
+	exists,
+	gt,
+	inArray,
+	isNull,
+	lt,
+	lte,
+	not,
+	or,
+	sql,
+	type SQLWrapper,
+} from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -38,16 +52,40 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				return row.snapshot;
 			});
 
+			const unseen = sql`${change.transactionId} >= pg_snapshot_xmin(${evaluation.snapshot})
+				and not pg_visible_in_snapshot(${change.transactionId}, ${evaluation.snapshot})`;
+
+			/**
+			 * Whether the evaluation's snapshot does not see a data change of the target's user, a global
+			 * change to a schema the schedule reads, or a global change without a schema.
+			 */
+			const changed = (userId: SQLWrapper) => sql`(
+				exists (
+					select 1 from ${change}
+					where ${change.userId} = ${userId} and ${change.schemaSlug} is null and ${unseen}
+				)
+				or exists (
+					select 1 from ${change}
+					where ${change.userId} is null
+						and (${change.schemaSlug} is null or ${schedule.readSchemaSlugs} is null
+							or ${change.schemaSlug} = any(${schedule.readSchemaSlugs}))
+						and ${unseen}
+				)
+			)`;
+
+			const sameSettings = and(
+				sql`${evaluation.timeZone} is not distinct from ${schema.user.preferences}->>'reportingTimeZone'`,
+				sql`${evaluation.contentLanguage} is not distinct from ${schema.user.preferences}->>'contentLanguage'`,
+			);
+
 			/**
 			 * Lists the targets to evaluate: those whose next known occurrence is due by `now`, and those
-			 * without a current evaluation, which is none, one evaluated before `refreshBefore`, one in
-			 * another time zone or content language, or one whose snapshot does not see a data change of
-			 * the target's user or of global data.
+			 * without a current evaluation, which is none, one in another time zone or content language,
+			 * or one whose snapshot does not see a data change it may read.
 			 */
 			const listTargets = Effect.fn("SignalScheduleRepository.listTargets")(function* (input: {
 				readonly now: Date;
 				readonly limit: number;
-				readonly refreshBefore: Date;
 				readonly after: null | SignalScheduleCursor;
 			}) {
 				const { after, limit } = input;
@@ -56,18 +94,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 						after === null ? sql`true` : sql`i.user_id >= ${after.userId}`,
 					)).filter(({ isListed, isDefinitionEffective }) => isListed && isDefinitionEffective),
 				).as("user_plugin");
-				const stale = or(
-					isNull(evaluation.userId),
-					lt(evaluation.evaluatedAt, input.refreshBefore),
-					sql`${evaluation.timeZone} is distinct from ${schema.user.preferences}->>'reportingTimeZone'`,
-					sql`${evaluation.contentLanguage} is distinct from ${schema.user.preferences}->>'contentLanguage'`,
-					sql`exists (
-						select 1 from ${change}
-						where (${change.userId} = ${plugin.userId} or ${change.userId} is null)
-							and ${change.transactionId} >= pg_snapshot_xmin(${evaluation.snapshot})
-							and not pg_visible_in_snapshot(${change.transactionId}, ${evaluation.snapshot})
-					)`,
-				);
+				const stale = or(isNull(evaluation.userId), not(sameSettings), changed(plugin.userId));
 				return yield* session.run((db) =>
 					db
 						.select({
@@ -200,7 +227,59 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				);
 			});
 
-			/** Deletes evaluations no run refreshed, then the data changes every evaluation sees. */
+			/**
+			 * Moves the snapshot of each current evaluation taken before `before` to `snapshot`, taken at
+			 * `now`, when it has no unseen data change and no known occurrence due by `now`: evaluating it
+			 * again would find nothing new.
+			 */
+			const advanceSnapshots = Effect.fn("SignalScheduleRepository.advanceSnapshots")(
+				function* (input: {
+					readonly now: Date;
+					readonly before: Date;
+					readonly snapshot: string;
+				}) {
+					yield* session.run((db) =>
+						db
+							.update(evaluation)
+							.set({ evaluatedAt: input.now, snapshot: input.snapshot })
+							.from(schedule)
+							.innerJoin(
+								schema.plugin,
+								eq(schema.plugin.activeRevisionId, schedule.pluginRevisionId),
+							)
+							.innerJoin(schema.user, isNull(schema.user.disabledAt))
+							.where(
+								and(
+									sameSettings,
+									eq(schema.user.id, evaluation.userId),
+									eq(schema.plugin.id, evaluation.pluginId),
+									eq(schedule.slug, evaluation.scheduleSlug),
+									lt(evaluation.evaluatedAt, input.before),
+									or(isNull(evaluation.nextDueAt), gt(evaluation.nextDueAt, input.now)),
+									exists(
+										db
+											.select({ id: schema.notificationSubscription.id })
+											.from(schema.notificationSubscription)
+											.where(
+												and(
+													eq(schema.notificationSubscription.isActive, true),
+													eq(schema.notificationSubscription.userId, evaluation.userId),
+													eq(schema.notificationSubscription.signalSchemaSlug, schedule.signal),
+													eq(
+														schema.notificationSubscription.signalSchemaPluginId,
+														evaluation.pluginId,
+													),
+												),
+											),
+									),
+									not(changed(evaluation.userId)),
+								),
+							),
+					);
+				},
+			);
+
+			/** Deletes evaluations no run kept current, then the data changes every evaluation sees. */
 			const pruneEvaluations = Effect.fn("SignalScheduleRepository.pruneEvaluations")(function* (
 				evaluatedBefore: Date,
 			) {
@@ -242,6 +321,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				currentSnapshot,
 				lockUndelivered,
 				saveEvaluations,
+				advanceSnapshots,
 				pruneEvaluations,
 			};
 		}),

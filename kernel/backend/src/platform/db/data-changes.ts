@@ -1,17 +1,21 @@
-type ChangedUsers = (rows: "new_rows" | "old_rows") => string;
+type ChangedRows = (rows: "new_rows" | "old_rows") => string;
 
-const userColumn =
-	(column: string): ChangedUsers =>
+/** A row's user and, for a global row with a schema, that schema's slug. */
+const changed = (user: string, slug?: string) =>
+	`${user} as user_id, ${slug === undefined ? "null::text" : `case when ${user} is null then ${slug} end`} as schema_slug`;
+
+const ownRows =
+	(user: string, slug?: string): ChangedRows =>
 	(rows) =>
-		`select ${column} as user_id from ${rows}`;
+		`select ${changed(user, slug)} from ${rows}`;
 
-const entityOwner: ChangedUsers = (rows) =>
-	`select e.user_id from ${rows} r join entity e on e.id = r.entity_id`;
+const entityRows: ChangedRows = (rows) =>
+	`select ${changed("e.user_id", "e.entity_schema_slug")} from ${rows} r join entity e on e.id = r.entity_id`;
 
 // A request's activity is its requester's; a checked request changes its entity's provider check.
-const enrichmentUsers: ChangedUsers = (rows) =>
-	`select requester_user_id as user_id from ${rows} where requester_user_id is not null
-	union all select e.user_id from ${rows} r join entity e on e.id = r.entity_id where r.base_checked_at is not null`;
+const enrichmentRows: ChangedRows = (rows) =>
+	`select ${changed("requester_user_id")} from ${rows} where requester_user_id is not null
+	union all ${entityRows(rows)} where r.base_checked_at is not null`;
 
 const events = [
 	{ event: "insert", rows: ["new_rows"], referencing: "new table as new_rows" },
@@ -25,31 +29,38 @@ const events = [
 
 const recorded: ReadonlyArray<{
 	readonly name: string;
-	readonly users: ChangedUsers;
+	readonly rows: ChangedRows;
 	readonly tables: readonly string[];
 }> = [
+	{ name: "entities", tables: ["entity"], rows: ownRows("user_id", "entity_schema_slug") },
+	{
+		name: "relationships",
+		tables: ["relationship"],
+		rows: ownRows("user_id", "relationship_schema_slug"),
+	},
 	{
 		name: "user_rows",
-		users: userColumn("user_id"),
-		tables: ["entity", "relationship", "event", "derived_value", "plugin_installation"],
+		rows: ownRows("user_id"),
+		tables: ["event", "derived_value", "plugin_installation"],
 	},
-	{ name: "plugins", tables: ["plugin"], users: userColumn("owner_user_id") },
-	{ users: entityOwner, name: "translations", tables: ["entity_translation"] },
-	{ name: "enrichment", users: enrichmentUsers, tables: ["entity_enrichment_request"] },
+	{ name: "plugins", tables: ["plugin"], rows: ownRows("owner_user_id") },
+	{ rows: entityRows, name: "translations", tables: ["entity_translation"] },
+	{ name: "enrichment", rows: enrichmentRows, tables: ["entity_enrichment_request"] },
 ];
 
 // Triggers, because every writer of what a signal schedule reads has to record its change: change
 // sets, folds, enrichment, translations, plugin activation, backup restores and migrations. A null
-// user is a change to global data. PostgreSQL allows transition tables only on single-event triggers.
-export const dataChangeStatements = recorded.flatMap(({ name, users, tables }) =>
+// user is a change to global data, and a null schema slug on it reaches every schedule. PostgreSQL
+// allows transition tables only on single-event triggers.
+export const dataChangeStatements = recorded.flatMap(({ name, tables, rows: changedRows }) =>
 	events.flatMap(({ rows, event, referencing }) => {
 		const fn = `ryot_record_${name}_${event}`;
 		return [
 			`create or replace function ${fn}() returns trigger language plpgsql set search_path from current as $$
 begin
-	insert into data_change (user_id, transaction_id)
-	select distinct changed.user_id, pg_current_xact_id()
-	from (${rows.map(users).join(" union all ")}) changed
+	insert into data_change (user_id, schema_slug, transaction_id)
+	select distinct changed.user_id, changed.schema_slug, pg_current_xact_id()
+	from (${rows.map(changedRows).join(" union all ")}) changed
 	on conflict do nothing;
 	return null;
 end $$`,
