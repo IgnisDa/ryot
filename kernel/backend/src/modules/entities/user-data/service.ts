@@ -40,6 +40,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { trimToNull } from "#platform/validation";
 
 import { EntityUserDataAttachments } from "./attachments";
@@ -223,6 +224,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				relationships: ReadonlyArray<PreparedUserRelationship>;
 				states: ReadonlyArray<Effect.Success<ReturnType<typeof state>>>;
 				write: (
+					transaction: WriteTransaction,
 					batch: {
 						readonly identity: ReadonlyArray<string>;
 						readonly command: DomainLifecycleCommand;
@@ -258,9 +260,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* entitiesRepository.lockUserDataReferences(entityIds);
 						yield* input.recheck;
 					}),
-					write: Effect.fnUntraced(function* (accept: Accept) {
+					write: Effect.fnUntraced(function* (transaction: WriteTransaction, accept: Accept) {
 						yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
-						const written = yield* input.write(batch, accept);
+						const written = yield* input.write(transaction, batch, accept);
 						return {
 							result: written.result,
 							dispatch: [...written.dispatch, ...(yield* planner.planBatch(batch))],
@@ -447,13 +449,13 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					recheck: state(stateInput, written).pipe(
 						Effect.flatMap((current) => assertState(captured, current)),
 					),
-					write: (batch, accept) =>
+					write: (transaction, batch, accept) =>
 						Effect.gen(function* () {
 							yield* attachments.clear({ userId, ids: captured.attachments.map(({ id }) => id) });
 							const dispatch: LifecycleDispatchPlan[] = [];
 							for (const [index, prepared] of preparedRelationships.entries()) {
 								const work = yield* relationships
-									.persistPrepared(yield* accept(prepared), { ...batch, index })
+									.persistPrepared(transaction, yield* accept(prepared), { ...batch, index })
 									.pipe(
 										Effect.catchTags({
 											RelationshipNotFound: relationshipFailure("clear"),
@@ -722,9 +724,13 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* assertState(sourceState, yield* state(sourceInput, written));
 						yield* assertState(targetState, yield* state(targetInput, written));
 					}),
-					write: (batch, accept) =>
+					write: (transaction, batch, accept) =>
 						Effect.gen(function* () {
-							yield* eventsRepository.absorbFoldValues({ userId, references, ids: referenceMap });
+							yield* eventsRepository.absorbFoldValues(transaction, {
+								userId,
+								references,
+								ids: referenceMap,
+							});
 							yield* attachments.move({
 								userId,
 								references: referenceMap,
@@ -736,7 +742,10 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							for (const prepared of preparedRelationships) {
 								if (prepared.create) {
 									const work = yield* relationships
-										.persistPrepared(yield* accept(prepared.create), { ...batch, index: index++ })
+										.persistPrepared(transaction, yield* accept(prepared.create), {
+											...batch,
+											index: index++,
+										})
 										.pipe(
 											Effect.catchTags({
 												RelationshipNotFound: relationshipFailure("merge"),
@@ -750,7 +759,10 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								}
 								if (prepared.deletion) {
 									const work = yield* relationships
-										.persistPrepared(yield* accept(prepared.deletion), { ...batch, index: index++ })
+										.persistPrepared(transaction, yield* accept(prepared.deletion), {
+											...batch,
+											index: index++,
+										})
 										.pipe(
 											Effect.catchTags({
 												RelationshipNotFound: relationshipFailure("merge"),

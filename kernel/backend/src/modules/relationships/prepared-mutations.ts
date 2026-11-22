@@ -24,6 +24,7 @@ import {
 } from "#modules/entities/prepared-entity-create";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	makeRelationshipMutationPrimitives,
@@ -213,7 +214,7 @@ export const makePreparedRelationshipMutations = (
 ) => {
 	const { keys, writes, session, planner, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
-	const transaction = rootTransaction(session);
+	const inRootTransaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);
 	const prepareUserMutation = Effect.fnUntraced(function* (
@@ -269,7 +270,7 @@ export const makePreparedRelationshipMutations = (
 				input: { ...input, relationshipSchemaPluginId: definition.pluginId ?? null },
 			};
 		}
-		return yield* transaction(
+		return yield* inRootTransaction(
 			Effect.gen(function* () {
 				yield* primitives.lockMutations([mutation]);
 				const validated = yield* primitives.validateMutation(
@@ -328,6 +329,7 @@ export const makePreparedRelationshipMutations = (
 		);
 	});
 	const persistPrepared = Effect.fn("RelationshipsService.persistPrepared")(function* (
+		transaction: WriteTransaction,
 		token: PreparedUserRelationship,
 		batchInput?: {
 			index: number;
@@ -372,12 +374,13 @@ export const makePreparedRelationshipMutations = (
 		);
 		const revalidated = yield* primitives.revalidateRequest(mutation, request, validated);
 		const { payload, ...persisted } = yield* primitives.persistPreparedSource(
+			transaction,
 			mutation,
 			revalidated,
 			before,
 			validated,
 		);
-		const { change, dispatch } = yield* primitives.planChange({ payload, mutation });
+		const { change, dispatch } = yield* primitives.planChange(transaction, { payload, mutation });
 		yield* recordRelationshipImportItem(keys, mutation, persisted.operation);
 		yield* planner.recordBatchChange(batch.id, {
 			payload: change,

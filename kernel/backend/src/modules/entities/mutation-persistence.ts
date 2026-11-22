@@ -28,6 +28,7 @@ import { type AccountAdmission, mutationUserIds } from "#modules/mutations/accou
 import type { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { isUniqueConstraintError } from "#platform/db/errors";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import type { EntitiesRepository, MutationEntity } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
@@ -137,6 +138,7 @@ export const makePersistMutation = <E, R, Result>({
 		return yield* repository.getMutationEntities(entityIds, true);
 	});
 	const persistMany = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
 		items: ReadonlyArray<PersistItem>,
 		batch?: PersistBatch,
 		locked?: ReadonlyMap<EntityId, MutationEntity>,
@@ -216,7 +218,7 @@ export const makePersistMutation = <E, R, Result>({
 			item.input.operation === "delete" ? [item.input.entityId] : [],
 		);
 		if (firstDelete) {
-			yield* repository.deleteByIds([firstDelete, ...otherDeletes]);
+			yield* repository.deleteByIds(transaction, [firstDelete, ...otherDeletes]);
 		}
 		const creates = writes.flatMap(({ item, before }) =>
 			item.input.operation === "create" && before === null ? [item.input] : [],
@@ -282,7 +284,7 @@ export const makePersistMutation = <E, R, Result>({
 				}
 			} else if (before && !same(draftOf(before), effectiveDraft(item, before))) {
 				entity = yield* repository
-					.updateEntity({
+					.updateEntity(transaction, {
 						name: input.draft.name,
 						entityId: input.entityId,
 						properties: input.draft.properties,
@@ -316,9 +318,10 @@ export const makePersistMutation = <E, R, Result>({
 					}
 				: undefined;
 			const dispatch = evidence
-				? yield* planner.planChange({
-						trigger: yield* lifecycleTrigger(input.lifecycle, input.scopeUserId, evidence),
-					})
+				? yield* planner.planChange(
+						{ trigger: yield* lifecycleTrigger(input.lifecycle, input.scopeUserId, evidence) },
+						transaction,
+					)
 				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });

@@ -62,6 +62,7 @@ import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-sett
 import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -370,7 +371,7 @@ export const persistPrepared = (...prepared: ReadonlyArray<PreparedUserRelations
 	Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		return yield* (yield* DatabaseSession).transaction(
-			Effect.forEach(prepared, (token) => service.persistPrepared(token)),
+			Effect.forEach(prepared, (token) => service.persistPrepared(new WriteTransaction(), token)),
 		);
 	});
 

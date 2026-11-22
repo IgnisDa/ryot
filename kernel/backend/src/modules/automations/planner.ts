@@ -27,6 +27,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
@@ -366,6 +367,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		});
 		const planChanges = (
 			changes: ReadonlyArray<AutomationTrigger>,
+			transaction: WriteTransaction,
 		): Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError> =>
 			Effect.gen(function* () {
 				const [first] = changes;
@@ -377,12 +379,15 @@ export const LifecyclePlannerLive = Layer.effect(
 						planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)],
 					),
 				);
-				const derived = (yield* planChanges(yield* work.derive(changes))).flat();
+				const derived = (yield* planChanges(
+					yield* work.derive(changes, transaction),
+					transaction,
+				)).flat();
 				const [leading = [], ...rest] = plans;
 				return [[...leading, ...derived], ...rest];
 			});
-		const planChange = (input: { trigger: AutomationTrigger }) =>
-			Effect.map(planChanges([input.trigger]), (plans) => plans.flat());
+		const planChange = (input: { trigger: AutomationTrigger }, transaction: WriteTransaction) =>
+			Effect.map(planChanges([input.trigger], transaction), (plans) => plans.flat());
 		return { plan, planBatch, planChange, planChanges, prepareBatch, recordBatchChange };
 	}),
 );

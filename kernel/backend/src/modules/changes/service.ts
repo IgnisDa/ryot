@@ -108,6 +108,7 @@ import type {
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	authorizeChangeSet,
@@ -963,11 +964,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				});
 				/** Persists every entity save as one set, answering each saved entity under its item identity. */
-				const persistSaves = Effect.fnUntraced(function* (acceptEntity: EntityPolicyAcceptance) {
+				const persistSaves = Effect.fnUntraced(function* (
+					transaction: WriteTransaction,
+					acceptEntity: EntityPolicyAcceptance,
+				) {
 					if (proposedSaves.length === 0) {
 						return { entities: [], dispatch: [] };
 					}
 					const work = yield* entities.persistPreparedSaves(
+						transaction,
 						proposedSaves.map(({ prepared }) => prepared),
 						acceptEntity,
 						entityBatch,
@@ -984,6 +989,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					};
 				});
 				const sourceWrites = Effect.fnUntraced(function* (
+					transaction: WriteTransaction,
 					groups: Effect.Success<ReturnType<typeof eventBatches>>,
 					accept: ReturnType<typeof acceptRelationshipPolicies>,
 					acceptEntity: EntityPolicyAcceptance,
@@ -1021,7 +1027,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								...userDataWrites.flatMap((prepared) => prepared.entityIds),
 							]),
 						].sort();
-						const lockedEntityIds = yield* eventMutations.captureGroups({
+						const lockedEntityIds = yield* eventMutations.captureGroups(transaction, {
 							userId,
 							batches: main,
 							entityIds: references,
@@ -1064,7 +1070,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							}
 						}
 					}
-					const saved = yield* persistSaves(acceptEntity);
+					const saved = yield* persistSaves(transaction, acceptEntity);
 					if (!sources) {
 						return {
 							dispatch: saved.dispatch,
@@ -1088,10 +1094,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 									relationshipResults.push({ itemIdentity, operation: "noop", relationship: null });
 									continue;
 								}
-								const work = yield* relationships.persistPrepared(yield* accept(prepared), {
-									...batch,
-									index,
-								});
+								const work = yield* relationships.persistPrepared(
+									transaction,
+									yield* accept(prepared),
+									{ ...batch, index },
+								);
 								dispatch.push(...work.dispatch);
 								relationshipResults.push({ ...work.result, itemIdentity });
 							}
@@ -1168,7 +1175,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 										},
 									];
 						for (const { group, batches } of persistedGroups) {
-							const work = yield* eventMutations.persistBatches({
+							const work = yield* eventMutations.persistBatches(transaction, {
 								batches,
 								batchIndexOffset,
 								batch: eventBatch,
@@ -1207,7 +1214,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						relationships: relationshipResults,
 					};
 				});
-				const write = Effect.fnUntraced(function* (validated: ValidatedPolicies) {
+				const write = Effect.fnUntraced(function* (
+					transaction: WriteTransaction,
+					validated: ValidatedPolicies,
+				) {
 					const groups = yield* eventBatches(validated);
 					const accept = acceptRelationshipPolicies(validated.relationships);
 					if (input.settings !== undefined && pluginRevision !== null && userId !== null) {
@@ -1219,10 +1229,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							pluginRevisionId: pluginRevision.revisionId,
 						});
 					}
-					const written = yield* sourceWrites(groups, accept, validated.entities);
+					const written = yield* sourceWrites(transaction, groups, accept, validated.entities);
 					const dispatch = [...written.dispatch];
 					if (ensures) {
 						for (const ensured of yield* entities.persistPreparedEnsures(
+							transaction,
 							ensures,
 							validated.entities,
 						)) {
@@ -1231,19 +1242,23 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					const deleted: EntityId[] = [];
 					for (const prepared of deletes) {
-						const work = yield* entities.persistPreparedDeletes(prepared, validated.entities);
+						const work = yield* entities.persistPreparedDeletes(
+							transaction,
+							prepared,
+							validated.entities,
+						);
 						deleted.push(...work.deleted);
 						dispatch.push(...work.dispatch);
 					}
 					const cleared = [];
 					for (const prepared of clears) {
-						const work = yield* prepared.write(accept);
+						const work = yield* prepared.write(transaction, accept);
 						cleared.push(work.result);
 						dispatch.push(...work.dispatch);
 					}
 					const merged = [];
 					for (const prepared of merges) {
-						const work = yield* prepared.write(accept);
+						const work = yield* prepared.write(transaction, accept);
 						merged.push(work.result);
 						dispatch.push(...work.dispatch);
 					}
@@ -1322,7 +1337,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					input.userId === null
 						? ({ scope: "global" } as const)
 						: ({ scope: "user", userId: input.userId } as const);
-				const globalWrites = Effect.gen(function* () {
+				const globalWrites = Effect.fnUntraced(function* (transaction: WriteTransaction) {
 					const dispatch: LifecycleDispatchPlan[] = [];
 					const saved: Array<CommitResult["entities"][number]> = [];
 					const upsertedIds = new Map<string, EntityId>();
@@ -1331,7 +1346,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						const items: Array<
 							{ readonly itemIdentity: string } & Parameters<
 								typeof entities.persistPlannedProviderUpserts
-							>[0]["items"][number]
+							>[1]["items"][number]
 						> = [];
 						for (const item of globalEntities) {
 							const itemIdentity =
@@ -1356,7 +1371,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 									: itemCommand(command, itemIdentity),
 							});
 						}
-						const work = yield* entities.persistPlannedProviderUpserts({
+						const work = yield* entities.persistPlannedProviderUpserts(transaction, {
 							items,
 							batch: { command, identity: ["global-entities"] },
 						});
@@ -1413,6 +1428,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					if (groups.length > 0) {
 						const { population } = command;
 						const work = yield* relationships.persistPlannedReconciliation(
+							transaction,
 							groups,
 							population
 								? {
@@ -1437,10 +1453,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					return { dispatch, entities: saved };
 				});
-				const writeAll = Effect.fnUntraced(function* (validated: ValidatedPolicies) {
-					const written = yield* prepared.write(validated);
+				const writeAll = Effect.fnUntraced(function* (
+					transaction: WriteTransaction,
+					validated: ValidatedPolicies,
+				) {
+					const written = yield* prepared.write(transaction, validated);
 					const dispatch = [...written.dispatch];
-					const global = yield* globalWrites;
+					const global = yield* globalWrites(transaction);
 					dispatch.push(...global.dispatch);
 					if (input.population) {
 						yield* entities.persistPopulation(
@@ -1455,13 +1474,16 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					for (const [index, trigger] of (input.triggers ?? []).entries()) {
 						yield* writeChecks.check(command, trigger.owner, input.userId, true);
 						dispatch.push(
-							...(yield* planner.planChange({
-								trigger: yield* lifecycleTrigger(
-									itemCommand(command, `trigger:${index}`),
-									trigger.scopeUserId,
-									trigger.change,
-								),
-							})),
+							...(yield* planner.planChange(
+								{
+									trigger: yield* lifecycleTrigger(
+										itemCommand(command, `trigger:${index}`),
+										trigger.scopeUserId,
+										trigger.change,
+									),
+								},
+								transaction,
+							)),
 						);
 					}
 					const planned: Array<CommitResult["signals"][number]> = [];
@@ -1509,13 +1531,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const unchecked = Effect.map(settledByReceipt(receipt, precondition), (value) =>
 					value === null ? null : settled(value),
 				);
-				const transaction = <X, E, R>(work: Effect.Effect<X, E, R>) =>
+				const transaction = <X, E, R>(
+					work: (transaction: WriteTransaction) => Effect.Effect<X, E, R>,
+				) =>
 					eventMutations.transaction(
 						work,
 						command.causation.lane === "background" || options.queueFolds ? "queue" : "inline",
 					);
 				const commitInTransactions = Effect.gen(function* () {
-					const started = yield* transaction(
+					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {
 							const stopped = yield* unchecked;
 							if (stopped !== null) {
@@ -1531,7 +1555,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							) {
 								return {
 									kind: "committed" as const,
-									committed: yield* writeAll(yield* prepared.validatePolicies(planned)),
+									committed: yield* writeAll(writes, yield* prepared.validatePolicies(planned)),
 								};
 							}
 							return { planned, kind: "policies" as const };
@@ -1546,9 +1570,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						return started.committed;
 					}
 					const validated = yield* prepared.validatePolicies(started.planned);
-					return yield* transaction(
+					return yield* transaction((writes) =>
 						Effect.gen(function* () {
-							return (yield* unchecked) ?? (yield* writeAll(validated));
+							return (yield* unchecked) ?? (yield* writeAll(writes, validated));
 						}),
 					).pipe(
 						Effect.catchTags({

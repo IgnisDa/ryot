@@ -18,6 +18,7 @@ import { FoldMarks } from "#modules/derived-values/marks";
 import { lockSortedAdvisoryKeys, STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import { makeCollectionOrderPersistence } from "./collection-order";
@@ -235,9 +236,11 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const session = yield* DatabaseSession;
 			const folds = yield* FoldMarks.make;
 			const markSources = (
+				transaction: WriteTransaction,
 				rows: ReadonlyArray<{ readonly userId: null | string; readonly sourceEntityId: string }>,
 			) =>
-				folds.markLinks(
+				folds.markRefolds(
+					transaction,
 					rows.flatMap((row) =>
 						row.userId === null
 							? []
@@ -339,6 +342,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			});
 
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
+				transaction: WriteTransaction,
 				input: CreateRelationshipInput,
 			) {
 				const [prepared] = yield* collectionOrder.prepareCreates([input]);
@@ -354,7 +358,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 
 				if (inserted) {
-					yield* markSources([inserted]);
+					yield* markSources(transaction, [inserted]);
 					return toSavedRelationship(inserted);
 				}
 
@@ -375,7 +379,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			});
 
 			const createRelationships = Effect.fn("RelationshipsRepository.createRelationships")(
-				function* (inputs: ReadonlyArray<CreateRelationshipInput>) {
+				function* (transaction: WriteTransaction, inputs: ReadonlyArray<CreateRelationshipInput>) {
 					const prepared = yield* collectionOrder.prepareCreates(inputs);
 					const inserted = yield* Effect.forEach(
 						chunksOf(prepared, STATEMENT_CHUNK_SIZE),
@@ -388,7 +392,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 									.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 							),
 					);
-					yield* markSources(inserted.flat());
+					yield* markSources(transaction, inserted.flat());
 					const saved = new Map(
 						inserted.flat().map((row) => [storedRelationshipKey(row), toSavedRelationship(row)]),
 					);

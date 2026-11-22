@@ -12,6 +12,7 @@ import { Effect } from "effect";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -144,6 +145,7 @@ layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) =
 				const session = yield* DatabaseSession;
 				const result = yield* session.transaction(
 					service.persistPlannedReconciliation(
+						new WriteTransaction(),
 						[
 							{
 								relationshipSchema: baseInput.relationshipSchema,

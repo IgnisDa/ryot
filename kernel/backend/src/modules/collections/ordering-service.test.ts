@@ -34,6 +34,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 
@@ -413,7 +414,7 @@ layer(orderingLayer())((test) => {
 						session.transaction(
 							Effect.gen(function* () {
 								yield* relationships.lockRelationshipMutations([input]);
-								return yield* relationships.createRelationship(input);
+								return yield* relationships.createRelationship(new WriteTransaction(), input);
 							}),
 						),
 					{ concurrency: 2 },

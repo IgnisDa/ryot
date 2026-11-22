@@ -23,6 +23,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { slugify, slugSql } from "#platform/slug";
 import * as schema from "#schema/tables/combined";
 
@@ -850,6 +851,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			);
 
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
+				transaction: WriteTransaction,
 				input: UpdateEntityInput,
 			) {
 				yield* session.requireTransaction;
@@ -889,7 +891,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
 				if (contentChanged) {
-					yield* folds.entityChanged(input.entityId);
+					yield* folds.entityChanged(transaction, input.entityId);
 				}
 
 				return toListedEntity(updated);
@@ -950,6 +952,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
+				transaction: WriteTransaction,
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
 				yield* session.run((db) =>
@@ -972,6 +975,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						or (v.session_entity_id in ${deleted} and v.entity_id not in ${deleted})`,
 				);
 				yield* folds.mark(
+					transaction,
 					orphaned.map((before) => ({
 						before,
 						after: null,

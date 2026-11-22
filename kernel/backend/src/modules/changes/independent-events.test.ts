@@ -101,7 +101,7 @@ const payload: Parameters<typeof createEvents>[0] = {
 	command,
 	payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
 };
-type CreatedEvent = Parameters<EventsRepository["Service"]["createEvent"]>[0];
+type CreatedEvent = Parameters<EventsRepository["Service"]["createEvent"]>[1];
 
 type Policy = {
 	slug: string;
@@ -669,9 +669,9 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						);
 						return EventsRepository.of({
 							...live,
-							createEvent: fakeCreateEvent,
 							getEventSnapshot: fakeEventSnapshot,
-							createEvents: (inputs) => Effect.forEach(inputs, fakeCreateEvent),
+							createEvent: (_transaction, input) => fakeCreateEvent(input),
+							createEvents: (_transaction, inputs) => Effect.forEach(inputs, fakeCreateEvent),
 							lockEventRows: ({ eventIds }) =>
 								eventIds.length === 0
 									? Effect.succeed([])
@@ -1581,10 +1581,8 @@ layer(harnessLayer({ noHooks: true }))("independent event folds", (test) => {
 			const modes: Array<FoldMode | undefined> = [];
 			const folds = Folds.of({
 				...unfoldedFolds,
-				within: (work, _apply, mode) => {
-					modes.push(mode);
-					return work;
-				},
+				queue: () => Effect.sync(() => modes.push("queue")),
+				settle: (_transaction, _apply, mode) => Effect.sync(() => modes.push(mode)),
 			});
 			const background = {
 				...command,
@@ -1750,10 +1748,8 @@ layer(harnessLayer({ policies: [{ position: 1, slug: "policy" }] }))(
 				const modes: Array<FoldMode | undefined> = [];
 				const folds = Folds.of({
 					...unfoldedFolds,
-					within: (work, _apply, mode) => {
-						modes.push(mode);
-						return work;
-					},
+					queue: () => Effect.sync(() => modes.push("queue")),
+					settle: (_transaction, _apply, mode) => Effect.sync(() => modes.push(mode)),
 				});
 				yield* run(
 					{

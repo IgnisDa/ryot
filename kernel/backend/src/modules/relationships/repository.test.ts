@@ -7,6 +7,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { baseInput, relationshipDatabaseLayer } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";
@@ -19,7 +20,7 @@ describe("RelationshipsRepository PostgreSQL", () => {
 				Effect.gen(function* () {
 					const repository = yield* RelationshipsRepository;
 					const session = yield* DatabaseSession;
-					const created = yield* repository.createRelationship(baseInput);
+					const created = yield* repository.createRelationship(new WriteTransaction(), baseInput);
 					const found = yield* repository.findRelationship(baseInput);
 					assert(found);
 					expect(found).toEqual({

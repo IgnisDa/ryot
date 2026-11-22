@@ -56,6 +56,7 @@ import {
 	makeUserPrincipal,
 } from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import type { MockOverrides } from "#testing/effect";
 import { databaseLayer } from "#testing/effect";
 
@@ -252,7 +253,9 @@ const clear = (entityId: EntityId, lifecycle: DomainLifecycleCommand = command) 
 			new Set(),
 		);
 		const written = yield* (yield* DatabaseSession)
-			.transaction(Effect.andThen(prepared.lock, prepared.write(Effect.succeed)))
+			.transaction(
+				Effect.andThen(prepared.lock, prepared.write(new WriteTransaction(), Effect.succeed)),
+			)
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		return { ...written, events: prepared.events };
 	});
@@ -271,7 +274,9 @@ const merge = (
 			new Set(),
 		);
 		const written = yield* (yield* DatabaseSession)
-			.transaction(Effect.andThen(prepared.lock, prepared.write(Effect.succeed)))
+			.transaction(
+				Effect.andThen(prepared.lock, prepared.write(new WriteTransaction(), Effect.succeed)),
+			)
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		return { ...written, events: prepared.events };
 	});
@@ -973,7 +978,7 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 			record(
 				`prepare:${input.sourceEntityId}->${input.targetEntityId}:delete:${item.itemIdentity}`,
 			).pipe(Effect.as(preparedRelationshipDelete)),
-		persistPrepared: (prepared) =>
+		persistPrepared: (_transaction, prepared) =>
 			record(
 				prepared === preparedRelationshipCreate
 					? "persist:relationship:create"

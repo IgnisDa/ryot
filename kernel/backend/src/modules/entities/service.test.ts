@@ -75,6 +75,7 @@ import { insertPluginRevision } from "#modules/plugins/test-support";
 import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
@@ -134,7 +135,7 @@ const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEnt
 		const repository = yield* EventsRepository;
 		const session = yield* DatabaseSession;
 		return yield* session.transaction(
-			repository.createEvent({
+			repository.createEvent(new WriteTransaction(), {
 				id,
 				userId,
 				entityId,
@@ -419,7 +420,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 									) {
 										const before = trigger.payload.items[0].draft;
 										yield* eventRepository
-											.createEvent({
+											.createEvent(new WriteTransaction(), {
 												entityId: before.entityId,
 												eventSchemaPluginId: null,
 												userId: trigger.scopeUserId,
@@ -1424,6 +1425,7 @@ describe("EntitiesService committed lifecycle", () => {
 						yield* Effect.exit(
 							session.transaction(
 								service.persistPreparedSaves(
+									new WriteTransaction(),
 									[prepared],
 									acceptPrepared,
 									{ command: lifecycle, identity: ["entities"] },

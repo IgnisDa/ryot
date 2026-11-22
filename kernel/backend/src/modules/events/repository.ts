@@ -32,6 +32,7 @@ import {
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import {
@@ -39,7 +40,7 @@ import {
 	type EventPropertyReference,
 	eventPropertyReferences,
 	EventReferenceUnavailable,
-	PendingEventReferenceClears,
+	pendingReferenceClears,
 } from "./event-references";
 
 export type EventIdentityInput = {
@@ -277,8 +278,11 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				return row ?? null;
 			});
-			const touchEventMutation = (input: { before: FoldEventRow; after: null | EventSource }) =>
-				folds.mark([
+			const touchEventMutation = (
+				transaction: WriteTransaction,
+				input: { before: FoldEventRow; after: null | EventSource },
+			) =>
+				folds.mark(transaction, [
 					{
 						after: input.after,
 						before: input.before,
@@ -287,6 +291,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					},
 				]);
 			const writeReferences = Effect.fn("EventsRepository.writeReferences")(function* (
+				transaction: WriteTransaction,
 				rows: ReadonlyArray<{
 					userId: string;
 					eventId: string;
@@ -295,7 +300,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}>,
 			) {
 				const pending = new Set(
-					(yield* PendingEventReferenceClears)?.map((cleared) =>
+					pendingReferenceClears(transaction).map((cleared) =>
 						referenceKey(cleared.referencingEventId, cleared),
 					),
 				);
@@ -357,6 +362,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 			});
 			const clearReferences = Effect.fn("EventsRepository.clearReferences")(function* (
+				transaction: WriteTransaction,
 				cleared: ReadonlyArray<ClearedEventReference>,
 			) {
 				if (cleared.length === 0) {
@@ -387,6 +393,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				yield* touchScopes(referrers);
 				yield* folds.mark(
+					transaction,
 					referrers.map((before) => ({
 						before,
 						eventId: before.id,
@@ -396,6 +403,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 			});
 			const releaseReferences = Effect.fn("EventsRepository.releaseReferences")(function* (
+				transaction: WriteTransaction,
 				eventId: string,
 			) {
 				const released = yield* session.run((db) =>
@@ -408,12 +416,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							referencingEventId: schema.eventReference.referencingEventId,
 						}),
 				);
-				const pending = yield* PendingEventReferenceClears;
-				if (pending) {
-					pending.push(...released);
-					return;
-				}
-				yield* clearReferences(released);
+				pendingReferenceClears(transaction).push(...released);
 			});
 			const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 				function* (input: {
@@ -464,6 +467,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			});
 
 			const createEvents = Effect.fn("EventsRepository.createEvents")(function* (
+				transaction: WriteTransaction,
 				inputs: ReadonlyArray<CreateEventInput>,
 			) {
 				yield* requireTransaction;
@@ -540,6 +544,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				const fresh = inputs.filter((input) => insertedIds.has(input.id));
 				yield* writeReferences(
+					transaction,
 					fresh.map((input) => ({
 						eventId: input.id,
 						userId: input.userId,
@@ -551,6 +556,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 						fresh.map((input) => ({ ...input, sessionEntityId: input.sessionEntityId ?? null })),
 					);
 					yield* folds.mark(
+						transaction,
 						fresh.map((input) => ({
 							before: null,
 							eventId: input.id,
@@ -561,8 +567,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				return created;
 			});
-			const createEvent = (input: CreateEventInput) =>
-				Effect.flatMap(createEvents([input]), ([created]) =>
+			const createEvent = (transaction: WriteTransaction, input: CreateEventInput) =>
+				Effect.flatMap(createEvents(transaction, [input]), ([created]) =>
 					created
 						? Effect.succeed(created)
 						: new DbError({ message: "Event insert returned no row" }),
@@ -695,6 +701,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			});
 
 			const deleteEvent = Effect.fn("EventsRepository.deleteEvent")(function* (
+				transaction: WriteTransaction,
 				input: EventIdentityInput,
 			) {
 				yield* requireTransaction;
@@ -718,14 +725,15 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({ after: null, before: current });
-					yield* releaseReferences(row.id);
+					yield* touchEventMutation(transaction, { after: null, before: current });
+					yield* releaseReferences(transaction, row.id);
 				}
 
 				return row ? EventId.make(row.id) : null;
 			});
 
 			const deletePreparedEvent = Effect.fn("EventsRepository.deletePreparedEvent")(function* (
+				transaction: WriteTransaction,
 				input: EventIdentityInput & { expectedRevision: number },
 			) {
 				yield* requireTransaction;
@@ -749,15 +757,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({ after: null, before: current });
-					yield* releaseReferences(row.id);
+					yield* touchEventMutation(transaction, { after: null, before: current });
+					yield* releaseReferences(transaction, row.id);
 				}
 
 				return row ? EventId.make(row.id) : null;
 			});
 
 			const updateEventEntityReferences = Effect.fn("EventsRepository.updateEventEntityReferences")(
-				function* (input: { updatedAt: Date } & UpdateEventEntityReferencesInput) {
+				function* (
+					transaction: WriteTransaction,
+					input: { updatedAt: Date } & UpdateEventEntityReferencesInput,
+				) {
 					yield* requireTransaction;
 					const current = yield* getEventForMutation(input);
 					if (
@@ -812,7 +823,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 										: current.sessionEntityId,
 							},
 						]);
-						yield* touchEventMutation({ after: afterKey, before: current });
+						yield* touchEventMutation(transaction, { after: afterKey, before: current });
 					}
 
 					return row ? EventId.make(row.id) : null;
@@ -820,6 +831,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			);
 
 			const updatePreparedEvent = Effect.fn("EventsRepository.updatePreparedEvent")(function* (
+				transaction: WriteTransaction,
 				input: EventIdentityInput & {
 					updatedAt: Date;
 					expectedRevision: number;
@@ -871,7 +883,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 								referencedEventId: schema.eventReference.referencedEventId,
 							}),
 					);
-					yield* writeReferences([
+					yield* writeReferences(transaction, [
 						{
 							indexed,
 							eventId: row.id,
@@ -887,7 +899,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							sessionEntityId: input.draft.sessionEntityId,
 						},
 					]);
-					yield* touchEventMutation({ after: afterKey, before: current });
+					yield* touchEventMutation(transaction, { after: afterKey, before: current });
 				}
 
 				return row ? EventId.make(row.id) : null;

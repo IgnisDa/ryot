@@ -241,19 +241,15 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
-						within: (work, apply) =>
-							Effect.gen(function* () {
-								const result = yield* work;
-								yield* apply({
-									command: foldCommand,
-									userId: fixture.userId,
-									changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
-								}).pipe(Effect.orDie);
-								return result;
-							}),
+						settle: (transaction, apply) =>
+							apply(transaction, {
+								command: foldCommand,
+								userId: fixture.userId,
+								changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
+							}).pipe(Effect.orDie),
 					}),
 				);
-				yield* mutations.transaction(Effect.void);
+				yield* mutations.transaction(() => Effect.void);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Derived" });
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();
 			}),
@@ -318,29 +314,25 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
-						within: (work, apply) =>
-							Effect.gen(function* () {
-								const result = yield* work;
-								yield* apply({
-									command: foldCommand,
-									userId: fixture.userId,
-									changes: [
-										{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
-										{
-											kind: "update",
-											itemIdentity: "fold-update",
-											item: {
-												eventId: note,
-												patch: { properties: { remove: [], set: { text: "Edited" } } },
-											},
+						settle: (transaction, apply) =>
+							apply(transaction, {
+								command: foldCommand,
+								userId: fixture.userId,
+								changes: [
+									{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
+									{
+										kind: "update",
+										itemIdentity: "fold-update",
+										item: {
+											eventId: note,
+											patch: { properties: { remove: [], set: { text: "Edited" } } },
 										},
-									],
-								}).pipe(Effect.orDie);
-								return result;
-							}),
+									},
+								],
+							}).pipe(Effect.orDie),
 					}),
 				);
-				yield* mutations.transaction(Effect.void);
+				yield* mutations.transaction(() => Effect.void);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Edited" });
 				expect(yield* fixture.references([note])).toEqual([]);
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();

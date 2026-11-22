@@ -33,6 +33,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -229,6 +230,7 @@ describe("Relationships lifecycle owner", () => {
 						const session = yield* DatabaseSession;
 						yield* session.transaction(
 							service.persistPlannedReconciliation(
+								new WriteTransaction(),
 								[
 									{
 										relationshipSchema: baseInput.relationshipSchema,
@@ -279,7 +281,9 @@ describe("Relationships lifecycle owner", () => {
 						);
 						const reconcile = (group: ReturnType<typeof selfGroup>, id: string) =>
 							session.transaction(
-								service.persistPlannedReconciliation([group], command(id), { scope: "global" }),
+								service.persistPlannedReconciliation(new WriteTransaction(), [group], command(id), {
+									scope: "global",
+								}),
 							);
 						yield* reconcile(selfGroup("other", [otherEntityId]), "self-other");
 						yield* reconcile(selfGroup("fixture", [sourceEntityId]), "self-fixture");
@@ -668,7 +672,7 @@ describe("Relationships lifecycle owner", () => {
 					Effect.gen(function* () {
 						const repository = yield* RelationshipsRepository;
 						const policyInput = yield* installPolicyFixture();
-						const created = yield* repository.createRelationship({
+						const created = yield* repository.createRelationship(new WriteTransaction(), {
 							...policyInput,
 							properties: { rank: 1 },
 						});
@@ -805,11 +809,18 @@ describe("Relationships lifecycle owner", () => {
 						];
 						expect(
 							yield* service
-								.persistPlannedReconciliation(groups, command("outside"), { scope: "global" })
+								.persistPlannedReconciliation(new WriteTransaction(), groups, command("outside"), {
+									scope: "global",
+								})
 								.pipe(Effect.flip),
 						).toMatchObject({ code: "active-transaction-required" });
 						const reconciled = yield* session.transaction(
-							service.persistPlannedReconciliation(groups, command("policy"), { scope: "global" }),
+							service.persistPlannedReconciliation(
+								new WriteTransaction(),
+								groups,
+								command("policy"),
+								{ scope: "global" },
+							),
 						);
 						expect(reconciled.result).toEqual([
 							{ created: 1, updated: 0, deleted: 0, upserted: 1 },
@@ -1075,7 +1086,7 @@ describe("Relationships lifecycle owner", () => {
 								},
 							],
 						};
-						yield* repository.createRelationship({
+						yield* repository.createRelationship(new WriteTransaction(), {
 							scope: "user",
 							properties: {},
 							userId: otherUserId,
@@ -1090,6 +1101,7 @@ describe("Relationships lifecycle owner", () => {
 								session.run((tx) =>
 									Effect.gen(function* () {
 										yield* relationships.persistPlannedReconciliation(
+											new WriteTransaction(),
 											[group],
 											command("private-rollback"),
 											{ userId, scope: "user" },
@@ -1119,6 +1131,7 @@ describe("Relationships lifecycle owner", () => {
 						const inaccessible = yield* session
 							.transaction(
 								relationships.persistPlannedReconciliation(
+									new WriteTransaction(),
 									[
 										{
 											...group,
@@ -1139,10 +1152,12 @@ describe("Relationships lifecycle owner", () => {
 						expect(inaccessible).toMatchObject({ reason: { code: "entity-not-found" } });
 
 						const work = yield* session.transaction(
-							relationships.persistPlannedReconciliation([group], command("private-commit"), {
-								userId,
-								scope: "user",
-							}),
+							relationships.persistPlannedReconciliation(
+								new WriteTransaction(),
+								[group],
+								command("private-commit"),
+								{ userId, scope: "user" },
+							),
 						);
 						expect(work.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
 						const triggers = yield* session.run((db) =>
@@ -1171,6 +1186,7 @@ describe("Relationships lifecycle owner", () => {
 						const foreignOwner = yield* session
 							.transaction(
 								relationships.persistPlannedReconciliation(
+									new WriteTransaction(),
 									[group],
 									command("private-other-owner", otherUserId),
 									{ scope: "user", userId: otherUserId },
@@ -1184,6 +1200,7 @@ describe("Relationships lifecycle owner", () => {
 						expect(
 							yield* session.transaction(
 								relationships.persistPlannedReconciliation(
+									new WriteTransaction(),
 									[{ ...group, relationships: [] }],
 									command("private-delete"),
 									{ userId, scope: "user" },
@@ -1212,7 +1229,7 @@ describe("Relationships lifecycle owner", () => {
 						const service = yield* RelationshipsService;
 						const repository = yield* RelationshipsRepository;
 
-						const created = yield* repository.createRelationship(baseInput);
+						const created = yield* repository.createRelationship(new WriteTransaction(), baseInput);
 						const stale = yield* service.prepareUserDelete(baseInput, command("prepared-stale"));
 						yield* repository.updateRelationshipsById([
 							{ id: created.id, properties: { rank: 9 } },
@@ -1227,7 +1244,7 @@ describe("Relationships lifecycle owner", () => {
 							sourceEntityId: targetEntityId,
 							targetEntityId: sourceEntityId,
 						};
-						yield* repository.createRelationship(deletionInput);
+						yield* repository.createRelationship(new WriteTransaction(), deletionInput);
 						const deletion = yield* service.prepareUserDelete(
 							deletionInput,
 							command("prepared-delete"),
@@ -1237,16 +1254,16 @@ describe("Relationships lifecycle owner", () => {
 							command("prepared-create"),
 							"upsert",
 						);
-						expect(yield* service.persistPrepared(creation).pipe(Effect.flip)).toMatchObject({
-							code: "active-transaction-required",
-						});
+						expect(
+							yield* service.persistPrepared(new WriteTransaction(), creation).pipe(Effect.flip),
+						).toMatchObject({ code: "active-transaction-required" });
 						expect(
 							yield* session
 								.transaction(
 									session.run((tx) =>
 										Effect.gen(function* () {
-											yield* service.persistPrepared(deletion);
-											yield* service.persistPrepared(creation);
+											yield* service.persistPrepared(new WriteTransaction(), deletion);
+											yield* service.persistPrepared(new WriteTransaction(), creation);
 											const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
 												({ category }) => category === "change",
 											);
@@ -1269,7 +1286,7 @@ describe("Relationships lifecycle owner", () => {
 						expect(work?.dispatch).toEqual([]);
 
 						const rejectedInput = yield* installPolicyFixture();
-						yield* repository.createRelationship(rejectedInput);
+						yield* repository.createRelationship(new WriteTransaction(), rejectedInput);
 						const rejecting = yield* changeSetsWith({
 							policies: decidingPolicies((yield* LifecyclePolicies).match, () =>
 								Effect.gen(function* () {
@@ -1302,7 +1319,7 @@ describe("Relationships lifecycle owner", () => {
 						const session = yield* DatabaseSession;
 						const repository = yield* RelationshipsRepository;
 						const input = yield* installPolicyFixture();
-						yield* repository.createRelationship(input);
+						yield* repository.createRelationship(new WriteTransaction(), input);
 						let policyCalls = 0;
 						const changeSets = yield* changeSetsWith({
 							policies: decidingPolicies((yield* LifecyclePolicies).match, () =>
@@ -1375,6 +1392,7 @@ describe("Relationships lifecycle owner", () => {
 							yield* Effect.exit(
 								session.transaction(
 									service.persistPlannedReconciliation(
+										new WriteTransaction(),
 										[
 											{
 												relationshipSchema: baseInput.relationshipSchema,
@@ -1431,14 +1449,23 @@ describe("Relationships lifecycle owner", () => {
 						const updated = between(targetEntityId, sourceEntityId);
 						const ensured = between(targetEntityId, targetEntityId);
 						const deleted = between(sourceEntityId, sourceEntityId);
-						yield* repository.createRelationship({
+						yield* repository.createRelationship(new WriteTransaction(), {
 							...merged,
 							properties: { rank: 1, labels: ["a"] },
 						});
-						yield* repository.createRelationship({ ...updated, properties: { rank: 1 } });
-						yield* repository.createRelationship({ ...ensured, properties: { rank: 1 } });
-						yield* repository.createRelationship({ ...deleted, properties: { rank: 1 } });
-						const byId = yield* repository.createRelationship({
+						yield* repository.createRelationship(new WriteTransaction(), {
+							...updated,
+							properties: { rank: 1 },
+						});
+						yield* repository.createRelationship(new WriteTransaction(), {
+							...ensured,
+							properties: { rank: 1 },
+						});
+						yield* repository.createRelationship(new WriteTransaction(), {
+							...deleted,
+							properties: { rank: 1 },
+						});
+						const byId = yield* repository.createRelationship(new WriteTransaction(), {
 							...between(thirdEntityId, sourceEntityId),
 							properties: { rank: 1 },
 						});

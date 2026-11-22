@@ -81,16 +81,15 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
-						within: (work) =>
+						settle: () =>
 							Effect.gen(function* () {
-								const result = yield* work;
 								folded.push(yield* session.isTransactionActive);
-								return folded.length === 1 ? result : yield* failure;
+								return folded.length === 1 ? undefined : yield* failure;
 							}),
 					}),
 				);
 				const rename = (name: string) =>
-					mutations.transaction(
+					mutations.transaction(() =>
 						session.run((db) =>
 							db.execute(sql`update entity set name = ${name} where id = ${fixture.subjectId}`),
 						),

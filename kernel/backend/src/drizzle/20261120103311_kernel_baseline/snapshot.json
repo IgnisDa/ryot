@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "6205f951-30cf-49c3-ab9d-0ce602c6a7ed",
+	"id": "48d2aa40-ed42-49a8-9e50-7d664ec902af",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -464,6 +464,19 @@
 				"n|type|public.definition_signal_schema",
 				"n|rel|public.definition_signal_schema_pkey",
 				"n|rel|public.definition_signal_schema_revision_slug_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "derived_change"],
+			"writes": [
+				"s|tbl|public.derived_change",
+				"n|tbl|public.derived_change",
+				"e|tbl|public.derived_change",
+				"n|rel|public.derived_change",
+				"n|type|public.derived_change",
+				"n|rel|public.derived_change_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -4838,6 +4851,44 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "derived_change"],
+			"writes": [
+				"s|fk|public.derived_change.derived_change_user_id_user_id_fkey",
+				"n|fk|public.derived_change.derived_change_user_id_user_id_fkey",
+				"e|fk|public.derived_change.derived_change_user_id_user_id_fkey",
+				"n|con|public.derived_change.derived_change_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.derived_change",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.derived_change.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "derived_change"],
+			"writes": [
+				"s|fk|public.derived_change.derived_change_subject_entity_id_entity_id_fkey",
+				"n|fk|public.derived_change.derived_change_subject_entity_id_entity_id_fkey",
+				"e|fk|public.derived_change.derived_change_subject_entity_id_entity_id_fkey",
+				"n|con|public.derived_change.derived_change_subject_entity_id_entity_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.derived_change",
+				"n|sch|public",
+				"n|tbl|public.entity",
+				"n|sch|public",
+				"n|col|public.derived_change.subject_entity_id",
+				"n|col|public.entity.id",
+				"e|uniqueness|public.entity.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "derived_value"],
 			"writes": [
 				"s|fk|public.derived_value.derived_value_user_id_user_id_fkey",
@@ -6904,6 +6955,7 @@
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
+		{ "schema": "public", "name": "derived_change", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "derived_value", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "entity", "isRlsEnabled": false, "entityType": "tables" },
 		{
@@ -11475,6 +11527,58 @@
 		},
 		{
 			"schema": "public",
+			"table": "derived_change",
+			"name": "event_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
+			"name": "before",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
+			"name": "subject_entity_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
 			"table": "derived_value",
 			"name": "target_id",
 			"type": "text",
@@ -11547,6 +11651,32 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": "'ready'",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "replay",
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -18993,8 +19123,8 @@
 		{
 			"schema": "public",
 			"table": "signal_schedule_evaluation",
-			"name": "next_due_at",
-			"type": "timestamp(3) with time zone",
+			"name": "content_language",
+			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
@@ -19006,8 +19136,8 @@
 		{
 			"schema": "public",
 			"table": "signal_schedule_evaluation",
-			"name": "content_language",
-			"type": "text",
+			"name": "next_due_at",
+			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
@@ -24468,6 +24598,32 @@
 		},
 		{
 			"schema": "public",
+			"table": "derived_change",
+			"name": "derived_change_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
+			"name": "derived_change_subject_entity_id_entity_id_fkey",
+			"nameExplicit": false,
+			"columns": ["subject_entity_id"],
+			"schemaTo": "public",
+			"tableTo": "entity",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "derived_value",
 			"name": "derived_value_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -25790,6 +25946,14 @@
 			"table": "definition_provider_operation",
 			"name": "definition_provider_operation_pkey",
 			"columns": ["plugin_revision_id", "provider_slug", "operation"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
+			"name": "derived_change_pkey",
+			"columns": ["subject_entity_id", "user_id", "event_id"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},

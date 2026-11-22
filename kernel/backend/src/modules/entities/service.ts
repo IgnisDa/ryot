@@ -49,6 +49,7 @@ import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-r
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
@@ -439,7 +440,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					yield* repository.lockSchemaCatalog([...userIds, ...accounts]);
 					return yield* work;
 				});
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
+			const admittedTransaction = <A, E, R>(
+				work: Effect.Effect<A, E, R>,
+				userIds: ReadonlyArray<UserId>,
+			) =>
 				runRootTransaction(session, admitted(work, userIds, [])).pipe(
 					Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
 				);
@@ -797,7 +801,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					{ lifecycle, validated, scopeUserId, updateExisting: provider?.updateExisting ?? false },
 				]);
 				const [planned] = provider
-					? yield* transaction(plan, mutationUserIds(lifecycle, scopeUserId))
+					? yield* admittedTransaction(plan, mutationUserIds(lifecycle, scopeUserId))
 					: yield* plan;
 				if (!planned) {
 					return yield* Effect.die("A planned entity create is missing");
@@ -812,6 +816,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 * `EntityMatchAppeared` if one matches now. A collection create records no import item.
 			 */
 			const persistPreparedSaves = Effect.fn("EntitiesService.persistPreparedSaves")(function* (
+				transaction: WriteTransaction,
 				saves: ReadonlyArray<PreparedEntitySave>,
 				accept: EntityPolicyAcceptance,
 				batch: EntityUpsertBatchScope,
@@ -911,7 +916,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						...(entry.preservePopulatedAt ? { preservePopulatedAt: true } : {}),
 					});
 				}
-				const written = yield* persistSnapshots.persistMany(items, decision, rows);
+				const written = yield* persistSnapshots.persistMany(transaction, items, decision, rows);
 				const entities: ListedEntity[] = [];
 				const dispatch: LifecycleDispatchPlan[] = [];
 				for (const outcome of outcomes) {
@@ -934,10 +939,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 */
 			const persistPlannedProviderUpserts = Effect.fn(
 				"EntitiesService.persistPlannedProviderUpserts",
-			)(function* (input: {
-				readonly batch: EntityUpsertBatchScope;
-				readonly items: ReadonlyArray<UpsertEntityInput>;
-			}) {
+			)(function* (
+				transaction: WriteTransaction,
+				input: {
+					readonly batch: EntityUpsertBatchScope;
+					readonly items: ReadonlyArray<UpsertEntityInput>;
+				},
+			) {
 				yield* assertActiveTransaction;
 				const items = input.items.map((item) => {
 					const scopeUserId = item.scope === "user" ? item.userId : null;
@@ -1009,7 +1017,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							})
 						: Effect.die("A planned provider upsert is missing");
 				});
-				const saved = yield* persistPreparedSaves(saves, acceptPrepared, input.batch, 0);
+				const saved = yield* persistPreparedSaves(
+					transaction,
+					saves,
+					acceptPrepared,
+					input.batch,
+					0,
+				);
 				const positions = new Map(representedItems.map(({ index }, position) => [index, position]));
 				const results = yield* Effect.forEach(representatives, (representative) => {
 					const entity = saved.entities[positions.get(representative) ?? -1];
@@ -1279,6 +1293,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			});
 			const persistPreparedDeletes = Effect.fn("EntitiesService.persistPreparedDeletes")(
 				function* (
+					transaction: WriteTransaction,
 					deletes: PreparedEntityDeletes,
 					accept: EntityPolicyAcceptance = acceptPrepared,
 				) {
@@ -1324,7 +1339,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								batchIndex: index,
 							}));
 							yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
-							const written = yield* persistDeletes.persistMany(persisted, decision, rows);
+							const written = yield* persistDeletes.persistMany(
+								transaction,
+								persisted,
+								decision,
+								rows,
+							);
 							const batch = yield* planEntityBatch(batchScope);
 							const dispatch = [...written.results.flatMap((item) => item.dispatch), ...batch];
 							return { dispatch, deleted: persisted.map(({ input }) => input.entityId) };
@@ -1405,6 +1425,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				}) satisfies PreparedEntityEnsures;
 			});
 			const persistPreparedEnsures = Effect.fn("EntitiesService.persistPreparedEnsures")(function* (
+				transaction: WriteTransaction,
 				ensures: PreparedEntityEnsures,
 				accept: EntityPolicyAcceptance = acceptPrepared,
 			) {
@@ -1464,7 +1485,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								propertiesSchema: decided.propertiesSchema,
 							});
 						}
-						const written = yield* persistEnsures.persistMany(persisted, decision);
+						const written = yield* persistEnsures.persistMany(transaction, persisted, decision);
 						for (const [position, { batchIndex }] of persisted.entries()) {
 							const work = written.results[position];
 							if (!work) {

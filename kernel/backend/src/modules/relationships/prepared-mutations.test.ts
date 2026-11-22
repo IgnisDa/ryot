@@ -27,6 +27,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -147,7 +148,10 @@ describe("Prepared relationship mutations", () => {
 						yield* changeSetsWith(
 							yield* policyLifecycle(
 								repository
-									.createRelationship({ ...policyInput, properties: existingProperties })
+									.createRelationship(new WriteTransaction(), {
+										...policyInput,
+										properties: existingProperties,
+									})
 									.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
 							),
 						),
@@ -174,6 +178,7 @@ describe("Prepared relationship mutations", () => {
 						const targets = yield* insertEntities(names);
 						yield* session.transaction(
 							service.persistPlannedReconciliation(
+								new WriteTransaction(),
 								[reconciliationGroup(baseInput, targets, 3)],
 								command(`reconciliation-${size}`),
 								{ userId, scope: "user" },
@@ -239,6 +244,7 @@ describe("Prepared relationship mutations", () => {
 						yield* session
 							.transaction(
 								service.persistPlannedReconciliation(
+									new WriteTransaction(),
 									[reconciliationGroup(baseInput, [reconciled], 1)],
 									command("deleted-reconciled"),
 									{ userId, scope: "user" },
@@ -257,7 +263,10 @@ describe("Prepared relationship mutations", () => {
 						entityNotFound(preparedCreate),
 					);
 
-					yield* repository.createRelationship({ ...baseInput, targetEntityId: preparedDelete });
+					yield* repository.createRelationship(new WriteTransaction(), {
+						...baseInput,
+						targetEntityId: preparedDelete,
+					});
 					const deletion = yield* service.prepareUserDelete(
 						{ ...baseInput, targetEntityId: preparedDelete },
 						command("deleted-prepared-delete"),
@@ -300,6 +309,7 @@ describe("Prepared relationship mutations", () => {
 						yield* session
 							.transaction(
 								service.persistPlannedReconciliation(
+									new WriteTransaction(),
 									[reconciliationGroup(baseInput, [foreign], 1)],
 									command("foreign-reconciled"),
 									{ userId, scope: "user" },

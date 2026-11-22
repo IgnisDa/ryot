@@ -25,6 +25,7 @@ import {
 } from "#modules/entities/write-context";
 import { mutationUserIds } from "#modules/mutations/account-admission";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { isCollectionMember } from "./collection-order";
 import {
@@ -356,6 +357,7 @@ export const makeRelationshipMutationPrimitives = ({
 		return { ...request, draft: yield* draft(request, protectedProperties) };
 	});
 	const persistSources = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
 		items: ReadonlyArray<{
 			readonly mutation: Mutation;
 			readonly validated: ValidatedMutation;
@@ -432,6 +434,7 @@ export const makeRelationshipMutationPrimitives = ({
 			),
 		);
 		const created = yield* repository.createRelationships(
+			transaction,
 			decisions.flatMap(({ input, request }) =>
 				request?.operation === "create"
 					? [{ ...input, properties: { ...request.draft.properties } }]
@@ -466,6 +469,7 @@ export const makeRelationshipMutationPrimitives = ({
 		);
 	});
 	const persistPreparedSource = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
 		mutation: Mutation,
 		request: AutomationRelationshipRequestPayload,
 		before: null | AutomationRelationshipSnapshot,
@@ -485,7 +489,7 @@ export const makeRelationshipMutationPrimitives = ({
 				.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 		}
 		if (request.operation === "create") {
-			const saved = yield* repository.createRelationship({
+			const saved = yield* repository.createRelationship(transaction, {
 				...mutation.input,
 				properties: { ...request.draft.properties },
 			});
@@ -517,24 +521,30 @@ export const makeRelationshipMutationPrimitives = ({
 			payload: relationshipChange(request, yield* snapshot(saved)),
 		};
 	});
-	const planChange = Effect.fnUntraced(function* (input: {
-		mutation: Mutation;
-		payload: ReturnType<typeof relationshipChange>;
-		population?: DomainLifecycleCommand["population"];
-	}) {
+	const planChange = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
+		input: {
+			mutation: Mutation;
+			payload: ReturnType<typeof relationshipChange>;
+			population?: DomainLifecycleCommand["population"];
+		},
+	) {
 		yield* assertActiveTransaction;
 		const { command } = input.mutation;
 		const change = {
 			...input.payload,
 			...(input.population === undefined ? {} : { population: input.population }),
 		};
-		const dispatch = yield* planner.planChange({
-			trigger: yield* lifecycleTrigger(
-				command,
-				input.mutation.input.scope === "user" ? input.mutation.input.userId : null,
-				change,
-			),
-		});
+		const dispatch = yield* planner.planChange(
+			{
+				trigger: yield* lifecycleTrigger(
+					command,
+					input.mutation.input.scope === "user" ? input.mutation.input.userId : null,
+					change,
+				),
+			},
+			transaction,
+		);
 		return { change, dispatch };
 	});
 	const lockMutations = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {

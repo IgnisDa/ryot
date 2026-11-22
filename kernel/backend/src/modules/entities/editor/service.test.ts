@@ -49,6 +49,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { EntityEditorService } from "./service";
@@ -995,7 +996,7 @@ describe("EntityEditorService", () => {
 								Effect.tap(() =>
 									input.lock
 										? Effect.void
-										: repository.createRelationship({
+										: repository.createRelationship(new WriteTransaction(), {
 												userId,
 												scope: "user",
 												properties: {},

@@ -1,6 +1,15 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
+import {
+	boolean,
+	check,
+	index,
+	integer,
+	jsonb,
+	primaryKey,
+	snakeCase,
+	text,
+} from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -12,6 +21,8 @@ export const derivedValue = snakeCase.table(
 	{
 		targetId: text().notNull(),
 		pluginRevisionId: text().notNull(),
+		revision: integer().notNull().default(0),
+		replay: boolean().notNull().default(false),
 		value: jsonb().$type<JsonValue>().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
 		kind: text().$type<"event" | "subject" | "absorbed" | "relationship">().notNull(),
@@ -35,4 +46,20 @@ export const derivedValue = snakeCase.table(
 		),
 		check("derived_value_status_check", sql`${table.status} in ('ready', 'pending', 'failed')`),
 	],
+);
+
+/** Events a background write changed since their subject's last fold, each with its image before the first change. */
+export const derivedChange = snakeCase.table(
+	"derived_change",
+	{
+		eventId: text().notNull(),
+		before: jsonb().$type<JsonValue>(),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		subjectEntityId: text()
+			.notNull()
+			.references(() => entity.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.subjectEntityId, table.userId, table.eventId] })],
 );

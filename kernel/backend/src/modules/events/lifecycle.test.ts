@@ -72,6 +72,7 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -136,7 +137,7 @@ const updateEventProperties = (
 		assert(current);
 		const { snapshot, revision: expectedRevision } = current;
 		const updated = yield* session.transaction(
-			repository.updatePreparedEvent({
+			repository.updatePreparedEvent(new WriteTransaction(), {
 				...input,
 				expectedRevision,
 				propertiesSchema: { fields: {} },
@@ -677,7 +678,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const repository = yield* EventsRepository;
 					const eventId = EventId.make("conditional-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -768,7 +769,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							}),
 					);
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							id: eventId,
 							eventSchemaSlug,
@@ -810,17 +811,18 @@ describe("Event lifecycle PostgreSQL", () => {
 					const failingPlanner = LifecyclePlanner.of({
 						...currentPlanner,
 						plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
-						planChange: (input) => failChanges(input.trigger, currentPlanner.planChange(input)),
-						planChanges: (triggers) =>
+						planChange: (input, transaction) =>
+							failChanges(input.trigger, currentPlanner.planChange(input, transaction)),
+						planChanges: (triggers, transaction) =>
 							Effect.andThen(
 								Effect.forEach(triggers, (trigger) => failChanges(trigger, Effect.void)),
-								currentPlanner.planChanges(triggers),
+								currentPlanner.planChanges(triggers, transaction),
 							),
 					});
 					const eventId = EventId.make("event");
 					const beforeTime = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 					const created = yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -834,7 +836,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						}),
 					);
 					const replay = yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -851,7 +853,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					assertExitFails(
 						yield* Effect.exit(
 							session.transaction(
-								repository.createEvent({
+								repository.createEvent(new WriteTransaction(), {
 									userId,
 									entityId,
 									id: eventId,
@@ -981,7 +983,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const createdAt = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 					const seed = (id: string) =>
 						session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								eventSchemaSlug,
@@ -999,7 +1001,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							() =>
 								session
 									.transaction(
-										repository.updateEventEntityReferences({
+										repository.updateEventEntityReferences(new WriteTransaction(), {
 											userId,
 											eventId,
 											mergeInto: movedId,
@@ -1081,7 +1083,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const eventIds = [EventId.make("batch-fresh"), EventId.make("batch-stale")];
 					for (const eventId of eventIds) {
 						yield* session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								id: eventId,
@@ -1101,7 +1103,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
 									yield* session
 										.transaction(
-											repository.updateEventEntityReferences({
+											repository.updateEventEntityReferences(new WriteTransaction(), {
 												userId,
 												mergeInto: movedId,
 												mergeFrom: entityId,
@@ -1157,7 +1159,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const protectedId = EventId.make("reference-race-protected");
 					for (const eventId of [retriedId, protectedId]) {
 						yield* session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								id: eventId,
@@ -1320,7 +1322,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const fixture = yield* LifecycleDatabase;
 					const eventId = EventId.make("no-hook-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -1341,7 +1343,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const noop = yield* runChanges([eventMove(move)], command("no-hook-noop"));
 					expect(noop).toEqual([]);
 					yield* session.transaction(
-						repository.updateEventEntityReferences({
+						repository.updateEventEntityReferences(new WriteTransaction(), {
 							...move,
 							mergeFrom: movedId,
 							mergeInto: entityId,
@@ -1406,7 +1408,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const eventId = EventId.make("policy-edit-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -1433,7 +1435,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					).toEqual({ rating: 10 });
 					const moveEventId = EventId.make("policy-move-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: moveEventId,
@@ -1471,7 +1473,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const eventId = EventId.make("invalid-edit-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -1528,7 +1530,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const fixture = yield* LifecycleDatabase;
 					const eventId = EventId.make("field-precondition-edit");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -1572,7 +1574,7 @@ describe("Event lifecycle PostgreSQL", () => {
 
 					const staleId = EventId.make("field-precondition-stale");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: staleId,
@@ -1610,7 +1612,7 @@ describe("Event lifecycle PostgreSQL", () => {
 
 					const deleteId = EventId.make("field-precondition-delete");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: deleteId,
@@ -1642,7 +1644,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const eventId = EventId.make("stale-edit-event");
 					yield* session.transaction(
-						repository.createEvent({
+						repository.createEvent(new WriteTransaction(), {
 							userId,
 							entityId,
 							id: eventId,
@@ -1661,7 +1663,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						() =>
 							session
 								.transaction(
-									repository.updateEventEntityReferences({
+									repository.updateEventEntityReferences(new WriteTransaction(), {
 										userId,
 										eventId,
 										mergeInto: movedId,
@@ -1733,7 +1735,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						[protectedEventId, "protected"],
 					] as const) {
 						yield* session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								id: eventId,
@@ -1816,7 +1818,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const eventIds = [EventId.make("atomic-edit-first"), EventId.make("atomic-edit-second")];
 					for (const eventId of eventIds) {
 						yield* session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								id: eventId,
@@ -1865,7 +1867,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						const foreign = yield* insertManagedAsset(UserId.make("event-asset-foreign"));
 						const eventId = EventId.make("foreign-asset-edit-event");
 						yield* session.transaction(
-							repository.createEvent({
+							repository.createEvent(new WriteTransaction(), {
 								userId,
 								entityId,
 								id: eventId,

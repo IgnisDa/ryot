@@ -67,6 +67,7 @@ import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.t
 import { ScriptChanges } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
@@ -101,9 +102,10 @@ const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => 
 						return EventMutations.of({
 							...original,
 							persistBatches: Effect.fn("AtomicCommandTest.persistBatches")(function* (
-								input: Parameters<EventMutations["Service"]["persistBatches"]>[0],
+								transaction: WriteTransaction,
+								input: Parameters<EventMutations["Service"]["persistBatches"]>[1],
 							) {
-								const result = yield* original.persistBatches(input);
+								const result = yield* original.persistBatches(transaction, input);
 								if (!failAfterEvents || input.batches.length === 0) {
 									return result;
 								}
@@ -1165,7 +1167,7 @@ const seedEvent = (
 ) =>
 	input.session.transaction(
 		Effect.flatMap(EventsRepository, (events) =>
-			events.createEvent({
+			events.createEvent(new WriteTransaction(), {
 				userId,
 				entityId,
 				id: EventId.make(id),

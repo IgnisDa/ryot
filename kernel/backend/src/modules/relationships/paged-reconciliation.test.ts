@@ -9,6 +9,7 @@ import { Effect, Ref } from "effect";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -68,7 +69,8 @@ const setup = (scope: string) =>
 			Effect.provideService(LifecyclePlanner, {
 				...planner,
 				plan: (input) => planner.plan(input).pipe(Effect.tap(() => record(input))),
-				planChange: (input) => planner.planChange(input).pipe(Effect.tap(() => record(input))),
+				planChange: (input, transaction) =>
+					planner.planChange(input, transaction).pipe(Effect.tap(() => record(input))),
 			}),
 		);
 		yield* session.run((db) =>
@@ -92,6 +94,7 @@ const setup = (scope: string) =>
 		) =>
 			session.transaction(
 				service.persistPlannedReconciliation(
+					new WriteTransaction(),
 					[group(relationships, paging)],
 					command(`${scope}:${identity}`),
 					{ scope: "global" },

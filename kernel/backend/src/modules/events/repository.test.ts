@@ -14,6 +14,7 @@ import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryp
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -294,10 +295,14 @@ layer(
 					eventSchemaName: { key: "test.review", namespace: "kernel" },
 					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z")),
 				};
-				const transactionError = yield* Effect.flip(repository.createEvent(event));
+				const transactionError = yield* Effect.flip(
+					repository.createEvent(new WriteTransaction(), event),
+				);
 				expect(transactionError).toBeInstanceOf(DbError);
 				expect(transactionError.message).toBe("Event writes require an active transaction");
-				expect((yield* session.transaction(repository.createEvent(event))).id).toBe(event.id);
+				expect(
+					(yield* session.transaction(repository.createEvent(new WriteTransaction(), event))).id,
+				).toBe(event.id);
 			}),
 		testTimeout,
 	);

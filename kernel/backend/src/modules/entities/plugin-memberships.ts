@@ -25,6 +25,7 @@ import { EventsRepository } from "#modules/events/repository";
 import { snapshot as relationshipSnapshot } from "#modules/relationships/mutation-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { EntitiesRepository } from "./repository";
@@ -163,13 +164,16 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				return new Map(rows.map((row) => [row.pluginId, row.memberships ?? []]));
 			});
 
-			const recordEvent = Effect.fnUntraced(function* (input: {
-				userId: UserId;
-				member: Member;
-				identity: string;
-				occurredAt: string;
-				eventSchemaSlug: string;
-			}) {
+			const recordEvent = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
+				input: {
+					userId: UserId;
+					member: Member;
+					identity: string;
+					occurredAt: string;
+					eventSchemaSlug: string;
+				},
+			) {
 				const scope = {
 					entitySchemaPluginId: input.member.entitySchemaPluginId,
 					eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
@@ -180,7 +184,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 					return null;
 				}
 				const created = yield* events
-					.createEvent({
+					.createEvent(transaction, {
 						properties: {},
 						userId: input.userId,
 						eventSchemaName: schema.name,
@@ -209,6 +213,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 
 			/** Records a new membership relationship of a member entity as the rule's event, dated at its creation. */
 			const recordMembership = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
 				userId: UserId,
 				trigger: AutomationTrigger,
 				command: LifecycleCommand,
@@ -239,7 +244,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				) {
 					return [];
 				}
-				const event = yield* recordEvent({
+				const event = yield* recordEvent(transaction, {
 					userId,
 					occurredAt: relationship.createdAt,
 					eventSchemaSlug: membership.recordEventSchemaSlug,
@@ -264,6 +269,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 
 			const derive = Effect.fn("PluginMembershipWrites.derive")(function* (
 				triggers: ReadonlyArray<AutomationTrigger>,
+				transaction: WriteTransaction,
 			) {
 				const derived: AutomationTrigger[] = [];
 				const pending: Array<{
@@ -288,7 +294,9 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 						payload.resource === "relationship" &&
 						payload.operation === "create"
 					) {
-						derived.push(...(yield* recordMembership(userId, trigger, command, payload.after)));
+						derived.push(
+							...(yield* recordMembership(transaction, userId, trigger, command, payload.after)),
+						);
 						continue;
 					}
 					const candidates: ReadonlyArray<Candidate> = yield* candidatesOf(userId, payload);
@@ -316,12 +324,13 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 					if (declared === undefined) {
 						continue;
 					}
-					yield* deriveCandidates(userId, command, candidates, declared, derived);
+					yield* deriveCandidates(transaction, userId, command, candidates, declared, derived);
 				}
 				return derived;
 			});
 
 			const deriveCandidates = Effect.fnUntraced(function* (
+				transaction: WriteTransaction,
 				userId: UserId,
 				command: LifecycleCommand,
 				candidates: ReadonlyArray<Candidate>,
@@ -355,7 +364,10 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 							),
 						};
 						yield* relationships.lockRelationshipMutations([identity]);
-						const saved = yield* relationships.createRelationship({ ...identity, properties: {} });
+						const saved = yield* relationships.createRelationship(transaction, {
+							...identity,
+							properties: {},
+						});
 						if (!saved.wasInserted) {
 							continue;
 						}

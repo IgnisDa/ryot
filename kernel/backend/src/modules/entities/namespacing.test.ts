@@ -57,6 +57,7 @@ import {
 import { principalOwner, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { EntitiesRepository } from "./repository";
@@ -848,7 +849,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				).toMatchObject({ reason: { code: "entity-schema-mismatch" } });
 
 				yield* session.transaction(
-					eventRows.createEvent({
+					eventRows.createEvent(new WriteTransaction(), {
 						userId: firstUser,
 						entityId: foreignFrom.id,
 						sessionEntityId: from.id,
@@ -1037,7 +1038,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 						decidingPolicies((yield* LifecyclePolicies).match, () =>
 							session
 								.transaction(
-									repository.updateEntity({
+									repository.updateEntity(new WriteTransaction(), {
 										populatedAt: null,
 										name: "Concurrent",
 										entityId: created.id,

@@ -16,6 +16,7 @@ import type {
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationUserIds } from "#modules/mutations/account-admission";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	makeRelationshipMutationPrimitives,
@@ -52,6 +53,7 @@ export const makePlannedRelationshipReconciliation = (
 	const persistPlannedReconciliation = Effect.fn(
 		"RelationshipsService.persistPlannedReconciliation",
 	)(function* (
+		transaction: WriteTransaction,
 		groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
 		command: DomainLifecycleCommand,
 		scope: RelationshipReconciliationScope,
@@ -219,6 +221,7 @@ export const makePlannedRelationshipReconciliation = (
 			let changedIndex = 0;
 			const groupDispatch: LifecycleDispatchPlan[] = [];
 			const persisted = yield* primitives.persistSources(
+				transaction,
 				prepared.map((item) => ({
 					mutation: item,
 					before: item.before,
@@ -242,7 +245,7 @@ export const makePlannedRelationshipReconciliation = (
 					changedIndex === 0,
 				);
 				changedIndex += 1;
-				const { change, dispatch: itemDispatch } = yield* primitives.planChange({
+				const { change, dispatch: itemDispatch } = yield* primitives.planChange(transaction, {
 					payload,
 					population,
 					mutation: item,

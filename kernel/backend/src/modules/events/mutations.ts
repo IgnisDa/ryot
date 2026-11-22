@@ -55,10 +55,12 @@ import {
 	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
-import { eventReferenceBadRequest, PendingEventReferenceClears } from "./event-references";
+import { eventReferenceBadRequest, pendingReferenceClears } from "./event-references";
 import { EventsRepository } from "./repository";
 
 const EventWriteIdentity = Schema.Struct({
@@ -330,14 +332,17 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const groups = yield* EventGroupConstraints.make;
 			const folds = yield* Folds;
-			const captureGroups = Effect.fn("EventMutations.captureGroups")(function* (input: {
-				readonly userId: UserId;
-				readonly entityIds?: ReadonlyArray<EntityId>;
-				readonly batches: ReadonlyArray<{
-					readonly validated: PolicyBatchResult;
-					readonly prepared: PreparedEventChanges;
-				}>;
-			}) {
+			const captureGroups = Effect.fn("EventMutations.captureGroups")(function* (
+				transaction: WriteTransaction,
+				input: {
+					readonly userId: UserId;
+					readonly entityIds?: ReadonlyArray<EntityId>;
+					readonly batches: ReadonlyArray<{
+						readonly validated: PolicyBatchResult;
+						readonly prepared: PreparedEventChanges;
+					}>;
+				},
+			) {
 				const accounts = new Map<UserId, NonNullable<LifecycleCommand["accountUserId"]>>();
 				const expectedRevisions = new Map<EventId, number>();
 				for (const { prepared } of input.batches) {
@@ -361,7 +366,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				yield* schemas.lockCatalog([input.userId, ...accounts.keys()]);
 				const mutationReferences = preparedMutationReferences(input);
 				yield* repository.lockMutationReferences(mutationReferences);
-				return yield* groups.capture({
+				return yield* groups.capture(transaction, {
 					expectedRevisions,
 					userId: input.userId,
 					entityIds: input.entityIds ?? [],
@@ -619,16 +624,19 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				}
 				return { items, failures, propertiesSchemas, references: scopes.references };
 			});
-			const persist = Effect.fn("EventMutations.persist")(function* (input: {
-				userId: UserId;
-				derived?: boolean;
-				sealBatch?: boolean;
-				batchIndexOffset?: number;
-				batch?: LifecycleBatchInput;
-				validated: PolicyBatchResult;
-				prepared: PreparedEventChanges;
-				command: DomainLifecycleCommand;
-			}) {
+			const persist = Effect.fn("EventMutations.persist")(function* (
+				transaction: WriteTransaction,
+				input: {
+					userId: UserId;
+					derived?: boolean;
+					sealBatch?: boolean;
+					batchIndexOffset?: number;
+					batch?: LifecycleBatchInput;
+					validated: PolicyBatchResult;
+					prepared: PreparedEventChanges;
+					command: DomainLifecycleCommand;
+				},
+			) {
 				yield* session.requireTransaction.pipe(Effect.orDie);
 				yield* schemas.lockCatalog([input.userId]);
 				const mutationReferences = preparedMutationReferences({
@@ -636,14 +644,14 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					userId: input.userId,
 				});
 				if (
-					!(yield* groups.isCaptured({
+					!groups.isCaptured(transaction, {
 						userId: input.userId,
 						drafts: mutationReferences.sources,
 						eventIds: capturedEventIds([input]),
 						createdEventIds: createdEventIds([input]),
-					}))
+					})
 				) {
-					yield* captureGroups({
+					yield* captureGroups(transaction, {
 						batches: [input],
 						userId: input.userId,
 						entityIds: Object.keys(input.validated.references).map((id) => EntityId.make(id)),
@@ -833,6 +841,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					);
 				const creates = validatedRows.filter(({ row }) => row.change.kind === "create");
 				yield* repository.createEvents(
+					transaction,
 					creates.map(({ row, draft, schema }) => ({
 						order: row.order ?? undefined,
 						...draft,
@@ -880,7 +889,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							expectedRevision: row.source.revision,
 						};
 						if (row.change.kind === "delete") {
-							if (!(yield* repository.deletePreparedEvent(identity))) {
+							if (!(yield* repository.deletePreparedEvent(transaction, identity))) {
 								return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 							}
 							change = {
@@ -891,7 +900,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						} else {
 							if (
-								!(yield* repository.updatePreparedEvent({
+								!(yield* repository.updatePreparedEvent(transaction, {
 									...identity,
 									draft,
 									order: row.order,
@@ -931,28 +940,31 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				if (preparedBatch === null) {
 					return { results, dispatch };
 				}
-				const planned = yield* planner.planChanges(triggers);
+				const planned = yield* planner.planChanges(triggers, transaction);
 				dispatch.push(...planned.flat());
 				if (input.sealBatch !== false) {
 					dispatch.push(...(yield* planner.planBatch(batch)));
 				}
 				return { results, dispatch };
 			});
-			const persistBatches = Effect.fn("EventMutations.persistBatches")(function* (input: {
-				userId: UserId;
-				batchIndexOffset?: number;
-				batch: LifecycleBatchInput;
-				batches: ReadonlyArray<{
-					validated: PolicyBatchResult;
-					prepared: PreparedEventChanges;
-					command: DomainLifecycleCommand;
-				}>;
-			}) {
+			const persistBatches = Effect.fn("EventMutations.persistBatches")(function* (
+				transaction: WriteTransaction,
+				input: {
+					userId: UserId;
+					batchIndexOffset?: number;
+					batch: LifecycleBatchInput;
+					batches: ReadonlyArray<{
+						validated: PolicyBatchResult;
+						prepared: PreparedEventChanges;
+						command: DomainLifecycleCommand;
+					}>;
+				},
+			) {
 				const results = [];
 				const dispatch: Array<LifecycleDispatchPlan> = [];
 				let offset = input.batchIndexOffset ?? 0;
 				for (const prepared of input.batches) {
-					const work = yield* persist({
+					const work = yield* persist(transaction, {
 						...prepared,
 						sealBatch: false,
 						batch: input.batch,
@@ -965,8 +977,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				}
 				return { results, dispatch, batchIndexOffset: offset };
 			});
+			const clearPendingReferences = (transaction: WriteTransaction) =>
+				Effect.suspend(() =>
+					repository.clearReferences(transaction, pendingReferenceClears(transaction).splice(0)),
+				);
 			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
-			const applyDerived: ApplyFoldChanges = Effect.fnUntraced(function* (input) {
+			const applyFoldChanges: ApplyFoldChanges = Effect.fnUntraced(function* (transaction, input) {
 				const prepared = yield* prepare(input);
 				const validated = unchangedPolicyBatch({
 					resource: "event",
@@ -976,29 +992,41 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					items: yield* eventPolicyItems(prepared),
 					propertiesSchemas: prepared.propertiesSchemas,
 				});
-				yield* persist({ ...input, prepared, validated, derived: true }).pipe(
+				yield* persist(transaction, { ...input, prepared, validated, derived: true }).pipe(
 					Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
 				);
+				yield* clearPendingReferences(transaction);
 			});
-			const clearPendingReferences = Effect.gen(function* () {
-				const pending = yield* PendingEventReferenceClears;
-				if (pending) {
-					yield* repository.clearReferences(pending.splice(0));
-				}
-			});
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
-				groups.transaction(
-					Effect.suspend(() =>
-						folds
-							.within(
-								Effect.tap(work, () => clearPendingReferences),
-								(input) => Effect.tap(applyDerived(input), () => clearPendingReferences),
-								mode,
-							)
-							.pipe(Effect.provideService(PendingEventReferenceClears, [])),
-					),
+			/**
+			 * Runs event writes in one transaction with their own write state, then clears the references
+			 * their deletions released, folds or queues what they changed, and validates their event groups.
+			 */
+			const transaction = <A, E, R>(
+				work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>,
+				mode: FoldMode = "inline",
+			) =>
+				runRootTransaction(
+					session,
+					Effect.gen(function* () {
+						const state = new WriteTransaction();
+						const result = yield* work(state);
+						yield* clearPendingReferences(state);
+						yield* mode === "queue"
+							? folds.queue(state)
+							: folds.settle(state, applyFoldChanges, mode);
+						yield* groups.validateCaptured(state);
+						return result;
+					}),
 				);
-			return { prepare, persist, transaction, captureGroups, persistBatches, lockPreparedChanges };
+			return {
+				prepare,
+				persist,
+				transaction,
+				captureGroups,
+				persistBatches,
+				applyFoldChanges,
+				lockPreparedChanges,
+			};
 		}),
 	},
 ) {

@@ -15,6 +15,8 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, type Effect, Schema, Struct } from "effect";
 
+import type { WriteTransaction } from "#platform/db/write-transaction";
+
 export const lifecycleTriggerId = (input: {
 	itemIdentity: string;
 	discriminator: string;
@@ -118,6 +120,7 @@ export class LifecycleWork extends Context.Service<
 	{
 		derive: (
 			triggers: ReadonlyArray<AutomationTrigger>,
+			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<AutomationTrigger>, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecycleWork") {}
@@ -128,9 +131,6 @@ export class LifecyclePlanner extends Context.Service<
 		planBatch: (
 			input: LifecycleBatchInput,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
-		planChange: (input: {
-			trigger: AutomationTrigger;
-		}) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 		recordBatchChange: (
 			id: string,
 			change: LifecycleBatchChange & { readonly index: number },
@@ -140,12 +140,17 @@ export class LifecyclePlanner extends Context.Service<
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
-		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
-		planChanges: (
-			triggers: ReadonlyArray<AutomationTrigger>,
-		) => Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError>;
+		planChange: (
+			input: { trigger: AutomationTrigger },
+			transaction: WriteTransaction,
+		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 		prepareBatch: (
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
+		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
+		planChanges: (
+			triggers: ReadonlyArray<AutomationTrigger>,
+			transaction: WriteTransaction,
+		) => Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecyclePlanner") {}

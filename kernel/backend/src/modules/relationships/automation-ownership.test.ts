@@ -23,6 +23,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -47,7 +48,11 @@ const reconcileGlobal = (
 	Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const committed = yield* (yield* DatabaseSession)
-			.transaction(service.persistPlannedReconciliation(groups, lifecycle, { scope: "global" }))
+			.transaction(
+				service.persistPlannedReconciliation(new WriteTransaction(), groups, lifecycle, {
+					scope: "global",
+				}),
+			)
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		return committed.result;
 	});

@@ -473,6 +473,14 @@ CREATE TABLE "definition_signal_schema" (
 	CONSTRAINT "definition_signal_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
+CREATE TABLE "derived_change" (
+	"event_id" text,
+	"before" jsonb,
+	"user_id" text,
+	"subject_entity_id" text,
+	CONSTRAINT "derived_change_pkey" PRIMARY KEY("subject_entity_id","user_id","event_id")
+);
+--> statement-breakpoint
 CREATE TABLE "derived_value" (
 	"target_id" text,
 	"plugin_revision_id" text NOT NULL,
@@ -480,6 +488,8 @@ CREATE TABLE "derived_value" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"kind" text,
 	"status" text DEFAULT 'ready' NOT NULL,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"replay" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"plugin_id" text NOT NULL,
 	"subject_entity_id" text NOT NULL,
@@ -1293,8 +1303,8 @@ CREATE TABLE "signal_schedule_delivery" (
 );
 --> statement-breakpoint
 CREATE TABLE "signal_schedule_evaluation" (
-	"next_due_at" timestamp(3) with time zone,
 	"content_language" text,
+	"next_due_at" timestamp(3) with time zone,
 	"time_zone" text NOT NULL,
 	"schedule_slug" text,
 	"snapshot" pg_snapshot NOT NULL,
@@ -1628,6 +1638,8 @@ ALTER TABLE "definition_relationship_schema" ADD CONSTRAINT "definition_relation
 ALTER TABLE "definition_saved_view" ADD CONSTRAINT "definition_saved_view_bGBIhUsWSMr5_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schedule" ADD CONSTRAINT "definition_signal_schedule_RGT3p54KQeok_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schema" ADD CONSTRAINT "definition_signal_schema_kHnAff4N3xqs_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "derived_change" ADD CONSTRAINT "derived_change_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "derived_change" ADD CONSTRAINT "derived_change_subject_entity_id_entity_id_fkey" FOREIGN KEY ("subject_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_subject_entity_id_entity_id_fkey" FOREIGN KEY ("subject_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
