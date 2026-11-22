@@ -25,11 +25,12 @@ const episodeRow = (
 ) => ({
 	...identity(title, "show"),
 	onePerTitle,
-	publishDate,
 	episodeNumber,
+	airingAt: null,
 	seasonNumber: 2,
 	occurrenceId: id,
 	occurrenceImage: null,
+	releaseDay: `${publishDate}T00:00:00.000Z`,
 });
 
 const page = (items: readonly unknown[]) =>
@@ -60,11 +61,6 @@ describe("upcoming recipe", () => {
 					{ total: 5, id: "show-1" },
 					{ total: 1, id: "show-2" },
 				]),
-				shows: page([
-					episodeRow("show-2", "episode-9", "2026-09-04", 9),
-					episodeRow("show-1", "episode-3", "2026-09-04", 3),
-					episodeRow("show-1", "episode-4", "2026-09-11", 4),
-				]),
 				anime: page([
 					{
 						...identity("anime-1", "anime"),
@@ -73,23 +69,18 @@ describe("upcoming recipe", () => {
 						occurrences: included([{ episodeNumber: 4, airingAt: "2026-09-03T15:00:00.000Z" }]),
 					},
 				]),
+				shows: page([
+					episodeRow("show-2", "episode-9", "2026-09-04", 9),
+					{
+						...episodeRow("show-1", "episode-3", "2026-09-04", 3),
+						airingAt: "2026-09-04T01:00:00.000Z",
+					},
+					episodeRow("show-1", "episode-4", "2026-09-11", 4),
+				]),
 			},
 		});
 
 		expect(Result.getOrThrow(decoded)).toEqual<unknown>([
-			{
-				total: 5,
-				entity: identity("show-1", "show"),
-				occurrences: [
-					{
-						image: null,
-						dateOnly: true,
-						key: "episode-3",
-						airsAt: "2026-09-04",
-						episode: { seasonNumber: 2, episodeNumber: 3 },
-					},
-				],
-			},
 			{
 				total: 1,
 				entity: identity("show-2", "show"),
@@ -100,6 +91,19 @@ describe("upcoming recipe", () => {
 						key: "episode-9",
 						airsAt: "2026-09-04",
 						episode: { seasonNumber: 2, episodeNumber: 9 },
+					},
+				],
+			},
+			{
+				total: 5,
+				entity: identity("show-1", "show"),
+				occurrences: [
+					{
+						image: null,
+						dateOnly: false,
+						key: "episode-3",
+						airsAt: "2026-09-04T01:00:00.000Z",
+						episode: { seasonNumber: 2, episodeNumber: 3 },
 					},
 				],
 			},

@@ -216,7 +216,7 @@ describe("show season episode choices recipe", () => {
 		const nodes = ryotqlDocumentNodes([recipe.document]);
 		expect(nodes).toContainEqual({ value: 2, type: "literal" });
 		expect(nodes).toContainEqual({ type: "literal", value: "show-1" });
-		expect(nodes).not.toContainEqual({ type: "currentDate" });
+		expect(nodes).not.toContainEqual(objectContaining({ type: "localDate" }));
 		expect(recipe.document.queries["episodes"]?.output).toEqual<unknown>(
 			objectContaining({
 				orderBy: [
@@ -276,7 +276,7 @@ describe("episodic earlier unwatched recipe", () => {
 		const nodes = ryotqlDocumentNodes([showRecipe.document.queries["episodes"]?.where]);
 		expect(nodes).toContainEqual({ type: "literal", value: "complete" });
 		expect(nodes).toContainEqual(objectContaining({ operator: "neq", type: "comparison" }));
-		expect(nodes).toContainEqual({ type: "currentDate" });
+		expect(nodes).toContainEqual(objectContaining({ timeZone: "UTC", type: "localDate" }));
 		expect(nodes).toContainEqual(
 			objectContaining({
 				operator: "gt",

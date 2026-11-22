@@ -288,9 +288,10 @@ const upcomingEpisode = (
 	still = true,
 ) => ({
 	id,
-	publishDate,
 	seasonNumber,
 	episodeNumber,
+	airingAt: null,
+	releaseDay: `${publishDate}T00:00:00.000Z`,
 	image: still ? { type: "remote", url: "https://images.test/still.jpg" } : null,
 });
 

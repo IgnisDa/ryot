@@ -24,9 +24,11 @@ export const EPISODIC_PAGE_LIMIT = 2;
 
 export const episodicEpisodeRow = {
 	runtime: 52,
+	airingAt: null,
 	id: "episode-1",
 	episodeNumber: 1,
 	state: "untracked",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "podcast-episode",
 	name: "Episode 1: The Arrest",

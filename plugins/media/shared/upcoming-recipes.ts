@@ -27,7 +27,6 @@ import {
 	localDate,
 	lte,
 	neq,
-	now,
 	or,
 	parameters,
 	reportingTimeZone,
@@ -56,11 +55,15 @@ import {
 import { libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	episodeDisplayStateExpression,
+	episodeReleaseDay,
+	episodeReleaseOrder,
+	episodeReleaseTime,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
 	occursAt,
 	podcastEpisodicKindConfig,
 	publishDate,
+	reportingToday,
 	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
@@ -90,8 +93,7 @@ const upcomingParameters = parameters({
 });
 type UpcomingInput = { readonly reference: PluginIdentityReference };
 const TITLE_LIMIT = 20;
-const today = castDate(localDate(now(), { timeZone: reportingTimeZone }));
-const lastDay = dateAdd(today, upcomingParameters.value("daysAhead"), "day");
+const lastDay = dateAdd(reportingToday, upcomingParameters.value("daysAhead"), "day");
 const upcomingEntitySelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
 	...mediaPresentationImageSelection(entity),
@@ -104,7 +106,7 @@ const upcomingEntitySelection = (entity: Table) => ({
 const WINDOW_EPISODE_LIMIT = 100;
 const WINDOW_TITLE_LIMIT = 1000;
 const inDateWindow = (date: ScalarExpression) =>
-	and(gte(castDate(date), today), lte(castDate(date), lastDay));
+	and(gte(castDate(date), reportingToday), lte(castDate(date), lastDay));
 const followed = (entity: Table, alias: string) => {
 	const library = libraryMembershipJoin(entity, `${alias}Library`);
 	return {
@@ -131,7 +133,7 @@ const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 		],
 		where: and(
 			scope.where,
-			inDateWindow(occursAt(episode)),
+			inDateWindow(episodeReleaseDay(episode)),
 			entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 			or(
 				inArray(follow.lifecycleState, [literal("in_progress"), literal("caught_up")]),
@@ -145,9 +147,10 @@ const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 const episodeSelection = (parent: Table, episode: Table) => ({
 	...upcomingEntitySelection(parent),
 	occurrenceId: selectedField(column(episode, "id"), Schema.String),
-	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.String),
+	releaseDay: selectedField(episodeReleaseDay(episode), IsoDateString),
 	onePerTitle: selectedField(upcomingParameters.value("onePerTitle"), Schema.Boolean),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+	airingAt: selectedField(episodeReleaseTime(episode).instant, Schema.NullOr(IsoDateString)),
 	seasonNumber: selectedField(
 		propertyNumber(episode, "seasonNumber"),
 		Schema.NullOr(Schema.Finite),
@@ -166,7 +169,7 @@ const episodicEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 		limit: WINDOW_EPISODE_LIMIT,
 		selection: episodeSelection(parent, episode),
 		orderBy: [
-			ascending(occursAt(episode)),
+			...episodeReleaseOrder(episode),
 			...position.map((value) => ascending(value)),
 			ascending(column(episode, "id")),
 		],
@@ -206,12 +209,18 @@ const titlesFromEpisodes = (
 		}
 	}
 	return [...titles.values()]
-		.sort(([a], [b]) => a.publishDate.localeCompare(b.publishDate) || a.id.localeCompare(b.id))
+		.sort(
+			([a], [b]) =>
+				a.releaseDay.localeCompare(b.releaseDay) ||
+				(a.airingAt ?? "").localeCompare(b.airingAt ?? "") ||
+				a.id.localeCompare(b.id),
+		)
 		.slice(0, TITLE_LIMIT)
 		.map((episodes) => {
 			const {
 				onePerTitle,
-				publishDate: _publishDate,
+				airingAt: _airingAt,
+				releaseDay: _releaseDay,
 				occurrenceId: _occurrenceId,
 				seasonNumber: _seasonNumber,
 				episodeNumber: _episodeNumber,
@@ -224,10 +233,10 @@ const titlesFromEpisodes = (
 				occurrences: episodes
 					.slice(0, onePerTitle ? 1 : TITLE_LIMIT)
 					.map((episode) => ({
-						dateOnly: true,
 						key: episode.occurrenceId,
-						airsAt: episode.publishDate,
 						image: episode.occurrenceImage,
+						dateOnly: episode.airingAt === null,
+						airsAt: episode.airingAt ?? episode.releaseDay.slice(0, 10),
 						episode: { seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber },
 					})),
 			};

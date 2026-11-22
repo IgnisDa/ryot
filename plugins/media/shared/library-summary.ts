@@ -9,19 +9,17 @@ import {
 	concat,
 	conditional,
 	count,
-	currentDate,
 	defineRecipe,
 	eq,
 	first,
 	gt,
 	inArray,
+	isNull,
 	IsoDateString,
 	join,
 	jsonPath,
 	literal,
-	lte,
 	maximum,
-	minimum,
 	not,
 	parameters,
 	type Recipe,
@@ -39,13 +37,15 @@ import {
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 import {
+	episodeReleaseOrder,
+	episodeReleaseTime,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
 	mediaLifecycleExpressions,
 	podcastEpisodicKindConfig,
-	publishDate,
+	releaseHasArrived,
 	sameSchemaOwner,
 	type ScalarExpression,
 	showEpisodicKindConfig,
@@ -58,6 +58,16 @@ import { averageUserRating } from "./user-rating";
 export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
+		nextAiringEpisodeId: {
+			type: "string" as const,
+			label: catalogMessage("property.episode"),
+			description: "Identity of the next episode",
+		},
+		nextAiringAt: {
+			type: "datetime" as const,
+			label: catalogMessage("property.next-airing"),
+			description: "Exact release instant for the next episode",
+		},
 		lifecycleState: {
 			type: "string" as const,
 			label: catalogMessage("property.status"),
@@ -68,10 +78,10 @@ export const librarySummaryPropertiesSchema = {
 			label: catalogMessage("property.release-date"),
 			description: "Publish date, else the start of the publish year",
 		},
-		nextAiringAt: {
+		nextAiringDate: {
 			type: "datetime" as const,
 			label: catalogMessage("property.next-airing"),
-			description: "Earliest publish date of an unaired regular episode",
+			description: "Date for the next episode when its airtime is unknown",
 		},
 		lastActivityAt: {
 			type: "datetime" as const,
@@ -86,7 +96,9 @@ const SummaryRowSchema = {
 	state: EpisodicLifecycleStateSchema,
 	releaseDate: Schema.NullOr(IsoDateString),
 	nextAiringAt: Schema.NullOr(IsoDateString),
+	nextAiringDate: Schema.NullOr(IsoDateString),
 	lastActivityAt: Schema.NullOr(IsoDateString),
+	nextAiringEpisodeId: Schema.NullOr(Schema.String),
 };
 
 const property = (entity: Table, name: string) => jsonPath(column(entity, "properties"), name);
@@ -104,10 +116,35 @@ const sharedSummarySelection = (entity: Table) => {
 	};
 };
 
-const nextAiringAt = (config: EpisodicKindConfig, parent: Table) => {
+const nextAiring = (config: EpisodicKindConfig, parent: Table) => {
 	const episode = table("entity", "summaryUpcoming");
-	const upcoming = episodicEpisodeQuery(config, parent, episode, "summaryUpcoming", "upcoming");
-	return minimum(episode, publishDate(episode), { joins: upcoming.joins, where: upcoming.where });
+	const { joins, where } = episodicEpisodeQuery(
+		config,
+		parent,
+		episode,
+		"summaryUpcoming",
+		"upcoming",
+	);
+	const { date, instant } = episodeReleaseTime(episode);
+	const id = column(episode, "id");
+	const select = (value: ScalarExpression) =>
+		first(episode, {
+			joins,
+			where,
+			select: value,
+			orderBy: [...episodeReleaseOrder(episode), ascending(id)],
+		});
+	return {
+		nextAiringAt: select(instant),
+		nextAiringEpisodeId: select(id),
+		nextAiringDate: select(conditional(isNull(instant), date, literal(null))),
+	};
+};
+
+const noNextAiring = {
+	nextAiringAt: literal(null),
+	nextAiringDate: literal(null),
+	nextAiringEpisodeId: literal(null),
 };
 
 export type LibrarySummaryKind = "flat" | "other" | EpisodicKindConfig;
@@ -121,20 +158,16 @@ export const librarySummaryKind = (entitySchemaSlug: string): LibrarySummaryKind
 
 const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "other") {
-		return { activity: literal(null), state: literal("untracked"), nextAiringAt: literal(null) };
+		return { activity: literal(null), state: literal("untracked"), ...noNextAiring };
 	}
 	if (kind === "flat") {
 		const lifecycle = mediaLifecycleExpressions(entity, "summaryLifecycle");
-		return {
-			state: lifecycle.state,
-			nextAiringAt: literal(null),
-			activity: lifecycle.latestSignal.occurredAt,
-		};
+		return { state: lifecycle.state, ...noNextAiring, activity: lifecycle.latestSignal.occurredAt };
 	}
 	const lifecycle = episodicLifecycleExpressions(kind, entity, "summaryLifecycle");
 	return {
 		state: lifecycle.state,
-		nextAiringAt: nextAiringAt(kind, entity),
+		...nextAiring(kind, entity),
 		activity: lifecycle.latestSignal.occurredAt,
 	};
 };
@@ -206,6 +239,11 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 					state: selectedField(lifecycle.state, SummaryRowSchema.state),
 					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
 					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
+					nextAiringDate: selectedField(lifecycle.nextAiringDate, SummaryRowSchema.nextAiringDate),
+					nextAiringEpisodeId: selectedField(
+						lifecycle.nextAiringEpisodeId,
+						SummaryRowSchema.nextAiringEpisodeId,
+					),
 				},
 			}),
 		},
@@ -220,7 +258,9 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 			lifecycleState: row.state,
 			releaseDate: row.releaseDate,
 			nextAiringAt: row.nextAiringAt,
+			nextAiringDate: row.nextAiringDate,
 			lastActivityAt: row.lastActivityAt,
+			nextAiringEpisodeId: row.nextAiringEpisodeId,
 		}).filter(([, value]) => value !== null),
 	);
 
@@ -263,11 +303,6 @@ export const librarySummary = (membership: Table) => {
 			column(membership, "sourceEntityId"),
 			column(membership, "relationshipSchemaPluginId"),
 		),
-		lifecycleState: conditional(
-			and(eq(stored, literal("caught_up")), lte(castDate(read("nextAiringAt")), currentDate())),
-			literal("in_progress"),
-			stored,
-		),
 		timesCompleted: conditional(
 			pending,
 			literal(null),
@@ -275,6 +310,14 @@ export const librarySummary = (membership: Table) => {
 				sum(event, consumptionNumber(event, "titleCompletions"), { where: ready }),
 				literal(0),
 			),
+		),
+		lifecycleState: conditional(
+			and(
+				eq(stored, literal("caught_up")),
+				releaseHasArrived(castDate(read("nextAiringDate")), castDate(read("nextAiringAt"))),
+			),
+			literal("in_progress"),
+			stored,
 		),
 		lastCompletedAt: conditional(
 			pending,

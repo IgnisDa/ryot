@@ -293,8 +293,9 @@ describe("episodic media recipes", () => {
 		const flat = JSON.stringify(fixtureRecipes.presentationSource.fields);
 
 		for (const document of [nested, flat]) {
-			expect(document).toContain('"type":"currentDate"');
-			expect(document).toContain('"publishDate"');
+			expect(document).toContain('"name":"reportingTimeZone"');
+			expect(document).toContain('"airingAt"');
+			expect(document).toContain('"field":"occursAt"');
 		}
 		expect(nested).toContain('"seasonNumber"');
 		expect(flat).not.toContain('"seasonNumber"');

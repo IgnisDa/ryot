@@ -68,6 +68,7 @@ import {
 	episodeHasAired,
 	episodeIsUpcoming,
 	EpisodeLifecycleStateSchema,
+	episodeReleaseTime,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
@@ -142,11 +143,16 @@ export const episodicEpisodeSelection = (
 	...mediaPresentationImageSelection(episode, kind === "show" ? "still" : "cover"),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
 	runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
+	airingAt: selectedField(episodeReleaseTime(episode).instant, Schema.NullOr(IsoDateString)),
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(episode, "description"), Schema.NullOr(Schema.String)),
 	state: selectedField(
 		episodeDisplayStateExpression(episode, parent, alias),
 		EpisodeLifecycleStateSchema,
+	),
+	airingSourceUrl: selectedField(
+		kind === "show" ? propertyText(episode, "airingSourceUrl") : literal(null),
+		Schema.NullOr(Schema.String),
 	),
 });
 

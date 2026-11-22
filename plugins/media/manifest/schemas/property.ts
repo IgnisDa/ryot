@@ -254,14 +254,25 @@ export const showSeasonPropertiesSchema: AuthoredAppSchema = {
 	},
 };
 
+const episodeAiringAt = {
+	type: "datetime",
+	label: catalogMessage("property.airing-at"),
+	description: "Episode release time as a UTC instant, when known",
+} as const;
+
 export const showEpisodePropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		localizedArtwork,
+		airingAt: episodeAiringAt,
 		images: mediaImagesField("Cover and promotional images for this episode"),
 		runtime: integerField(catalogMessage("property.runtime"), "Runtime in minutes"),
 		publishDate: stringField(
 			catalogMessage("property.publish-date"),
 			"Episode air date, as YYYY-MM-DD",
+		),
+		airingSourceUrl: stringField(
+			catalogMessage("property.source-link"),
+			"Source of the episode airtime",
 		),
 		parentShowExternalId: stringField(
 			catalogMessage("property.parent-show-external-id"),
@@ -271,6 +282,11 @@ export const showEpisodePropertiesSchema: AuthoredAppSchema = {
 			catalogMessage("property.description"),
 			"Episode summary. Supports basic Markdown formatting and spoilers",
 		),
+		airingConfirmedAt: {
+			type: "datetime",
+			label: catalogMessage("property.airing-at"),
+			description: "When the source last confirmed the episode airtime",
+		},
 		episodeNumber: {
 			type: "integer",
 			validation: { minimum: 0, required: true },
@@ -290,6 +306,7 @@ export const showEpisodePropertiesSchema: AuthoredAppSchema = {
 export const podcastEpisodePropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		localizedArtwork,
+		airingAt: episodeAiringAt,
 		images: mediaImagesField("Cover and promotional images for this episode"),
 		runtime: integerField(catalogMessage("property.runtime"), "Runtime in minutes"),
 		publishDate: stringField(

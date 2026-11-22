@@ -22,6 +22,7 @@ const podcastActivityFixtureRecipe = bindRecipe(
 );
 export const podcastSummaryRow = {
 	owned: false,
+	airingAt: null,
 	id: "podcast-1",
 	isCustom: false,
 	ownedEpisodes: 0,
@@ -36,6 +37,7 @@ export const podcastSummaryRow = {
 	providerRating: 72.5,
 	inProgressEpisodes: 1,
 	schemaSlug: "podcast",
+	airingSourceUrl: null,
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	productionStatus: "Ended",

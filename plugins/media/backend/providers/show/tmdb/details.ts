@@ -26,6 +26,7 @@ import {
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
 import { tmdbArtwork } from "../../../lib/vendors/tmdb-artwork";
+import { enrichShowAirtimes } from "../../../lib/vendors/tvmaze";
 
 /** TMDB episode group types 1 through 7, in TMDB's numbering. */
 const tmdbEpisodeOrderTypes: readonly ShowEpisodeOrder["type"][] = [
@@ -274,7 +275,7 @@ const buildDetailsResult = (
 
 export const getTmdbShowDetails = (
 	input: ProviderDetailsInput,
-	host: TmdbHost,
+	host: TmdbHost & Parameters<typeof enrichShowAirtimes>[0],
 	language: string,
 	token: string,
 ) => {
@@ -286,8 +287,8 @@ export const getTmdbShowDetails = (
 	return Effect.gen(function* () {
 		const appended =
 			input.level === "base"
-				? "watch/providers,episode_groups"
-				: "watch/providers,episode_groups,credits,aggregate_credits,recommendations";
+				? "watch/providers,episode_groups,external_ids"
+				: "watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations";
 		const [showData, imagesData] = yield* Effect.all([
 			tmdbGet(host, `/tv/${input.externalId}`, { language, append_to_response: appended }, token),
 			input.level === "base"
@@ -340,9 +341,21 @@ export const getTmdbShowDetails = (
 				token,
 			).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
-		return yield* Effect.try({
+		const details = yield* Effect.try({
 			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			try: () => buildDetailsResult(input, showData, imagesData, seasonDataList, episodeOrders),
 		});
+		const externalIds = asRecord(showData["external_ids"]);
+		const imdbId = stringValue(externalIds?.["imdb_id"]);
+		const tvdbId = numberValue(externalIds?.["tvdb_id"]);
+		const childEntities = yield* enrichShowAirtimes(
+			host,
+			[
+				...(imdbId === null ? [] : [{ id: imdbId, kind: "imdb" as const }]),
+				...(tvdbId === null ? [] : [{ id: String(tvdbId), kind: "thetvdb" as const }]),
+			],
+			details.childEntities ?? [],
+		);
+		return { ...details, childEntities };
 	});
 };

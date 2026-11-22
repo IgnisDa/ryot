@@ -1,4 +1,5 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { localDateOf, type TimeZone, UTC } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Formatters,
 	type RyotQueryResult,
@@ -6,13 +7,13 @@ import {
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotQuery,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { upcomingRecipe } from "../../shared/upcoming-recipes";
 import { upcomingSettings } from "../../shared/upcoming-settings";
-import { formatLocalDateKey } from "../media/date";
 import { type MediaText, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile } from "./home-rail";
@@ -44,6 +45,7 @@ const upcomingTiles = (
 	data: UpcomingData,
 	today: string,
 	onePerTitle: boolean,
+	timeZone: TimeZone,
 ): readonly HomeTile[] => {
 	const totals = new Map<string, number>();
 	for (const { total, entity } of data.titles) {
@@ -53,7 +55,7 @@ const upcomingTiles = (
 	return data.titles
 		.flatMap(({ entity, occurrences }) =>
 			occurrences.map((occurrence) => {
-				const day = occurrence.dateOnly ? occurrence.airsAt : formatLocalDateKey(occurrence.airsAt);
+				const day = localDateOf(occurrence.airsAt, timeZone);
 				return {
 					day,
 					entity,
@@ -88,24 +90,6 @@ const upcomingTiles = (
 		});
 };
 
-export function UpcomingRail(props: {
-	readonly today: string;
-	readonly compact: boolean;
-	readonly onePerTitle: boolean;
-	readonly result: RyotQueryResult<UpcomingData>;
-}) {
-	const text = useMediaMessages();
-	const formatters = useFormatters();
-	return (
-		<HomeRail
-			result={props.result}
-			compact={props.compact}
-			title={text("home.upcoming.title")}
-			tiles={(data) => upcomingTiles(text, formatters, data, props.today, props.onePerTitle)}
-		/>
-	);
-}
-
 export function UpcomingSection(props: { readonly today: string; readonly compact: boolean }) {
 	const text = useMediaMessages();
 	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
@@ -124,6 +108,27 @@ export function UpcomingSection(props: { readonly today: string; readonly compac
 			today={props.today}
 			compact={props.compact}
 			selection={upcomingSettings(settings.data)}
+		/>
+	);
+}
+
+export function UpcomingRail(props: {
+	readonly today: string;
+	readonly compact: boolean;
+	readonly onePerTitle: boolean;
+	readonly result: RyotQueryResult<UpcomingData>;
+}) {
+	const text = useMediaMessages();
+	const formatters = useFormatters();
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	return (
+		<HomeRail
+			result={props.result}
+			compact={props.compact}
+			title={text("home.upcoming.title")}
+			tiles={(data) =>
+				upcomingTiles(text, formatters, data, props.today, props.onePerTitle, timeZone)
+			}
 		/>
 	);
 }

@@ -1,8 +1,9 @@
+import { localDateOf, UTC } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	AssetArtWell,
-	localDay,
 	useDisplayText,
 	useRyotSchedule,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, MenuButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -25,7 +26,7 @@ import {
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
 import { MediaOwnershipControl } from "./ownership";
-import { MediaMarkdown } from "./primitives";
+import { MediaExternalLink, MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
 import { useMediaReminders } from "./reminders";
 
@@ -53,7 +54,8 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const stateMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const state = stateMessage === undefined ? undefined : copy.local(stateMessage);
-	const metadata = mediaEpisodeMetadataLabel(copy, episode);
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	const metadata = mediaEpisodeMetadataLabel(copy, episode, timeZone);
 	return (
 		<MediaDetailModal
 			compact={compact}
@@ -90,6 +92,12 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					{metadata === "" ? null : (
 						<p className="text-sm text-text-muted tabular-nums">{metadata}</p>
 					)}
+					{episode.airingSourceUrl?.startsWith("https://www.tvmaze.com/episodes/") ? (
+						<MediaExternalLink
+							href={episode.airingSourceUrl}
+							label={`TVmaze · ${text("property.airing-at")}`}
+						/>
+					) : null}
 					{state === undefined ? null : (
 						<div className="flex">
 							<Badge dot variant={episode.state === "complete" ? "success" : "neutral"}>
@@ -153,7 +161,12 @@ function MediaEpisodeActions(props: {
 	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const { locked, log: mark } = useQuickLog(log.parentEntityId);
-	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	const now = schedule.now();
+	const upcoming = episode.airingAt
+		? Date.parse(episode.airingAt) > now
+		: episode.publishDate !== null && episode.publishDate > localDateOf(now, timeZone);
+	if (upcoming) {
 		return null;
 	}
 	const { verb } = log.logger.copy;

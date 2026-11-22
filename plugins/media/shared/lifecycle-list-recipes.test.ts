@@ -21,12 +21,14 @@ const identity = {
 const nextUpEpisode = {
 	...identity,
 	runtime: 45,
+	airingAt: null,
 	id: "episode-5",
 	seasonNumber: 2,
 	episodeNumber: 5,
 	name: "Episode 5",
 	description: null,
 	state: "untracked",
+	airingSourceUrl: null,
 	publishDate: "2026-01-01",
 	schemaSlug: "show-episode",
 };

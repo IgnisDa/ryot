@@ -390,6 +390,7 @@ describe("media show query recipes", () => {
 		const episode = {
 			runtime: 88,
 			image: null,
+			airingAt: null,
 			seasonNumber: 1,
 			id: "episode-11",
 			name: "Serenity",
@@ -397,6 +398,7 @@ describe("media show query recipes", () => {
 			description: null,
 			state: "complete",
 			externalId: "1048593",
+			airingSourceUrl: null,
 			publishDate: "2002-12-20",
 			schemaSlug: "show-episode",
 			translationStatus: { state: "idle", availability: "none" },
@@ -520,9 +522,11 @@ describe("media show query recipes", () => {
 			"image",
 			"episodeNumber",
 			"runtime",
+			"airingAt",
 			"publishDate",
 			"description",
 			"state",
+			"airingSourceUrl",
 			"seasonNumber",
 		]);
 	});
@@ -653,12 +657,14 @@ describe("media show query recipes", () => {
 		const nextUp = {
 			runtime: 58,
 			image: null,
+			airingAt: null,
 			id: "episode-5",
 			seasonNumber: 2,
 			episodeNumber: 5,
 			description: null,
 			state: "untracked",
 			name: "The Return",
+			airingSourceUrl: null,
 			publishDate: "2025-04-01",
 			schemaSlug: "show-episode",
 			translationStatus: { state: "idle", availability: "none" },

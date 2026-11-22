@@ -13,10 +13,12 @@ const showSeasonEpisodesFixtureRecipe = bindRecipe(
 );
 export const showEpisodeRow = {
 	runtime: 66,
+	airingAt: null,
 	id: "episode-1",
 	seasonNumber: 1,
 	episodeNumber: 1,
 	state: "complete",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "show-episode",
 	name: "Episode 1: The Arrest",

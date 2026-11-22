@@ -312,7 +312,7 @@ describe("podcast.itunes sandbox script", () => {
 							trackId: 10,
 							trackTimeMillis: 600000,
 							trackName: "Earlier Episode",
-							releaseDate: "2020-01-01T00:00:00Z",
+							releaseDate: "2020-01-01T14:30:00+01:00",
 						},
 					],
 				});
@@ -347,6 +347,7 @@ describe("podcast.itunes sandbox script", () => {
 								description: null,
 								publishDate: "2020-01-01",
 								parentPodcastExternalId: "p1",
+								airingAt: "2020-01-01T13:30:00.000Z",
 							},
 						},
 						{
@@ -359,6 +360,7 @@ describe("podcast.itunes sandbox script", () => {
 								description: null,
 								publishDate: "2020-01-02",
 								parentPodcastExternalId: "p1",
+								airingAt: "2020-01-02T00:00:00.000Z",
 								images: [{ type: "remote", purpose: "cover", url: "https://img/ep20.jpg" }],
 							},
 						},

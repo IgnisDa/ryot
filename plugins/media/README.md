@@ -175,7 +175,7 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
   provider's UTC-midnight premiere entry that the release source already lists. Undated items
   never appear, and stored dates are shown without waiting on provider freshness. Each source
   returns per-title `total` counts and its soonest occurrences, one per title when `onePerTitle`.
-  The rail merges sources by local day and, per title, keeps the soonest entry with "+N more".
+  The rail merges sources by account reporting day and, per title, keeps the soonest entry with "+N more".
   User settings `upcomingDaysAhead` (default 14, 1–365) and `upcomingOnePerTitle` (default on)
   control the window and deduplication.
 - `activity-recipes.ts` reads canonical title completions, minutes, active days, and type shares over
@@ -197,9 +197,10 @@ data renders. Hints do not promise arbitrary realtime updates or freshness for u
 `manifest/calendar-sources.ts` contributes four kernel Calendar sources, each limited to the user's media
 library through the subject's `in-media-library` link:
 
-- `show-episodes` and `podcast-episodes` list episodes on their `publishDate`, including season-0
-  specials (`S0 · E1`); art falls back from the episode to its show or podcast, and done follows the
-  episode display state.
+- `show-episodes` and `podcast-episodes` share a release-time projection. A known `airingAt` is a UTC
+  instant and displays on the account reporting day. Otherwise `publishDate` displays as a calendar
+  date. Season-0 specials appear in Calendar, art falls back to the parent, and completion follows
+  the episode display state.
 - `anime-airings` expands `airingSchedule` with a `jsonElements` join. The entry at UTC midnight of
   the anime's `publishDate` is the release row, not an airing. An episode is done when the anime is
   complete or the latest progress/list-state `position` reaches it.
@@ -212,9 +213,9 @@ library through the subject's `in-media-library` link:
 `manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary:
 
 - `show-episode-releases`, `podcast-episode-releases`, `anime-airing-releases`, and `flat-releases`
-  emit `media.released` for monitored library media on the release day. Season-0 specials are
-  skipped, and the root's `providerCheckedAt` must be within 72 hours, otherwise delivery waits for
-  the monitoring sweep.
+  emit `media.released` for monitored library media once the release instant or date is due. Season-0
+  specials are skipped. Delivery requires a check within 72 hours, using TVmaze's schedule
+  confirmation for enriched episodes and the root's `providerCheckedAt` for other releases.
 - `in-progress-stale` and `on-hold-stale` emit `media.progress-stale` once when the stored lifecycle
   state has had no activity for 7 or 14 days. The occurrence includes the latest activity, so new
   activity starts a new period. Both require a validated Pro key.
@@ -282,6 +283,14 @@ Spotify artist-to-album associations are an exception: the complete artist catal
 including appearances, while an album's primary artist list is additive discovery. It cannot remove
 guest-artist associations that are absent from the primary artist list.
 Population stays one hop deep: discovering related entities does not populate their inventories.
+TMDB and TVDB show population enriches regular episodes with [TVmaze](https://www.tvmaze.com/api)
+airtimes. It looks up the series by IMDb or TVDB ID and matches episodes by aired season, episode
+number, and air date. The public API needs no key. The plugin caches each fetched schedule for an
+hour, retains the last successful result during transient failures, and shows the attributed TVmaze
+link on enriched episode details. TVmaze schedule data is licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Podcast population retains offset-bearing
+or epoch publication timestamps from its existing providers.
+
 TMDB and TVDB retain every returned credit rather than a fixed cast preview. TMDB keeps all crew
 jobs and billing order, including multiple roles for the same person. Show aggregate credits cover
 all episodes; guest and uncredited flags are recorded only when supported by source evidence.

@@ -46,9 +46,11 @@ export const nextUpRow = (seasonNumber: null | number, episodeNumber: number, na
 	seasonNumber,
 	runtime: null,
 	episodeNumber,
+	airingAt: null,
 	description: null,
 	publishDate: null,
 	state: "untracked",
+	airingSourceUrl: null,
 });
 
 export const episodicRow = (

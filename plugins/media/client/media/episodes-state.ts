@@ -1,4 +1,5 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import { localDateOf, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 
@@ -17,10 +18,12 @@ export type MediaEpisode = EntitySyncFields & {
 	readonly name: string;
 	readonly episodeNumber: number;
 	readonly runtime: null | number;
+	readonly airingAt?: null | string;
 	readonly publishDate: null | string;
 	readonly description: null | string;
 	readonly state: EpisodeLifecycleState;
 	readonly image: null | MediaImageAsset;
+	readonly airingSourceUrl?: null | string;
 };
 
 export const mediaDateLabel = (formatters: Formatters, value: null | string) => {
@@ -38,14 +41,25 @@ export const mediaEpisodeStateLabel = (
 
 export const mediaEpisodeSynopsis = (episode: MediaEpisode) => optionalText(episode.description);
 
-export const mediaEpisodeAirDateLabel = (formatters: Formatters, episode: MediaEpisode) =>
-	mediaDateLabel(formatters, episode.publishDate);
+export const mediaEpisodeAirDateLabel = (
+	formatters: Formatters,
+	episode: MediaEpisode,
+	timeZone: TimeZone,
+) =>
+	mediaDateLabel(
+		formatters,
+		episode.airingAt ? localDateOf(episode.airingAt, timeZone) : episode.publishDate,
+	);
 
 export const mediaEpisodeRuntimeLabel = (text: MediaText, episode: MediaEpisode) =>
 	episode.runtime === null ? undefined : text("episode.runtime", { minutes: episode.runtime });
 
-export const mediaEpisodeMetadataLabel = ({ text, formatters }: MediaCopy, episode: MediaEpisode) =>
-	[mediaEpisodeAirDateLabel(formatters, episode), mediaEpisodeRuntimeLabel(text, episode)]
+export const mediaEpisodeMetadataLabel = (
+	{ text, formatters }: MediaCopy,
+	episode: MediaEpisode,
+	timeZone: TimeZone,
+) =>
+	[mediaEpisodeAirDateLabel(formatters, episode, timeZone), mediaEpisodeRuntimeLabel(text, episode)]
 		.filter((part) => part !== undefined)
 		.join(" · ");
 

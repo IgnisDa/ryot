@@ -7,6 +7,7 @@ import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { decodeJsonResponse, trimmedString } from "../../../lib/records";
+import { releaseInstant } from "../../../lib/release-time";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 
 export const manifest = defineManifest({
@@ -187,6 +188,7 @@ type MappedEpisode = {
 	number: number;
 	publishDate: string;
 	runtime: null | number;
+	airingAt: null | string;
 	overview: null | string;
 	thumbnail: null | string;
 };
@@ -210,6 +212,7 @@ const mapEpisode = (
 		number: episodeNumberOffset + index + 1,
 		thumbnail: stringValue(item["thumbnail"]),
 		overview: stringValue(item["description"]),
+		airingAt: releaseInstant(item["pub_date_ms"]),
 		runtime: runtimeSeconds === null ? null : Math.trunc(runtimeSeconds / 60),
 	};
 };
@@ -369,6 +372,7 @@ export const details = defineProvider({
 						name: episode.title || `Episode ${episode.number}`,
 						properties: {
 							runtime: episode.runtime,
+							airingAt: episode.airingAt,
 							episodeNumber: episode.number,
 							publishDate: episode.publishDate,
 							description: yield* normalizeRichDescription(

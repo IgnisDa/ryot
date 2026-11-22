@@ -9,10 +9,12 @@ const rows = (items: readonly Record<string, unknown>[]) =>
 
 const PODCAST_EPISODE_ROW = {
 	runtime: 52,
+	airingAt: null,
 	id: "episode-9",
 	episodeNumber: 9,
 	state: "untracked",
 	name: "The Interview",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "podcast-episode",
 	description: "A long conversation.",
@@ -59,9 +61,11 @@ describe("media podcast query recipes", () => {
 			"image",
 			"episodeNumber",
 			"runtime",
+			"airingAt",
 			"publishDate",
 			"description",
 			"state",
+			"airingSourceUrl",
 		]);
 	});
 

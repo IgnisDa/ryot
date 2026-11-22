@@ -53,8 +53,10 @@ const releaseSchedule = (input: {
 	readonly root: TableReference;
 	readonly from: TableReference;
 	readonly dueAt: ScalarExpression;
+	readonly instantAt?: ScalarExpression;
 	readonly occurrence: ScalarExpression;
 	readonly precision: "date" | "instant";
+	readonly confirmedAt?: ScalarExpression;
 	readonly joins?: readonly [Join, ...Join[]];
 	readonly subject: ReturnType<typeof subjectOf>;
 	readonly positions?: Readonly<Record<string, ScalarExpression>>;
@@ -62,6 +64,7 @@ const releaseSchedule = (input: {
 	const positions = Object.entries(input.positions ?? {});
 	return {
 		dueAt: "dueAt",
+		...(input.instantAt === undefined ? {} : { instantAt: "instantAt" }),
 		slug: input.slug,
 		subject: input.subject,
 		signal: RELEASED_SIGNAL,
@@ -83,11 +86,13 @@ const releaseSchedule = (input: {
 				type: "rows",
 				fields: [
 					field("dueAt", input.dueAt),
+					...(input.instantAt === undefined ? [] : [field("instantAt", input.instantAt)]),
 					field("occurrence", input.occurrence),
 					field("entityName", column(input.root, "name")),
 					field(
 						"confirmedAt",
 						coalesce(
+							input.confirmedAt ?? literal(null),
 							column(input.root, "providerCheckedAt"),
 							castDate(literal("1970-01-01T00:00:00.000Z")),
 						),
@@ -107,8 +112,16 @@ const episodeReleases = (
 		precision: "date",
 		root: source.parent,
 		from: source.query.from,
+		dueAt: source.time.date,
 		joins: source.query.joins,
-		dueAt: occursAt(source.episode),
+		instantAt: source.time.instant,
+		...(config.kind === "show"
+			? {
+					confirmedAt: castDate(
+						jsonPath(column(source.episode, "properties"), "airingConfirmedAt"),
+					),
+				}
+			: {}),
 		slug: `${config.kind}-episode-releases`,
 		occurrence: column(source.episode, "id"),
 		subject: subjectOf(config.parentSchemaSlug, [config.parentSchemaSlug]),
@@ -202,10 +215,11 @@ const episodesAvailable = (
 ) => {
 	const parent = table("entity", config.parentSchemaSlug);
 	const library = libraryMembershipJoin(parent, "availableLibrary");
-	const nextAiringAt = summaryValue(library.membership, "nextAiringAt");
+
 	return {
 		dueAt: "dueAt",
 		precision: "date",
+		instantAt: "instantAt",
 		occurrence: "occurrence",
 		signal: AVAILABLE_SIGNAL,
 		properties: { entityName: "entityName" },
@@ -214,19 +228,20 @@ const episodesAvailable = (
 		query: {
 			from: parent,
 			joins: [library.join],
-			output: {
-				type: "rows",
-				fields: [
-					field("dueAt", castDate(nextAiringAt)),
-					field("entityName", column(parent, "name")),
-					field("occurrence", concat(column(parent, "id"), literal(":"), castText(nextAiringAt))),
-				],
-			},
 			where: and(
 				entitySchemaPredicate(parent, config.parentSchemaSlug, self),
 				eq(castText(summaryValue(library.membership, "lifecycleState")), literal("caught_up")),
 				not(libraryLinkExists(parent, "availableMonitoring", "media-monitoring")),
 			),
+			output: {
+				type: "rows",
+				fields: [
+					field("dueAt", castDate(summaryValue(library.membership, "nextAiringDate"))),
+					field("instantAt", castDate(summaryValue(library.membership, "nextAiringAt"))),
+					field("entityName", column(parent, "name")),
+					field("occurrence", castText(summaryValue(library.membership, "nextAiringEpisodeId"))),
+				],
+			},
 		},
 	} satisfies PluginSignalSchedule;
 };

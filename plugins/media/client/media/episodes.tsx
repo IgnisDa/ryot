@@ -1,8 +1,10 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import { UTC } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	AssetArtWell,
 	ManagedAssetProvider,
 	type RyotQuery,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -207,7 +209,8 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const lifecycleMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const lifecycle = lifecycleMessage === undefined ? undefined : copy.local(lifecycleMessage);
-	const meta = mediaEpisodeMetadataLabel(copy, episode);
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	const meta = mediaEpisodeMetadataLabel(copy, episode, timeZone);
 	const watched = episode.state === "complete";
 	return (
 		<>

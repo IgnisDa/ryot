@@ -22,6 +22,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		log: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed(null),
+		setCachedValue: () => Effect.succeed(null),
 		getUserSettings: () => Effect.succeed({ allowNsfw: false }),
 		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
@@ -125,6 +128,64 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	it("enriches matching TV episodes through the show's IMDb ID", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const requests: URL[] = [];
+				const host = makeTvHost(
+					"1",
+					{
+						show: { id: 1, name: "The Simpsons", seasons: [{ id: 38, season_number: 38 }] },
+						appended: {
+							external_ids: { imdb_id: "tt0096697" },
+							"season/38": {
+								season_number: 38,
+								episodes: [
+									{ id: 8, episode_number: 8, air_date: "2026-11-22" },
+									{ id: 9, episode_number: 9, air_date: "2026-11-29" },
+								],
+							},
+						},
+						other: (path) =>
+							path === "/lookup/shows"
+								? { id: 83 }
+								: [
+										{
+											number: 8,
+											season: 38,
+											id: 3803533,
+											airtime: "20:00",
+											airdate: "2026-11-22",
+											airstamp: "2026-11-22T20:00:00-05:00",
+										},
+										{
+											id: 9,
+											number: 9,
+											season: 38,
+											airtime: "20:00",
+											airdate: "2026-11-30",
+											airstamp: "2026-11-30T20:00:00-05:00",
+										},
+									],
+					},
+					requests,
+				);
+				const result = yield* runSandboxTestScript(details, { externalId: "1" }, host, execution);
+				expect(
+					requests
+						.filter((url) => url.hostname === "api.tvmaze.com")
+						.map((url) => url.pathname + url.search),
+				).toEqual(["/lookup/shows?imdb=tt0096697", "/shows/83/episodes"]);
+				const episodes = result.childEntities?.[0]?.childEntities;
+				expect(episodes?.[0]?.properties).toMatchObject({
+					publishDate: "2026-11-22",
+					airingAt: "2026-11-23T01:00:00.000Z",
+					airingSourceUrl: "https://www.tvmaze.com/episodes/3803533",
+				});
+				expect(episodes?.[1]?.properties).not.toHaveProperty("airingAt");
+			}),
+		));
 
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeTvHost("1", {
@@ -279,7 +340,7 @@ describe("show.tmdb sandbox script", () => {
 							searchParams.get("append_to_response"),
 							searchParams.get("language"),
 						]),
-					).toEqual([["/3/tv/1", "watch/providers,episode_groups", "en"]]);
+					).toEqual([["/3/tv/1", "watch/providers,episode_groups,external_ids", "en"]]);
 					expect(
 						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
 					).toEqual([]);
@@ -301,9 +362,9 @@ describe("show.tmdb sandbox script", () => {
 					expect(
 						requests.map(({ searchParams }) => searchParams.get("append_to_response")),
 					).toEqual([
-						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
+						"watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations",
 						null,
-						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
+						"watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations",
 						null,
 					]);
 					return undefined;

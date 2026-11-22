@@ -10,7 +10,6 @@ import {
 	column,
 	conditional,
 	count,
-	currentDate,
 	descending,
 	divide,
 	eq,
@@ -22,10 +21,13 @@ import {
 	join,
 	jsonPath,
 	literal,
+	localDate,
 	lte,
 	multiply,
 	neq,
+	now,
 	or,
+	reportingTimeZone,
 	round,
 	selectedInclude,
 	type SelectedSelection,
@@ -421,12 +423,39 @@ export const publishDate = (episode: TableReference) =>
 /** `publishDate` as an indexed column. Date windows filter on this, not on the property. */
 export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
-/** A null or malformed `publishDate` casts to null and counts as aired. */
-export const episodeHasAired = (episode: TableReference) =>
-	or(isNull(occursAt(episode)), lte(occursAt(episode), currentDate()));
+export const episodeReleaseTime = (episode: TableReference) => ({
+	date: occursAt(episode),
+	instant: castDate(jsonPath(column(episode, "properties"), "airingAt")),
+});
 
-export const episodeIsUpcoming = (episode: TableReference) =>
-	and(isNotNull(occursAt(episode)), gt(occursAt(episode), currentDate()));
+export const reportingToday = castDate(localDate(now(), { timeZone: reportingTimeZone }));
+
+export const episodeReleaseDay = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return coalesce(castDate(localDate(instant, { timeZone: reportingTimeZone })), date);
+};
+
+export const episodeReleaseOrder = (episode: TableReference) => {
+	const { instant } = episodeReleaseTime(episode);
+	return [
+		ascending(episodeReleaseDay(episode)),
+		ascending(conditional(isNull(instant), literal(0), literal(1))),
+		ascending(instant),
+	] as const;
+};
+
+export const releaseHasArrived = (date: ScalarExpression, instant: ScalarExpression) =>
+	or(lte(instant, now()), and(isNull(instant), lte(date, reportingToday)));
+
+export const episodeHasAired = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return or(and(isNull(date), isNull(instant)), releaseHasArrived(date, instant));
+};
+
+export const episodeIsUpcoming = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return or(gt(instant, now()), and(isNull(instant), gt(date, reportingToday)));
+};
 
 type EpisodeAiring = "any" | "aired" | "upcoming";
 
