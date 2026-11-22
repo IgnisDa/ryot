@@ -341,6 +341,25 @@ and its named tests, then its e2e files.
    went from 353 s to 118 s because imports no longer wait on fold jobs' locks. The Fitness workout
    exercise policy now reads its batch's taxonomy in one query instead of two per exercise, which took
    the 34-set workout save from 258 ms to 231 ms (p50).
+7. **One catalog reading per write scope** (done). A commit's preparation carries a `WritePreparation`
+   and each of its transactions a `WriteTransaction` naming it; `writeState` keeps feature state for
+   either, and `PreparedPins`/`sharePreparedPins` are gone. Each commit transaction takes its user's
+   catalog lock first, then reads the user's installed plugins once under the ingestion fence; every
+   definition read, policy match, planner match, write check, membership derivation and fold output
+   check in it shares that reading. Preparation keeps one unlocked reading of its own, which the commit
+   cannot reuse because an installation change may land between them. Held configuration keys are
+   skipped, so the planner and the write check share one acquisition, and the commit's locked check
+   reuses the prepared pin while the transaction's reading shows the writer on the same active revision
+   and the principal's configuration revision active; otherwise it reads the pin again. Pinned
+   declarations come from the immutable revision cache. Per generic import item (500 items, kernel
+   test) user-plugin reads fell from 9 to 2, configuration lock statements from 2 to 1, pin reads from 2
+   to 1 and pinned declaration reads from 2 to 0 (68 to 57 statements); an interactive commit of an
+   entity, three events and a relationship went from 6, 2, 2 and 5 to 2, 1, 1 and 0 (59 to 48
+   statements). On the real-data import (981 events) user-plugin reads fell from 1397 to 770 and
+   pinned declaration reads from 15 to 0, and SQL time from 8.7 s to 7.3 s; warm interactive writes
+   run 6 to 26 fewer statements at unchanged latency. `RunUserPlugins` stays a per-run reference
+   around bound host calls: they reach the catalog through RyotQL, the plugin runtime resolver and
+   message catalogs, which HTTP shares.
 
 ## Code placement
 

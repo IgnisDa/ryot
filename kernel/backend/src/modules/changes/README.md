@@ -153,8 +153,10 @@ reconciliation, population claims and stamps, triggers, signal plans, notificati
 requests, the precondition's `written` when the commit wrote anything, and the receipt's `record`. Lifecycle dispatch starts
 after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
-Each commit transaction is an events transaction: its `WriteTransaction` is handed to every
-repository write and to `EventMutations`, which keep their per-transaction state on it. A
+Each commit attempt creates one `WritePreparation`, handed to every preparation step, and each commit
+transaction is an events transaction whose `WriteTransaction` names that preparation and is handed to
+every repository write, `EventMutations`, the policies and the planner; features keep their state for
+either scope through `writeState`. A
 background-lane commit, or one passing `queueFolds` (provider population), stores its change lists and
 queues fold jobs, which fold outside any transaction; an interactive commit folds inline, so a
 successful save includes its derived state (see [folds](../derived-values/README.md#when-a-fold-runs-and-in-which-mode)).
@@ -279,22 +281,39 @@ still rechecks the stored entity but records no lifecycle change, the root entit
 updates share one entity lifecycle batch, and a change set without relationships plans no
 relationship batch.
 
+Each commit transaction first takes the catalog lock of the change set's user
+(`LifecyclePlanner.lockCatalog`, after the receipt's `load` and the precondition's `check`): the
+ingestion fence, every installed plugin's shared configuration lock, and shared row locks on those
+plugins and installations, held to the transaction's end. The user's installed plugins are then read
+once for the transaction (`DefinitionCatalog.userPlugins` under its `WriteTransaction`), and every
+definition read, policy match, planner match and write check in it uses that reading, which no plugin,
+installation or configuration change can make stale before the transaction ends. Preparation reads
+them once more under its `WritePreparation`: it holds no locks, so the commit cannot reuse that
+reading, and an installation change between the two reaches the commit.
+
 `DomainWriteChecks` keeps one locked authority cache per transaction, keyed by what each read
-depends on: the writer's configuration lock, pinned and active revision, and execution authority
-once per principal, its installation once per plugin and user, and the account once per user. The
-ingestion fence takes each shared key once per transaction. Every locked check then applies the
-owner, scope and kernel-collection rules to those reads. The shared locks keep the reads valid until
-the transaction ends because the commit changes no plugin, installation, or account rows; a
-transaction that changes them must not run a locked check before the change. A later transaction,
-including a commit's second one after its policies ran, reads and locks everything again. A check
-takes the fence, then the configuration lock, then the installation and account rows; the cache only
-drops repeats, so each lock is still first taken where its caller first checked.
+depends on: the writer's pinned and active revision and execution authority once per principal, its
+installation once per plugin and user, and the account once per user. The ingestion fence and the
+configuration keys are skipped when the transaction already holds them, so under the catalog lock a
+check takes neither again. Every locked check then applies the owner, scope and kernel-collection
+rules to those reads. The shared locks keep the reads valid until the transaction ends because the
+commit changes no plugin, installation, or account rows; a transaction that changes them must not run
+a locked check before the change. A later transaction, including a commit's second one after its
+policies ran, reads and locks everything again. A check takes the fence, then the configuration lock,
+then the installation and account rows; the cache only drops repeats, so each lock is still first
+taken where its caller first checked.
 
 Preparation takes no authority locks and leaves installation, account and execution authority to the commit:
 those reads only reject early and save no work on the common path, and the commit's locked check
 rejects a revoked writer with the same errors. A prepared write still applies the owner and scope
 rules and reads the writer's pinned and active revision, once per writer across the commit's
-preparation (`sharePreparedPins`), since its declarations validate against them.
+preparation, since its declarations validate against them. The commit's locked check reuses that pin
+when the transaction's plugin reading shows the writer executable on the same active revision with the
+principal's configuration revision active: revision, script and configuration rows never change, the
+catalog lock keeps the plugin active on that revision, and an active configuration revision is never
+pruned, so reading the pin again under the lock would return the same pin. Otherwise it reads the pin
+again, which returns the new active revision a changed writer validates against. Declarations of a
+pinned revision come from `DefinitionCatalog`'s immutable revision cache.
 
 Asset uploads and storage are separate from the change set transaction. A change set may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.

@@ -26,6 +26,9 @@ projection, and resolves persisted authority once, when it reserves admission; t
 of the run, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
 `ScriptCalls` admission resolves it even inside a change set's shared preparation authority.
 The run's host calls also share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use.
+Like the job reference, it is provided around each bound host call, because host calls reach the
+catalog through RyotQL, the plugin runtime resolver and message catalogs, which HTTP shares; writes
+share their readings through their write scope instead (see [change sets](../changes/README.md#source-writes)).
 A revocation or installation change applies from the next run. Historical pins preserve code/config/definitions,
 not expired authority: fresh runs still enforce current account and installation access.
 A plugin pin carries the revision's identity and a digest of its script hashes, so a revision that
