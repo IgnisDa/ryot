@@ -1,3 +1,4 @@
+import { LocaleTag } from "@ryot-app/i18n/locale";
 import { Schema } from "effect";
 import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
@@ -22,6 +23,16 @@ export const AccountGroup = HttpApiGroup.make("account")
 			error: BadRequest.pipe(HttpApiSchema.status(400)),
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Update the current user's preferences."),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.put("write")(
+			"initializeInterfaceLocale",
+			"/account/interface-locale",
+			{
+				payload: Schema.Struct({ locale: LocaleTag }),
+				success: Schema.Void.pipe(HttpApiSchema.status(204)),
+			},
+		).annotate(OpenApi.Description, "Set the current user's interface locale if it is unset."),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("demo-write")("refreshAvatar", "/account/avatar", {

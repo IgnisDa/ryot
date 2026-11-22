@@ -3,8 +3,8 @@ import {
 	boundaryReasonMessage,
 	stampedBoundaryReasonOfError,
 } from "@ryot-app/contract/modules/scripts/boundary-reason";
-import { InterfaceLocale } from "@ryot-app/contract/schema/user-preferences";
 import {
+	catalogLocale,
 	emptyCatalogRegistry,
 	type NamespaceCatalog,
 	registerCatalog,
@@ -18,12 +18,12 @@ import {
 	messageNamespaces,
 } from "@ryot-app/i18n/message";
 import type { Text } from "@ryot-app/i18n/text";
-import { type KernelLocale, loadKernelCatalog } from "@ryot-app/kernel-messages/catalog";
+import { kernelLocales, loadKernelCatalog } from "@ryot-app/kernel-messages/catalog";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema } from "effect";
 
-const isInterfaceLocale = Schema.is(InterfaceLocale);
+const isKernelLocale = Schema.is(Schema.Literals(kernelLocales));
 
 /** Loads one locale's catalogs for the given non-kernel namespaces; unknown namespaces are omitted. */
 export class MessageCatalogSource extends Context.Service<
@@ -69,15 +69,15 @@ export class MessageRegistry extends Context.Service<MessageRegistry>()(
 			const sourceKernelCatalog = yield* loadKernelCatalog(SOURCE_LOCALE);
 			/** Loads the namespaces' catalogs along the locale's fallback chain once for rendering many messages. */
 			const loadRegistry = Effect.fn("MessageRegistry.loadRegistry")(function* (
-				locale: KernelLocale,
+				locale: string,
 				namespaces: Iterable<string>,
 			) {
 				const pluginNamespaces = [...new Set(namespaces)].filter(
 					(namespace) => namespace !== KERNEL_NAMESPACE,
 				);
 				let registry = emptyCatalogRegistry;
-				for (const candidate of fallbackChain(locale)) {
-					if (isInterfaceLocale(candidate)) {
+				for (const candidate of fallbackChain(locale, kernelLocales)) {
+					if (isKernelLocale(candidate)) {
 						registry = registerCatalog(
 							registry,
 							KERNEL_NAMESPACE,
@@ -95,17 +95,11 @@ export class MessageRegistry extends Context.Service<MessageRegistry>()(
 				}
 				return registry;
 			});
-			const renderer = (
-				locale: KernelLocale,
-				namespaces: Iterable<string>,
-				options?: FormatOptions,
-			) =>
-				Effect.map(
-					loadRegistry(locale, namespaces),
-					(loaded) =>
-						(message: Message): Text =>
-							format(loaded, locale, message, options),
-				);
+			const renderer = (locale: string, namespaces: Iterable<string>, options?: FormatOptions) =>
+				Effect.map(loadRegistry(locale, namespaces), (loaded) => ({
+					catalogLocale: catalogLocale(loaded, locale),
+					render: (message: Message): Text => format(loaded, locale, message, options),
+				}));
 			/** Model-facing boundaries render in the source locale, whatever the user's interface locale. */
 			const modelRenderer = (namespaces: Iterable<string>) =>
 				Effect.map(

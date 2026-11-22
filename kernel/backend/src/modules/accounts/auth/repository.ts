@@ -4,7 +4,7 @@ import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -179,26 +179,36 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 						}
 					: null;
 			});
+			const writeUserPreferences = (userId: UserId, patch: UserPreferencesPatch, condition?: SQL) =>
+				database.run((db) =>
+					db
+						.update(schema.user)
+						.set({
+							updatedAt: sql`CURRENT_TIMESTAMP`,
+							preferences: sql`${schema.user.preferences} || ${JSON.stringify(patch)}::jsonb`,
+						})
+						.where(and(eq(schema.user.id, userId), condition))
+						.returning({ preferences: schema.user.preferences }),
+				);
+			const initializeInterfaceLocale = (userId: UserId, locale: string) =>
+				writeUserPreferences(
+					userId,
+					{ interfaceLocale: locale },
+					isNull(sql`${schema.user.preferences}->>'interfaceLocale'`),
+				).pipe(Effect.asVoid);
 			const patchUserPreferences = Effect.fn("AuthRepository.patchUserPreferences")(function* (
 				userId: UserId,
 				patch: UserPreferencesPatch,
 			) {
-				const [row] = yield* database.run((db) =>
-					Object.keys(patch).length === 0
-						? db
+				const [row] = yield* Object.keys(patch).length === 0
+					? database.run((db) =>
+							db
 								.select({ preferences: schema.user.preferences })
 								.from(schema.user)
 								.where(eq(schema.user.id, userId))
-								.limit(1)
-						: db
-								.update(schema.user)
-								.set({
-									updatedAt: sql`CURRENT_TIMESTAMP`,
-									preferences: sql`${schema.user.preferences} || ${JSON.stringify(patch)}::jsonb`,
-								})
-								.where(eq(schema.user.id, userId))
-								.returning({ preferences: schema.user.preferences }),
-				);
+								.limit(1),
+						)
+					: writeUserPreferences(userId, patch);
 				if (!row) {
 					return yield* new DbError({ message: "User not found while patching preferences" });
 				}
@@ -405,6 +415,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				revokeUserOAuthConsent,
 				listIncompleteBootstraps,
 				revokeSessionOAuthTokens,
+				initializeInterfaceLocale,
 				upsertInternalOAuthClient,
 				upsertInternalOAuthResource,
 				upsertInternalOAuthClientResource,

@@ -4,7 +4,7 @@ import { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { NamespaceCatalog } from "@ryot-app/i18n/catalog";
-import { TextDirection } from "@ryot-app/i18n/locale";
+import { LocaleTag, TextDirection } from "@ryot-app/i18n/locale";
 import { Message, MessageNamespace } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
@@ -50,10 +50,7 @@ const pluginBridgeIdentityFields = {
 
 const pluginSafeAreaInset = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
-export const PluginBridgeCatalog = strictStruct({
-	...NamespaceCatalog.fields,
-	locale: Schema.String,
-});
+export const PluginBridgeCatalog = strictStruct({ ...NamespaceCatalog.fields, locale: LocaleTag });
 
 export type PluginBridgeCatalog = Schema.Schema.Type<typeof PluginBridgeCatalog>;
 
@@ -62,8 +59,8 @@ export type PluginBridgeCatalog = Schema.Schema.Type<typeof PluginBridgeCatalog>
  * `pendingNamespaces` lists the namespaces whose catalogs are still loading.
  */
 const pluginBridgeLocaleFields = {
+	locale: LocaleTag,
 	dir: TextDirection,
-	locale: Schema.String,
 	catalogs: Schema.Array(PluginBridgeCatalog),
 	pendingNamespaces: Schema.Array(MessageNamespace),
 };

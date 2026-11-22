@@ -2109,7 +2109,7 @@
 	"sdk.selection.select-matching": "选择所有匹配项",
 	"sdk.selection.selected-count": "已选择 {count, number} 项",
 	"settings.preferences.content-language.provider": "提供商默认",
-	"settings.preferences.interface-locale.device": "设备语言",
+	"settings.preferences.interface-locale.device": "使用设备区域设置",
 	"settings.preferences.interface-locale.hint": "设置菜单、消息和日期的语言。",
 	"settings.preferences.interface-locale.label": "界面语言",
 	"settings.preferences.save-failed": "无法保存偏好设置。请重试。",

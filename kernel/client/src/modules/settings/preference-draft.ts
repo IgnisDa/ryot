@@ -1,11 +1,10 @@
 import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import {
-	InterfaceLocale,
-	type UserPreferences,
-	type UserPreferencesPatch,
+import type {
+	UserPreferences,
+	UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
-import { canonicalLocale, WeekDay } from "@ryot-app/i18n/locale";
+import { canonicalLocale, LocaleTag, WeekDay } from "@ryot-app/i18n/locale";
 import { Option, Schema } from "effect";
 
 type PreferenceDraft = {
@@ -16,7 +15,7 @@ type PreferenceDraft = {
 	readonly reportingTimeZone: string;
 };
 
-const decodeInterfaceLocale = Schema.decodeUnknownOption(InterfaceLocale);
+const decodeLocale = Schema.decodeUnknownOption(LocaleTag);
 const decodeWeekStart = Schema.decodeUnknownOption(WeekDay);
 
 export const makePreferenceDraft = (preferences: UserPreferences): PreferenceDraft => ({
@@ -36,8 +35,7 @@ export const preferencePayload = (
 		contentLanguageInput === ""
 			? null
 			: (canonicalLocale(contentLanguageInput) ?? contentLanguageInput);
-	const interfaceLocale =
-		draft.interfaceLocale === "" ? Option.some(null) : decodeInterfaceLocale(draft.interfaceLocale);
+	const interfaceLocale = decodeLocale(draft.interfaceLocale);
 	const weekStart =
 		draft.weekStart === "" ? Option.some(null) : decodeWeekStart(Number(draft.weekStart));
 	const reportingTimeZone = Schema.decodeOption(TimeZone)(draft.reportingTimeZone.trim());

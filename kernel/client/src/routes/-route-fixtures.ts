@@ -185,7 +185,7 @@ export const userSettings: UserSettingsResult = {
 	email: "user@ryot.example",
 	preferences: {
 		weekStart: null,
-		interfaceLocale: null,
+		interfaceLocale: "en",
 		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",

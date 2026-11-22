@@ -16,7 +16,7 @@ import {
 	type MessageParams,
 	type ZonedDateTime,
 } from "./builder";
-import type { CatalogRegistry } from "./catalog";
+import { catalogLocale, type CatalogRegistry } from "./catalog";
 import { format, formatRich, type PendingNamespaces } from "./format";
 import { type Formatters, formattersFor } from "./formatters";
 import { type TextDirection, textDirection } from "./locale";
@@ -48,8 +48,8 @@ export function I18nProvider(props: {
 	const value = useMemo<I18nValue>(
 		() => ({
 			locale,
-			direction: textDirection(locale),
 			formatters: formattersFor(locale),
+			direction: textDirection(catalogLocale(registry, locale)),
 			t: (message) => format(registry, locale, message, { isPending }),
 			rich: (message, parts) => formatRich(registry, locale, message, parts, { isPending }),
 		}),

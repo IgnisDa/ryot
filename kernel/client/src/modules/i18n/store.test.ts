@@ -64,20 +64,21 @@ describe("kernel i18n store", () => {
 		flush();
 		expect(store.getSnapshot().locale).toBe("en-XA");
 		store.setInterfaceLocale(null);
-		expect(store.getSnapshot().locale).toBe("en");
+		expect(store.getSnapshot()).toMatchObject({ locale: "ar-EG", catalogLocale: "en" });
 		store.setInterfaceLocale("en-XA");
 		expect(store.getSnapshot().locale).toBe("en-XA");
 		expect(loads).toEqual(["en-XA"]);
 	});
 
 	it("negotiates new regional and script locales and loads their plugin fallback chains", () => {
-		for (const [device, locale, chain] of [
-			["fr-CA", "fr", ["fr", "en"]],
+		for (const [device, catalogLocale, chain] of [
+			["en-AU", "en", ["en-AU", "en"]],
+			["fr-CA", "fr", ["fr-CA", "fr", "en"]],
 			["pt-BR", "pt-BR", ["pt-BR", "pt", "en"]],
 			["pt-PT", "pt-PT", ["pt-PT", "pt", "en"]],
 			["es-ES", "es-ES", ["es-ES", "es", "en"]],
-			["zh-CN", "zh-Hans", ["zh-Hans", "zh", "en"]],
-			["zh-TW", "en", ["en"]],
+			["zh-CN", "zh-Hans", ["zh-CN", "zh", "zh-Hans", "en"]],
+			["zh-TW", "en", ["zh-TW", "en"]],
 		] as const) {
 			const { flush, store } = harness([device]);
 			const requests: string[] = [];
@@ -88,7 +89,7 @@ describe("kernel i18n store", () => {
 				}),
 			);
 			flush();
-			expect(store.getSnapshot().locale).toBe(locale);
+			expect(store.getSnapshot()).toMatchObject({ catalogLocale, locale: device });
 			expect(requests).toEqual([...chain]);
 		}
 	});
@@ -182,7 +183,11 @@ describe("kernel i18n store", () => {
 		});
 		expect(failing.store.getSnapshot().localeSettled).toBe(false);
 		failing.flush();
-		expect(failing.store.getSnapshot()).toMatchObject({ locale: "en", localeSettled: true });
+		expect(failing.store.getSnapshot()).toMatchObject({
+			locale: "en-XA",
+			catalogLocale: "en",
+			localeSettled: true,
+		});
 	});
 
 	it("publishes only the latest requested locale when an older load finishes", () => {

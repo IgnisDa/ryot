@@ -3127,8 +3127,8 @@
 		"description": "Keeps each provider's canonical content regardless of the interface language."
 	},
 	"settings.preferences.interface-locale.device": {
-		"message": "Device language",
-		"description": "Interface language choice that follows the device or browser language."
+		"message": "Use device locale",
+		"description": "Copies the current device locale into the account preference."
 	},
 	"settings.preferences.interface-locale.hint": "Sets the language of menus, messages and dates.",
 	"settings.preferences.interface-locale.label": "Interface language",

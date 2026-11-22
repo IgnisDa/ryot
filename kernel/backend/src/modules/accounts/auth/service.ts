@@ -18,6 +18,7 @@ import {
 	getOAuthEndpoint,
 	getOAuthIssuer,
 	getOAuthResource,
+	INTERFACE_LOCALE_HEADER,
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_LOGIN_PATH,
 	OAUTH_NATIVE_CLIENT_ID,
@@ -32,6 +33,7 @@ import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
+import { LocaleTag } from "@ryot-app/i18n/locale";
 import {
 	AdminAccess,
 	AdminMiddleware,
@@ -242,6 +244,42 @@ const makeAuthInstance = (args: {
 					.pipe(Effect.map((users) => !users[0]?.bootstrapCompletedAt)),
 			),
 		);
+	const initializeUser = Effect.fnUntraced(
+		function* (
+			userId: string,
+			request: null | undefined | { readonly headers?: Headers | undefined },
+		) {
+			const zoneHeader = request?.headers?.get(REPORTING_TIME_ZONE_HEADER);
+			const localeHeader = request?.headers?.get(INTERFACE_LOCALE_HEADER);
+			const oauthState =
+				!request || (zoneHeader && localeHeader) ? null : yield* Effect.promise(getOAuthState);
+			const reportingTimeZone = Schema.decodeUnknownOption(TimeZone)(
+				zoneHeader ?? oauthState?.["reportingTimeZone"],
+			);
+			const interfaceLocale = Schema.decodeUnknownOption(LocaleTag)(
+				localeHeader ?? oauthState?.["interfaceLocale"],
+			);
+			const preferences = {
+				...(Option.isSome(reportingTimeZone) ? { reportingTimeZone: reportingTimeZone.value } : {}),
+				...(Option.isSome(interfaceLocale) ? { interfaceLocale: interfaceLocale.value } : {}),
+			};
+			if (Object.keys(preferences).length > 0) {
+				yield* args.repository
+					.patchUserPreferences(UserId.make(userId), preferences)
+					.pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("initial user preferences update failed", cause),
+						),
+					);
+			}
+			yield* args
+				.scheduleUserBootstrap(userId)
+				.pipe(
+					Effect.catchCause((cause) => Effect.logError("user bootstrap scheduling failed", cause)),
+				);
+		},
+		(effect, userId) => effect.pipe(Effect.annotateLogs({ userId })),
+	);
 	const auth = betterAuth({
 		appName: "Ryot",
 		basePath: "/api/auth",
@@ -335,35 +373,8 @@ const makeAuthInstance = (args: {
 		databaseHooks: {
 			user: {
 				create: {
-					// oxlint-disable-next-line effecttsgo/async-function -- Better Auth database hooks are Promise-native.
-					after: async (user, context) => {
-						const header = context?.headers?.get(REPORTING_TIME_ZONE_HEADER);
-						const oauthState = !context || header ? null : await getOAuthState();
-						const requested: unknown = header ?? oauthState?.["reportingTimeZone"];
-						const reportingTimeZone = Schema.decodeUnknownOption(TimeZone)(requested);
-						await Effect.runPromiseWith(args.runtime)(
-							Effect.gen(function* () {
-								if (Option.isSome(reportingTimeZone)) {
-									yield* args.repository
-										.patchUserPreferences(UserId.make(user.id), {
-											reportingTimeZone: reportingTimeZone.value,
-										})
-										.pipe(
-											Effect.catchCause((cause) =>
-												Effect.logError("reporting time zone selection failed", cause),
-											),
-										);
-								}
-								yield* args
-									.scheduleUserBootstrap(user.id)
-									.pipe(
-										Effect.catchCause((cause) =>
-											Effect.logError("user bootstrap scheduling failed", cause),
-										),
-									);
-							}).pipe(Effect.annotateLogs({ userId: user.id })),
-						);
-					},
+					after: (user, context) =>
+						Effect.runPromiseWith(args.runtime)(initializeUser(user.id, context)),
 				},
 			},
 			session: {
@@ -900,6 +911,7 @@ export class AuthService extends Context.Service<AuthService>()(
 				revokePasswordResetLinks,
 				startUserImpersonation: handoffs.create,
 				updateAuthUserDisabled: repository.updateUserDisabled,
+				initializeInterfaceLocale: repository.initializeInterfaceLocale,
 				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
 				revokeUserOAuthTokens: (userId: UserId) =>

@@ -14,7 +14,7 @@ const decodePatch = Schema.decodeUnknownResult(UserPreferencesPatch);
 describe("user preferences", () => {
 	it("resolves an unset week start through the interface locale, else English", () => {
 		expect(resolveWeekStart(defaultUserPreferences)).toBe(0);
-		expect(resolveWeekStart({ weekStart: null, interfaceLocale: "en-XA" })).toBe(1);
+		expect(resolveWeekStart({ weekStart: null, interfaceLocale: "en-AU" })).toBe(1);
 		expect(resolveWeekStart({ weekStart: 6, interfaceLocale: "en" })).toBe(6);
 	});
 
@@ -23,7 +23,7 @@ describe("user preferences", () => {
 		expect(resolveInterfaceLocale({ interfaceLocale: "en-XA" })).toBe("en-XA");
 	});
 
-	it("accepts shipped interface locales, weekdays and canonical content locale tags only", () => {
+	it("accepts canonical interface and content locale tags independently of catalog availability", () => {
 		expect(
 			Result.isSuccess(
 				decodePatch({ weekStart: 0, contentLanguage: "yue", interfaceLocale: "en-XA" }),
@@ -35,9 +35,11 @@ describe("user preferences", () => {
 		expect(
 			Result.isSuccess(decodePatch({ contentLanguage: "pt-BR", interfaceLocale: "pt-PT" })),
 		).toBe(true);
+		expect(Result.isSuccess(decodePatch({ interfaceLocale: "en-AU-u-hc-h23" }))).toBe(true);
 		for (const patch of [
 			{ weekStart: 7 },
-			{ interfaceLocale: "ar" },
+			{ interfaceLocale: null },
+			{ interfaceLocale: "en-au" },
 			{ contentLanguage: "EN" },
 			{ contentLanguage: "pt-br" },
 			{ language: "en" },

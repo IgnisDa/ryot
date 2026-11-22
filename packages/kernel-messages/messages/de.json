@@ -2106,7 +2106,7 @@
 	"sdk.selection.select-matching": "Alle passenden auswählen",
 	"sdk.selection.selected-count": "{count, number} ausgewählt",
 	"settings.preferences.content-language.provider": "Anbieterstandard",
-	"settings.preferences.interface-locale.device": "Gerätesprache",
+	"settings.preferences.interface-locale.device": "Gerätegebietsschema verwenden",
 	"settings.preferences.interface-locale.hint": "Legt die Sprache von Menüs, Nachrichten und Datumsangaben fest.",
 	"settings.preferences.interface-locale.label": "Oberflächensprache",
 	"settings.preferences.save-failed": "Die Einstellungen konnten nicht gespeichert werden. Versuche es erneut.",

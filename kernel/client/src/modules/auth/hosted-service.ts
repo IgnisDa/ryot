@@ -1,6 +1,7 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { Browser } from "@capacitor/browser";
 import {
+	INTERFACE_LOCALE_HEADER,
 	OAUTH_CONSENT_DETAILS_PATH,
 	OAuthConsentDetails,
 	OAuthConsentDetailsRequest,
@@ -19,6 +20,7 @@ import type { TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
 import { type CredentialsValues, registrationName } from "#/modules/auth/form-values";
 import type { OAuthFetch } from "#/modules/auth/oauth-endpoint";
+import { resolveDeviceLocale } from "#/modules/i18n/device-locale";
 
 type AuthResponse<A> = { readonly data: A; readonly error: null | { readonly code?: string } };
 
@@ -267,7 +269,12 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 									...oauthQueryBody(input.oauthQuery),
 									name: registrationName(input.values.email),
 								},
-								{ headers: { [REPORTING_TIME_ZONE_HEADER]: deviceTimeZone() } },
+								{
+									headers: {
+										[REPORTING_TIME_ZONE_HEADER]: deviceTimeZone(),
+										[INTERFACE_LOCALE_HEADER]: resolveDeviceLocale(),
+									},
+								},
 							),
 						kernelMessage("client.auth.hosted.sign-up-failed"),
 					);
@@ -299,7 +306,10 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 							provider: "oidc",
 							...oauthQueryBody(oauthQuery),
 							callbackURL: `${window.location.origin}/oauth/login`,
-							additionalData: { reportingTimeZone: deviceTimeZone() },
+							additionalData: {
+								reportingTimeZone: deviceTimeZone(),
+								interfaceLocale: resolveDeviceLocale(),
+							},
 						}),
 					kernelMessage("client.auth.hosted.identity-provider-failed"),
 				).pipe(Effect.asVoid);

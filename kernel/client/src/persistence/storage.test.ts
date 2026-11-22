@@ -81,14 +81,14 @@ describe("browser persistence", () => {
 
 	layer(fakeClientStorageLayer())((test) => {
 		test.effect(
-			"remembers the interface locale, ignores unknown locales and forgets a cleared one",
+			"remembers a regional interface locale, ignores malformed tags and forgets a cleared locale",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* ClientStorage;
 					const storage = yield* FakeBrowserStorage;
-					yield* service.setInterfaceLocale("de");
-					expect(yield* service.getInterfaceLocale).toBe("de");
-					yield* storage.seed(INTERFACE_LOCALE_KEY, "xx");
+					yield* service.setInterfaceLocale("en-AU");
+					expect(yield* service.getInterfaceLocale).toBe("en-AU");
+					yield* storage.seed(INTERFACE_LOCALE_KEY, "en_au");
 					expect(yield* service.getInterfaceLocale).toBeNull();
 					yield* service.setInterfaceLocale("de");
 					yield* service.setInterfaceLocale(null);

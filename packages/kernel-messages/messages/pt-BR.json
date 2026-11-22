@@ -2112,7 +2112,7 @@
 	"sdk.selection.select-matching": "Selecionar todos os correspondentes",
 	"sdk.selection.selected-count": "{count, number} selecionados",
 	"settings.preferences.content-language.provider": "Padrão do provedor",
-	"settings.preferences.interface-locale.device": "Idioma do dispositivo",
+	"settings.preferences.interface-locale.device": "Usar a configuração regional do dispositivo",
 	"settings.preferences.interface-locale.hint": "Define o idioma dos menus, mensagens e datas.",
 	"settings.preferences.interface-locale.label": "Idioma da interface",
 	"settings.preferences.save-failed": "Não foi possível salvar as preferências. Tente novamente.",

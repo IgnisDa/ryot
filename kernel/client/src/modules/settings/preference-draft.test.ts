@@ -47,18 +47,18 @@ describe("user settings preference draft", () => {
 		).toEqual({});
 	});
 
-	it("includes interface locale and week start changes and their resets", () => {
+	it("saves a full regional locale and resets the week start", () => {
 		const draft = makePreferenceDraft(preferences);
 
 		expect(
-			preferencePayload(preferences, { ...draft, weekStart: "0", interfaceLocale: "en" }),
-		).toEqual({ weekStart: 0, interfaceLocale: "en" });
+			preferencePayload(preferences, { ...draft, weekStart: "0", interfaceLocale: "en-AU" }),
+		).toEqual({ weekStart: 0, interfaceLocale: "en-AU" });
 		expect(
 			preferencePayload(
 				{ ...preferences, weekStart: 6, interfaceLocale: "en-XA" },
 				{ ...draft, weekStart: "", interfaceLocale: "" },
 			),
-		).toEqual({ weekStart: null, interfaceLocale: null });
+		).toEqual({ weekStart: null });
 	});
 
 	it("only includes a changed rating scale", () => {

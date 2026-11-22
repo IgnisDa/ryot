@@ -2106,7 +2106,7 @@
 	"sdk.selection.select-matching": "Seleccionar todas las coincidencias",
 	"sdk.selection.selected-count": "{count, number} seleccionados",
 	"settings.preferences.content-language.provider": "Predeterminado del proveedor",
-	"settings.preferences.interface-locale.device": "Idioma del dispositivo",
+	"settings.preferences.interface-locale.device": "Usar la configuración regional del dispositivo",
 	"settings.preferences.interface-locale.hint": "Establece el idioma de los menús, mensajes y fechas.",
 	"settings.preferences.interface-locale.label": "Idioma de la interfaz",
 	"settings.preferences.save-failed": "No se han podido guardar las preferencias. Vuelve a intentarlo.",

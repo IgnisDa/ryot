@@ -1,7 +1,9 @@
 import { Result, Schema } from "effect";
 
+import { fallbackChain, SOURCE_LOCALE } from "./locale";
 import {
 	ARGUMENT_NAME_PATTERN,
+	KERNEL_NAMESPACE,
 	keysMatch,
 	MAX_MESSAGE_ARGUMENTS,
 	MESSAGE_KEY_PATTERN,
@@ -368,6 +370,14 @@ export const decodeCompiledCatalog = (
 export type CatalogRegistry = ReadonlyMap<string, ReadonlyMap<string, CompiledCatalog>>;
 
 export const emptyCatalogRegistry: CatalogRegistry = new Map();
+
+export const catalogLocales = (registry: CatalogRegistry, locale: string) =>
+	fallbackChain(locale, registry.get(KERNEL_NAMESPACE)?.keys());
+
+export const catalogLocale = (registry: CatalogRegistry, locale: string) =>
+	catalogLocales(registry, locale).find((candidate) =>
+		registry.get(KERNEL_NAMESPACE)?.has(candidate),
+	) ?? SOURCE_LOCALE;
 
 export const registerCatalog = (
 	registry: CatalogRegistry,

@@ -3,6 +3,7 @@ import { DateTime, Option, Result } from "effect";
 import IntlMessageFormat, { type Formatters as MessageFormatters } from "intl-messageformat";
 
 import {
+	catalogLocales,
 	type CatalogRegistry,
 	type CompiledElement,
 	type CompiledMessage,
@@ -10,7 +11,7 @@ import {
 	isZonedDateTimeStyle,
 } from "./catalog";
 import { dateTimeFormat, numberFormat, pluralRules } from "./formatters";
-import { fallbackChain, SOURCE_LOCALE } from "./locale";
+import { SOURCE_LOCALE } from "./locale";
 import {
 	type DisplayText,
 	isCalendarDate,
@@ -208,12 +209,12 @@ const messageFormat = (
 	return format;
 };
 
-const resolve = (registry: CatalogRegistry, locale: string, message: Message) => {
+const resolve = (registry: CatalogRegistry, locales: ReadonlyArray<string>, message: Message) => {
 	const catalogs = registry.get(message.namespace);
 	if (catalogs === undefined) {
 		return undefined;
 	}
-	for (const catalogLocale of fallbackChain(locale)) {
+	for (const catalogLocale of locales) {
 		const catalog = catalogs.get(catalogLocale);
 		const compiled =
 			catalog !== undefined && Object.hasOwn(catalog, message.key)
@@ -229,12 +230,13 @@ const resolve = (registry: CatalogRegistry, locale: string, message: Message) =>
 const renderParts = <Rich>(
 	registry: CatalogRegistry,
 	locale: string,
+	locales: ReadonlyArray<string>,
 	message: Message,
 	depth: number,
 	rich: Readonly<Record<string, Rich>>,
 	timeZone: string | undefined,
 ): undefined | ReadonlyArray<Rich | string> => {
-	const resolved = resolve(registry, locale, message);
+	const resolved = resolve(registry, locales, message);
 	if (resolved === undefined || depth > MAX_MESSAGE_NESTING_DEPTH) {
 		return undefined;
 	}
@@ -265,7 +267,7 @@ const renderParts = <Rich>(
 		} else if (isEntityReferenceParam(value)) {
 			return undefined;
 		} else {
-			const nested = renderParts(registry, locale, value, depth + 1, {}, timeZone);
+			const nested = renderParts(registry, locale, locales, value, depth + 1, {}, timeZone);
 			if (nested === undefined) {
 				return undefined;
 			}
@@ -284,11 +286,13 @@ const renderOrFallback = <Rich>(
 	rich: Readonly<Record<string, Rich>>,
 	{ timeZone, isPending }: FormatOptions,
 ) => {
+	const locales = catalogLocales(registry, locale);
 	const rendered =
-		renderParts(registry, locale, message, 0, rich, timeZone) ??
+		renderParts(registry, locale, locales, message, 0, rich, timeZone) ??
 		renderParts(
 			registry,
 			locale,
+			locales,
 			isPending !== undefined && [...messageNamespaces(message)].some(isPending)
 				? loadingMessage
 				: unavailableMessage,

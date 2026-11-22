@@ -1,4 +1,4 @@
-import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AuthorizationContext, CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
@@ -20,6 +20,17 @@ export const UserSettingsRoutesLive = HttpApiBuilder.group(AppContract, "account
 				const user = yield* CurrentUser;
 				const service = yield* UserSettingsService;
 				return yield* service.updatePreferences(user, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("initializeInterfaceLocale", ({ payload }) =>
+			Effect.gen(function* () {
+				const authorization = yield* AuthorizationContext;
+				if (authorization.impersonation !== undefined) {
+					return;
+				}
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				yield* service.initializeInterfaceLocale(user, payload.locale).pipe(dieOnDbError);
 			}),
 		)
 		.handle("createApiKey", ({ payload }) =>

@@ -1311,11 +1311,9 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(
-					screen.getByRole("button", { name: "Interface language: Device language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Interface language: English" }));
 				expect(screen.queryByRole("radio", { name: /en-XA/ })).toBeNull();
-				fireEvent.click(screen.getByRole("radio", { name: /English/ }));
+				fireEvent.click(screen.getByRole("radio", { name: "Use device locale" }));
 				fireEvent.click(
 					screen.getByRole("button", { name: "First day of the week: Language default (Sunday)" }),
 				);
@@ -1323,7 +1321,7 @@ describe("preferences settings", () => {
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
-				expect(saved).toEqual([{ weekStart: 1, interfaceLocale: "en" }]);
+				expect(saved).toEqual([{ weekStart: 1, interfaceLocale: "en-US" }]);
 				expect(view.interestEvents).toEqual(["acquire"]);
 			}),
 		testTimeout,

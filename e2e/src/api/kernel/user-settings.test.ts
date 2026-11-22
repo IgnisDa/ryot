@@ -228,6 +228,21 @@ describe("user settings", () => {
 		}),
 	);
 
+	it.live("initializes a missing locale once and keeps later account choices", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const initialize = (locale: string) =>
+				client.call((c) => c.account.initializeInterfaceLocale({ payload: { locale } }));
+			expect((yield* getUserSettings(client)).preferences.interfaceLocale).toBeNull();
+			yield* initialize("en-AU");
+			yield* initialize("en-US");
+			expect((yield* getUserSettings(client)).preferences.interfaceLocale).toBe("en-AU");
+			yield* updateUserSettingsPreferences(client, { interfaceLocale: "en-GB-u-hc-h23" });
+			yield* initialize("en-US");
+			expect((yield* getUserSettings(client)).preferences.interfaceLocale).toBe("en-GB-u-hc-h23");
+		}),
+	);
+
 	it.live("keeps warm auth sessions separate from atomic application preferences", () =>
 		Effect.gen(function* () {
 			const { token, client, sessionCookie } = yield* createAuthenticatedClient();
@@ -251,14 +266,14 @@ describe("user settings", () => {
 				interfaceLocale: "zh-Hans",
 			});
 			expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("zh-Hans");
-			yield* updateUserSettingsPreferences(client, { interfaceLocale: null });
+			yield* updateUserSettingsPreferences(client, { interfaceLocale: "en-AU" });
 			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
 			yield* updateUserSettingsPreferences(client, { contentLanguage: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				weekStart: null,
-				interfaceLocale: null,
 				contentLanguage: null,
 				ratingScale: "hundred",
+				interfaceLocale: "en-AU",
 				disableIntegrations: true,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
@@ -271,7 +286,8 @@ describe("user settings", () => {
 				{ contentLanguage: ["fr"] },
 				{ contentLanguage: "qqq" },
 				{ contentLanguage: "pt-br" },
-				{ interfaceLocale: "xx" },
+				{ interfaceLocale: null },
+				{ interfaceLocale: "en-au" },
 				{ weekStart: 7 },
 				{ language: "fr" },
 				{ disableIntegrations: "true" },

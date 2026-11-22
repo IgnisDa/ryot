@@ -2106,7 +2106,7 @@
 	"sdk.selection.select-matching": "Sélectionner tous les résultats correspondants",
 	"sdk.selection.selected-count": "{count, number} sélectionnés",
 	"settings.preferences.content-language.provider": "Valeur par défaut du fournisseur",
-	"settings.preferences.interface-locale.device": "Langue de l’appareil",
+	"settings.preferences.interface-locale.device": "Utiliser les paramètres régionaux de l’appareil",
 	"settings.preferences.interface-locale.hint": "Définit la langue des menus, messages et dates.",
 	"settings.preferences.interface-locale.label": "Langue de l’interface",
 	"settings.preferences.save-failed": "Impossible d’enregistrer les préférences. Réessayez.",

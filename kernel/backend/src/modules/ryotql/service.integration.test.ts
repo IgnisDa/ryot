@@ -684,6 +684,13 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 			() =>
 				Effect.gen(function* () {
 					const service = yield* RyotQLService;
+					const database = yield* DatabaseSession;
+					yield* database.run((db) =>
+						db
+							.update(user)
+							.set({ preferences: { ...defaultUserPreferences, interfaceLocale: "en-AU" } })
+							.where(eq(user.id, "plain")),
+					);
 					const weekOf = (userId: string) =>
 						Effect.map(
 							service.executeForUser(userId, null, "kernel", {
@@ -711,6 +718,7 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 						);
 					expect(yield* weekOf("owner")).toEqual([{ week: "2024-03-10T05:00:00.000Z" }]);
 					expect(yield* weekOf("other")).toEqual([{ week: "2024-03-11T04:00:00.000Z" }]);
+					expect(yield* weekOf("plain")).toEqual([{ week: "2024-03-11T04:00:00.000Z" }]);
 				}),
 			testTimeout,
 		);

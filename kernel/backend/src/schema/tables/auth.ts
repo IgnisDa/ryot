@@ -47,7 +47,7 @@ export const user = snakeCase.table(
 		and (
 			jsonb_typeof(${table.preferences}->'interfaceLocale') = 'null'
 			or (jsonb_typeof(${table.preferences}->'interfaceLocale') = 'string'
-				and ${table.preferences}->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+				and ${table.preferences}->>'interfaceLocale' ~ '^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$')
 		)
 		and (
 			jsonb_typeof(${table.preferences}->'contentLanguage') = 'null'

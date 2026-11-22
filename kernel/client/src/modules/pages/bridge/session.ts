@@ -1,8 +1,8 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
-import type { CatalogRegistry } from "@ryot-app/i18n/catalog";
-import { fallbackChain, textDirection } from "@ryot-app/i18n/locale";
+import { catalogLocale, catalogLocales, type CatalogRegistry } from "@ryot-app/i18n/catalog";
+import { textDirection } from "@ryot-app/i18n/locale";
 import { type DisplayText, KERNEL_NAMESPACE, messageNamespaces } from "@ryot-app/i18n/message";
 import {
 	type AddToCollectionOutcome,
@@ -147,14 +147,14 @@ export const bridgeLocaleState = (
 	namespaces: undefined | ReadonlySet<string>,
 	pluginCatalogsLoading: boolean,
 ): PluginBridgeLocaleState => {
-	const chain = fallbackChain(locale);
+	const chain = catalogLocales(registry, locale);
 	const pendingNamespaces = pluginCatalogsLoading
 		? [...(namespaces ?? registry.keys())].filter((namespace) => namespace !== KERNEL_NAMESPACE)
 		: [];
 	return {
 		locale,
 		pendingNamespaces,
-		dir: textDirection(locale),
+		dir: textDirection(catalogLocale(registry, locale)),
 		catalogs: [...registry].flatMap(([namespace, catalogs]) =>
 			namespaces?.has(namespace) === false
 				? []

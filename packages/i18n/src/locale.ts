@@ -1,4 +1,4 @@
-import { Option, Result, Schema } from "effect";
+import { Result, Schema } from "effect";
 
 export const SOURCE_LOCALE = "en";
 export const PSEUDO_LOCALE = "en-XA";
@@ -19,11 +19,8 @@ const subtagChain = (canonical: string) => {
 	return subtags.map((_, index) => subtags.slice(0, subtags.length - index).join("-"));
 };
 
-export const fallbackChain = (locale: string): ReadonlyArray<string> => {
-	const canonical = canonicalLocale(locale);
-	const chain = canonical === undefined ? [] : subtagChain(canonical);
-	return chain.includes(SOURCE_LOCALE) ? chain : [...chain, SOURCE_LOCALE];
-};
+const sameScript = (left: string, right: string) =>
+	new Intl.Locale(left).maximize().script === new Intl.Locale(right).maximize().script;
 
 export const parseAcceptLanguage = (header: string): ReadonlyArray<string> =>
 	header
@@ -39,41 +36,55 @@ export const parseAcceptLanguage = (header: string): ReadonlyArray<string> =>
 		.sort((left, right) => right.quality - left.quality || left.index - right.index)
 		.map((entry) => entry.tag);
 
-export const negotiateLocale = <const Available extends string>(
-	requested: ReadonlyArray<string>,
-	available: ReadonlyArray<Available>,
-	fallback: NoInfer<Available>,
-): Available => {
-	const byCanonical = new Map(available.map((locale) => [canonicalLocale(locale), locale]));
-	for (const tag of requested) {
-		const canonical = canonicalLocale(tag);
-		if (canonical === undefined) {
-			continue;
-		}
-		const requestedLocale = new Intl.Locale(canonical).maximize();
-		const matchesScript = (locale: string) =>
-			new Intl.Locale(locale).maximize().script === requestedLocale.script;
-		for (const candidate of subtagChain(canonical)) {
-			const match = byCanonical.get(candidate);
-			if (match !== undefined && matchesScript(match)) {
-				return match;
-			}
-		}
-		const compatible = available.filter(
-			(locale) =>
-				locale !== PSEUDO_LOCALE &&
-				new Intl.Locale(locale).language === requestedLocale.language &&
-				matchesScript(locale),
-		);
-		const regional =
-			compatible.find(
-				(locale) => new Intl.Locale(locale).maximize().region === requestedLocale.region,
-			) ?? compatible[0];
-		if (regional !== undefined) {
-			return regional;
+const matchCatalog = (locale: string, available: ReadonlyArray<string>) => {
+	for (const candidate of subtagChain(locale)) {
+		const match = available.find((entry) => entry === candidate);
+		if (match !== undefined && sameScript(match, locale)) {
+			return match;
 		}
 	}
-	return fallback;
+	const requested = new Intl.Locale(locale).maximize();
+	const compatible = available.filter(
+		(candidate) =>
+			candidate !== PSEUDO_LOCALE &&
+			new Intl.Locale(candidate).language === requested.language &&
+			sameScript(candidate, locale),
+	);
+	return (
+		compatible.find(
+			(candidate) => new Intl.Locale(candidate).maximize().region === requested.region,
+		) ?? compatible[0]
+	);
+};
+
+export const preferredLocale = (
+	requested: Iterable<string>,
+	catalogs: ReadonlyArray<string>,
+): string => {
+	let first: string | undefined;
+	for (const tag of requested) {
+		const locale = canonicalLocale(tag);
+		if (locale !== undefined) {
+			first ??= locale;
+			if (matchCatalog(locale, catalogs) !== undefined) {
+				return locale;
+			}
+		}
+	}
+	return first ?? SOURCE_LOCALE;
+};
+
+export const fallbackChain = (
+	locale: string,
+	catalogs: Iterable<string> = [],
+): ReadonlyArray<string> => {
+	const canonical = canonicalLocale(locale);
+	if (canonical === undefined) {
+		return [SOURCE_LOCALE];
+	}
+	const chain = subtagChain(canonical).filter((candidate) => sameScript(candidate, canonical));
+	const match = matchCatalog(canonical, [...catalogs]);
+	return [...new Set([...chain, ...(match === undefined ? [] : [match]), SOURCE_LOCALE])];
 };
 
 export const TextDirection = Schema.Literals(["ltr", "rtl"]);
@@ -100,8 +111,6 @@ export const languageOfLocale = (locale: string) => new Intl.Locale(locale).lang
 
 export const WeekDay = Schema.Literals([0, 1, 2, 3, 4, 5, 6]);
 export type WeekDay = typeof WeekDay.Type;
-
-const weekDays: ReadonlyArray<WeekDay> = [0, 1, 2, 3, 4, 5, 6];
 
 const cldrFirstDay = new Map<string, WeekDay>([
 	...["MV"].map((region) => [region, 5] as const),
@@ -168,26 +177,6 @@ const cldrFirstDay = new Map<string, WeekDay>([
 	].map((region) => [region, 0] as const),
 ]);
 
-const WeekInfo = Schema.Struct({
-	firstDay: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 7 })),
-});
-
-const runtimeFirstDay = (locale: Intl.Locale) => {
-	const getWeekInfo: unknown = Reflect.get(locale, "getWeekInfo");
-	if (typeof getWeekInfo !== "function") {
-		return Option.none();
-	}
-	const weekInfo: unknown = Reflect.apply(getWeekInfo, locale, []);
-	return Option.map(Schema.decodeUnknownOption(WeekInfo)(weekInfo), ({ firstDay }) => firstDay % 7);
-};
-
-/** The CLDR `weekData.firstDay` table, read by the locale's likely region. */
-export const cldrWeekStart = (locale: string): WeekDay =>
-	cldrFirstDay.get(new Intl.Locale(locale).maximize().region ?? "") ?? 1;
-
-/** Engines without `Intl.Locale#getWeekInfo`, such as some Firefox releases, use `cldrWeekStart`. */
+/** A fixed CLDR table keeps week boundaries consistent across browser and server ICU versions. */
 export const weekStartForLocale = (locale: string): WeekDay =>
-	Option.match(runtimeFirstDay(new Intl.Locale(locale)), {
-		onNone: () => cldrWeekStart(locale),
-		onSome: (firstDay) => weekDays[firstDay] ?? 1,
-	});
+	cldrFirstDay.get(new Intl.Locale(locale).maximize().region ?? "") ?? 1;

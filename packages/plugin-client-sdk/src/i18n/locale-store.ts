@@ -1,4 +1,4 @@
-import { type CatalogRegistry, catalogRegistry } from "@ryot-app/i18n/catalog";
+import { catalogLocale, type CatalogRegistry, catalogRegistry } from "@ryot-app/i18n/catalog";
 import type { PluginBridgeLocale } from "@ryot-app/plugin-client-contract";
 
 export type PluginLocaleStore = {
@@ -32,9 +32,10 @@ export const createPluginLocaleStore = (
 	root: PluginLocaleRoot,
 ) => {
 	const apply = (payload: Omit<PluginBridgeLocale, "type">) => {
-		root.setAttribute("lang", payload.locale);
+		const snapshot = snapshotOf(payload);
+		root.setAttribute("lang", catalogLocale(snapshot.registry, snapshot.locale));
 		root.setAttribute("dir", payload.dir);
-		return snapshotOf(payload);
+		return snapshot;
 	};
 	let snapshot = apply(initial);
 	const listeners = new Set<() => void>();
