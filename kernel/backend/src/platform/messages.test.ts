@@ -104,7 +104,7 @@ it.effect("renders along the locale's fallback chain for each plugin namespace",
 		const { renderer } = yield* MessageRegistry.make.pipe(
 			Effect.provideService(MessageCatalogSource, source),
 		);
-		const render = yield* renderer("en-XA", ["plugin1", "kernel"]);
+		const { render } = yield* renderer("en-XA", ["plugin1", "kernel"]);
 		expect(String(render({ key: "item.done", namespace: "plugin1" }))).toBe("Done");
 		expect(String(render(kernelMessage("error.sandbox.execution-limit")))).not.toBe(
 			"The run exceeded its execution limits.",
