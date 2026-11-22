@@ -77,10 +77,6 @@ export const EntitySchemaDefinition = Schema.Struct({
 
 export type EntitySchemaDefinition = typeof EntitySchemaDefinition.Type;
 
-type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {
-	readonly mergeIdentityProperties?: undefined | ReadonlyArray<string>;
-};
-
 export const RelationshipSchemaDefinition = Schema.Struct({
 	keyed: Schema.optional(Schema.Literal(true)),
 	...pluginIdField,
@@ -138,17 +134,20 @@ export const CalendarSourceDefinition = Schema.Struct({
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
 
-export type DefinitionSource = {
-	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
-	readonly calendarSources: ReadonlyArray<CalendarSourceDefinition>;
-	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
-	readonly entitySchemas: ReadonlyArray<
-		Omit<EntitySchemaSourceDefinition, "eventSchemas"> & {
-			readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
-		}
-	>;
-};
+export const DefinitionSource = Schema.Struct({
+	savedViews: Schema.Array(SavedViewDefinition),
+	signalSchemas: Schema.Array(SignalSchemaDefinition),
+	calendarSources: Schema.Array(CalendarSourceDefinition),
+	relationshipSchemas: Schema.Array(RelationshipSchemaDefinition),
+	entitySchemas: Schema.Array(
+		Schema.Struct({
+			...EntitySchemaDefinition.fields,
+			mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
+		}),
+	),
+});
+
+export type DefinitionSource = typeof DefinitionSource.Type;
 
 export const EntitySchemaSnapshot = Schema.Struct({
 	...EntitySchemaDefinition.fields,

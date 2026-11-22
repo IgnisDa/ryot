@@ -21,5 +21,13 @@ kernel, database, or runtime dependency, so the kernel and `ryot plugin build` r
   system-owned documents, which cannot reference user plugins; a system-scope change still binds
   every document so dangling owners fail.
 
+- `/definition-set-protocol` is the line protocol for validating a definition set in another
+  process. `encodeDefinitionSetValidationRequest` writes the parent's already-decoded inputs as JSON,
+  since every field encodes as itself and re-encoding large manifests through the schema would block
+  the parent; `serveDefinitionSetValidation` decodes the request with the full schema, validates it,
+  and answers `{ valid: true }` or `{ valid: false, issue }` with the error's string, which
+  `decodeDefinitionSetValidationResponse` decodes. A request that does not decode is a defect. The
+  package owns no process: the kernel hosts the worker.
+
 Deployment rules, such as active system package uniqueness and configuration environment keys, stay
 in the kernel. The kernel validates every archive at ingestion regardless of build-time checks.
