@@ -4,13 +4,13 @@ import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { validateDefinitionSet } from "./definition-set";
 import {
-	decodeDefinitionSetValidationResponse,
-	encodeDefinitionSetValidationRequest,
-	serveDefinitionSetValidation,
+	DefinitionSetValidationRequest,
+	definitionSetValidationRequest,
+	validateDefinitionSetRequest,
 } from "./definition-set-protocol";
 import { kernelDefinitionSource } from "./kernel-definitions";
 
@@ -25,18 +25,22 @@ const invalidPlugin = {
 	},
 };
 
-const serve = (plugins: Parameters<typeof encodeDefinitionSetValidationRequest>[1]) =>
-	encodeDefinitionSetValidationRequest(kernelDefinitionSource(), plugins, {
-		scope: "system",
-		pluginIds: new Set(plugins.map(({ id }) => id)),
-	}).pipe(
-		Effect.flatMap(serveDefinitionSetValidation),
-		Effect.flatMap(decodeDefinitionSetValidationResponse),
-	);
+const RequestJson = Schema.fromJsonString(DefinitionSetValidationRequest);
+
+/** The request crosses a process boundary as JSON of its decoded value. */
+const serve = (plugins: Parameters<typeof definitionSetValidationRequest>[1]) =>
+	Schema.decodeEffect(RequestJson)(
+		JSON.stringify(
+			definitionSetValidationRequest(kernelDefinitionSource(), plugins, {
+				scope: "system",
+				pluginIds: new Set(plugins.map(({ id }) => id)),
+			}),
+		),
+	).pipe(Effect.flatMap(validateDefinitionSetRequest));
 
 layer(Layer.empty)((test) => {
 	test.effect(
-		"serves a valid definition set",
+		"validates a definition set decoded from the JSON of its inputs",
 		() =>
 			Effect.gen(function* () {
 				expect(yield* serve([{ manifest, id: "valid", scope: "system" }])).toEqual({ valid: true });
@@ -55,17 +59,6 @@ layer(Layer.empty)((test) => {
 
 				expect(thrown).toContain("merge identity property 'missing' is not defined");
 				expect(yield* serve([invalidPlugin])).toEqual({ valid: false, issue: thrown });
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"treats an undecodable request as a protocol defect",
-		() =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(serveDefinitionSetValidation('{"plugins":[]}'));
-
-				expect(Exit.hasDies(exit)).toBe(true);
 			}),
 		testTimeout,
 	);
