@@ -191,14 +191,15 @@ throttled to one announcement per two seconds with bursts coalesced.
 
 ## Interface Language
 
-`modules/i18n` owns the shell's locale. `createI18nStore` starts with the bundled English catalog
-and requests the last interface locale preference remembered in `ClientStorage`, else the device
-locale negotiated against the kernel locales; other kernel catalogs load lazily and are published
-only once loaded. `KernelI18nProvider` sets the document's `lang` and `dir`. Inside the authenticated
-layout, `AuthenticatedMessages` applies the server preference (remembering it for the next start),
-loads the listed plugins' catalogs for the locale's fallback chain, retries failed loads on a
-bounded schedule, and reloads them when ingestion changes the catalog. First paint waits until the
-preference has settled and the kernel and plugin catalogs of its locale have loaded. Afterwards,
+`modules/i18n` owns the shell's locale. Before the authenticated preference loads, the shell uses
+the last account locale remembered in `ClientStorage` or the device locale. The full tag formats
+dates and numbers, while the selected kernel catalog supplies the document's `lang` and `dir`.
+Inside the authenticated layout, `AuthenticatedMessages` applies and remembers the saved locale.
+If an account has no locale, its first standard, non-impersonated session attempts to initialize
+it from the device. English is the account default until initialization succeeds. The store loads
+the listed plugins' catalogs for the locale's fallback chain, retries failed loads on a bounded
+schedule, and reloads them when ingestion changes the catalog. First paint waits until the
+preference and catalog loads settle. Afterwards,
 while plugin catalogs load or retry, missing plugin messages render the neutral `message.loading`
 text, and plugin documents receive the namespaces still loading as `pendingNamespaces`. A
 document's published screen title is display text that the shell renders, accepting messages only
@@ -208,8 +209,9 @@ Every error the shell shows goes through `formatError(t, error, fallback)` from
 `@ryot-app/plugin-client-sdk/react`: a contract error's `reason` message, found through wrapping
 `cause`s, or an operation's rejection message, else the caller's fallback. Host mutations therefore
 keep the API error instead of mapping it to a bare `RyotClientError`. The language picker labels
-each interface locale in its own language and hints its name in the current one; the `en-XA`
-pseudo-locale is listed only while it is the saved value.
+each interface locale in its own language and hints its name in the current one. **Use device
+locale** copies the current device locale into the account preference when saved. The `en-XA`
+pseudo-locale appears in the picker only when it is the saved value.
 
 Interface and content language are independent. Content language overrides are canonical BCP 47
 tags, including regions and scripts. With no override, content keeps each provider's canonical

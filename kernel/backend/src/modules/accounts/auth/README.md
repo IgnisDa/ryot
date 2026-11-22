@@ -38,6 +38,12 @@ replaces the default before bootstrap is scheduled. Server-side creation (Instan
 reset recreation) keeps UTC. Later changes use ordinary preference patches; device travel does not
 change the stored preference.
 
+`interfaceLocale` stores the account's full canonical language tag. Hosted signup sends it in
+`x-ryot-interface-locale` for email signup or in OAuth `additionalData` for OIDC. An account created
+without a locale can initialize it once through the account API. An atomic update preserves an
+existing choice if another device initializes the locale or the user changes it concurrently.
+English supplies the default until the account saves a locale.
+
 `ratingScale` is one of `hundred` (the database default), `ten`, `five`, or `three-point`. It only
 selects how clients show and enter ratings; stored ratings stay 0–100 and are never rewritten when
 it changes.

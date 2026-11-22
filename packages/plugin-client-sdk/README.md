@@ -34,7 +34,7 @@ registrations.
 
 ## Messages And Locale
 
-Init and every later `locale` message carry the host's locale, text direction and the catalogs in
+Init and every later `locale` message carry the host's full formatting locale, text direction and the catalogs in
 that locale's fallback chain: the kernel catalog plus the document's plugin contributors' catalogs
 (every catalog for kernel renderer documents). A plugin therefore renders only its own messages,
 kernel messages and served messages of those namespaces. The session sets the document's `lang`
