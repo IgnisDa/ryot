@@ -4,6 +4,7 @@ import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automa
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
+import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -74,50 +75,51 @@ const input = (operation: "create" | "update", changes: Record<string, unknown> 
 	);
 };
 
-const host = (hasMore = false) =>
+const links = (hasMore: boolean, items: ReadonlyArray<unknown>) => ({
+	items,
+	pageInfo: { hasMore, limit: 100 },
+});
+
+/** Answers every taxonomy read with the exercise's links, recording each read. */
+const host = (hasMore = false, reads: Array<unknown> = []) =>
 	defineSandboxTestHost(manifest, {
-		executeRyotql: (document) =>
-			Effect.succeed({
+		executeRyotql: (document) => {
+			reads.push(document);
+			return Effect.succeed({
 				data: Object.fromEntries(
 					Object.keys(bindTestRequest(document).queries).map((key) => [
 						key,
 						{
 							type: "rows",
-							pageInfo: { hasMore, limit: 100, nextCursor: hasMore ? "more" : null },
-							items:
-								key === "targets"
-									? [
-											{
-												id: "chest",
-												userId: null,
-												name: "Chest",
-												kind: "muscle",
-												role: "secondary",
-												relationshipId: "target-link",
-											},
-										]
-									: [
-											{
-												userId: null,
-												id: "barbell",
-												name: "Barbell",
-												relationshipId: "equipment-link",
-											},
-										],
+							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+							items: [
+								{
+									id: "exercise",
+									equipment: links(hasMore, [{ id: "barbell", name: "Barbell" }]),
+									targets: links(hasMore, [{ id: "chest", name: "Chest", role: "secondary" }]),
+								},
+							],
 						},
 					]),
 				),
-			}),
+			});
+		},
 	});
 
 it.effect(
-	"captures identities and roles once per occurrence",
+	"captures identities and roles for every occurrence from one taxonomy read",
 	() =>
 		Effect.gen(function* () {
+			const reads: Array<unknown> = [];
+			const single = yield* input("create", { exerciseKind: "duration" });
+			const [item] = single.items;
+			assert(item);
 			const result = yield* definition.run(
-				yield* input("create", { exerciseKind: "duration" }),
-				host(),
+				{ ...single, items: [item, { ...item, itemIdentity: "second" }] },
+				host(false, reads),
 			);
+			expect(reads).toHaveLength(1);
+			expect(result.items[1]?.decision).toEqual(result.items[0]?.decision);
 			expect(result.items[0]?.decision).toEqual({
 				action: "transform",
 				patch: {

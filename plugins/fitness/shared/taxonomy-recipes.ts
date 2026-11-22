@@ -7,6 +7,7 @@ import {
 	entitySchemaPredicate,
 	eq,
 	exists,
+	inArray,
 	isNull,
 	join,
 	literal,
@@ -260,6 +261,49 @@ export const exerciseEquipmentRecipe = (input: { readonly reference: PluginIdent
 					relationshipId: selectedField(column(relationship, "id"), Schema.String),
 					userId: selectedField(column(relationship, "userId"), Schema.NullOr(Schema.String)),
 				},
+			}),
+		},
+	});
+};
+/** How many exercises one taxonomy read covers. */
+export const WORKOUT_TAXONOMY_BATCH = 100;
+
+/** The targets and equipment of a batch of exercises, read together for one workout policy run. */
+export const workoutExerciseTaxonomyRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			exerciseIds: {
+				type: "array",
+				validation: { required: true },
+				description: "exerciseIds for this selection",
+				label: catalogMessage("query-parameter.exercise"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
+			},
+		},
+	});
+	const exercise = table("entity", "exercise");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ exercises }) => Result.succeed(exercises.items),
+		queries: {
+			exercises: selectedRows(exercise, {
+				limit: WORKOUT_TAXONOMY_BATCH,
+				orderBy: [ascending(column(exercise, "id"))],
+				selection: { id: selectedField(column(exercise, "id"), EntityId) },
+				include: {
+					targets: exerciseTargetInclude(exercise),
+					equipment: exerciseEquipmentInclude(exercise),
+				},
+				where: and(
+					inArray(column(exercise, "id"), inputParameters.list("exerciseIds")),
+					entitySchemaPredicate(exercise, "exercise", input.reference),
+				),
 			}),
 		},
 	});
