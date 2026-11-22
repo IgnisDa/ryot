@@ -412,7 +412,10 @@ becomes due for a subscribed user. Each schedule has a local `slug`, the `signal
 a RyotQL `query` body shaped like a Calendar source query; its `where` clause decides eligibility.
 The query reads only `entity`, `relationship` and `event` tables and never the clock (`now`,
 `currentDate`): the kernel owns the due window and evaluates a schedule again only when that data
-changes or a known row falls due.
+changes or a known row falls due. Bound every `entity` and `relationship` table by its schema slug
+(`entitySchemaSlug` or `relationshipSchemaSlug` compared with literals in `where`, an inner join
+condition or the table's own left join condition), or a change to any global row re-evaluates the
+schedule for every subscriber.
 `dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
 text key, and `properties` maps signal properties to projected fields (null values are omitted).
 Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows

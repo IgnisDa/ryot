@@ -360,6 +360,24 @@ and its named tests, then its e2e files.
    run 6 to 26 fewer statements at unchanged latency. `RunUserPlugins` stays a per-run reference
    around bound host calls: they reach the catalog through RyotQL, the plugin runtime resolver and
    message catalogs, which HTTP shares.
+8. **Signal-schedule evaluation at scale** (done). A global data change records the changed entity's
+   or relationship's schema slug, and a schedule's ingested `read_schema_slugs` bounds the global
+   rows its recipe queries can read, from schema slug conditions on each entity and relationship
+   table and the declared subject schemas; a global change to another schema no longer re-evaluates
+   its targets, while user changes and global plugin changes still reach every target they did. The
+   one-day refresh is gone: nothing but data, settings and `next_due_at` moves a result, so each run
+   instead moves an unchanged evaluation's snapshot forward once it is an hour old, which keeps an
+   hour of `data_change` rows without running its query (see
+   [signal schedules](../kernel/backend/src/modules/signal-schedules/README.md)). On a synthetic
+   instance of 2,000 users with four first-party-shaped schedules each (8,000 targets, 3,200 global
+   titles and 2,000 episodes), a show population went from 8,000 targets in 16 runs (138 s) to 2,000
+   in 4 (56 s), a movie refresh from 8,000 (129 s) to 2,000 (35 s), and a global change to an unread
+   schema from 8,000 to none. Over a simulated 26 hours of five-minute runs with no data changes, the
+   daily refresh evaluated all 8,000 targets again in 16 runs of 500 (mean 28 per run over the day);
+   now no target is evaluated, and a run takes 100 ms on average (155 ms at most, before 451 ms and
+   8.3 s). Trigger cost per statement is unchanged within noise: 6 to 10 µs for single-row global
+   entity inserts, 11 µs for single-row updates, 7 to 9 µs for user relationship inserts and none
+   measurable for a 2,000-row insert.
 
 ## Code placement
 
