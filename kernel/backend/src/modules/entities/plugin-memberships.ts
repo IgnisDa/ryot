@@ -211,7 +211,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				return written.snapshot;
 			});
 
-			/** Records a new membership relationship of a member entity as the rule's event, dated at its creation. */
+			/** Records a new membership relationship of a member entity as the rule's event, dated at the write that created it. */
 			const recordMembership = Effect.fnUntraced(function* (
 				transaction: WriteTransaction,
 				userId: UserId,
@@ -246,7 +246,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				}
 				const event = yield* recordEvent(transaction, {
 					userId,
-					occurredAt: relationship.createdAt,
+					occurredAt: command.occurredAt,
 					eventSchemaSlug: membership.recordEventSchemaSlug,
 					identity: `${trigger.causation.executionId}:${trigger.id}:${membership.slug}`,
 					member: {
