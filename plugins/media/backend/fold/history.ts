@@ -1,23 +1,20 @@
+import {
+	deleteEventChange,
+	type EventChange,
+	existingEntity,
+	updateEventChange,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { FoldEventImage } from "@ryot-app/plugin-backend-sdk/folds";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
-import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { mergeConsumedOn } from "../../shared/consumed-on";
 import { ConsumptionBasis, progressReachesTotal } from "../../shared/consumption";
 import { isPositional } from "../../shared/media-schema-slugs";
 
-export type FoldEvent = {
-	readonly id: string;
-	readonly revision: number;
-	readonly entityId: string;
-	readonly orderKey: string;
-	readonly occurredAt: string;
-	readonly orderCreatedAt: string;
-	readonly eventSchemaSlug: string;
-	readonly entitySchemaSlug: string;
-	readonly sessionEntityId: null | string;
-	readonly properties: Readonly<Record<string, JsonValue>>;
-};
+/** A fold event as history reads and change images both supply it, without ID brands. */
+export type FoldEvent = typeof FoldEventImage.Encoded;
 
 const WrittenOutput = Schema.Struct({
 	entityId: Schema.String,
@@ -42,19 +39,6 @@ export const Occurrence = Schema.Struct({
 });
 export type Occurrence = typeof Occurrence.Type;
 
-const FoldEventValue = Schema.Struct({
-	id: Schema.String,
-	revision: Schema.Int,
-	entityId: Schema.String,
-	orderKey: Schema.String,
-	occurredAt: Schema.String,
-	orderCreatedAt: Schema.String,
-	eventSchemaSlug: Schema.String,
-	entitySchemaSlug: Schema.String,
-	sessionEntityId: Schema.NullOr(Schema.String),
-	properties: Schema.Record(Schema.String, Schema.Json),
-});
-
 /** Where an episodic subject's coverage stood after its latest event, so an append resumes from it. */
 const CoverageCarry = Schema.Struct({
 	used: Schema.Array(Schema.String),
@@ -75,16 +59,18 @@ const emptyCoverageCarry: CoverageCarry = { used: [], basis: null, covered: [] }
 /**
  * `tails` holds each entity's latest unfinished run of unsourced events, which an append continues, with
  * the earlier events that occurred at the instant it starts; `coverage` is the episodic coverage carry.
+ * `carryDropped` marks a value stored without either, which the next run replays to rebuild.
  */
 export const MediaFoldValue = Schema.Struct({
 	occurrences: Schema.Array(Occurrence),
 	coverage: Schema.optionalKey(CoverageCarry),
 	terminal: Schema.optionalKey(Schema.Boolean),
+	carryDropped: Schema.optionalKey(Schema.Literal(true)),
 	coverageSources: Schema.optionalKey(Schema.Array(Schema.String)),
 	tails: Schema.optionalKey(
 		Schema.Record(
 			Schema.String,
-			Schema.Struct({ run: Schema.Array(FoldEventValue), lead: Schema.Array(FoldEventValue) }),
+			Schema.Struct({ run: Schema.Array(FoldEventImage), lead: Schema.Array(FoldEventImage) }),
 		),
 	),
 });
@@ -134,38 +120,6 @@ export const absorbFoldValues = (
 		} satisfies MediaFoldValue,
 	};
 };
-
-export type HistoryChange =
-	| { readonly kind: "delete"; readonly eventId: string; readonly itemIdentity: string }
-	| {
-			readonly kind: "create";
-			readonly occurredAt: string;
-			readonly itemIdentity: string;
-			readonly entity: ExistingEntity;
-			readonly session?: ExistingEntity;
-			readonly eventSchemaSlug: "complete";
-			readonly properties: Readonly<Record<string, JsonValue>>;
-			readonly orderAfter: { readonly suffix: string; readonly eventId: string };
-	  }
-	| {
-			readonly kind: "update";
-			readonly itemIdentity: string;
-			readonly item: {
-				readonly eventId: string;
-				readonly patch: {
-					readonly entityId?: string;
-					readonly occurredAt?: string;
-					readonly sessionEntityId?: null | string;
-					readonly orderAfter?: { readonly suffix: string; readonly eventId: string };
-					readonly properties: {
-						readonly remove: ReadonlyArray<string>;
-						readonly set: Readonly<Record<string, JsonValue>>;
-					};
-				};
-			};
-	  };
-
-type ExistingEntity = { readonly kind: "existing"; readonly entityId: string };
 
 type HistorySubject = {
 	readonly id: string;
@@ -257,7 +211,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		value !== undefined &&
 		(input.scope === undefined ||
 			(value.rule === "progress" && input.scope.has(value.sourceEventId)));
-	const changes: Array<HistoryChange> = [];
+	const changes: Array<EventChange> = [];
 	const sorted = [...input.events].sort(compareHistory);
 	const previous = new Map(input.previous.occurrences.map((value) => [value.key, value]));
 	const outputs = new Map<string, FoldEvent>();
@@ -279,14 +233,11 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			overridden.add(actual.id);
 			outputs.delete(value.key);
 			previous.set(value.key, { ...value, written: null, status: "overridden" });
-			changes.push({
-				kind: "update",
-				itemIdentity: `override:${actual.id}`,
-				item: {
-					eventId: actual.id,
-					patch: { properties: { set: {}, remove: ["completionKey", "completionSilent"] } },
-				},
-			});
+			changes.push(
+				updateEventChange(EventId.make(actual.id), {
+					properties: { set: {}, remove: ["completionKey", "completionSilent"] },
+				}),
+			);
 		}
 	}
 	const history = sorted.map((event) => {
@@ -569,12 +520,14 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	for (const [key, actual] of outputs) {
 		// A completion merged in from another title was never this fold's to remove.
 		if (!wanted.has(key) && inScope(previous.get(key))) {
-			changes.push({ kind: "delete", eventId: actual.id, itemIdentity: `remove:${actual.id}` });
+			changes.push(deleteEventChange(EventId.make(actual.id)));
 		}
 	}
 	for (const value of desired) {
 		const actual = outputs.get(value.occurrence.key);
-		const orderAfter = { suffix: value.suffix, eventId: value.anchor.id };
+		const orderAfter = { suffix: value.suffix, eventId: EventId.make(value.anchor.id) };
+		const { sessionEntityId } = value.output;
+		const session = sessionEntityId === null ? null : EntityId.make(sessionEntityId);
 		if (actual === undefined) {
 			changes.push({
 				orderAfter,
@@ -583,35 +536,26 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 				occurredAt: value.output.occurredAt,
 				properties: value.output.properties,
 				itemIdentity: `complete:${value.occurrence.key}`,
-				entity: { kind: "existing", entityId: value.output.entityId },
-				...(value.output.sessionEntityId === null
-					? {}
-					: { session: { kind: "existing", entityId: value.output.sessionEntityId } }),
+				entity: existingEntity(EntityId.make(value.output.entityId)),
+				...(session === null ? {} : { session: existingEntity(session) }),
 			});
 		} else if (!jsonValueEquals(written(actual), value.output)) {
-			changes.push({
-				kind: "update",
-				itemIdentity: `repair:${actual.id}`,
-				item: {
-					eventId: actual.id,
-					patch: {
-						orderAfter,
-						occurredAt: value.output.occurredAt,
-						...(actual.entityId === value.output.entityId
-							? {}
-							: { entityId: value.output.entityId }),
-						...(actual.sessionEntityId === value.output.sessionEntityId
-							? {}
-							: { sessionEntityId: value.output.sessionEntityId }),
-						properties: {
-							set: value.output.properties,
-							remove: Object.keys(actual.properties).filter(
-								(key) => !Object.hasOwn(value.output.properties, key),
-							),
-						},
+			changes.push(
+				updateEventChange(EventId.make(actual.id), {
+					orderAfter,
+					occurredAt: value.output.occurredAt,
+					...(actual.entityId === value.output.entityId
+						? {}
+						: { entityId: EntityId.make(value.output.entityId) }),
+					...(actual.sessionEntityId === sessionEntityId ? {} : { sessionEntityId: session }),
+					properties: {
+						set: value.output.properties,
+						remove: Object.keys(actual.properties).filter(
+							(key) => !Object.hasOwn(value.output.properties, key),
+						),
 					},
-				},
-			});
+				}),
+			);
 		}
 	}
 	const present = new Set(history.map(({ id }) => id));

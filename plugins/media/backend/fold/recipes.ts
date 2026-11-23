@@ -23,6 +23,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { RelationshipId } from "@ryot-app/plugin-kit/schema";
 
 import { episodicEpisodeQuery, type EpisodicKindConfig } from "../../shared/lifecycle-expressions";
 import { mediaFoldEventSchemaSlugs } from "../../shared/media-schema-slugs";
@@ -198,7 +199,7 @@ export const mediaFoldLibraryLinksRecipe = (() => {
 			links: selectedRows(link, {
 				limit: pageSize,
 				orderBy: [ascending(column(link, "id"))],
-				selection: { id: selectedField(column(link, "id"), Schema.String) },
+				selection: { id: selectedField(column(link, "id"), RelationshipId) },
 				where: and(
 					schemaOwnerPredicate(link, "relationshipSchemaPluginId", { kind: "self" }),
 					eq(column(link, "sourceEntityId"), inputParameters.value("subjectEntityId")),

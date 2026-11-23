@@ -1,5 +1,11 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { foldChangeImages, type FoldEventChange } from "@ryot-app/plugin-backend-sdk/folds";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import {
+	FOLD_LIMITS,
+	foldChangeImages,
+	type FoldEventChange,
+	type FoldEventImage,
+} from "@ryot-app/plugin-backend-sdk/folds";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { isPositional } from "../../shared/media-schema-slugs";
@@ -8,7 +14,7 @@ import {
 	compareHistory,
 	deriveHistory,
 	type FoldEvent,
-	type MediaFoldValue,
+	MediaFoldValue,
 	sortedOccurrences,
 } from "./history";
 
@@ -46,6 +52,8 @@ type HistorySubject = {
 };
 
 const sinceLimit = 20;
+
+const carryBudgetBytes = FOLD_LIMITS.valueBytes / 2;
 
 const iso = (value: string) => new Date(Date.parse(value)).toISOString();
 
@@ -102,7 +110,11 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			...(input.renamedKeys === undefined ? {} : { renamedKeys: input.renamedKeys }),
 		});
 		const { tails, contributions } = yield* consumptionContributions(derived);
-		return { contributions, changes: derived.changes, value: withTails(derived.value, tails) };
+		return {
+			contributions,
+			changes: derived.changes,
+			value: yield* bounded(withTails(derived.value, tails)),
+		};
 	});
 	if (input.changes === null) {
 		return yield* replay;
@@ -112,6 +124,9 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	const retracted = images.retracted.map(normalizedEvent).filter(isConsumption);
 	if (added.length === 0 && retracted.length === 0) {
 		return { changes: [], contributions: [], value: input.previous };
+	}
+	if (input.previous.carryDropped === true) {
+		return yield* replay;
 	}
 	const changedIds = new Set([...added, ...retracted].map(({ id }) => id));
 	const first = earliest(added);
@@ -259,22 +274,37 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	return {
 		contributions,
 		changes: derived.changes,
-		value: withTails(value, new Map([...kept, ...tails])),
+		value: yield* bounded(withTails(value, new Map([...kept, ...tails]))),
 	};
 });
 
+const encodeValue = Schema.encodeEffect(Schema.fromJsonString(MediaFoldValue));
+
+/**
+ * Drops the carry (tails and coverage) from a value past `carryBudgetBytes`, so a long unfinished run
+ * or a show with thousands of covered episodes stays under the fold value limit; the next run replays.
+ */
+const bounded = Effect.fnUntraced(function* (value: MediaFoldValue) {
+	const bytes = new TextEncoder().encode(yield* encodeValue(value)).length;
+	if (bytes <= carryBudgetBytes) {
+		return value;
+	}
+	const { tails: _tails, coverage: _coverage, ...rest } = value;
+	return { ...rest, carryDropped: true } satisfies MediaFoldValue;
+});
+
 const storedEvents = (events: ReadonlyArray<FoldEvent>) =>
-	events.map((event) => ({
-		id: event.id,
+	events.map((event): FoldEventImage => ({
 		revision: event.revision,
-		entityId: event.entityId,
 		orderKey: event.orderKey,
+		id: EventId.make(event.id),
 		properties: event.properties,
 		occurredAt: iso(event.occurredAt),
 		eventSchemaSlug: event.eventSchemaSlug,
-		sessionEntityId: event.sessionEntityId,
+		entityId: EntityId.make(event.entityId),
 		entitySchemaSlug: event.entitySchemaSlug,
 		orderCreatedAt: iso(event.orderCreatedAt),
+		sessionEntityId: event.sessionEntityId === null ? null : EntityId.make(event.sessionEntityId),
 	}));
 
 const withTails = (value: MediaFoldValue, tails: ReadonlyMap<string, FoldTail>): MediaFoldValue => {

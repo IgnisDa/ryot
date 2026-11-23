@@ -14,6 +14,7 @@ export {
 	EventId,
 	EntityId,
 	PluginId,
+	RelationshipId,
 	PluginPackageId,
 	EntitySchemaSlug,
 } from "@ryot-app/contract/schema/brands";

@@ -1,11 +1,11 @@
 import { describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FoldEventChange, FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
+import { FOLD_LIMITS, FoldEventChange, FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import type { FoldEvent, MediaFoldValue } from "./history";
+import { type FoldEvent, MediaFoldValue } from "./history";
 import { applyHistoryChanges } from "./history.test-support";
 import { foldMediaHistory, type MediaHistoryReads, normalizedEvent } from "./incremental";
 
@@ -117,7 +117,7 @@ const settle = Effect.fnUntraced(function* (
 			changes: mode === "full" ? null : changes,
 			reads: reads(current.history, inventory, counts),
 		});
-		yield* Schema.decodeUnknownEffect(FoldResult)({
+		yield* Schema.decodeEffect(FoldResult)({
 			value: null,
 			relationships: [],
 			changes: output.changes,
@@ -251,6 +251,52 @@ const movieProgress = (id: string, hour: number, progressPercent: number) =>
 		},
 	});
 
+/** A 32-character ID, as the kernel generates them, so value sizes match stored ones. */
+const storedId = (prefix: string, index: number) =>
+	`${prefix}-${String(index).padStart(5, "0")}`.padEnd(32, "0");
+
+const valueBytes = (value: MediaFoldValue) =>
+	Effect.map(
+		Schema.encodeEffect(Schema.fromJsonString(MediaFoldValue))(value),
+		(encoded) => new TextEncoder().encode(encoded).length,
+	);
+
+const episodeCompletion = (index: number) => {
+	const occurredAt = new Date(Date.UTC(2020, 0, 1) + index * 86_400_000).toISOString();
+	return normalizedEvent({
+		...base(storedId("event", index), occurredAt, {
+			sessionEntityId: "show",
+			entitySchemaSlug: "show-episode",
+			entityId: storedId("episode", index),
+		}),
+		eventSchemaSlug: "complete",
+		properties: {
+			consumedOn: ["Netflix"],
+			calendarDate: occurredAt.slice(0, 10),
+			consumptionBasis: { total: 45, unit: "minutes", property: "runtime" },
+		},
+	});
+};
+
+const bookProgress = (index: number) => {
+	const occurredAt = new Date(Date.UTC(2020, 0, 1) + index * 3_600_000).toISOString();
+	return normalizedEvent({
+		...base(storedId("event", index), occurredAt, {
+			entityId: "book",
+			sessionEntityId: null,
+			entitySchemaSlug: "book",
+		}),
+		eventSchemaSlug: "progress",
+		properties: {
+			timeSpent: 10,
+			consumedOn: ["Kindle"],
+			progressPercent: index / 10,
+			calendarDate: occurredAt.slice(0, 10),
+			consumptionBasis: { total: 600, unit: "pages", property: "pages" },
+		},
+	});
+};
+
 /** Drives the same random appends, past inserts, edits, deletes and completion overrides through both folds. */
 const compare = Effect.fnUntraced(function* (input: {
 	readonly seed: number;
@@ -374,7 +420,10 @@ describe("incremental media history", () => {
 						{ rows: 0 },
 					);
 				}
-				expect(store.value.tails?.["movie"]?.run.map(({ id }) => id)).toEqual(["first", "second"]);
+				expect(store.value.tails?.["movie"]?.run.map(({ id }) => id)).toEqual<unknown>([
+					"first",
+					"second",
+				]);
 				const counts = { rows: 0 };
 				store = yield* settle(
 					"incremental",
@@ -386,6 +435,51 @@ describe("incremental media history", () => {
 				);
 				expect(counts.rows).toBe(0);
 				expect([...store.contributions.keys()]).toEqual(["first", "second", "third"]);
+			}),
+		testTimeout,
+	);
+
+	it.effect.each([
+		{
+			length: 1000,
+			event: episodeCompletion,
+			kind: "an ongoing show's coverage of a thousand episodes",
+			inventory: Array.from({ length: 1001 }, (_, index) => storedId("episode", index)),
+			subject: { id: "show", episodic: true, terminal: false, entitySchemaSlug: "show" },
+		},
+		{
+			length: 400,
+			inventory: [],
+			event: bookProgress,
+			kind: "a book's unfinished run of 400 progress logs",
+			subject: { id: "book", terminal: false, episodic: false, entitySchemaSlug: "book" },
+		},
+	])(
+		"drops the carry of $kind past its budget and replays the next append to a full replay's result",
+		({ event, length, subject, inventory }) =>
+			Effect.gen(function* () {
+				const history = Array.from({ length }, (_, index) => event(index));
+				const stored = yield* settle("full", subject, inventory, empty, history, { rows: 0 });
+				expect(stored.value.carryDropped).toBe(true);
+				expect(stored.value).not.toHaveProperty("tails");
+				expect(stored.value).not.toHaveProperty("coverage");
+				expect(yield* valueBytes(stored.value)).toBeLessThanOrEqual(FOLD_LIMITS.valueBytes / 2);
+
+				const appended = [...history, event(length)];
+				const counts = { rows: 0 };
+				const incremental = yield* settle(
+					"incremental",
+					subject,
+					inventory,
+					stored,
+					appended,
+					counts,
+				);
+				const full = yield* settle("full", subject, inventory, stored, appended, { rows: 0 });
+				expect(counts.rows).toBeGreaterThanOrEqual(appended.length);
+				expect(incremental.value).toEqual(full.value);
+				expect(incremental.contributions).toEqual(full.contributions);
+				expect(incremental.value.carryDropped).toBe(true);
 			}),
 		testTimeout,
 	);

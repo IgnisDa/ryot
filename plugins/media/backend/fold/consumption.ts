@@ -1,4 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
+import { EventId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	allocateConsumptionObservation,
@@ -61,7 +63,7 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 		rows.push({ event, group: groupOf(event) });
 		byEntity.set(event.entityId, rows);
 	}
-	const contributions: Array<{ eventId: string; properties: { contribution: unknown } }> = [];
+	const contributions: Array<FoldResult["events"][number]> = [];
 	const tails = new Map<string, FoldTail>();
 	for (const [entityId, rows] of byEntity) {
 		rows.sort(
@@ -129,7 +131,7 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				});
 				state = next.state;
 				contributions.push({
-					eventId: observation.id,
+					eventId: EventId.make(observation.id),
 					properties: {
 						contribution: yield* Schema.encodeEffect(Schema.toCodecJson(ConsumptionContribution))(
 							consumptionContribution(next.allocation),

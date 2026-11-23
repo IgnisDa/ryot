@@ -772,6 +772,11 @@ A full replay (a new subject, a revision whose fold changed, a fold job) reads t
   earlier progress completes, so that replay starts at the previous explicit completion. A Show or
   Podcast replays in full, because coverage spans every episode.
 
+The carry grows with an unfinished run and with every episode a Show or Podcast covers, so a value
+whose encoded size passes half of `FOLD_LIMITS.valueBytes` is stored without its tails and coverage
+carry and marked `carryDropped`. The next consumption change then replays in full, which keeps a
+long-running title or a show with thousands of watched episodes under the fold value limit.
+
 Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
 history work; links refresh on every run.
 

@@ -1,6 +1,7 @@
+import type { EventChange } from "@ryot-app/plugin-backend-sdk/core";
 import { assert } from "@ryot-app/testing/assert";
 
-import type { FoldEvent, HistoryChange } from "./history";
+import type { FoldEvent } from "./history";
 
 const find = (list: ReadonlyArray<FoldEvent>, id: string) => {
 	const found = list.find((value) => value.id === id);
@@ -15,7 +16,7 @@ const find = (list: ReadonlyArray<FoldEvent>, id: string) => {
  */
 export const applyHistoryChanges = (
 	events: ReadonlyArray<FoldEvent>,
-	changes: ReadonlyArray<HistoryChange>,
+	changes: ReadonlyArray<EventChange>,
 	subjectSchemaSlug: string,
 ) => {
 	let next = [...events];
@@ -34,23 +35,25 @@ export const applyHistoryChanges = (
 		if (change.kind === "delete") {
 			next = next.filter(({ id }) => id !== change.eventId);
 		} else if (change.kind === "create") {
+			const { entity, session, orderAfter, occurredAt } = change;
+			assert(entity.kind === "existing" && session?.kind !== "root" && orderAfter && occurredAt);
 			next.push({
-				...anchored(change.entity.entityId, change.orderAfter),
+				...anchored(entity.entityId, orderAfter),
+				occurredAt,
 				revision: 0,
+				entityId: entity.entityId,
 				eventSchemaSlug: "complete",
-				occurredAt: change.occurredAt,
 				properties: change.properties,
-				entityId: change.entity.entityId,
 				id: `derived-${change.itemIdentity}`,
-				sessionEntityId: change.session?.entityId ?? null,
+				sessionEntityId: session?.entityId ?? null,
 			});
 		} else {
 			const current = find(next, change.item.eventId);
 			const { patch } = change.item;
 			const entityId = patch.entityId ?? current.entityId;
 			const properties = Object.fromEntries(
-				Object.entries({ ...current.properties, ...patch.properties.set }).filter(
-					([key]) => !patch.properties.remove.includes(key),
+				Object.entries({ ...current.properties, ...patch.properties?.set }).filter(
+					([key]) => patch.properties?.remove.includes(key) !== true,
 				),
 			);
 			next = next.map((value) =>
@@ -65,7 +68,7 @@ export const applyHistoryChanges = (
 								patch.sessionEntityId === undefined
 									? current.sessionEntityId
 									: patch.sessionEntityId,
-							...(patch.orderAfter === undefined ? {} : anchored(entityId, patch.orderAfter)),
+							...(patch.orderAfter ? anchored(entityId, patch.orderAfter) : {}),
 						}
 					: value,
 			);

@@ -4,7 +4,7 @@ import {
 	foldEachSubject,
 	FoldInput,
 	FoldOutput,
-	FoldResult,
+	type FoldResult,
 } from "@ryot-app/plugin-backend-sdk/folds";
 import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 
@@ -122,12 +122,12 @@ export default defineScript({
 			const properties = summary
 				? librarySummaryProperties(summary)
 				: { lifecycleState: "untracked" };
-			return yield* Schema.decodeUnknownEffect(FoldResult)({
+			return {
 				changes: derived.changes,
 				events: derived.contributions,
 				relationships: links.map((relationshipId) => ({ properties, relationshipId })),
 				value: yield* Schema.encodeEffect(Schema.toCodecJson(MediaFoldValue))(derived.value),
-			});
+			} satisfies FoldResult;
 		}),
 	),
 });
