@@ -113,9 +113,11 @@ database IDs are not embedded in the plugin module.
 
 Vite may also emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored
 CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted path, MIME type,
-local reference, file count, per-asset size, and total size is validated. The hash covers every
-output byte and content type plus the package identity (the name of kernel and page inputs), and compiler/protocol identity. Final files are
-sorted by name. Compiler version 1 identifies minified module artifacts.
+local reference, file count, per-asset size, and total size is validated. Each module records its
+static imports using emitted filenames for local chunks and bare specifiers for external modules.
+The hash covers output bytes, content types, static imports, package identity (the name of kernel
+and page inputs), and compiler and protocol identity. Final files are sorted by name.
+Compiler version 1 identifies minified module artifacts.
 Hashes also cover the canonically sorted import targets and, for authored plugins, the client
 declaration hash. Archives require that declaration hash to match the manifest.
 The pure executable-text codec in `@ryot-app/ts-utils/executable-text` retains valid UTF-8 bytes,

@@ -39,6 +39,8 @@ export const equalArtifacts = (left: ClientArtifact, right: ClientArtifact) =>
 			(other) =>
 				file.name === other.name &&
 				file.contentType === other.contentType &&
+				file.staticImports.length === other.staticImports.length &&
+				file.staticImports.every((reference, index) => reference === other.staticImports[index]) &&
 				file.contents.length === other.contents.length &&
 				file.contents.every((byte, index) => byte === other.contents[index]),
 		),

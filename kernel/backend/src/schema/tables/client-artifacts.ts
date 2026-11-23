@@ -40,6 +40,7 @@ export const clientArtifactFile = snakeCase.table(
 		name: text().notNull(),
 		contents: bytea().notNull(),
 		contentType: text().notNull(),
+		staticImports: jsonb().$type<readonly string[]>().notNull().default([]),
 		artifactHash: text()
 			.notNull()
 			.references(() => clientArtifact.hash),

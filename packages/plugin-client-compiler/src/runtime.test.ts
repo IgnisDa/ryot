@@ -71,13 +71,14 @@ const emittedRuntime = (
 					Effect.succeed({
 						output: [
 							...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => ({
+								imports: [],
 								type: "chunk",
 								code: "export default 1;",
 								fileName: `entry-${index}.js`,
 							})),
-							{ type: "chunk", code: javascript, fileName: "entry-bootstrap.js" },
+							{ imports: [], type: "chunk", code: javascript, fileName: "entry-bootstrap.js" },
 							{ source: css, type: "asset", fileName: "runtime.css" },
-							...chunks.map((chunk) => ({ ...chunk, type: "chunk" })),
+							...chunks.map((chunk) => ({ ...chunk, imports: [], type: "chunk" })),
 						],
 					}),
 			}),

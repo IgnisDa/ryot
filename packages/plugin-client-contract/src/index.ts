@@ -28,6 +28,7 @@ export {
 	CLIENT_ARTIFACT_FORMAT,
 	clientArtifactMetadata,
 	CLIENT_COMPILER_VERSION,
+	clientArtifactFileFields,
 	PluginClientArtifactFile,
 	ClientCompositionMetadata,
 	PageClientArtifactMetadata,

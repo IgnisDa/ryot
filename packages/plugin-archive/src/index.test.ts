@@ -126,15 +126,18 @@ const clientFixture = (files: PluginClientArtifact["files"]): PluginClientArtifa
 const compiledClientFixture = clientFixture([
 	{
 		name: "plugin.js",
+		staticImports: ["react"],
 		contentType: "text/javascript; charset=utf-8",
-		contents: encoder.encode("export const plugin = true;\n"),
+		contents: encoder.encode('export { createElement } from "react";\n'),
 	},
 	{
+		staticImports: [],
 		name: "assets/icon.svg",
 		contentType: "image/svg+xml",
 		contents: new Uint8Array([0xff, 0x00, 0x7f]),
 	},
 	{
+		staticImports: [],
 		name: "index.html",
 		contentType: "text/html; charset=utf-8",
 		contents: encoder.encode("<html></html>\n"),
@@ -154,7 +157,7 @@ const compiledClientMetadata = (artifact: PluginClientArtifact) =>
 				compilerVersion: artifact.compilerVersion,
 				clientDeclarationHash: artifact.clientDeclarationHash,
 				files: artifact.files
-					.map(({ name, contentType }) => ({ name, contentType }))
+					.map(({ contents: _contents, ...file }) => file)
 					.sort((left, right) => compareNames(left.name, right.name)),
 			},
 			null,
@@ -662,9 +665,13 @@ describe("plugin archive", () => {
 					compilerVersion: compiledClient.compilerVersion,
 					clientDeclarationHash: compiledClient.clientDeclarationHash,
 					files: [
-						{ name: "assets/icon.svg", contentType: "image/svg+xml" },
-						{ name: "index.html", contentType: "text/html; charset=utf-8" },
-						{ name: "plugin.js", contentType: "text/javascript; charset=utf-8" },
+						{ staticImports: [], name: "assets/icon.svg", contentType: "image/svg+xml" },
+						{ staticImports: [], name: "index.html", contentType: "text/html; charset=utf-8" },
+						{
+							name: "plugin.js",
+							staticImports: ["react"],
+							contentType: "text/javascript; charset=utf-8",
+						},
 					],
 				});
 				expect(entries["compiled-client/files/assets/icon.svg"]).toEqual(
@@ -688,7 +695,7 @@ describe("plugin archive", () => {
 			Effect.gen(function* () {
 				const contents = new Uint8Array([0xff, 0x00, 0x49, 0x44, 0x33, 0x80]);
 				const audio = clientFixture([
-					{ contents, contentType: "audio/mpeg", name: "assets/add-set.mp3" },
+					{ contents, staticImports: [], contentType: "audio/mpeg", name: "assets/add-set.mp3" },
 				]);
 				const bytes = writePluginArchive({ ...fixture, compiledClient: audio });
 				const entries = unzipSync(bytes);
@@ -719,6 +726,7 @@ describe("plugin archive", () => {
 			compiledClient: clientFixture(
 				names.map((name) => ({
 					name,
+					staticImports: [],
 					contents: new Uint8Array(0),
 					contentType: name.endsWith(".html") ? "text/html; charset=utf-8" : "image/svg+xml",
 				})),
@@ -812,6 +820,7 @@ describe("plugin archive", () => {
 					compiledClient: clientFixture([
 						{
 							contents: bytes,
+							staticImports: [],
 							contentType: "image/svg+xml",
 							name: path.slice("compiled-client/files/".length),
 						},
@@ -835,6 +844,7 @@ describe("plugin archive", () => {
 					...compiledClientFixture,
 					files: [
 						{
+							staticImports: [],
 							contents: new Uint8Array(0),
 							contentType: "image/svg+xml",
 							name: pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes + 1).slice(
@@ -950,7 +960,12 @@ describe("plugin archive", () => {
 		() =>
 			Effect.gen(function* () {
 				const contents = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes + 1);
-				const file = { contents, name: "index.html", contentType: "text/html; charset=utf-8" };
+				const file = {
+					contents,
+					staticImports: [],
+					name: "index.html",
+					contentType: "text/html; charset=utf-8",
+				};
 				const compiledClient = { ...compiledClientFixture, files: [file] };
 				expectWriteReason({ ...fixture, compiledClient }, "compiled-client-bytes-exceeded");
 				yield* Effect.promise(() =>
@@ -974,6 +989,7 @@ describe("plugin archive", () => {
 				const files = Array.from(
 					{ length: PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles + 1 },
 					(_, index) => ({
+						staticImports: [],
 						name: `assets/${index}.js`,
 						contents: new Uint8Array(0),
 						contentType: "text/javascript; charset=utf-8",
@@ -1033,6 +1049,7 @@ describe("plugin archive", () => {
 			Effect.gen(function* () {
 				const originalFile = artifactFile(compiledClientFixture, "plugin.js");
 				const file = {
+					staticImports: [],
 					name: originalFile.name,
 					contents: originalFile.contents,
 					contentType: "application/json",
@@ -1108,6 +1125,7 @@ describe("plugin archive", () => {
 		};
 		const compiledClient = clientFixture([
 			{
+				staticImports: [],
 				name: "assets/noise.svg",
 				contentType: "image/svg+xml",
 				contents: noiseBytes(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes, 33),

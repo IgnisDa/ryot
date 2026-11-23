@@ -22,7 +22,11 @@ const manifest = () =>
 	composeClientPage({
 		identity: identity(),
 		artifacts: descriptions(),
-		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/plugin-client-sdk": "runtime.js" },
+		runtimeEntries: {
+			bootstrap: "bootstrap.js",
+			"unused-sdk": "unused.js",
+			"@ryot-app/plugin-client-sdk": "runtime.js",
+		},
 	});
 const access = (privateHashes: readonly string[]) =>
 	new Map(
@@ -32,16 +36,21 @@ const access = (privateHashes: readonly string[]) =>
 		]),
 	);
 
-it("preloads all eager code and leaves public presentation-only artifacts unfetched", () => {
+it("preloads the bootstrap and reachable runtime modules while leaving lazy code unfetched", () => {
 	const document = renderClientDocument(manifest(), descriptions(), access([]), "composition-hash");
 	expect(document.bootstrap).toBe(`/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`);
 	expect(Object.values(document.importMap.imports)).toContain(
 		`/api/page-bundles/${"a".repeat(64)}/public/runtime.js`,
 	);
 	expect(document.metadata.hash).toBe("composition-hash");
-	expect(document.modulepreloads).toContain(`/api/page-bundles/${"b".repeat(64)}/public/module.js`);
-	expect(document.modulepreloads).not.toContain(
-		`/api/page-bundles/${"c".repeat(64)}/public/module.js`,
+	expect(document.modulepreloads).toEqual([
+		`/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`,
+		`/api/page-bundles/${"a".repeat(64)}/public/runtime.js`,
+		`/api/page-bundles/${"a".repeat(64)}/public/shared.js`,
+		`/api/page-bundles/${"b".repeat(64)}/public/module.js`,
+	]);
+	expect(document.importMap.imports["unused-sdk"]).toBe(
+		`/api/page-bundles/${"a".repeat(64)}/public/unused.js`,
 	);
 	expect(document.stylesheets).not.toContain(
 		`/api/page-bundles/${"c".repeat(64)}/public/module.css`,
@@ -52,6 +61,14 @@ it("preloads all eager code and leaves public presentation-only artifacts unfetc
 	expect(document.descriptor.automaticRegistry[0]).not.toHaveProperty("artifactClosure");
 	expect(renderClientDocument(manifest(), descriptions(), access([]), "composition-hash")).toEqual(
 		document,
+	);
+});
+
+it("warms unused modules when the runtime itself uses an expiring capability", () => {
+	const runtimeHash = "a".repeat(64);
+	const plan = planClientDocumentPreloads(manifest(), descriptions(), access([runtimeHash]));
+	expect(plan.modulepreloads).toContain(
+		`/api/page-bundles/${runtimeHash}/${"x".repeat(43)}/unused.js`,
 	);
 });
 
@@ -78,8 +95,8 @@ it("warms a private dependency of a public lazy presentation without preloading 
 	const artifacts = descriptions();
 	artifacts.set(dependencyHash, {
 		files: [
-			{ name: "module.js", contentType: "text/javascript" },
-			{ name: "module.css", contentType: "text/css" },
+			{ name: "module.js", staticImports: [], contentType: "text/javascript" },
+			{ staticImports: [], name: "module.css", contentType: "text/css" },
 		],
 	});
 	const original = identity();

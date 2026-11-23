@@ -96,9 +96,15 @@ it("hashes client artifact identity and file contents into package identity", ()
 		clientDeclarationHash: "client-declaration",
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		files: [
-			{ name: "image.png", contentType: "image/png", contents: new Uint8Array([0, 255, 1]) },
+			{
+				name: "image.png",
+				staticImports: [],
+				contentType: "image/png",
+				contents: new Uint8Array([0, 255, 1]),
+			},
 			{
 				name: "plugin.js",
+				staticImports: [],
 				contents: encoder.encode("export {};"),
 				contentType: "text/javascript; charset=utf-8",
 			},

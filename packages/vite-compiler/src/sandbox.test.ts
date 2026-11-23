@@ -29,7 +29,7 @@ const importDefaultEntry = (javascript: string) =>
 	).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DefaultEntryModule)));
 
 const emitted = (fileName: string, code = "export const value = 1;") => ({
-	output: [{ code, fileName, type: "chunk" }],
+	output: [{ code, fileName, imports: [], type: "chunk" }],
 });
 
 describe("Sandbox ESM audit", () => {

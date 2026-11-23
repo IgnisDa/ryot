@@ -42,6 +42,7 @@ import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { MessageKey, MessageValueParam } from "@ryot-app/i18n/message";
 import {
+	clientArtifactFileFields,
 	ClientRuntimeArtifactMetadata,
 	PageClientArtifactMetadata,
 	PluginClientArtifactFromBase64,
@@ -119,12 +120,7 @@ export type ArchiveBlobManifest = typeof ArchiveBlobManifest.Type;
 export const ArchivePageArtifact = strictStruct({
 	...PageClientArtifactMetadata.fields,
 	files: Schema.Array(
-		strictStruct({
-			sha256,
-			name: Schema.String,
-			size: nonNegativeInteger,
-			contentType: Schema.String,
-		}),
+		strictStruct({ sha256, size: nonNegativeInteger, ...clientArtifactFileFields }),
 	),
 });
 export type ArchivePageArtifact = typeof ArchivePageArtifact.Type;

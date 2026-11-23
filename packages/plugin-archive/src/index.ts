@@ -4,6 +4,7 @@ import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { CompiledCatalog, decodeCompiledCatalog } from "@ryot-app/i18n/catalog";
 import { LocaleTag, SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import {
+	clientArtifactFileFields,
 	clientArtifactMetadata,
 	clientDeclarationHash,
 	isPluginClientArtifactContentType,
@@ -110,10 +111,7 @@ const PluginArchiveCompiledScriptsMetadata = strictStruct({
 	scripts: Schema.Array(PluginArchiveCompiledScriptMetadataEntry),
 });
 
-const PluginClientArtifactArchiveFileMetadata = strictStruct({
-	name: Schema.String,
-	contentType: Schema.String,
-});
+const PluginClientArtifactArchiveFileMetadata = strictStruct(clientArtifactFileFields);
 
 const PluginClientArtifactArchiveMetadata = strictStruct({
 	...PluginClientArtifactMetadata.fields,
@@ -842,12 +840,12 @@ class PluginArchiveReader {
 		if (metadata.files.length !== compiledClientFiles.size) {
 			throw failure("compiled-client-invalid");
 		}
-		const files = metadata.files.map(({ name, contentType }) => {
-			const contents = compiledClientFiles.get(`${compiledClientFilePrefix}${name}`);
+		const files = metadata.files.map((file) => {
+			const contents = compiledClientFiles.get(`${compiledClientFilePrefix}${file.name}`);
 			if (contents === undefined) {
 				throw failure("compiled-client-invalid");
 			}
-			return { name, contents, contentType };
+			return { ...file, contents };
 		});
 		return validateCompiledClientArtifact({ ...metadata, files }, manifest);
 	}
@@ -975,7 +973,7 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 			const encodedMetadata = Schema.encodeResult(PluginClientArtifactArchiveMetadata)({
 				...artifact,
 				files: artifact.files
-					.map(({ name, contentType }) => ({ name, contentType }))
+					.map(({ contents: _contents, ...file }) => file)
 					.sort((left, right) => compareCodeUnits(left.name, right.name)),
 			});
 			if (Result.isFailure(encodedMetadata)) {

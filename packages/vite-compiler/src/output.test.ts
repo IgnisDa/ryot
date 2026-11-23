@@ -11,7 +11,9 @@ const errorReason = <Value>(result: Result.Result<Value, ViteCompilerError>) =>
 describe("Vite output", () => {
 	it("retains executable BOM, CRLF, and distinct Unicode encodings", () => {
 		const code = '\ufeffexport default "e\u0301 é \ufffd 😀";\r\n';
-		const result = collectViteOutputs({ output: [{ code, type: "chunk", fileName: "module.js" }] });
+		const result = collectViteOutputs({
+			output: [{ code, imports: [], type: "chunk", fileName: "module.js" }],
+		});
 		expect(Result.isSuccess(result)).toBe(true);
 		if (Result.isSuccess(result)) {
 			expect(result.success[0]?.bytes).toEqual(new TextEncoder().encode(code));
@@ -21,7 +23,12 @@ describe("Vite output", () => {
 	it("rejects unpaired surrogates before executable bytes can acquire a replacement identity", () => {
 		for (const surrogate of ["\ud800", "\udfff"]) {
 			for (const item of [
-				{ type: "chunk", fileName: "module.js", code: `export default "${surrogate}";` },
+				{
+					imports: [],
+					type: "chunk",
+					fileName: "module.js",
+					code: `export default "${surrogate}";`,
+				},
 				{ type: "asset", source: surrogate, fileName: "module.css" },
 				{ type: "asset", source: surrogate, fileName: "module.mjs" },
 			]) {
@@ -41,7 +48,17 @@ describe("Vite output", () => {
 					{ type: "asset", source: audioBytes, fileName: "assets/add-set.mp3" },
 				],
 			},
-			{ output: [{ type: "chunk", code: "export {};", fileName: "assets/app.js" }] },
+			{
+				output: [
+					{
+						type: "chunk",
+						code: "export {};",
+						fileName: "assets/app.js",
+						dynamicImports: ["lazy.js"],
+						imports: ["react", "shared.js", "react"],
+					},
+				],
+			},
 		]);
 		expect(Result.isSuccess(collected)).toBe(true);
 		if (Result.isFailure(collected)) {
@@ -57,6 +74,7 @@ describe("Vite output", () => {
 			["assets/icon.svg", "image/svg+xml"],
 		]);
 		expect(collected.success[0]?.bytes).toEqual(audioBytes);
+		expect(collected.success[1]?.staticImports).toEqual(["react", "shared.js"]);
 		expect(collected.success[2]?.bytes).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
 	});
 

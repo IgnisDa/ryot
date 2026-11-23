@@ -127,6 +127,7 @@ it.effect(
 const descriptors = (count: number) =>
 	Array.from({ length: count }, (_, index) => ({
 		size: 0,
+		staticImports: [],
 		sha256: "0".repeat(64),
 		name: `file-${index}.js`,
 		contentType: "text/javascript; charset=utf-8",

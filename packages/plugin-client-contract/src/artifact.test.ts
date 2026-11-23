@@ -26,7 +26,7 @@ it("preserves exact Vite output bytes and content type", () => {
 	const contents = new Uint8Array([0x41, 0x00, 0xc3, 0xa9]);
 	expect(
 		clientArtifactFile({ bytes: contents, path: "plugin.js", contentType: "text/javascript" }),
-	).toEqual({ contents, name: "plugin.js", contentType: "text/javascript" });
+	).toEqual({ contents, name: "plugin.js", staticImports: [], contentType: "text/javascript" });
 });
 
 it("builds stable metadata from the plugin name, sorted byte hashes, and metadata identity", () => {

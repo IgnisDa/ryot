@@ -91,8 +91,12 @@ export const descriptions = () =>
 			"b".repeat(64),
 			{
 				files: [
-					{ name: "module.js", contentType: "text/javascript" },
-					{ name: "module.css", contentType: "text/css" },
+					{
+						name: "module.js",
+						contentType: "text/javascript",
+						staticImports: ["@ryot-app/plugin-client-sdk"],
+					},
+					{ staticImports: [], name: "module.css", contentType: "text/css" },
 				],
 			},
 		],
@@ -100,8 +104,10 @@ export const descriptions = () =>
 			"a".repeat(64),
 			{
 				files: [
-					{ name: "bootstrap.js", contentType: "text/javascript" },
-					{ name: "runtime.js", contentType: "text/javascript" },
+					{ staticImports: [], name: "bootstrap.js", contentType: "text/javascript" },
+					{ name: "runtime.js", staticImports: ["shared.js"], contentType: "text/javascript" },
+					{ name: "shared.js", staticImports: [], contentType: "text/javascript" },
+					{ name: "unused.js", staticImports: [], contentType: "text/javascript" },
 				],
 			},
 		],
@@ -109,11 +115,11 @@ export const descriptions = () =>
 			"c".repeat(64),
 			{
 				files: [
-					{ name: "module.js", contentType: "text/javascript" },
-					{ name: "module.css", contentType: "text/css" },
-					{ name: "font.woff2", contentType: "font/woff2" },
-					{ name: "icon.svg", contentType: "image/svg+xml" },
-					{ name: "helper.wasm", contentType: "application/wasm" },
+					{ name: "module.js", staticImports: ["unused-sdk"], contentType: "text/javascript" },
+					{ staticImports: [], name: "module.css", contentType: "text/css" },
+					{ staticImports: [], name: "font.woff2", contentType: "font/woff2" },
+					{ name: "icon.svg", staticImports: [], contentType: "image/svg+xml" },
+					{ staticImports: [], name: "helper.wasm", contentType: "application/wasm" },
 				],
 			},
 		],

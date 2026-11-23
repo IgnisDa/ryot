@@ -25,7 +25,12 @@ const metadata = {
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
-const file = { name: "module.js", contentType: "text/javascript", contents: new Uint8Array([10]) };
+const file = {
+	name: "module.js",
+	staticImports: [],
+	contentType: "text/javascript",
+	contents: new Uint8Array([10]),
+};
 
 const image = ImageClientArtifacts.of({
 	renderers: new Map(),
@@ -69,7 +74,7 @@ const fakeRepositoryLayer = Layer.effectContext(
 										hash,
 										clientDeclarationHash: "d".repeat(64),
 										packageId: PluginPackageId.make("test/store"),
-										files: [{ name: file.name, contentType: file.contentType }],
+										files: [{ name: file.name, staticImports: [], contentType: file.contentType }],
 									}
 								: null,
 						),

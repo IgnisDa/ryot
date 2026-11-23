@@ -31,7 +31,39 @@ const otherPreload = (type: string): Plan["preloads"][number]["as"] => {
 	return "fetch";
 };
 
-/** One decision point for both eager preload and authorized lazy warming. */
+const eagerRuntimeModules = (
+	manifest: ClientPageCompositionManifest,
+	artifacts: ReadonlyMap<string, ArtifactDescription>,
+) => {
+	const runtimeHash = manifest.bootstrap.artifactHash;
+	const runtimeFiles = artifacts.get(runtimeHash)?.files ?? [];
+	const dependencies = new Map(
+		runtimeFiles.map(({ name, staticImports }) => [name, staticImports]),
+	);
+	const modules = new Set([manifest.bootstrap.file]);
+	for (const hash of manifest.identity.eagerArtifactHashes) {
+		if (hash === runtimeHash) {
+			continue;
+		}
+		for (const file of artifacts.get(hash)?.files ?? []) {
+			for (const specifier of file.staticImports) {
+				const reference = manifest.imports[specifier];
+				if (reference?.artifactHash === runtimeHash) {
+					modules.add(reference.file);
+				}
+			}
+		}
+	}
+	for (const name of modules) {
+		for (const dependency of dependencies.get(name) ?? []) {
+			if (dependencies.has(dependency)) {
+				modules.add(dependency);
+			}
+		}
+	}
+	return modules;
+};
+
 export const planClientDocumentPreloads = (
 	manifest: ClientPageCompositionManifest,
 	artifacts: ReadonlyMap<string, ArtifactDescription>,
@@ -39,6 +71,9 @@ export const planClientDocumentPreloads = (
 ): Plan => {
 	const eager = new Set(manifest.identity.eagerArtifactHashes);
 	const lazy = new Set(lazyArtifactHashes(manifest.descriptor));
+	const runtimeHash = manifest.bootstrap.artifactHash;
+	const runtimeModules =
+		access.get(runtimeHash) === "public" ? eagerRuntimeModules(manifest, artifacts) : undefined;
 	const modulepreloads = new Set<string>();
 	const stylesheets = new Set<string>();
 	const preloads = new Map<string, Plan["preloads"][number]>();
@@ -54,7 +89,9 @@ export const planClientDocumentPreloads = (
 		for (const { name, contentType } of description.files) {
 			const url = buildPageBundleFileUrl(hash, key, name);
 			if (/^(text|application)\/javascript(?:;|$)/.test(contentType)) {
-				modulepreloads.add(url);
+				if (hash !== runtimeHash || runtimeModules === undefined || runtimeModules.has(name)) {
+					modulepreloads.add(url);
+				}
 			} else if (contentType.startsWith("text/css")) {
 				stylesheets.add(url);
 			} else {

@@ -53,7 +53,9 @@ hashes and a private cache for capability-protected hashes. All compiled code us
 route, independent of plugin ownership. Each document request issues reusable 15-minute artifact
 grants for private hashes; preparation issues none.
 
-Eager code is preloaded in the document. Public automatic-presentation-only artifacts load on
+Eager code is preloaded in the document. The public runtime preloads the bootstrap, SDK modules
+statically imported by eager artifacts, and their static dependencies. The compiler records these
+imports on the immutable artifact files. Public automatic-presentation-only artifacts load on
 demand. Authorized automatic-presentation artifacts are warmed while the grants are valid, but their
 presentations are evaluated only on demand. The client retains up to three iframe runtimes keyed by
 `compositionHash`. When a prepared page uses an existing composition, a document message replaces
