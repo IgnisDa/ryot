@@ -178,18 +178,6 @@ export function pluginConfigSandboxSource(
 	});
 }
 
-export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
-	return scriptModuleSource({
-		...input,
-		outputSchema: "Schema.Array(Schema.Unknown)",
-		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe"],
-		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
-		run: `(input, host) => input.ids.length === 0
-    ? Effect.succeed([])
-	    : executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, { entityIds: input.ids }).pipe(Effect.map((result) => result.items))`,
-	});
-}
-
 export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
@@ -295,6 +283,31 @@ export default defineWorkflow({
   }),
 });
 `;
+}
+
+export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		outputSchema: "Schema.Array(entityRowSchema)",
+		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
+		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe", "JsonValue"],
+		run: `(input, host) => input.ids.length === 0
+    ? Effect.succeed([])
+	    : executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, { entityIds: input.ids }).pipe(Effect.map((result) => result.items))`,
+		declarations: `const nullableString = Schema.NullOr(Schema.String);
+const entityRowSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  properties: JsonValue,
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+  externalId: nullableString,
+  providerId: nullableString,
+  populatedAt: nullableString,
+  entitySchemaSlug: Schema.String,
+  entitySchemaPluginId: nullableString,
+});`,
+	});
 }
 
 export function observabilitySandboxSource(input: SandboxSourceIdentity) {

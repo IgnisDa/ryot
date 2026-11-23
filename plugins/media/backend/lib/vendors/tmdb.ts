@@ -18,8 +18,8 @@ import {
 import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
 import { trendingChanges } from "../trending";
 
+export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log">;
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
-export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "executeRyotql">;
 
 type TmdbImagePurpose = "cover" | "backdrop";
 type TmdbRemoteImage = { url: string; type: "remote"; purpose: TmdbImagePurpose };
