@@ -73,8 +73,7 @@ export default defineScript({
 					),
 				);
 			const encode = Schema.encodeEffect(Schema.toCodecJson(ExerciseRecordsValue));
-			const previous = Schema.decodeUnknownOption(ExerciseRecordsValue)(input.value);
-			if (input.changes === null || Option.isNone(previous)) {
+			const replay = Effect.gen(function* () {
 				const replayed = replayExerciseRecords(yield* sets());
 				return {
 					changes: [],
@@ -82,6 +81,10 @@ export default defineScript({
 					events: replayed.events,
 					value: yield* encode(replayed.value),
 				};
+			});
+			const previous = Schema.decodeUnknownOption(ExerciseRecordsValue)(input.value);
+			if (input.changes === null || Option.isNone(previous)) {
+				return yield* replay;
 			}
 			const { added, retracted } = foldChangeImages(input.changes);
 			const workoutIds = [
@@ -92,18 +95,24 @@ export default defineScript({
 			const starts = new Map(
 				workoutIds.length === 0
 					? []
-					: (yield* executeRyotqlRecipe(host.executeRyotql, workoutStartsRecipe({ reference }), {
-							workoutIds,
-						})).items.map(({ id, startedAt }) => [id, startedAt] as const),
+					: (yield* readAllRyotqlPages((after) =>
+							executeRyotqlRecipe(
+								host.executeRyotql,
+								workoutStartsRecipe({ reference }),
+								{ workoutIds },
+								{ pages: { workouts: { after } } },
+							),
+						)).map(({ id, startedAt }) => [id, startedAt] as const),
 			);
+			if (workoutIds.some((workoutId) => !starts.has(workoutId))) {
+				return yield* replay;
+			}
 			const updated = yield* updateExerciseRecords({
 				value: previous.value,
 				later: (range) => sets(range),
 				retracted: yield* Effect.forEach(retracted, (image) => recordSetOf(image, null)),
 				added: yield* Effect.forEach(
-					added.filter(
-						({ sessionEntityId }) => sessionEntityId !== null && starts.has(sessionEntityId),
-					),
+					added.filter(({ sessionEntityId }) => sessionEntityId !== null),
 					(image) => recordSetOf(image, starts.get(image.sessionEntityId ?? "") ?? null),
 				),
 			});

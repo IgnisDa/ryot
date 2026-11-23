@@ -392,7 +392,8 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   every set. `backend/exercise-records.ts` updates from a change list instead: the bests before the
   earliest change stand, a later set's badge can only flip when its candidate lies between the
   maximum there and the largest changed candidate, so only those later sets are read (none when no
-  changed set sets a best), and later bests above that range carry the maximum forward. Deleting the
+  changed set sets a best), and later bests above that range carry the maximum forward. It reads the
+  start of every added set's workout and replays when one of those workouts is missing. Deleting the
   earliest heavy set of a long history can still read most of it. A value stays visible while its plugin revision is
   active; pending or failed status is noted until processing finishes.
 

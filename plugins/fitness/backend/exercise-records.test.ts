@@ -12,7 +12,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import type { ExerciseKind } from "../shared/exercise-kinds";
 import { recordCandidates } from "../shared/workout-records";
 import {
-	type ExerciseRecordsValue,
+	ExerciseRecordsValue,
 	type LaterSetsRequest,
 	type RecordSet,
 	replayExerciseRecords,
@@ -30,14 +30,11 @@ const workoutRecord = (id: string, weight: number, occurredAt: string) => ({
 	distance: null,
 	exerciseOrder: 0,
 	startedAt: occurredAt,
-	exerciseKind: "reps_and_weight",
 	sessionEntityId: `workout-${id}`,
+	exerciseKind: "reps_and_weight" as const,
 });
 
-const page = (
-	items: ReadonlyArray<ReturnType<typeof workoutRecord>>,
-	nextCursor: null | string,
-) => ({
+const page = <Item>(items: ReadonlyArray<Item>, nextCursor: null | string) => ({
 	items,
 	type: "rows" as const,
 	pageInfo: { nextCursor, limit: 100, hasMore: nextCursor !== null },
@@ -95,6 +92,145 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+const addedSet = (index: number) => {
+	const occurredAt = new Date(Date.UTC(2026, 0, 1, index)).toISOString();
+	const set = {
+		...workoutRecord(`set-${String(index).padStart(3, "0")}`, 20 + index, occurredAt),
+		sessionEntityId: `workout-${String(index).padStart(3, "0")}`,
+	};
+	return {
+		set,
+		change: {
+			before: null,
+			after: {
+				id: set.id,
+				occurredAt,
+				revision: 1,
+				orderKey: set.id,
+				entityId: "exercise-1",
+				orderCreatedAt: occurredAt,
+				entitySchemaSlug: "exercise",
+				eventSchemaSlug: "workout-set",
+				sessionEntityId: set.sessionEntityId,
+				properties: {
+					reps: set.reps,
+					weight: set.weight,
+					setOrder: set.setOrder,
+					exerciseKind: set.exerciseKind,
+					exerciseOrder: set.exerciseOrder,
+				},
+			},
+		},
+	};
+};
+
+/** Answers workout-start reads from `workouts` in pages of 100 and set reads with `records`. */
+const foldHost = (input: {
+	readonly workoutReads: Array<string | undefined>;
+	readonly records: ReadonlyArray<ReturnType<typeof workoutRecord>>;
+	readonly workouts: ReadonlyArray<{ readonly id: string; readonly startedAt: string }>;
+}) =>
+	defineSandboxTestHost(manifest, {
+		executeRyotql: (request) =>
+			Effect.sync(() => {
+				const queries = request.source.kind === "inline" ? request.source.document.queries : {};
+				if (!("workouts" in queries)) {
+					return { data: { records: page(input.records, null) } };
+				}
+				const after = request.pages?.["workouts"]?.after;
+				input.workoutReads.push(after);
+				const start = after === undefined ? 0 : Number(after);
+				const end = start + 100;
+				return {
+					data: {
+						workouts: page(
+							input.workouts.slice(start, end),
+							end < input.workouts.length ? String(end) : null,
+						),
+					},
+				};
+			}),
+	});
+
+const replayedOutput = Effect.fnUntraced(function* (
+	records: ReadonlyArray<ReturnType<typeof workoutRecord>>,
+) {
+	const replayed = replayExerciseRecords(
+		records.map((record) => ({ ...record, id: EventId.make(record.id) })),
+	);
+	return {
+		events: replayed.events,
+		value: yield* Schema.encodeEffect(Schema.toCodecJson(ExerciseRecordsValue))(replayed.value),
+	};
+});
+
+const derived = (output: FoldOutput) => ({
+	value: output.subjects[0]?.value,
+	events: output.subjects[0]?.events,
+});
+
+describe("incremental fold input", () => {
+	it.effect(
+		"folds the sets of every workout when the changes span more than a page of workouts",
+		() =>
+			Effect.gen(function* () {
+				const added = Array.from({ length: 150 }, (_, index) => addedSet(index));
+				const workoutReads: Array<string | undefined> = [];
+				const host = foldHost({
+					records: [],
+					workoutReads,
+					workouts: added.map(({ set }) => ({ id: set.sessionEntityId, startedAt: set.startedAt })),
+				});
+				const input = yield* Schema.decodeEffect(FoldInput)({
+					subjects: [
+						{
+							absorbed: [],
+							value: { records: [] },
+							subjectEntityId: "exercise-1",
+							changes: added.map(({ change }) => change),
+						},
+					],
+				});
+				const output = yield* Schema.decodeEffect(FoldOutput)(yield* definition.run(input, host));
+				expect(workoutReads).toEqual([undefined, "100"]);
+				expect(derived(output)).toEqual(yield* replayedOutput(added.map(({ set }) => set)));
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"replays the exercise when an added set's workout cannot be read",
+		() =>
+			Effect.gen(function* () {
+				const { set, change } = addedSet(1);
+				const stored = workoutRecord("set-stored", 40, "2025-12-01T00:00:00.000Z");
+				const host = foldHost({ workouts: [], workoutReads: [], records: [stored, set] });
+				const input = yield* Schema.decodeEffect(FoldInput)({
+					subjects: [
+						{
+							absorbed: [],
+							changes: [change],
+							subjectEntityId: "exercise-1",
+							value: {
+								records: [
+									{
+										value: 1000,
+										type: "weight",
+										kind: "reps_and_weight",
+										position: ["2025-01-01T00:00:00.000Z", null, "workout-old", 0, 0, "set-old"],
+									},
+								],
+							},
+						},
+					],
+				});
+				const output = yield* Schema.decodeEffect(FoldOutput)(yield* definition.run(input, host));
+				expect(derived(output)).toEqual(yield* replayedOutput([stored, set]));
+			}),
+		testTimeout,
+	);
+});
 
 type Stored = { value: ExerciseRecordsValue; outputs: Map<string, unknown> };
 type HistorySet = RecordSet & { readonly exerciseId: (typeof exercises)[number] };
