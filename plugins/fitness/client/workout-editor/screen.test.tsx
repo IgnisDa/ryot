@@ -1440,7 +1440,6 @@ describe("WorkoutEditorScreen", () => {
 							answerPending();
 							expect(page.clientMessages()).toContainEqual<unknown>(
 								objectContaining({
-									dismissed: true,
 									requestId: "dismiss-defaults",
 									type: "dismiss-overlay-result",
 								}),
@@ -1458,7 +1457,6 @@ describe("WorkoutEditorScreen", () => {
 							answerPending();
 							expect(page.clientMessages()).toContainEqual<unknown>(
 								objectContaining({
-									dismissed: true,
 									requestId: "dismiss-set",
 									type: "dismiss-overlay-result",
 								}),

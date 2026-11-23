@@ -854,7 +854,6 @@ describe("bootstrapClientPlugin", () => {
 					waitFor(() => {
 						expect(document.querySelector('[role="dialog"]')).toBeNull();
 						expect(messages).toContainEqual({
-							dismissed: true,
 							type: "dismiss-overlay-result",
 							requestId: "overlay-after-replacement",
 						});

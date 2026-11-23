@@ -122,7 +122,6 @@ export type PluginBridgeDismissOverlay = Schema.Schema.Type<typeof PluginBridgeD
 
 export const PluginBridgeDismissOverlayResult = strictStruct({
 	requestId: Schema.String,
-	dismissed: Schema.Boolean,
 	type: Schema.Literal("dismiss-overlay-result"),
 });
 

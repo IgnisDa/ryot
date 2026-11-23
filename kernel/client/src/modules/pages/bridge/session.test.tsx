@@ -1417,11 +1417,8 @@ describe("plugin bridge", () => {
 						).toHaveLength(1),
 					),
 				);
-				pluginPort.postMessage({
-					dismissed: true,
-					requestId: "overlay-1",
-					type: "dismiss-overlay-result",
-				});
+				pluginPort.postMessage({ requestId: "overlay-1", type: "dismiss-overlay-result" });
+				pluginPort.postMessage({ count: 1, type: "overlay-state" });
 				yield* Effect.promise(() => waitFor(() => expect(overlayStates.at(-1)).toBe(1)));
 
 				expect(session.requestOverlayDismiss()).toBe(true);

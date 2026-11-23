@@ -971,7 +971,7 @@ describe("PageIframeHost", () => {
 	);
 
 	it.live(
-		"registers iframe overlay Back ownership and releases it after acknowledgement",
+		"registers iframe Back ownership until the frame reports no overlays",
 		() =>
 			Effect.gen(function* () {
 				const host = mount();
@@ -992,11 +992,9 @@ describe("PageIframeHost", () => {
 					),
 				);
 
-				bridge.port.postMessage({
-					dismissed: true,
-					requestId: "overlay-1",
-					type: "dismiss-overlay-result",
-				});
+				bridge.port.postMessage({ requestId: "overlay-1", type: "dismiss-overlay-result" });
+				expect(host.backInterceptors.run()).toBe(true);
+				bridge.port.postMessage({ count: 0, type: "overlay-state" });
 				yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(false)));
 			}),
 		testTimeout,

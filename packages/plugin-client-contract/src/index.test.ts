@@ -225,7 +225,6 @@ describe("plugin client bridge contract", () => {
 			type: "dismiss-overlay",
 		} satisfies PluginBridgeDismissOverlay;
 		const result = {
-			dismissed: true,
 			requestId: "overlay-1",
 			type: "dismiss-overlay-result",
 		} satisfies PluginBridgeDismissOverlayResult;

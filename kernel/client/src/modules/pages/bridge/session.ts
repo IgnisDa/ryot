@@ -565,10 +565,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 		overlayDismiss.cancelTimeout();
 		overlayDismiss = undefined;
-		if (result.dismissed && overlayCount > 0) {
-			overlayCount -= 1;
-			options.onOverlayState(overlayCount);
-		}
 	}
 
 	function handleLifecycleClose(reason: "failed" | "disposed") {
