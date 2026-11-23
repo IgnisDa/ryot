@@ -1,4 +1,3 @@
-import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -29,16 +28,14 @@ import { describe, expect, it } from "~/support/effect-test";
 const listReviews = (client: Client, entityId: string) =>
 	listEventsForEntity(client, entityId, undefined, 100, { eventSchemaSlug: "review" });
 
-const expectRejected = (operation: ReturnType<typeof createExerciseNote>, message: string) =>
+const expectRejected = (
+	operation: ReturnType<typeof createExerciseNote>,
+	key: "rejection.exercise-note.missing" | "rejection.exercise-note.missing-exercise",
+) =>
 	Effect.gen(function* () {
 		const failure = yield* Effect.flip(operation);
-		assertTaggedError(failure, "PluginInvocationError");
-		expect(failure.reason).toEqual<unknown>(
-			objectContaining({
-				code: "runtime-failed",
-				diagnostics: [objectContaining({ severity: "error", message: stringContaining(message) })],
-			}),
-		);
+		assertTaggedError(failure, "PluginOperationRejected");
+		expect(failure.reason).toMatchObject({ key });
 	});
 
 const seedMovieWithReview = (client: Client) =>
@@ -109,9 +106,12 @@ describe("Fitness exercise notes", () => {
 
 			yield* expectRejected(
 				updateExerciseNote(otherClient, { noteId, rating: null, text: "Theirs" }),
-				"Exercise note not found",
+				"rejection.exercise-note.missing",
 			);
-			yield* expectRejected(deleteExerciseNote(otherClient, { noteId }), "Exercise note not found");
+			yield* expectRejected(
+				deleteExerciseNote(otherClient, { noteId }),
+				"rejection.exercise-note.missing",
+			);
 
 			expect((yield* listReviews(client, exerciseId)).map(({ properties }) => properties)).toEqual([
 				{ rating: 20, text: "Mine" },
@@ -143,9 +143,12 @@ describe("Fitness exercise notes", () => {
 			for (const noteId of [workoutSetEvent.id, reviewEvent.id]) {
 				yield* expectRejected(
 					updateExerciseNote(client, { noteId, rating: null, text: "Hijacked" }),
-					"Exercise note not found",
+					"rejection.exercise-note.missing",
 				);
-				yield* expectRejected(deleteExerciseNote(client, { noteId }), "Exercise note not found");
+				yield* expectRejected(
+					deleteExerciseNote(client, { noteId }),
+					"rejection.exercise-note.missing",
+				);
 			}
 
 			const storedWorkoutSet = requirePresent(
@@ -177,11 +180,11 @@ describe("Fitness exercise notes", () => {
 
 			yield* expectRejected(
 				createExerciseNote(client, { exerciseId: movie.id, text: "Not an exercise" }),
-				"Exercise not found",
+				"rejection.exercise-note.missing-exercise",
 			);
 			yield* expectRejected(
 				createExerciseNote(client, { text: "Not mine", exerciseId: otherExerciseId }),
-				"Exercise not found",
+				"rejection.exercise-note.missing-exercise",
 			);
 
 			expect(yield* listEventsForEntity(client, movie.id, undefined, 100)).toEqual([]);

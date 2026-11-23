@@ -1,11 +1,6 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
-import {
-	arrayContaining,
-	objectContaining,
-	stringContaining,
-	stringMatching,
-} from "@ryot-app/testing/matchers";
+import { arrayContaining, objectContaining, stringMatching } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
@@ -251,18 +246,8 @@ describe("Measurements E2E", () => {
 			const entryId = requirePresent(stored, "Expected a reading").entryId;
 
 			const failure = yield* Effect.flip(deleteMeasurementReadings(otherClient, { entryId }));
-			assertTaggedError(failure, "PluginInvocationError");
-			expect(failure.reason).toEqual<unknown>(
-				objectContaining({
-					code: "runtime-failed",
-					diagnostics: [
-						objectContaining({
-							severity: "error",
-							message: stringContaining("Measurement entry not found"),
-						}),
-					],
-				}),
-			);
+			assertTaggedError(failure, "PluginOperationRejected");
+			expect(failure.reason).toMatchObject({ key: "rejection.measurement-entry.missing" });
 			expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(1);
 
 			expect(yield* deleteMeasurementReadings(client, { entryId })).toEqual({ count: 1 });
@@ -299,14 +284,8 @@ describe("Measurements E2E", () => {
 			};
 
 			const foreignLog = yield* Effect.flip(logMeasurementReadings(otherClient, logged));
-			assertTaggedError(foreignLog, "PluginInvocationError");
-			expect(foreignLog.reason).toEqual<unknown>(
-				objectContaining({
-					diagnostics: [
-						objectContaining({ message: stringContaining("Measurement metric not found") }),
-					],
-				}),
-			);
+			assertTaggedError(foreignLog, "PluginOperationRejected");
+			expect(foreignLog.reason).toMatchObject({ key: "rejection.measurement-metric.missing" });
 			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2 });
 			expect(yield* listReadings()).toEqual([
 				{
@@ -333,14 +312,8 @@ describe("Measurements E2E", () => {
 				],
 			};
 			const foreignEdit = yield* Effect.flip(updateMeasurementReadings(otherClient, edited));
-			assertTaggedError(foreignEdit, "PluginInvocationError");
-			expect(foreignEdit.reason).toEqual<unknown>(
-				objectContaining({
-					diagnostics: [
-						objectContaining({ message: stringContaining("Measurement entry not found") }),
-					],
-				}),
-			);
+			assertTaggedError(foreignEdit, "PluginOperationRejected");
+			expect(foreignEdit.reason).toMatchObject({ key: "rejection.measurement-entry.missing" });
 			expect(yield* updateMeasurementReadings(client, edited)).toEqual({ count: 3 });
 			expect(yield* listReadings()).toEqual([
 				{ value: 95, comment: null, metricKey: "hip", occurredAt: "2026-04-28T09:15:00.000Z" },
@@ -458,14 +431,18 @@ describe("Measurements E2E", () => {
 			const limited = yield* Effect.flip(
 				pinMeasurementMetric(client, { pinned: true, metricId: bmi.entityId }),
 			);
-			assertTaggedError(limited, "PluginInvocationError");
-			expect(limited.reason).toMatchObject({ code: "runtime-failed" });
+			assertTaggedError(limited, "PluginOperationRejected");
+			expect(limited.reason).toMatchObject({
+				params: { limit: 3 },
+				key: "rejection.measurement-metric.pin-limit",
+			});
 			expect(yield* pinnedIds()).toEqual([weight.entityId, waist.entityId, hip.entityId]);
 
 			const foreign = yield* Effect.flip(
 				pinMeasurementMetric(otherClient, { pinned: true, metricId: bmi.entityId }),
 			);
-			assertTaggedError(foreign, "PluginInvocationError");
+			assertTaggedError(foreign, "PluginOperationRejected");
+			expect(foreign.reason).toMatchObject({ key: "rejection.measurement-metric.missing" });
 
 			expect(
 				yield* pinMeasurementMetric(client, { pinned: false, metricId: weight.entityId }),
