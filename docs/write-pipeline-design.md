@@ -409,6 +409,52 @@ and its named tests, then its e2e files.
    the peak reliably (595 MB against 493 MB without it in one run). Getting below about 500 MB needs
    a larger change, such as auditing scripts as they stream in or not decoding the manifest twice.
 
+10. **Reads on a real library** (measured). `library-check` and `warm-writes` in `e2e/src/api/perf`
+   run against an external server ([real-data probes](../e2e/README.md#real-data-probes)). On the
+   migrated V1 clone (28,962 library members, 180k events, 1,254 workouts; 2 cores, 4 GB), warm,
+   10 samples per read, most pages answer in 25 to 230 ms round trip (p50). Over the 250 ms target:
+
+   | Read                         | p50 before → after | SQL per request before → after |
+   | ---------------------------- | -----------------: | -----------------------------: |
+   | Media activity (365 days)    |   3,060 → 1,509 ms |               2,867 → 1,302 ms |
+   | Analytics summary, year      |   6,209 → 2,069 ms |               6,029 → 1,892 ms |
+   | Analytics records, all time  |     1,447 → 122 ms |                  1,348 → 32 ms |
+   | Analytics summary, all time  |   1,912 → 1,928 ms |               1,736 → 1,753 ms |
+   | Analytics trend, all time    |   1,099 → 1,071 ms |                   958 → 940 ms |
+   | Music view, three pages      |       973 → 977 ms |                   904 → 917 ms |
+   | Fitness totals, all time     |       605 → 589 ms |                   465 → 459 ms |
+   | Show detail activity         |       429 → 422 ms |                   262 → 263 ms |
+   | Analytics ranking / hours    |  473 / 374 → 583 / 356 ms |      379 / 278 → 495 / 263 ms |
+   | Fitness target ranking       |       334 → 326 ms |                   215 → 220 ms |
+   | Continue / backlog shows     |  315 / 285 → 302 / 287 ms |          49 / 20 → 48 / 19 ms |
+   | Show detail summary          |       315 → 312 ms |                     29 → 29 ms |
+
+   Schema catalogs reach SQL as `user_*` relations built from `jsonb_array_elements`, which
+   PostgreSQL estimates at one row once any filter applies. Media's analytics joined them inner for
+   type and event labels, so the planner made the catalog the outer side of a nested loop and
+   scanned the user's events once per catalog row (24 to 105 times; 790k–886k entity lookups for
+   33k events). Those label joins are left joins now: the event policy already limits rows to Media's
+   effective schemas, so they never filtered. The other slow statements aggregate every consumption
+   event or workout set with per-row JSON extraction (5 to 10 µs a row), and the remaining catalog
+   misestimates show up as per-row scans of `projectionDeclarations` and the projection-status
+   lateral (about 80 ms each on 41k sets). Both grow with history; fixing them needs stored rollups
+   or catalog relations the planner can estimate, which this item does not attempt. Lists pay about
+   70 ms per page walking all library memberships to filter by schema, and the music view rebuilds
+   its sorted 27k-member set for each page.
+
+   Earlier findings: the plugin catalog is 663 KB on every refresh, 98% Media `clientEntities`
+   (show and podcast owner presentations are 160 KB and 146 KB of RyotQL); it does not grow with
+   data. Movies and shows carry on average 220 images (up to 1,020, about 26 KB), and list rows select
+   the whole array, so home rails return 197 to 453 KB for 20 rows and a show detail summary 48 KB.
+   RyotQL statements are 1 to 191 KB with up to 1,473 parameters; planning is 1 to 6 ms of that. No
+   measured page read is bound by the GIN-only property indexes; the property lookups found earlier
+   are on the write path and were not measured again here. Server time outside SQL is 70 to 280 ms
+   for the larger recipes, split about evenly between request preparation, execution scope,
+   response encoding and row decoding. Warm writes did not move (p50, through the host forwarder,
+   which adds 10 to 20 ms): review delete 121 to 138 ms, movie and music logs 152 to 161 ms, show
+   episode logs 200 to 235 ms (the 69 KB fold state 235 ms against 212 and 223 ms before), one-exercise
+   saves 197 ms and a 35-set, 9-exercise repeat 286 ms.
+
 ## Code placement
 
 Code shared by plugins lives in the plugin SDK or a package, and kernel code shared by features
