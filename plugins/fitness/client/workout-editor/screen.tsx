@@ -64,6 +64,7 @@ export function WorkoutEditorScreen(props: {
 	const [overlay, setOverlay] = useState<EditorOverlay>();
 	const [mediaTarget, setMediaTarget] = useState<WorkoutMediaTarget>();
 	const editorRoot = useRef<HTMLDivElement>(null);
+	const detailsTriggerRef = useRef<HTMLButtonElement>(null);
 	const editorDraft = snapshot.status === "ready" ? snapshot.draft : undefined;
 	const measurement = useMeasurementLogger();
 	const now = useEditorNow(
@@ -85,6 +86,10 @@ export function WorkoutEditorScreen(props: {
 		}
 	}, [controller, exercises.data]);
 	const close = () => setOverlay(undefined);
+	const openDetails = (trigger: null | HTMLButtonElement) => {
+		detailsTriggerRef.current = trigger;
+		setOverlay("details");
+	};
 	const scrollToEditorTarget = useEditorScroll({
 		editorRoot,
 		floatingRoot,
@@ -365,6 +370,7 @@ export function WorkoutEditorScreen(props: {
 		historical,
 		editorRoot,
 		onOverlay: setOverlay,
+		onOpenDetails: openDetails,
 	};
 	const finishLabel = live ? text("client.editor.finish") : text("common.action.save");
 	return (
@@ -395,15 +401,16 @@ export function WorkoutEditorScreen(props: {
 						live={live}
 						paused={paused}
 						locked={locked}
+						template={template}
 						onOverlay={setOverlay}
 						saveBlocked={saveBlocked}
 						finishLabel={finishLabel}
 						onTogglePause={togglePause}
+						onOpenDetails={openDetails}
 						menu={workoutMenuItems({
 							text,
 							live,
 							locked,
-							template,
 							stopwatch,
 							discardLabel,
 							onOverlay: setOverlay,
@@ -466,6 +473,7 @@ export function WorkoutEditorScreen(props: {
 					scrollTo={scrollToEditorTarget}
 					onReloaded={request.markStarted}
 					refetchExercises={exercises.refetch}
+					detailsTriggerRef={detailsTriggerRef}
 					existingGuard={request.existingGuard}
 					requestBlocked={request.requestBlocked}
 					requestHandled={request.requestHandled}

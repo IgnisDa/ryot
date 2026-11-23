@@ -14,7 +14,7 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import type {
 	WorkoutEditorDraft,
@@ -148,10 +148,12 @@ export function WorkoutPreferencesSheet(props: {
 }
 
 export function WorkoutDetailsSheet(props: {
+	readonly open: boolean;
 	readonly disabled: boolean;
 	readonly onClose: () => void;
 	readonly onChange: DraftChange;
 	readonly draft: WorkoutEditorDraft;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const text = useFitnessMessages();
 	const { draft, onChange } = props;
@@ -159,7 +161,9 @@ export function WorkoutDetailsSheet(props: {
 	return (
 		<EditorSheet
 			wide="side"
+			open={props.open}
 			onClose={props.onClose}
+			triggerRef={props.triggerRef}
 			closeLabel={text("client.wsheets.close-details")}
 			footer={<Button onClick={props.onClose}>{text("common.action.done")}</Button>}
 			title={

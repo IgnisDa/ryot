@@ -48,11 +48,26 @@ it.live("dismisses a menu before its workout sheet and preserves the draft on Ba
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
 		yield* page.waitForURL(`${getFrontendUrl()}/p/ryot/fitness/workout-editor`);
-		yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
+		const detailsTrigger = frame.getByRole("button", {
+			exact: false,
+			name: "Edit workout details",
+		});
+		yield* detailsTrigger.click();
 		const details = frame.getByRole("dialog", { exact: true, name: WORKOUT_DETAILS });
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* details.waitFor({ state: "hidden" });
+		yield* detailsTrigger.waitForFunction(
+			(element) => element.ownerDocument.activeElement === element,
+		);
+		const workoutActions = frame.getByRole("button", { exact: true, name: "Workout actions" });
+		yield* workoutActions.click();
+		yield* frame.getByRole("menuitem", { exact: true, name: WORKOUT_DETAILS }).click();
+		yield* details.getByRole("button", { exact: true, name: "Close details" }).click();
+		yield* details.waitFor({ state: "hidden" });
+		yield* workoutActions.waitForFunction(
+			(element) => element.ownerDocument.activeElement === element,
+		);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = overlay(frame, "Add exercises");
 		yield* picker.waitFor({ state: "visible" });

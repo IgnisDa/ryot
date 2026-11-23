@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
 
 const config: CapacitorConfig = {
 	webDir: "dist",
@@ -6,8 +7,8 @@ const config: CapacitorConfig = {
 	appId: "io.ryot.app",
 	backgroundColor: "#101113",
 	plugins: {
-		Keyboard: { autoBackdropColor: "dom" },
 		LocalNotifications: { presentationOptions: [] },
+		Keyboard: { autoBackdropColor: "dom", resize: KeyboardResize.None },
 	},
 };
 

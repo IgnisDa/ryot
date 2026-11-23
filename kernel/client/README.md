@@ -401,6 +401,9 @@ Both platforms register only their variant's identifier as the deep-link scheme.
 other schemes are ignored. Native launch URLs replace the current entry. Android hardware Back pops
 the global router history and exits only when no entry remains.
 
+On iOS, the bridge controller sizes the WebView with UIKit's keyboard layout guide. The shell and
+its iframes receive the same reduced layout height when the docked keyboard opens.
+
 OAuth connection returns are the routing exception: the live attempt's `DeepLinkClaims` claim
 receives them instead of the router. `/oauth/login`, its signed `oauth_query`, and its independence
 from `ServerService` form the server contract.

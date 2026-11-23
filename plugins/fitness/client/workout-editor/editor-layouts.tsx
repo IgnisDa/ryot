@@ -10,7 +10,7 @@ import {
 	ScreenBarButton,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import type { ComponentProps, ReactNode, RefObject } from "react";
+import { type ComponentProps, type ReactNode, type RefObject, useRef } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { useMeasurementLogger } from "../measurements/measurement-logger";
@@ -39,42 +39,8 @@ type EditorLayoutProps = {
 	readonly context: WorkoutEditorContext;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 	readonly editorRoot: RefObject<null | HTMLDivElement>;
+	readonly onOpenDetails: (trigger: HTMLButtonElement) => void;
 };
-
-export function CompactBarActions(props: {
-	readonly live: boolean;
-	readonly paused: boolean;
-	readonly locked: boolean;
-	readonly menu: MenuItem[];
-	readonly finishLabel: string;
-	readonly saveBlocked: boolean;
-	readonly onTogglePause: () => void;
-	readonly onOverlay: (overlay: EditorOverlay) => void;
-}) {
-	const text = useFitnessMessages();
-	return (
-		<>
-			{props.live ? (
-				<ScreenBarButton
-					disabled={props.locked}
-					onClick={props.onTogglePause}
-					label={props.paused ? text("client.home.draft-live-resume") : text("client.editor.pause")}
-				>
-					<AppIcon size={20} name={props.paused ? "play" : "pause"} />
-				</ScreenBarButton>
-			) : null}
-			<MenuButton trigger="bar" items={props.menu} label={text("client.editor.actions")} />
-			<Button
-				size="sm"
-				className="ml-1"
-				disabled={props.saveBlocked}
-				onClick={() => props.onOverlay("finish")}
-			>
-				{props.finishLabel}
-			</Button>
-		</>
-	);
-}
 
 export function CompactDock(props: {
 	readonly live: boolean;
@@ -122,6 +88,58 @@ export function CompactDock(props: {
 	);
 }
 
+export function CompactBarActions(props: {
+	readonly live: boolean;
+	readonly paused: boolean;
+	readonly locked: boolean;
+	readonly menu: MenuItem[];
+	readonly template: boolean;
+	readonly finishLabel: string;
+	readonly saveBlocked: boolean;
+	readonly onTogglePause: () => void;
+	readonly onOverlay: (overlay: EditorOverlay) => void;
+	readonly onOpenDetails: (trigger: null | HTMLButtonElement) => void;
+}) {
+	const text = useFitnessMessages();
+	const actionsTrigger = useRef<HTMLButtonElement>(null);
+	return (
+		<>
+			{props.live ? (
+				<ScreenBarButton
+					disabled={props.locked}
+					onClick={props.onTogglePause}
+					label={props.paused ? text("client.home.draft-live-resume") : text("client.editor.pause")}
+				>
+					<AppIcon size={20} name={props.paused ? "play" : "pause"} />
+				</ScreenBarButton>
+			) : null}
+			<MenuButton
+				trigger="bar"
+				triggerRef={actionsTrigger}
+				label={text("client.editor.actions")}
+				items={[
+					{
+						key: "details",
+						onSelect: () => props.onOpenDetails(actionsTrigger.current),
+						label: props.template
+							? text("client.wsheets.template-details")
+							: text("client.wsheets.workout-details"),
+					},
+					...props.menu,
+				]}
+			/>
+			<Button
+				size="sm"
+				className="ml-1"
+				disabled={props.saveBlocked}
+				onClick={() => props.onOverlay("finish")}
+			>
+				{props.finishLabel}
+			</Button>
+		</>
+	);
+}
+
 export function CompactEditor({ editorRoot, ...props }: EditorLayoutProps) {
 	const text = useFitnessMessages();
 	const formatters = useFormatters();
@@ -132,8 +150,8 @@ export function CompactEditor({ editorRoot, ...props }: EditorLayoutProps) {
 				<h1 className="text-xl leading-[26px] font-semibold text-balance">
 					<button
 						type="button"
-						onClick={() => onOverlay("details")}
 						className="text-left [overflow-wrap:anywhere]"
+						onClick={(event) => props.onOpenDetails(event.currentTarget)}
 						aria-label={text("client.editor.edit-details", {
 							title: props.title,
 							kind: props.template ? "template" : "workout",
@@ -238,7 +256,7 @@ export function WideEditor({
 							size="sm"
 							variant="ghost"
 							disabled={locked}
-							onClick={() => onOverlay("details")}
+							onClick={(event) => props.onOpenDetails(event.currentTarget)}
 						>
 							<AppIcon size={14} name="pencil" />
 							{text("client.editor.details")}

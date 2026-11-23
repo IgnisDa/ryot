@@ -8,7 +8,6 @@ export const workoutMenuItems = (input: {
 	readonly live: boolean;
 	readonly locked: boolean;
 	readonly text: FitnessText;
-	readonly template: boolean;
 	readonly stopwatch: number;
 	readonly discardLabel: Text;
 	readonly attachments: number;
@@ -21,13 +20,6 @@ export const workoutMenuItems = (input: {
 	readonly measurementUnavailable: boolean;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 }): MenuItem[] => [
-	{
-		key: "details",
-		onSelect: () => input.onOverlay("details"),
-		label: input.template
-			? input.text("client.wsheets.template-details")
-			: input.text("client.wsheets.workout-details"),
-	},
 	...(input.live
 		? [
 				{

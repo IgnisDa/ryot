@@ -1,6 +1,6 @@
 import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog } from "@ryot-app/plugin-ui-sdk";
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
@@ -85,6 +85,7 @@ export function EditorOverlays(props: {
 	readonly exercises: undefined | readonly EditorExercise[];
 	readonly onSaved: undefined | ((id: SavedEntityId) => void);
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
+	readonly detailsTriggerRef: RefObject<null | HTMLButtonElement>;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) {
 	const text = useFitnessMessages();
@@ -210,13 +211,15 @@ export function EditorOverlays(props: {
 							})}
 				/>
 			) : null}
-			{kind === "details" && draft !== undefined ? (
+			{draft !== undefined ? (
 				<WorkoutDetailsSheet
 					key="details"
 					draft={draft}
 					onClose={onClose}
 					disabled={props.locked}
+					open={kind === "details"}
 					onChange={actions.change}
+					triggerRef={props.detailsTriggerRef}
 				/>
 			) : null}
 			{kind === "preferences" && actions.local !== undefined ? (
