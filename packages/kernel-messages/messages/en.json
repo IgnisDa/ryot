@@ -2228,7 +2228,6 @@
 	"client.shell.customize.title": "Customize sidebar",
 	"client.shell.discard.confirm": "Discard",
 	"client.shell.discard.detail": "Your unsaved sidebar changes will be lost.",
-	"client.shell.discard.dismiss": "Dismiss discard prompt",
 	"client.shell.discard.keep": "Keep editing",
 	"client.shell.discard.title": "Discard sidebar changes?",
 	"client.shell.empty-saved-views": "No saved views yet.",
@@ -3076,10 +3075,6 @@
 		"message": "{field} values",
 		"description": "{field} is the filtered field's label."
 	},
-	"sdk.filters.values-summary": {
-		"message": "{field} values: {summary}",
-		"description": "{field} is the filtered field's label; {summary} lists the chosen values."
-	},
 	"sdk.presentation.display-failed": "This entity could not be displayed.",
 	"sdk.presentation.load-failed": "This entity could not be loaded.",
 	"sdk.presentation.loading": "Loading entity presentation…",
@@ -3483,7 +3478,6 @@
 		"description": "{label} is the form field's label."
 	},
 	"ui.search-field.clear": "Clear search",
-	"ui.select.close-options": "Close options",
 	"ui.select.no-matches": "No matching options.",
 	"ui.select.placeholder": "Select an option",
 	"ui.select.search-field": {

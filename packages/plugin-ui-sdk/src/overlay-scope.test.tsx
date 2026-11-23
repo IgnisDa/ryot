@@ -6,12 +6,7 @@ import { useState } from "react";
 
 import { render } from "./i18n.test-support";
 import { Modal } from "./modal";
-import {
-	type OverlayBackAdapter,
-	OverlayBackProvider,
-	OverlayScope,
-	useShortcut,
-} from "./shortcut";
+import { useShortcut } from "./shortcut";
 
 function Page() {
 	const [open, setOpen] = useState(false);
@@ -24,80 +19,16 @@ function Page() {
 			<button type="button" onClick={() => setOpen(true)}>
 				Open
 			</button>
-			{open && (
-				<Modal
-					label={testText("Overlay")}
-					closeLabel={testText("Close")}
-					onClose={() => setOpen(false)}
-				>
-					<button type="button">Inside</button>
-				</Modal>
-			)}
+			<Modal open={open} label={testText("Overlay")} onClose={() => setOpen(false)}>
+				<button type="button">Inside</button>
+			</Modal>
 		</>
 	);
 }
 
 const fired = () => screen.getByTestId("fired").textContent;
 
-describe("OverlayScope", () => {
-	it("registers document Back handlers in LIFO order", () => {
-		const handlers: Array<() => boolean> = [];
-		const adapter: OverlayBackAdapter = {
-			register: (handler) => {
-				handlers.push(handler);
-				return () => {
-					const index = handlers.indexOf(handler);
-					if (index !== -1) {
-						handlers.splice(index, 1);
-					}
-				};
-			},
-		};
-		const dismissed: string[] = [];
-		const view = render(
-			<OverlayBackProvider adapter={adapter}>
-				<OverlayScope onEscape={() => dismissed.push("outer")}>Outer</OverlayScope>
-				<OverlayScope onEscape={() => dismissed.push("inner")}>Inner</OverlayScope>
-			</OverlayBackProvider>,
-		);
-
-		expect(handlers.at(-1)?.()).toBe(true);
-		expect(dismissed).toEqual(["inner"]);
-		view.rerender(
-			<OverlayBackProvider adapter={adapter}>
-				<OverlayScope onEscape={() => dismissed.push("outer")}>Outer</OverlayScope>
-			</OverlayBackProvider>,
-		);
-		expect(handlers.at(-1)?.()).toBe(true);
-		expect(dismissed).toEqual(["inner", "outer"]);
-	});
-
-	it("routes Escape to the overlay that owns the scope", () => {
-		let escapes = 0;
-		render(
-			<OverlayScope onEscape={() => (escapes += 1)}>
-				<p>Content</p>
-			</OverlayScope>,
-		);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-
-		expect(escapes).toBe(1);
-	});
-
-	it("stays silent while it is disabled", () => {
-		let escapes = 0;
-		render(
-			<OverlayScope enabled={false} onEscape={() => (escapes += 1)}>
-				<p>Content</p>
-			</OverlayScope>,
-		);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-
-		expect(escapes).toBe(0);
-	});
-
+describe("overlay shortcuts", () => {
 	it("suppresses a background shortcut while an overlay is open and restores it on close", () => {
 		render(<Page />);
 
@@ -111,7 +42,7 @@ describe("OverlayScope", () => {
 		expect(fired()).toBe("1");
 		expect(screen.getByRole("dialog")).toBeTruthy();
 
-		fireEvent.keyDown(document, { key: "Escape" });
+		fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 		fireEvent.keyDown(document, { key: "A" });
 
 		expect(fired()).toBe("2");

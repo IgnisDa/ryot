@@ -108,7 +108,7 @@ describe("Instance Admin route", () => {
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
 				expect(view.router.state.location.pathname).toBe("/instance-admin/users");
 				expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 				expect(screen.queryByTitle("fixture plugin")).toBeNull();
 			}),
 		testTimeout,

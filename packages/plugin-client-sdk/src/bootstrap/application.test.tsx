@@ -136,11 +136,7 @@ const OverlayHome = () => {
 				Open
 			</button>
 			{open && (
-				<Modal
-					label={testText("Overlay")}
-					closeLabel={testText("Close")}
-					onClose={() => setOpen(false)}
-				>
+				<Modal label={testText("Overlay")} onClose={() => setOpen(false)}>
 					<button type="button">Inside</button>
 				</Modal>
 			)}

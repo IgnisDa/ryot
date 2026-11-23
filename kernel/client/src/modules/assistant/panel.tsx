@@ -100,7 +100,6 @@ export function AssistantPanel(props: {
 				onClose={panel.close}
 				label={ASSISTANT_NAME}
 				containerClassName="items-end"
-				closeLabel={t(kernelMessage("client.assistant.panel.close", { name: ASSISTANT_NAME }))}
 				className="flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-xl bg-surface pb-[env(safe-area-inset-bottom)] shadow-card"
 			>
 				{content}
@@ -130,10 +129,7 @@ function PanelLayout(
 	useFollowEnd(scrollRef, contentRef, props.followEnd);
 	return (
 		<>
-			<header
-				data-sheet-drag-region
-				className="flex shrink-0 items-center gap-2.5 border-b border-border py-2 pr-2 pl-3"
-			>
+			<header className="flex shrink-0 items-center gap-2.5 border-b border-border py-2 pr-2 pl-3">
 				<AssistantSprite className="w-9" mood={props.mood} />
 				<div className="grid min-w-0 flex-1">
 					<h2 className="truncate text-body font-semibold text-text">{props.title}</h2>

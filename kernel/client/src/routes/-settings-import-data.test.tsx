@@ -1125,7 +1125,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				expect(
 					within(dialog).getByText(/All committed changes remain in your library/),
 				).not.toBeNull();
@@ -1165,7 +1165,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				const confirm = within(dialog).getByRole<HTMLButtonElement>("button", {
 					name: "Cancel import",
 				});
@@ -1215,7 +1215,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				expect(
 					within(dialog).getByRole("textbox", { name: 'Type "Cancel this import" to confirm' }),
 				).not.toBeNull();

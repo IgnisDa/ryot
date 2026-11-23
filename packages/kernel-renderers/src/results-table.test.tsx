@@ -201,10 +201,10 @@ describe("results table", () => {
 				);
 				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
 				yield* Effect.promise(() => waitFor(() => screen.getByRole("dialog", { name: "Filters" })));
-				fireEvent.click(screen.getByRole("button", { name: /^Add filter/ }));
-				fireEvent.click(
-					yield* Effect.promise(() => waitFor(() => screen.getByRole("radio", { name: "Note" }))),
-				);
+				fireEvent.click(screen.getByRole("combobox", { name: /^Add filter/ }));
+				const option = yield* Effect.promise(() => screen.findByRole("option", { name: "Note" }));
+				fireEvent.pointerDown(option, { pointerType: "mouse" });
+				fireEvent.click(option);
 				fireEvent.change(
 					yield* Effect.promise(() =>
 						waitFor(() => screen.getByRole("textbox", { name: "Note value" })),
@@ -230,10 +230,10 @@ describe("results table", () => {
 				const filtered = yield* nextRequest(page, 2);
 				expect(yield* encodeJson(filtered.request)).toContain("Fin");
 				answerRows(page, filtered.requestId, [{ note: "Finished" }]);
-				yield* Effect.promise(() =>
-					waitFor(() => screen.getByRole("button", { name: "Filters, 1 active filter" })),
-				);
 				fireEvent.click(screen.getByRole("button", { name: "Close" }));
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Filters, 1 active filter" }),
+				);
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 					"Note contains Fin",
 				);

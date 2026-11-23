@@ -225,7 +225,7 @@ it.live(
 
 			fireEvent.click(screen.getByRole("button", { name: "Revoke Old script" }));
 			const confirm = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: 'Revoke "Old script"?' }),
+				screen.findByRole("alertdialog", { name: 'Revoke "Old script"?' }),
 			);
 			fireEvent.click(within(confirm).getByRole("button", { name: "Revoke key" }));
 			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
@@ -248,7 +248,7 @@ it.live(
 			expect(claude.textContent).toContain("Never used");
 			fireEvent.click(screen.getByRole("button", { name: "Revoke Claude" }));
 			const confirm = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: 'Revoke "Claude"?' }),
+				screen.findByRole("alertdialog", { name: 'Revoke "Claude"?' }),
 			);
 			fireEvent.click(within(confirm).getByRole("button", { name: "Revoke access" }));
 			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));

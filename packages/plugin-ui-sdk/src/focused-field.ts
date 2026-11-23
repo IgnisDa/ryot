@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
-import { editableSelector } from "./overlay";
+export const editableSelector =
+	'input:not([type="hidden"]), textarea, [contenteditable]:not([contenteditable="false"])';
 
 export const revealOffset = (
 	band: { readonly top: number; readonly bottom: number },

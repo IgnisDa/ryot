@@ -7,7 +7,7 @@ import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock, TestI18nProvider } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred } from "effect";
 import { act, type ReactNode } from "react";
@@ -41,6 +41,8 @@ const mount = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	};
 };
 
+const menu = (name: string) => within(getByRole(document.body, "menu", { name }));
+
 it.live(
 	"opens reminders from the menu and disables only that item while pending",
 	() =>
@@ -62,29 +64,45 @@ it.live(
 					items={[{ key: "other", onSelect: () => undefined, label: testText("Other action") }]}
 				/>,
 			);
+
 			try {
 				expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
 				const trigger = getByRole(mounted.container, "button", { name: "More exercise actions" });
 				act(() => trigger.click());
-				act(() => getByRole(document.body, "menuitem", { name: "Reminders" }).click());
+				act(() =>
+					menu("More exercise actions").getByRole("menuitem", { name: "Reminders" }).click(),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							queryByRole(document.body, "menu", { name: "More exercise actions" }),
+						).toBeNull(),
+					),
+				);
 				act(() => trigger.click());
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
-							getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-						).toBe(true),
+							menu("More exercise actions")
+								.getByRole("menuitem", { name: "Reminders" })
+								.getAttribute("aria-disabled"),
+						).toBe("true"),
 					),
 				);
 				expect(
-					getByRole(document.body, "menuitem", { name: "Other action" }).hasAttribute("disabled"),
-				).toBe(false);
+					menu("More exercise actions")
+						.getByRole("menuitem", { name: "Other action" })
+						.getAttribute("aria-disabled"),
+				).toBeNull();
 				expect(requests).toEqual([{ entityId: "exercise-1" }]);
 				yield* Deferred.succeed(release, undefined);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
-							getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-						).toBe(false),
+							menu("More exercise actions")
+								.getByRole("menuitem", { name: "Reminders" })
+								.getAttribute("aria-disabled"),
+						).toBeNull(),
 					),
 				);
 			} finally {
@@ -112,9 +130,12 @@ it.live(
 					label={testText("More workout actions")}
 				/>,
 			);
+
 			try {
 				act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
-				act(() => getByRole(document.body, "menuitem", { name: "Reminders" }).click());
+				act(() =>
+					menu("More workout actions").getByRole("menuitem", { name: "Reminders" }).click(),
+				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(getByRole(mounted.container, "alert").textContent).toBe(
@@ -125,8 +146,10 @@ it.live(
 				expect(requests).toEqual([{ entityId: "workout-1" }]);
 				act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
 				expect(
-					getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-				).toBe(false);
+					menu("More workout actions")
+						.getByRole("menuitem", { name: "Reminders" })
+						.getAttribute("aria-disabled"),
+				).toBeNull();
 			} finally {
 				mounted.unmount();
 			}

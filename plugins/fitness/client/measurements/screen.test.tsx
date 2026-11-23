@@ -305,9 +305,11 @@ describe("measurements page", () => {
 				fireEvent.click(
 					body.getAllByRole("button", { name: /^Delete measurement from/ })[1] ?? document.body,
 				);
-				yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(body.getByRole("alertdialog")).toBeTruthy()),
+				);
 				fireEvent.click(
-					within(body.getByRole("dialog")).getByRole("button", { name: "Delete measurement" }),
+					within(body.getByRole("alertdialog")).getByRole("button", { name: "Delete measurement" }),
 				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -367,10 +369,12 @@ describe("measurements page", () => {
 					}),
 				);
 				fireEvent.click(body.getByRole("button", { name: /^Delete measurement from/ }));
-				yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
-				expect(body.getByRole("dialog").textContent).toContain("101 readings");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(body.getByRole("alertdialog")).toBeTruthy()),
+				);
+				expect(body.getByRole("alertdialog").textContent).toContain("101 readings");
 				fireEvent.click(
-					within(body.getByRole("dialog")).getByRole("button", { name: "Delete measurement" }),
+					within(body.getByRole("alertdialog")).getByRole("button", { name: "Delete measurement" }),
 				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -676,7 +680,9 @@ describe("measurements page", () => {
 				);
 				expect(text(body.getByRole("region", { name: "All metrics" }))).toContain("0 readings");
 				expect(text(body.getByRole("region", { name: "All metrics" }))).toContain("—");
-				expect(document.activeElement).toBe(trigger);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 			}),
 		testTimeout,
 	);
@@ -739,9 +745,11 @@ describe("measurements page", () => {
 					}),
 				);
 				fireEvent.click(body.getByRole("button", { name: rowLabel }));
-				yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
-				const dialog = within(body.getByRole("dialog"));
-				expect(text(body.getByRole("dialog"))).toContain("The 2 readings taken on");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(body.getByRole("alertdialog")).toBeTruthy()),
+				);
+				const dialog = within(body.getByRole("alertdialog"));
+				expect(text(body.getByRole("alertdialog"))).toContain("The 2 readings taken on");
 				const requests = () =>
 					page.clientMessages().filter(({ type }) => type === "background-operation-request");
 				fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
@@ -776,13 +784,15 @@ describe("measurements page", () => {
 					requestId: retried.requestId,
 					type: "background-operation-accepted",
 				});
-				yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(body.queryByRole("alertdialog")).toBeNull()),
+				);
 				storedReadings = rows([reading("r3", "weight", "Weight", 73.1, daysAgo(5))]);
 				page.send({ type: "page-refresh" });
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(body.queryByRole("dialog")).toBeNull();
+						expect(body.queryByRole("alertdialog")).toBeNull();
 						expect(body.getAllByRole("button", { name: /^Delete measurement from/ })).toHaveLength(
 							1,
 						);
@@ -995,6 +1005,7 @@ describe("measurements page", () => {
 					}),
 				);
 				const trigger = body.getByRole("button", { name: "Log measurement" });
+				trigger.focus();
 				fireEvent.click(trigger);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy()),
@@ -1017,11 +1028,13 @@ describe("measurements page", () => {
 				);
 				fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: " 0 " } });
 				fireEvent.click(dialog.getByRole("button", { name: "Remove Waist" }));
-				fireEvent.click(dialog.getByRole("button", { name: /^Add metric value/ }));
+				fireEvent.click(dialog.getByRole("combobox", { name: /^Add metric value/ }));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(body.getByRole("radio", { name: "Sugar level" })).toBeTruthy()),
+					waitFor(() => expect(body.getByRole("option", { name: "Sugar level" })).toBeTruthy()),
 				);
-				fireEvent.click(body.getByRole("radio", { name: "Sugar level" }));
+				const option = body.getByRole("option", { name: "Sugar level" });
+				fireEvent.pointerDown(option, { pointerType: "mouse" });
+				fireEvent.click(option);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(dialog.getByLabelText("Sugar level (mg/dL)")).toBeTruthy()),
 				);
@@ -1084,6 +1097,9 @@ describe("measurements page", () => {
 					type: "background-operation-accepted",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 				page.send({ type: "page-refresh" });
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -1092,7 +1108,6 @@ describe("measurements page", () => {
 						expect(page.queryRequests("metrics").length).toBeGreaterThan(metricQueries);
 					}),
 				);
-				expect(document.activeElement).toBe(trigger);
 			}),
 		testTimeout,
 	);
@@ -1189,11 +1204,13 @@ describe("measurements page", () => {
 				expect(dialog.queryByLabelText("Waist (cm)")).toBeNull();
 				fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: "0" } });
 				fireEvent.change(dialog.getByLabelText("Sugar level (mg/dL)"), { target: { value: "" } });
-				fireEvent.click(dialog.getByRole("button", { name: /^Add metric value/ }));
+				fireEvent.click(dialog.getByRole("combobox", { name: /^Add metric value/ }));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(body.getByRole("radio", { name: "Waist" })).toBeTruthy()),
+					waitFor(() => expect(body.getByRole("option", { name: "Waist" })).toBeTruthy()),
 				);
-				fireEvent.click(body.getByRole("radio", { name: "Waist" }));
+				const option = body.getByRole("option", { name: "Waist" });
+				fireEvent.pointerDown(option, { pointerType: "mouse" });
+				fireEvent.click(option);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(dialog.getByLabelText("Waist (cm)")).toBeTruthy()),
 				);

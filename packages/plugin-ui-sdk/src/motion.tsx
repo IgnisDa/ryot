@@ -7,22 +7,10 @@ import {
 } from "motion/react";
 import { Children, type ComponentProps, isValidElement, type ReactNode } from "react";
 
-export const motionTransition = { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] } satisfies Transition;
+const motionTransition = { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] } satisfies Transition;
 
 export function usePrefersReducedMotion() {
 	return useReducedMotion() === true;
-}
-
-export function useMotionTransition(): Transition {
-	return useReducedMotion() === true ? { duration: 0 } : motionTransition;
-}
-
-export function MotionPresence({ children }: { readonly children: ReactNode }) {
-	return (
-		<AnimatePresence propagate initial={false}>
-			{children}
-		</AnimatePresence>
-	);
 }
 
 export function MotionScrollRoot(
@@ -61,6 +49,10 @@ export function MotionList(props: { readonly className?: string; readonly childr
 			</AnimatePresence>
 		</div>
 	);
+}
+
+function useMotionTransition(): Transition {
+	return useReducedMotion() === true ? { duration: 0 } : motionTransition;
 }
 
 function ListItem({ children }: { readonly children: ReactNode }) {

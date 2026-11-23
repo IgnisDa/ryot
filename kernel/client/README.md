@@ -330,9 +330,11 @@ Overlay dismissal follows ownership:
 - URL-state overlays push a history entry and close by popping it, with replace only for direct
   entry. They do not register an interceptor.
 
-Browser Back cannot be intercepted. All overlays make background content inert and use the UI SDK's
-focus, Escape, outside-dismiss, shortcut-scope, and scroll-lock primitives. Back interception remains
-kernel-owned; the UI SDK does not import the router or Capacitor.
+The UI SDK owns document-local focus, Escape, outside dismissal and shortcut scope. The kernel
+selects which document receives semantic Back, giving open shell overlays priority over the active
+iframe. The frame reports its open overlay count. A dismissal acknowledgment completes the request,
+and subsequent overlay state comes from the frame's registration lifecycle. Browser history Back
+uses its own navigation path.
 
 Every route has one `<main>`, one `<h1>`, and one `usePageTitle` owner, including pending, error,
 not-found, and plugin-ready branches. The root owns the skip link and route announcer.

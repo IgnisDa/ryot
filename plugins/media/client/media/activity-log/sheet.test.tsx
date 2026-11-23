@@ -339,7 +339,7 @@ it.live(
 				const mounted = mountLog({ compact, logger: movie });
 				try {
 					const dialog = yield* openLog(mounted);
-					expect(dialog.querySelector("[data-sheet-drag-region]") !== null).toBe(compact);
+					expect(dialog.classList.contains("rounded-t-xl")).toBe(compact);
 				} finally {
 					mounted.view.unmount();
 				}
@@ -1446,8 +1446,10 @@ it.live(
 				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
 				addSource(source, "Living room");
 				const form = getByRole(dialog, "form", { name: "Log activity" });
-				press(dialog, "Season: Season 2");
-				clickRyotElement(radio(document.body, "Specials"));
+				clickRyotElement(getByRole(dialog, "combobox", { name: "Season: Season 2" }));
+				const option = getByRole(document.body, "option", { name: "Specials" });
+				void act(() => fireEvent.pointerDown(option, { pointerType: "mouse" }));
+				clickRyotElement(option);
 				yield* eventually(() => expect(radio(dialog, "S0·E1")).toBeDefined());
 				expect(dialogOf()).toBe(dialog);
 				expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
@@ -1492,7 +1494,7 @@ it.live(
 				yield* eventually(() =>
 					expect(getByRole(dialog, "button", { name: "Mark S1·E1 watched" })).toBeDefined(),
 				);
-				expect(getByRole(dialog, "button", { name: "Season: Season 1" })).toBeDefined();
+				expect(getByRole(dialog, "combobox", { name: "Season: Season 1" })).toBeDefined();
 			} finally {
 				mounted.view.unmount();
 			}
@@ -2184,7 +2186,7 @@ it.live(
 				yield* eventually(() =>
 					expect(radio(dialogOf(), "S2·E7").getAttribute("aria-checked")).toBe("true"),
 				);
-				expect(getByRole(dialogOf(), "button", { name: "Season: Season 2" })).toBeDefined();
+				expect(getByRole(dialogOf(), "combobox", { name: "Season: Season 2" })).toBeDefined();
 				expect(getByRole(dialogOf(), "button", { name: "Mark S2·E7 watched" })).toBeDefined();
 			} finally {
 				mounted.unmount();

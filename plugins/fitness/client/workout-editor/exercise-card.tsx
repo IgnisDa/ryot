@@ -7,7 +7,6 @@ import {
 	formatClock,
 	IconButton,
 	MenuButton,
-	MotionPresence,
 	Notice,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -346,47 +345,45 @@ export function ExerciseCard(props: {
 					</div>
 				</div>
 			</Collapse>
-			<MotionPresence>
-				{openSet === undefined ? null : (
-					<SetSheet
-						set={openSet}
-						pro={props.pro}
-						key="set-options"
-						exerciseName={name}
-						draft={editorDraft}
-						disabled={disabled}
-						occurrence={occurrence}
-						onClose={() => setOpenSetId(undefined)}
-						previous={previous.get(openSet.clientId)}
-						onCopyPrevious={() => {
-							props.onPrevious(openSet);
-							setOpenSetId(undefined);
-						}}
-						onChange={(transform) => {
-							props.onSetChanged(openSet.clientId);
-							patchSet(openSet.clientId, transform);
-						}}
-						inheritedRestSeconds={(() => {
-							const rest = inheritedRestFor(openSet.setLot);
-							return rest.kind === "resolved" ? rest.seconds : 0;
-						})()}
-						onDelete={() => {
-							const deleted = change((item) =>
-								item.sets.some(({ clientId }) => clientId === openSet.clientId)
-									? {
-											...item,
-											sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
-										}
-									: item,
-							);
-							if (deleted) {
-								props.onDeletedSet();
-							}
-							setOpenSetId(undefined);
-						}}
-					/>
-				)}
-			</MotionPresence>
+			{openSet === undefined ? null : (
+				<SetSheet
+					set={openSet}
+					pro={props.pro}
+					key="set-options"
+					exerciseName={name}
+					draft={editorDraft}
+					disabled={disabled}
+					occurrence={occurrence}
+					onClose={() => setOpenSetId(undefined)}
+					previous={previous.get(openSet.clientId)}
+					onCopyPrevious={() => {
+						props.onPrevious(openSet);
+						setOpenSetId(undefined);
+					}}
+					onChange={(transform) => {
+						props.onSetChanged(openSet.clientId);
+						patchSet(openSet.clientId, transform);
+					}}
+					inheritedRestSeconds={(() => {
+						const rest = inheritedRestFor(openSet.setLot);
+						return rest.kind === "resolved" ? rest.seconds : 0;
+					})()}
+					onDelete={() => {
+						const deleted = change((item) =>
+							item.sets.some(({ clientId }) => clientId === openSet.clientId)
+								? {
+										...item,
+										sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
+									}
+								: item,
+						);
+						if (deleted) {
+							props.onDeletedSet();
+						}
+						setOpenSetId(undefined);
+					}}
+				/>
+			)}
 		</Card>
 	);
 }

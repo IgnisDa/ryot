@@ -4,7 +4,6 @@ import {
 	clockFormat,
 	Field,
 	formatClock,
-	MotionPresence,
 	RadioGroup,
 	SegmentedControl,
 	Stepper,
@@ -230,25 +229,21 @@ export function SetSheet(props: {
 					</Button>
 				)}
 			</fieldset>
-			<MotionPresence>
-				{deleteConfirmationSetId === undefined ? null : (
-					<ConfirmDialog
-						key="delete-set"
-						disabled={confirmDeleteDisabled}
-						title={text("client.sheet.delete-title")}
-						cancelLabel={text("common.action.cancel")}
-						confirmLabel={text("client.sheet.delete-set")}
-						onClose={() => setDeleteConfirmationSetId(undefined)}
-						description={text("client.sheet.delete-description")}
-						onConfirm={() => {
-							if (!confirmDeleteDisabled) {
-								props.onDelete();
-							}
-							setDeleteConfirmationSetId(undefined);
-						}}
-					/>
-				)}
-			</MotionPresence>
+			<ConfirmDialog
+				disabled={confirmDeleteDisabled}
+				title={text("client.sheet.delete-title")}
+				cancelLabel={text("common.action.cancel")}
+				open={deleteConfirmationSetId !== undefined}
+				confirmLabel={text("client.sheet.delete-set")}
+				onClose={() => setDeleteConfirmationSetId(undefined)}
+				description={text("client.sheet.delete-description")}
+				onConfirm={() => {
+					if (!confirmDeleteDisabled) {
+						props.onDelete();
+					}
+					setDeleteConfirmationSetId(undefined);
+				}}
+			/>
 		</EditorSheet>
 	);
 }

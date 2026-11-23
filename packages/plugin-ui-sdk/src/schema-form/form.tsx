@@ -22,10 +22,9 @@ import { type ReactNode, type RefObject, useId, useLayoutEffect, useRef, useStat
 import { Button, IconButton } from "../button";
 import { Chip } from "../chips";
 import { toDateTimeInput } from "../datetime";
-import { MultiSelect } from "../multi-select";
 import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
-import { Select } from "../select";
+import { MultiSelect, Select } from "../select";
 import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
 import { SchemaAssetField } from "./asset/field";
@@ -846,6 +845,7 @@ function NodeControl(props: NodeProps) {
 		case "select":
 			return (
 				<Select
+					searchable
 					value={value}
 					label={field.label}
 					onChange={props.onChange}
@@ -859,6 +859,7 @@ function NodeControl(props: NodeProps) {
 			const zones = Intl.supportedValuesOf("timeZone");
 			return (
 				<Select
+					searchable
 					value={value}
 					label={field.label}
 					onChange={props.onChange}

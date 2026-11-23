@@ -50,11 +50,11 @@ const mountEditor = (
 const waitForEditor = () => screen.findByLabelText("Message");
 
 const chooseTimezone = (zone: string) => {
-	fireEvent.click(screen.getByRole("button", { name: /^Timezone:/ }));
-	fireEvent.change(screen.getByRole("textbox", { name: "Search Timezone" }), {
+	fireEvent.click(screen.getByRole("combobox", { name: /^Timezone:/ }));
+	fireEvent.change(screen.getByRole("combobox", { name: "Search Timezone" }), {
 		target: { value: zone },
 	});
-	fireEvent.click(screen.getByRole("radio", { name: zone }));
+	fireEvent.click(screen.getByRole("option", { name: zone }));
 };
 
 it.live(
@@ -78,9 +78,11 @@ it.live(
 			fireEvent.click(screen.getByRole("button", { name: "Schedule reminder" }));
 			expect(editor.requests).toEqual([]);
 			fireEvent.click(
-				screen.getByRole("button", { name: "Time occurrence: Choose an occurrence" }),
+				screen.getByRole("combobox", { name: "Time occurrence: Choose an occurrence" }),
 			);
-			fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+			const second = screen.getByRole("option", { name: "Second occurrence (UTC-05:00)" });
+			fireEvent.pointerDown(second, { pointerType: "mouse" });
+			fireEvent.click(second);
 			fireEvent.click(screen.getByRole("button", { name: "Schedule reminder" }));
 			yield* Effect.promise(() => waitFor(() => expect(editor.outcomes).toEqual(["saved"])));
 			expect(editor.requests).toMatchObject([

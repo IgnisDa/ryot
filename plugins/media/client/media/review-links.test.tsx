@@ -55,10 +55,10 @@ const input = (element: HTMLElement, value: string) =>
 	});
 
 const chooseAbout = (dialog: HTMLElement, label: string) => {
-	clickRyotElement(getByRole(dialog, "button", { name: /^About: / }));
-	clickRyotElement(
-		getByRole(getByRole(document.body, "dialog", { name: "About" }), "radio", { name: label }),
-	);
+	clickRyotElement(getByRole(dialog, "combobox", { name: /^About: / }));
+	const option = getByRole(document.body, "option", { name: label });
+	void act(() => fireEvent.pointerDown(option, { pointerType: "mouse" }));
+	clickRyotElement(option);
 };
 
 const reviewForm = (completion?: ReviewCompletion) => (
@@ -105,7 +105,9 @@ describe("review links", () => {
 					mounted.rerender(reviewForm("saved"));
 					yield* eventually(() => expect(queries).toBeGreaterThanOrEqual(2));
 					yield* Effect.sleep("100 millis");
-					expect(getByRole(dialog, "button", { name: "About: Not a specific time" })).toBeDefined();
+					expect(
+						getByRole(dialog, "combobox", { name: "About: Not a specific time" }),
+					).toBeDefined();
 				} finally {
 					mounted.unmount();
 				}
@@ -156,7 +158,7 @@ describe("review links", () => {
 					);
 					yield* eventually(() =>
 						expect(
-							getByRole(dialog, "button", { name: /^About: Finished · May 6, 2020/ }),
+							getByRole(dialog, "combobox", { name: /^About: Finished · May 6, 2020/ }),
 						).toBeDefined(),
 					);
 				} finally {
@@ -243,14 +245,14 @@ describe("review links", () => {
 					);
 					yield* eventually(() =>
 						expect(
-							getByRole(dialog, "button", { name: "About: Not a specific time" }).hasAttribute(
+							getByRole(dialog, "combobox", { name: "About: Not a specific time" }).hasAttribute(
 								"disabled",
 							),
 						).toBe(false),
 					);
 					chooseAbout(dialog, "Finished · Nov 3, 2026");
 					expect(
-						getByRole(dialog, "button", { name: "About: Finished · Nov 3, 2026" }),
+						getByRole(dialog, "combobox", { name: "About: Finished · Nov 3, 2026" }),
 					).toBeDefined();
 					input(getByLabelText(dialog, "Rating (out of 100, optional)"), "75");
 					clickRyotElement(getByRole(dialog, "button", { name: "Save review" }));
@@ -299,12 +301,14 @@ describe("review links", () => {
 						getByRole(document.body, "dialog", { name: "Rate or review" }),
 					);
 					yield* eventually(() => expect(dialog.textContent).toContain("Saving your activity…"));
-					expect(getByRole(dialog, "button", { name: "About: Not a specific time" })).toBeDefined();
+					expect(
+						getByRole(dialog, "combobox", { name: "About: Not a specific time" }),
+					).toBeDefined();
 					settled = true;
 					mounted.rerender(reviewForm("saved"));
 					yield* eventually(() =>
 						expect(
-							getByRole(dialog, "button", { name: "About: Finished · Jan 1, 2026" }),
+							getByRole(dialog, "combobox", { name: "About: Finished · Jan 1, 2026" }),
 						).toBeDefined(),
 					);
 					expect(dialog.textContent).not.toContain("Saving your activity…");

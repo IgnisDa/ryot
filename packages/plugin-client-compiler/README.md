@@ -50,8 +50,8 @@ with those names do not change it. Compiler-generated declarations are not autho
 `@ryot-app/plugin-ui-sdk/markdown` is an exact trusted registry entry. Its Markdown and directive
 dependencies are private implementation details; plugin sources cannot import them directly.
 
-Motion is a private UI SDK dependency, included in the shared runtime. Plugin authors use the SDK's
-motion primitives; direct `motion/react` imports are not in the dependency registry.
+Base UI and Motion are private UI SDK dependencies included in the shared runtime. The SDK
+exports the styled controls and motion primitives through its existing approved entry points.
 
 `@ryot-app/i18n` is likewise private to the SDK. Plugins render messages through the client SDK's
 `useMessages` and `useT`, and build them with the neutral `@ryot-app/plugin-kit/messages` entry. The

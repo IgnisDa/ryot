@@ -1,5 +1,5 @@
 import type { Text } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Dialog, MotionPresence } from "@ryot-app/plugin-ui-sdk";
+import { Button, Dialog } from "@ryot-app/plugin-ui-sdk";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
@@ -89,31 +89,30 @@ export function EditorOverlays(props: {
 	const live = draft === undefined || draft.mode.kind === "live";
 	const replacing = kind === "replace" ? currentOccurrence : undefined;
 	return (
-		<MotionPresence>
+		<>
 			<MeasurementDialogs
 				key="measurements"
 				onClose={props.measurement.close}
 				dialog={props.measurement.dialog}
 				trigger={props.measurement.trigger}
 			/>
-			{props.requestBlocked && !props.requestHandled ? (
-				<Dialog
-					size="sm"
-					closeIcon={null}
-					key="requires-pro"
-					onClose={props.onFinishRequest}
-					title={text("client.overlays.pro-title")}
-					closeLabel={text("client.overlays.return")}
-					description={text("client.overlays.pro-description")}
-					footer={
-						<Button onClick={props.onFinishRequest}>
-							{draft === undefined
-								? text("client.overlays.return")
-								: text("client.overlays.resume-draft")}
-						</Button>
-					}
-				/>
-			) : null}
+			<Dialog
+				size="sm"
+				closeIcon={null}
+				key="requires-pro"
+				onClose={props.onFinishRequest}
+				title={text("client.overlays.pro-title")}
+				closeLabel={text("client.overlays.return")}
+				open={props.requestBlocked && !props.requestHandled}
+				description={text("client.overlays.pro-description")}
+				footer={
+					<Button onClick={props.onFinishRequest}>
+						{draft === undefined
+							? text("client.overlays.return")
+							: text("client.overlays.resume-draft")}
+					</Button>
+				}
+			/>
 			{mediaTarget !== undefined && draft !== undefined && snapshot.status === "ready" ? (
 				<WorkoutMediaOverlay
 					key="media"
@@ -280,17 +279,15 @@ export function EditorOverlays(props: {
 			{kind === "history" && currentOccurrence !== undefined && !pro ? (
 				<HistoryRequiresPro key="history-pro" onClose={onClose} exerciseName={exerciseName} />
 			) : null}
-			{kind === "reload" ? (
-				<ConfirmDialog
-					key="reload"
-					onClose={onClose}
-					title={text("client.overlays.reload-title")}
-					cancelLabel={text("client.overlays.keep-draft")}
-					confirmLabel={text("client.overlays.reload-confirm")}
-					onConfirm={() => actions.reloadSaved(props.onReloaded)}
-					description={text("client.overlays.reload-description")}
-				/>
-			) : null}
+			<ConfirmDialog
+				onClose={onClose}
+				open={kind === "reload"}
+				title={text("client.overlays.reload-title")}
+				cancelLabel={text("client.overlays.keep-draft")}
+				confirmLabel={text("client.overlays.reload-confirm")}
+				onConfirm={() => actions.reloadSaved(props.onReloaded)}
+				description={text("client.overlays.reload-description")}
+			/>
 			{kind === "finish" && draft !== undefined ? (
 				<FinishReview
 					key="finish"
@@ -302,23 +299,21 @@ export function EditorOverlays(props: {
 					saving={isWorkoutEditorSaving(snapshot)}
 				/>
 			) : null}
-			{kind === "discard" ? (
-				<ConfirmDialog
-					key="discard"
-					onClose={onClose}
-					onConfirm={props.onDiscarded}
-					cancelLabel={text("client.overlays.keep-logging")}
-					description={text("client.overlays.discard-description")}
-					confirmLabel={
-						live ? text("client.overlays.discard-workout") : text("client.overlays.discard-changes")
-					}
-					title={
-						live
-							? text("client.overlays.discard-workout-title")
-							: text("client.overlays.discard-changes-title")
-					}
-				/>
-			) : null}
+			<ConfirmDialog
+				onClose={onClose}
+				open={kind === "discard"}
+				onConfirm={props.onDiscarded}
+				cancelLabel={text("client.overlays.keep-logging")}
+				description={text("client.overlays.discard-description")}
+				confirmLabel={
+					live ? text("client.overlays.discard-workout") : text("client.overlays.discard-changes")
+				}
+				title={
+					live
+						? text("client.overlays.discard-workout-title")
+						: text("client.overlays.discard-changes-title")
+				}
+			/>
 			{kind === "delete-exercise" && currentOccurrence !== undefined ? (
 				<ConfirmDialog
 					onClose={onClose}
@@ -338,6 +333,6 @@ export function EditorOverlays(props: {
 					}}
 				/>
 			) : null}
-		</MotionPresence>
+		</>
 	);
 }

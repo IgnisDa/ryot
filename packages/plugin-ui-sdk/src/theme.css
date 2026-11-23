@@ -147,3 +147,13 @@
 		outline-offset: 2px;
 	}
 }
+
+@layer base {
+	body {
+		position: relative;
+	}
+
+	#app {
+		isolation: isolate;
+	}
+}

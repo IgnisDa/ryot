@@ -123,7 +123,7 @@ it.live(
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Edit review" }));
 			fireEvent.click(screen.getByRole("button", { name: "Delete review" }));
 			const confirmation = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Delete this review?" }),
+				screen.findByRole("alertdialog", { name: "Delete this review?" }),
 			);
 			expect(view.requests).toEqual([]);
 			fireEvent.click(within(confirmation).getByRole("button", { name: "Delete review" }));

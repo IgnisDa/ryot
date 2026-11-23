@@ -70,8 +70,8 @@ const mediaImagesField = (description: string) =>
 const localizedArtwork = {
 	...mediaImageItem,
 	translatable: true,
+	label: catalogMessage("property.image"),
 	description: "Localized primary artwork",
-	label: catalogMessage("property.images"),
 } satisfies AppPropertyDefinition<AuthoredSchemaText>;
 
 const watchProvidersField = (description: string) =>

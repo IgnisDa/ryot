@@ -1,10 +1,10 @@
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { Drawer } from "@base-ui/react/drawer";
 import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
-import { type ReactNode, type RefObject, useId } from "react";
+import type { ReactNode, RefObject } from "react";
 
-import { IconButton } from "./button";
-import { AppIcon } from "./icon";
-import { Modal, useModalClose } from "./modal";
+import { Modal, ModalClose } from "./modal";
 
 const sizeClasses = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-2xl" } as const;
 
@@ -20,10 +20,9 @@ const panelClasses = {
 	center: "max-h-[min(90%,48rem)] rounded-xl",
 } as const;
 
-const defaultCloseIcon = <AppIcon name="x" size={18} />;
-
 export function Dialog(props: {
 	readonly title: Text;
+	readonly open?: boolean;
 	readonly closeLabel: Text;
 	readonly footer?: ReactNode;
 	readonly onClose: () => void;
@@ -32,25 +31,23 @@ export function Dialog(props: {
 	readonly dismissible?: boolean;
 	readonly description?: ReactNode;
 	readonly safeAreaBottom?: number;
+	readonly kind?: "alert" | "dialog";
 	readonly size?: keyof typeof sizeClasses;
-	readonly onInterceptBack?: () => boolean;
 	readonly placement?: "side" | "sheet" | "center";
 	readonly triggerRef?: RefObject<null | HTMLElement>;
 	readonly initialFocusRef?: RefObject<null | HTMLElement>;
 }) {
-	const titleId = useId();
 	const placement = props.placement ?? "center";
-	const closeIcon = props.closeIcon === undefined ? defaultCloseIcon : props.closeIcon;
+	const Content = placement === "sheet" ? Drawer.Content : "div";
 	return (
 		<Modal
-			labelledBy={titleId}
 			placement={placement}
 			onClose={props.onClose}
-			closeLabel={props.closeLabel}
+			open={props.open ?? true}
+			kind={props.kind ?? "dialog"}
 			triggerRef={props.triggerRef}
 			dismissible={props.dismissible ?? true}
 			initialFocusRef={props.initialFocusRef}
-			onInterceptBack={props.onInterceptBack}
 			containerClassName={containerClasses[placement]}
 			className={clsx(
 				"flex w-full flex-col bg-raised text-text shadow-modal outline-none",
@@ -62,14 +59,12 @@ export function Dialog(props: {
 			{placement === "sheet" && (
 				<div
 					aria-hidden="true"
-					data-sheet-drag-region
 					className="flex h-7 shrink-0 touch-none items-center justify-center"
 				>
 					<div className="h-1.25 w-9 rounded-pill bg-border-emphasis" />
 				</div>
 			)}
 			<header
-				data-sheet-drag-region={placement === "sheet" ? "" : undefined}
 				className={clsx(
 					"flex items-start gap-3 px-5 pt-5",
 					placement === "sheet" && "touch-none select-none pt-2",
@@ -77,23 +72,29 @@ export function Dialog(props: {
 				)}
 			>
 				<div className="min-w-0 flex-1">
-					<h2 id={titleId} className="text-heading font-semibold text-text">
+					<BaseDialog.Title className="text-heading font-semibold text-text">
 						{props.title}
-					</h2>
+					</BaseDialog.Title>
 					{props.description !== undefined && (
-						<div className="mt-1 text-sm text-text-muted">{props.description}</div>
+						<BaseDialog.Description render={<div />} className="mt-1 text-sm text-text-muted">
+							{props.description}
+						</BaseDialog.Description>
 					)}
 				</div>
-				{closeIcon !== null && (
-					<CloseButton label={props.closeLabel} disabled={props.dismissible === false}>
-						{closeIcon}
-					</CloseButton>
+				{props.closeIcon !== null && (
+					<ModalClose
+						className="-mt-1 -mr-2"
+						label={props.closeLabel}
+						disabled={props.dismissible === false}
+					>
+						{props.closeIcon}
+					</ModalClose>
 				)}
 			</header>
 			{props.children !== undefined && (
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-5 text-sm">
+				<Content className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-3 pb-5 text-sm">
 					{props.children}
-				</div>
+				</Content>
 			)}
 			{props.footer !== undefined && (
 				<footer
@@ -111,24 +112,5 @@ export function Dialog(props: {
 				</footer>
 			)}
 		</Modal>
-	);
-}
-
-function CloseButton(props: {
-	readonly label: Text;
-	readonly disabled: boolean;
-	readonly children: ReactNode;
-}) {
-	const close = useModalClose();
-	return (
-		<IconButton
-			size="sm"
-			label={props.label}
-			className="-mt-1 -mr-2"
-			onClick={() => close()}
-			disabled={props.disabled}
-		>
-			{props.children}
-		</IconButton>
 	);
 }

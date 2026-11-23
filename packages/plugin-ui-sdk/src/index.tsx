@@ -1,10 +1,8 @@
 export { Menu } from "./menu";
 export { Badge } from "./badge";
-export { Modal } from "./modal";
 export { Shelf } from "./shelf";
 export { Dialog } from "./dialog";
 export { Switch } from "./switch";
-export { Select } from "./select";
 export { Tooltip } from "./tooltip";
 export { Eyebrow } from "./eyebrow";
 export { Tabs, tabId } from "./tabs";
@@ -13,16 +11,15 @@ export { TagInput } from "./tag-input";
 export type { TabOption } from "./tabs";
 export { StatStrip } from "./stat-strip";
 export type { Stat } from "./stat-strip";
-export { MenuSelect } from "./menu-select";
 export { ActionForm } from "./action-form";
 export { MenuButton } from "./menu-button";
 export { Chip, ChipButton } from "./chips";
 export { ActionDock } from "./action-dock";
 export { RadioGroup } from "./radio-group";
+export { Modal, ModalClose } from "./modal";
 export type { Metric } from "./metric-tile";
 export { useFollowEnd } from "./follow-end";
 export { ProgressBar } from "./progress-bar";
-export { MultiSelect } from "./multi-select";
 export type { SelectChoice } from "./select";
 export { SearchField } from "./search-field";
 export { Button, IconButton } from "./button";
@@ -44,10 +41,10 @@ export type { RadioGroupOption } from "./radio-group";
 export { ChartCard, MetricGrid } from "./metric-tile";
 export { SegmentedControl } from "./segmented-control";
 export { resultsLayoutClasses } from "./results-layout";
-export type { MultiSelectChoice } from "./multi-select";
 export { JsonSchemaValues } from "./json-schema-values";
 export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
+export { useShortcut, OverlayBackProvider } from "./shortcut";
 export { CopyField, type CopyFieldAction } from "./copy-field";
 export { groupColors, groupColorVariable } from "./group-colors";
 export { DateTimeField, useDateTimeInput } from "./datetime-field";
@@ -55,12 +52,13 @@ export { RatingInput, RatingValue, useRatingDraft } from "./rating";
 export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 export { DestructiveConfirmation } from "./destructive-confirmation";
-export { revealOffset, useFocusedFieldVisibility } from "./focused-field";
-export { useShortcut, OverlayScope, OverlayBackProvider } from "./shortcut";
+export { Select, MultiSelect, type MultiSelectChoice } from "./select";
 export type { HotkeyChord, RegisterableHotkey } from "@tanstack/react-hotkeys";
 export { SelectionBar, SelectableItem, type ItemSelection } from "./selection";
+export { ActionSearch, ActionSearchInput, ActionSearchResults } from "./action-search";
 export type { ActivityTone, ActivityAction, ActivityTrayEntry } from "./activity-tray";
 export type { MetricUnit, MetricDelta, MetricParts, MetricFormat } from "./metric-format";
+export { revealOffset, editableSelector, useFocusedFieldVisibility } from "./focused-field";
 export { DurationField, durationDraft, parseDuration, type DurationDraft } from "./duration-field";
 export { Field, Radio, Checkbox, TextArea, CellInput, TextField, FieldMessage } from "./text-field";
 export {
@@ -69,12 +67,12 @@ export {
 	entitlementRequiredMessage,
 } from "./entitlement";
 export {
-	useFocusTrap,
-	useScrollLock,
-	useRestoreFocus,
-	editableSelector,
-	useDismissOnOutside,
-} from "./overlay";
+	Collapse,
+	MotionList,
+	MotionSwap,
+	MotionScrollRoot,
+	usePrefersReducedMotion,
+} from "./motion";
 export {
 	type ViewEntry,
 	type ViewChange,
@@ -82,14 +80,6 @@ export {
 	type ViewHistory,
 	createViewHistory,
 } from "./view-history";
-export {
-	Collapse,
-	MotionList,
-	MotionSwap,
-	MotionPresence,
-	MotionScrollRoot,
-	usePrefersReducedMotion,
-} from "./motion";
 
 export {
 	ReportText,

@@ -1,41 +1,47 @@
 import { describe, expect, it } from "bun:test";
 
 import { testText } from "@ryot-app/kernel-messages/testing";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { it as effectIt } from "@voila.dev/effect-bun-test";
+import { Effect } from "effect";
 import { createRef } from "react";
 
 import { render } from "./i18n.test-support";
 import { MenuButton } from "./menu-button";
 
 describe("MenuButton", () => {
-	it("restores focus to the trigger when Escape closes the menu", () => {
-		render(
-			<MenuButton
-				label={testText("Actions")}
-				items={[{ key: "one", onSelect: () => {}, label: testText("One") }]}
-			/>,
-		);
-		const trigger = screen.getByRole("button", { name: "Actions" });
+	effectIt.live("restores focus to the trigger when Escape closes the menu", () =>
+		Effect.gen(function* () {
+			render(
+				<MenuButton
+					label={testText("Actions")}
+					items={[{ key: "one", onSelect: () => {}, label: testText("One") }]}
+				/>,
+			);
+			const trigger = screen.getByRole("button", { name: "Actions" });
 
-		fireEvent.click(trigger);
-		expect(screen.getByRole("menu")).toBeTruthy();
-		fireEvent.keyDown(document, { key: "Escape" });
+			trigger.focus();
+			fireEvent.click(trigger);
+			expect(screen.getByRole("menu")).toBeTruthy();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByRole("menu").contains(document.activeElement)).toBe(true)),
+			);
+			fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(document.activeElement).toBe(trigger);
-	});
+			expect(screen.queryByRole("menu")).toBeNull();
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+			);
+		}),
+	);
 
 	it("closes and runs the selected item through a custom trigger", () => {
 		const selected: string[] = [];
 		render(
 			<MenuButton
 				label={testText("Actions")}
+				triggerElement={<button type="button">Custom trigger</button>}
 				items={[{ key: "one", label: testText("One"), onSelect: () => selected.push("one") }]}
-				renderTrigger={(trigger) => (
-					<button type="button" {...trigger}>
-						Custom trigger
-					</button>
-				)}
 			/>,
 		);
 

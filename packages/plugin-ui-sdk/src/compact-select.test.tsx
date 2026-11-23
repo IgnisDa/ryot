@@ -4,16 +4,17 @@ import { testText } from "@ryot-app/kernel-messages/testing";
 import { fireEvent, screen } from "@testing-library/react";
 
 import { render } from "./i18n.test-support";
-import { MenuSelect } from "./menu-select";
+import { Select } from "./select";
 
-describe("MenuSelect", () => {
-	it("shows the current choice and changes it from an anchored radio menu", () => {
+describe("compact Select", () => {
+	it("shows the current choice and changes it from a compact listbox", () => {
 		const changes: string[] = [];
 		render(
-			<MenuSelect
+			<Select
 				value="day"
 				checkIcon="✓"
 				chevronIcon="▾"
+				variant="compact"
 				label={testText("Group by")}
 				onChange={(value) => changes.push(value)}
 				choices={[
@@ -22,16 +23,17 @@ describe("MenuSelect", () => {
 				]}
 			/>,
 		);
-		const trigger = screen.getByRole("button", { name: "Group by: Day" });
+		const trigger = screen.getByRole("combobox", { name: "Group by: Day" });
 		fireEvent.click(trigger);
 		expect(trigger.getAttribute("aria-expanded")).toBe("true");
-		const items = screen.getAllByRole("menuitemradio");
-		expect(items.map((item) => [item.textContent, item.getAttribute("aria-checked")])).toEqual([
+		const items = screen.getAllByRole("option");
+		expect(items.map((item) => [item.textContent, item.getAttribute("aria-selected")])).toEqual([
 			["Day✓", "true"],
 			["Week", "false"],
 		]);
-		fireEvent.click(screen.getByRole("menuitemradio", { name: "Week" }));
+		fireEvent.pointerDown(screen.getByRole("option", { name: "Week" }), { pointerType: "mouse" });
+		fireEvent.click(screen.getByRole("option", { name: "Week" }));
 		expect(changes).toEqual(["week"]);
-		expect(screen.queryByRole("menu")).toBeNull();
+		expect(screen.queryByRole("listbox")).toBeNull();
 	});
 });

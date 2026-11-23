@@ -3,6 +3,7 @@ import type { PluginBridgeCatalog } from "@ryot-app/plugin-client-contract";
 import type { RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
 import {
 	createMemoryHistory,
 	createRootRoute,
@@ -19,6 +20,7 @@ import { ServerOrigin } from "#/api/origin";
 import { testHostServices } from "#/host-services.test-support";
 import { EntitlementsProvider } from "#/modules/entitlements/context";
 import { TestKernelI18nProvider } from "#/modules/i18n/provider.test-support";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 
 export type HostedTestQueryRequest = Parameters<RyotClientAdapter["query"]>[0];
 
@@ -46,27 +48,31 @@ export const mountHostedTestScreen = <Services,>(
 		routeTree: root.addChildren([main, ...routes]),
 		history: createMemoryHistory({ initialEntries: ["/"] }),
 	});
+	const backInterceptors = createBackInterceptors();
 	const screen = (
-		<RyotProvider
-			runtime={clock.runtime}
-			hostServices={testHostServices(
-				{
-					userId: "user-1",
-					serverUrl: options.serverUrl ?? ServerOrigin.make("https://example.test"),
-				},
-				runtime,
-			)}
-		>
-			<TestKernelI18nProvider catalogs={options.catalogs}>
-				<EntitlementsProvider entitlements={options.entitlements ?? ["pro"]}>
-					<RouterProvider router={router} />
-				</EntitlementsProvider>
-			</TestKernelI18nProvider>
-		</RyotProvider>
+		<OverlayBackProvider adapter={backInterceptors}>
+			<RyotProvider
+				runtime={clock.runtime}
+				hostServices={testHostServices(
+					{
+						userId: "user-1",
+						serverUrl: options.serverUrl ?? ServerOrigin.make("https://example.test"),
+					},
+					runtime,
+				)}
+			>
+				<TestKernelI18nProvider catalogs={options.catalogs}>
+					<EntitlementsProvider entitlements={options.entitlements ?? ["pro"]}>
+						<RouterProvider router={router} />
+					</EntitlementsProvider>
+				</TestKernelI18nProvider>
+			</RyotProvider>
+		</OverlayBackProvider>
 	);
 	const view = render(options.strict === true ? <StrictMode>{screen}</StrictMode> : screen);
 	return {
 		router,
+		backInterceptors,
 		advance: clock.advance,
 		dispose: () => {
 			view.unmount();

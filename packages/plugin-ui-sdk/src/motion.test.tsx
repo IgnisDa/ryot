@@ -1,54 +1,12 @@
 import { describe, expect } from "bun:test";
 
-import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-import { useState } from "react";
 
-import { Dialog } from "./dialog";
 import { render } from "./i18n.test-support";
-import { Collapse, MotionPresence, MotionSwap } from "./motion";
-
-function Example() {
-	const [parent, setParent] = useState(false);
-	const [child, setChild] = useState(false);
-	return (
-		<>
-			<button onClick={() => setParent(true)}>Open editor</button>
-			<MotionPresence>
-				{parent ? (
-					<Dialog
-						key="editor"
-						title={testText("Editor")}
-						onClose={() => setParent(false)}
-						closeLabel={testText("Close editor")}
-					>
-						<button onClick={() => setChild(true)}>Delete item</button>
-					</Dialog>
-				) : null}
-				{child ? (
-					<Dialog
-						key="confirm"
-						onClose={() => setChild(false)}
-						title={testText("Confirm deletion")}
-						closeLabel={testText("Cancel deletion")}
-					>
-						<button
-							onClick={() => {
-								setParent(false);
-								setChild(false);
-							}}
-						>
-							Confirm
-						</button>
-					</Dialog>
-				) : null}
-			</MotionPresence>
-		</>
-	);
-}
+import { Collapse, MotionSwap } from "./motion";
 
 describe("shared motion lifecycle", () => {
 	it.live(
@@ -91,27 +49,6 @@ describe("shared motion lifecycle", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.queryByText("Options")).toBeNull()),
 				);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"keeps the background locked through nested exits and restores the original trigger",
-		() =>
-			Effect.gen(function* () {
-				document.body.style.overflow = "auto";
-				render(<Example />);
-				const trigger = screen.getByRole("button", { name: "Open editor" });
-				trigger.focus();
-				fireEvent.click(trigger);
-				fireEvent.click(screen.getByRole("button", { name: "Delete item" }));
-				fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
-				expect(document.body.style.overflow).toBe("hidden");
-				yield* Effect.promise(() =>
-					waitFor(() => expect(document.body.style.overflow).toBe("auto")),
-				);
-				expect(document.activeElement).toBe(trigger);
-				expect(trigger.closest("[inert]")).toBeNull();
 			}),
 		testTimeout,
 	);

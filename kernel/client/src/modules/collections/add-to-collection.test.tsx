@@ -166,7 +166,7 @@ it.live(
 					screen.findByRole("button", { name: "Remove from collection" }),
 				);
 				fireEvent.click(remove);
-				const confirmation = screen.getByRole("dialog", { name: "Remove from Favourites?" });
+				const confirmation = screen.getByRole("alertdialog", { name: "Remove from Favourites?" });
 				expect(confirmation.textContent).toContain("The item stays in your library");
 				fireEvent.click(
 					within(confirmation).getByRole("button", { name: "Remove from collection" }),
@@ -269,7 +269,7 @@ it.live(
 				expect(within(dialog).queryByRole("button", { name: "Save details" })).toBeNull();
 				fireEvent.click(within(dialog).getByRole("button", { name: "Remove from collection" }));
 				fireEvent.click(
-					within(screen.getByRole("dialog", { name: "Remove from Favourites?" })).getByRole(
+					within(screen.getByRole("alertdialog", { name: "Remove from Favourites?" })).getByRole(
 						"button",
 						{ name: "Remove from collection" },
 					),

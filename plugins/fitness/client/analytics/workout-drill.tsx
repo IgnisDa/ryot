@@ -13,7 +13,6 @@ import {
 	EmptyState,
 	LoadMoreButton,
 	type MetricFormat,
-	MotionPresence,
 	StatusMessage,
 	useMetricFormat,
 } from "@ryot-app/plugin-ui-sdk";
@@ -81,87 +80,84 @@ export function AnalyticsWorkoutDrill(props: {
 	});
 
 	return (
-		<MotionPresence>
-			<Dialog
-				size="md"
-				title={title}
-				onClose={props.onClose}
-				key="fitness-analytics-workout-drill"
-				safeAreaBottom={viewport.safeAreaBottom}
-				placement={props.compact ? "sheet" : "center"}
-				closeLabel={text("client.analytics.drill.close", { title: props.request.title })}
+		<Dialog
+			size="md"
+			title={title}
+			onClose={props.onClose}
+			safeAreaBottom={viewport.safeAreaBottom}
+			placement={props.compact ? "sheet" : "center"}
+			closeLabel={text("client.analytics.drill.close", { title: props.request.title })}
+		>
+			<section
+				className="flex min-w-0 flex-col gap-3"
+				aria-label={text("client.analytics.drill.section-label", { title: props.request.title })}
 			>
-				<section
-					className="flex min-w-0 flex-col gap-3"
-					aria-label={text("client.analytics.drill.section-label", { title: props.request.title })}
-				>
-					<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-						{countCaption === null ? null : (
-							<span className="text-label text-text-muted tabular-nums">{countCaption}</span>
+				<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
+					{countCaption === null ? null : (
+						<span className="text-label text-text-muted tabular-nums">{countCaption}</span>
+					)}
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={result.refetch}
+						disabled={result.isFetching}
+					>
+						{text("common.action.refresh")}
+					</Button>
+				</div>
+				{result.pages.length === 0 && result.isError ? (
+					<StatusMessage
+						tone="error"
+						action={{
+							onClick: result.retry,
+							disabled: result.isFetching,
+							label: text("common.action.try-again"),
+						}}
+					>
+						{errorMessage}
+					</StatusMessage>
+				) : null}
+				{result.pages.length === 0 && !result.isError ? (
+					<StatusMessage tone="pending">{text("client.analytics.drill.loading")}</StatusMessage>
+				) : null}
+				{firstPage !== undefined ? (
+					<>
+						{result.operation === "refresh" ? (
+							<StatusMessage tone="pending">
+								{text("client.analytics.drill.refreshing")}
+							</StatusMessage>
+						) : null}
+						{result.isError ? (
+							<StatusMessage
+								tone="error"
+								action={{
+									onClick: result.retry,
+									disabled: result.isFetching,
+									label: text("common.action.try-again"),
+								}}
+							>
+								{errorMessage}
+							</StatusMessage>
+						) : null}
+						{items.length === 0 ? (
+							<EmptyState title={text("client.analytics.drill.empty")} />
+						) : (
+							<WorkoutTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
 						)}
-						<Button
-							size="sm"
-							variant="secondary"
-							onClick={result.refetch}
-							disabled={result.isFetching}
-						>
-							{text("common.action.refresh")}
-						</Button>
-					</div>
-					{result.pages.length === 0 && result.isError ? (
-						<StatusMessage
-							tone="error"
-							action={{
-								onClick: result.retry,
-								disabled: result.isFetching,
-								label: text("common.action.try-again"),
-							}}
-						>
-							{errorMessage}
-						</StatusMessage>
-					) : null}
-					{result.pages.length === 0 && !result.isError ? (
-						<StatusMessage tone="pending">{text("client.analytics.drill.loading")}</StatusMessage>
-					) : null}
-					{firstPage !== undefined ? (
-						<>
-							{result.operation === "refresh" ? (
-								<StatusMessage tone="pending">
-									{text("client.analytics.drill.refreshing")}
-								</StatusMessage>
-							) : null}
-							{result.isError ? (
-								<StatusMessage
-									tone="error"
-									action={{
-										onClick: result.retry,
-										disabled: result.isFetching,
-										label: text("common.action.try-again"),
-									}}
-								>
-									{errorMessage}
-								</StatusMessage>
-							) : null}
-							{items.length === 0 ? (
-								<EmptyState title={text("client.analytics.drill.empty")} />
-							) : (
-								<WorkoutTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
-							)}
-							{result.hasNextPage && !result.isError ? (
-								<LoadMoreButton
-									variant="secondary"
-									className="self-center"
-									disabled={result.isFetching}
-									onClick={result.fetchNextPage}
-									isFetchingNextPage={result.isFetchingNextPage}
-									label={text("client.analytics.drill.show-more")}
-								/>
-							) : null}
-						</>
-					) : null}
-				</section>
-			</Dialog>
-		</MotionPresence>
+						{result.hasNextPage && !result.isError ? (
+							<LoadMoreButton
+								variant="secondary"
+								className="self-center"
+								disabled={result.isFetching}
+								onClick={result.fetchNextPage}
+								isFetchingNextPage={result.isFetchingNextPage}
+								label={text("client.analytics.drill.show-more")}
+							/>
+						) : null}
+					</>
+				) : null}
+			</section>
+		</Dialog>
 	);
 }
 

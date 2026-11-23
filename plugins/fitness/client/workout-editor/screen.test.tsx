@@ -341,11 +341,11 @@ const waitForEditor = Effect.fnUntraced(function* (answerPending: () => void) {
 	for (let turn = 0; turn < 100; turn += 1) {
 		answerPending();
 		yield* waitForMessagePortMacrotask;
-		if (screen.queryByRole("region", { name: "Weight exercise" }) !== null) {
+		if (screen.queryByText("Weight exercise", { exact: true }) !== null) {
 			return;
 		}
 	}
-	expect(screen.getByRole("region", { name: "Weight exercise" })).toBeTruthy();
+	expect(screen.getByText("Weight exercise", { exact: true })).toBeTruthy();
 });
 
 const inputValue = (element: HTMLElement) => {
@@ -725,9 +725,10 @@ describe("WorkoutEditorScreen", () => {
 					expect(submitted.comment).toBe("During workout");
 					click(screen.getByRole("button", { name: "Discard workout" }));
 					click(
-						within(screen.getByRole("dialog", { name: "Discard workout?" })).getByRole("button", {
-							name: "Discard workout",
-						}),
+						within(screen.getByRole("alertdialog", { name: "Discard workout?" })).getByRole(
+							"button",
+							{ name: "Discard workout" },
+						),
 					);
 					yield* Effect.promise(() =>
 						waitFor(() => {
@@ -787,8 +788,11 @@ describe("WorkoutEditorScreen", () => {
 						screen.getByRole("dialog", { name: "Preview Weight exercise image 1" }),
 					).toBeTruthy();
 					dismissOverlay(page, "close-image-preview");
-					yield* waitForMessagePortMacrotask;
-					click(within(panel).getByRole("button", { name: "Remove image 1" }));
+					click(
+						yield* Effect.promise(() =>
+							within(panel).findByRole("button", { name: "Remove image 1" }),
+						),
+					);
 					dismissOverlay(page, "close-media-panel");
 					yield* waitForMessagePortMacrotask;
 					for (let turn = 0; turn < 10; turn += 1) {
@@ -1286,7 +1290,7 @@ describe("WorkoutEditorScreen", () => {
 						}),
 					);
 					click(screen.getByRole("button", { name: "Add sets" }));
-					const confirmation = screen.getByRole("dialog", {
+					const confirmation = screen.getByRole("alertdialog", {
 						name: "Add sets from Earlier session?",
 					});
 					expect(confirmation.textContent).toContain("1 set from this session");
@@ -1325,7 +1329,7 @@ describe("WorkoutEditorScreen", () => {
 					click(screen.getByRole("button", { name: "Add sets" }));
 					click(
 						within(
-							screen.getByRole("dialog", { name: "Add sets from Earlier session?" }),
+							screen.getByRole("alertdialog", { name: "Add sets from Earlier session?" }),
 						).getByRole("button", { name: "Add sets" }),
 					);
 					yield* Effect.promise(() =>
@@ -1430,22 +1434,19 @@ describe("WorkoutEditorScreen", () => {
 					click(screen.getByRole("menuitem", { name: "Units and rest defaults" }));
 					const defaults = screen.getByRole("dialog", { name: "Units and rest defaults" });
 					click(within(defaults).getByRole("radio", { name: "Pounds" }));
-					expect(inputValue(screen.getByRole("textbox", { name: "Set 1 weight (lb)" }))).toBe(
-						"44.092452437",
-					);
-
 					dismissOverlay(page, "dismiss-defaults");
 					yield* Effect.promise(() =>
 						waitFor(() => {
 							answerPending();
 							expect(page.clientMessages()).toContainEqual<unknown>(
-								objectContaining({
-									requestId: "dismiss-defaults",
-									type: "dismiss-overlay-result",
-								}),
+								objectContaining({ requestId: "dismiss-defaults", type: "dismiss-overlay-result" }),
 							);
 							expect(screen.queryByRole("dialog", { name: "Units and rest defaults" })).toBeNull();
 						}),
+					);
+
+					expect(inputValue(screen.getByRole("textbox", { name: "Set 1 weight (lb)" }))).toBe(
+						"44.092452437",
 					);
 
 					const exercise = screen.getByRole("region", { name: "Weight exercise" });
@@ -1456,10 +1457,7 @@ describe("WorkoutEditorScreen", () => {
 						waitFor(() => {
 							answerPending();
 							expect(page.clientMessages()).toContainEqual<unknown>(
-								objectContaining({
-									requestId: "dismiss-set",
-									type: "dismiss-overlay-result",
-								}),
+								objectContaining({ requestId: "dismiss-set", type: "dismiss-overlay-result" }),
 							);
 							expect(screen.queryByRole("dialog", { name: "Set 1" })).toBeNull();
 							expect(screen.getByRole("region", { name: "Weight exercise" })).toBeTruthy();

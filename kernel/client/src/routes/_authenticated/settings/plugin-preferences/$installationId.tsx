@@ -19,7 +19,7 @@ import {
 import type { PluginUserSettingsPage } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { DemoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";
@@ -90,7 +90,6 @@ function PluginUserSettingsEditor(props: {
 	readonly setting: PluginUserSetting;
 }) {
 	const t = useT();
-	const { backInterceptors } = Route.useRouteContext();
 	const uploadFile = useSchemaFileUpload();
 	const uploadAsset = useSchemaAssetUpload();
 	const save = useRyotMutation(savePluginUserSettingsMutation);
@@ -133,16 +132,6 @@ function PluginUserSettingsEditor(props: {
 		initialPluginUserSettingsFormValues(props.setting),
 	);
 	const blocker = useBlocker({ withResolver: true, shouldBlockFn: () => form.state.isDirty });
-
-	useEffect(() => {
-		if (blocker.status !== "blocked") {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			blocker.reset();
-			return true;
-		});
-	}, [backInterceptors, blocker]);
 
 	const pending = save.isPending || reset.isPending;
 	let statusMessage: ReactNode;

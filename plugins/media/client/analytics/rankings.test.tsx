@@ -237,13 +237,15 @@ describe("Media analytics rankings", () => {
 					const originalRequest = itemAt(rankingRequests(page), 0);
 					act(() => {
 						fireEvent.click(
-							screen.getByRole("button", { name: "Ranking media type: All media types" }),
+							screen.getByRole("combobox", { name: "Ranking media type: All media types" }),
 						);
 					});
-					expect(screen.getByRole("radio", { name: "Book" })).toBeDefined();
-					expect(screen.getByRole("radio", { name: "Show Episode" })).toBeDefined();
+					expect(screen.getByRole("option", { name: "Book" })).toBeDefined();
+					expect(screen.getByRole("option", { name: "Show Episode" })).toBeDefined();
 					act(() => {
-						fireEvent.click(screen.getByRole("radio", { name: "Show Episode" }));
+						const choice = screen.getByRole("option", { name: "Show Episode" });
+						fireEvent.pointerDown(choice, { pointerType: "mouse" });
+						fireEvent.click(choice);
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const filteredRequest = itemAt(rankingRequests(page), 1);
@@ -265,7 +267,7 @@ describe("Media analytics rankings", () => {
 					);
 					expect(within(getCurrentRankingTable()).queryByText("Late book result")).toBeNull();
 					expect(
-						screen.getByRole("button", { name: "Ranking media type: Show Episode" }),
+						screen.getByRole("combobox", { name: "Ranking media type: Show Episode" }),
 					).toBeDefined();
 				} finally {
 					page.dispose();

@@ -1,25 +1,18 @@
 import { useT } from "@ryot-app/i18n/react";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { OverlayScope, useFocusTrap, useScrollLock, useValueChange } from "@ryot-app/plugin-ui-sdk";
+import { Modal, ModalClose, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import clsx from "clsx";
-import {
-	animate,
-	motion,
-	type MotionValue,
-	useMotionValueEvent,
-	useReducedMotion,
-	useTransform,
-} from "motion/react";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { Effect } from "effect";
+import { type RefObject, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { gestureSpring } from "#/modules/navigation/drawer-metrics";
+import { impactHaptic } from "#/modules/device/haptics";
+import { EDGE_SWIPE_WIDTH } from "#/modules/navigation/drawer-metrics";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { AccountSummary } from "#/modules/shell/account-summary";
 import { type SidebarAssistant, SidebarNav } from "#/modules/shell/sidebar-nav";
@@ -33,9 +26,10 @@ type MobileDrawerProps = {
 	readonly isPro: boolean;
 	readonly isOpen: boolean;
 	readonly drawerId: string;
-	readonly hasDrawer: boolean;
+	readonly onOpen: () => void;
 	readonly onClose: () => void;
 	readonly activeHome: boolean;
+	readonly swipeToOpen: boolean;
 	readonly onCustomize: () => void;
 	readonly activeSettings: boolean;
 	readonly activeKey: null | string;
@@ -45,7 +39,6 @@ type MobileDrawerProps = {
 	readonly navigation: NavigationData;
 	readonly assistant: SidebarAssistant;
 	readonly catalog: PluginClientCatalog;
-	readonly progress: MotionValue<number>;
 	readonly onCreateCollection: () => void;
 	readonly current: null | PluginClientCatalogEntry;
 	readonly triggerRef: RefObject<null | HTMLElement>;
@@ -57,109 +50,79 @@ type MobileDrawerProps = {
 	readonly onToggleSection?: undefined | ((section: SidebarSectionName, expanded: boolean) => void);
 };
 
-const restoreFocus = (trigger: RefObject<null | HTMLElement>) =>
-	queueMicrotask(() => trigger.current?.focus());
-
 export function MobileDrawer(props: MobileDrawerProps) {
 	const t = useT();
-	const rootRef = useRef<HTMLDivElement>(null);
-	const [isSettling, setIsSettling] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	useValueChange(props.isOpen, (isOpen) => {
 		if (!isOpen) {
 			setWorkspaceSwitcherOpen(false);
 		}
 	});
-	const reduceMotion = useReducedMotion() === true;
-	const x = useTransform(props.progress, [0, 1], ["-100%", "0%"]);
-	const presented = props.isOpen || isSettling;
-	const { unlock } = useScrollLock(props.isOpen);
 	const close = () => {
-		unlock();
 		setWorkspaceSwitcherOpen(false);
 		props.onClose();
-		restoreFocus(props.triggerRef);
 	};
 	const closeThen = (operation: () => void | Promise<void>) => {
 		flushSync(close);
 		queueMicrotask(() => void operation());
 	};
 
-	useMotionValueEvent(props.progress, "change", (value) => setIsSettling(value > 0));
-
-	useEffect(() => {
-		if (reduceMotion) {
-			props.progress.set(props.isOpen ? 1 : 0);
-			return undefined;
-		}
-		const controls = animate(props.progress, props.isOpen ? 1 : 0, gestureSpring());
-		return () => controls.stop();
-	}, [props.isOpen, props.progress, reduceMotion]);
-
-	useFocusTrap(rootRef, { enabled: props.isOpen });
-
-	if (!props.hasDrawer && !presented) {
-		return null;
-	}
-
 	return (
-		<OverlayScope onEscape={close} enabled={props.isOpen}>
-			<div
-				ref={rootRef}
-				id={props.drawerId}
-				hidden={!presented}
-				data-testid="mobile-drawer"
-				role={props.isOpen ? "dialog" : undefined}
-				aria-modal={props.isOpen ? true : undefined}
-				aria-hidden={props.isOpen ? undefined : true}
-				aria-label={t(kernelMessage("client.shell.sidebar.navigation"))}
-				className={clsx("ui-chrome fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
-			>
-				<motion.div
-					onClick={close}
-					aria-hidden="true"
-					data-testid="drawer-scrim"
-					style={{ opacity: props.progress }}
-					className="absolute inset-0 bg-overlay"
+		<Modal
+			onClose={close}
+			placement="left"
+			open={props.isOpen}
+			id={props.drawerId}
+			triggerRef={props.triggerRef}
+			containerClassName="ui-chrome md:hidden"
+			label={t(kernelMessage("client.shell.sidebar.navigation"))}
+			onSwipeOpen={() => {
+				Effect.runFork(impactHaptic);
+				props.onOpen();
+			}}
+			className="flex h-full w-[min(320px,82vw)] flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] text-text shadow-card"
+			swipeArea={
+				props.swipeToOpen ? (
+					<div
+						data-testid="edge-gesture"
+						style={{ width: EDGE_SWIPE_WIDTH }}
+						className="fixed inset-y-0 left-0 z-30 touch-pan-y md:hidden"
+					/>
+				) : undefined
+			}
+		>
+			<ModalClose className="mr-3 self-end" label={t(kernelMessage("common.action.close"))} />
+			<div className="min-h-0 flex-1 overflow-y-auto">
+				<SidebarNav
+					current={props.current}
+					catalog={props.catalog}
+					sections={props.sections}
+					showSearchShortcut={false}
+					activeKey={props.activeKey}
+					navigation={props.navigation}
+					activeHome={props.activeHome}
+					onToggleSection={props.onToggleSection}
+					expandedSections={props.expandedSections}
+					workspaceSwitcherOpen={workspaceSwitcherOpen}
+					onCustomize={() => closeThen(props.onCustomize)}
+					onOpenSearch={() => closeThen(props.onOpenSearch)}
+					onNavigateHome={() => closeThen(props.onNavigateHome)}
+					onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
+					onCreateCollection={() => closeThen(props.onCreateCollection)}
+					onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
+					assistant={{ ...props.assistant, onOpen: () => closeThen(props.assistant.onOpen) }}
+					onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
 				/>
-				<motion.div
-					style={{ x }}
-					className="absolute inset-y-0 left-0 flex w-[min(320px,82vw)] flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] text-text shadow-card"
-				>
-					<div className="min-h-0 flex-1 overflow-y-auto">
-						<SidebarNav
-							current={props.current}
-							catalog={props.catalog}
-							sections={props.sections}
-							showSearchShortcut={false}
-							activeKey={props.activeKey}
-							navigation={props.navigation}
-							activeHome={props.activeHome}
-							key={props.isOpen ? "open" : "closed"}
-							onToggleSection={props.onToggleSection}
-							expandedSections={props.expandedSections}
-							workspaceSwitcherOpen={workspaceSwitcherOpen}
-							onCustomize={() => closeThen(props.onCustomize)}
-							onOpenSearch={() => closeThen(props.onOpenSearch)}
-							onNavigateHome={() => closeThen(props.onNavigateHome)}
-							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
-							onCreateCollection={() => closeThen(props.onCreateCollection)}
-							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
-							assistant={{ ...props.assistant, onOpen: () => closeThen(props.assistant.onOpen) }}
-							onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
-						/>
-					</div>
-
-					<footer className="shrink-0 border-t border-border px-3 pt-3">
-						<AccountSummary
-							isPro={props.isPro}
-							session={props.session}
-							active={props.activeSettings}
-							onNavigate={() => closeThen(props.onNavigateSettings)}
-						/>
-					</footer>
-				</motion.div>
 			</div>
-		</OverlayScope>
+
+			<footer className="shrink-0 border-t border-border px-3 pt-3">
+				<AccountSummary
+					isPro={props.isPro}
+					session={props.session}
+					active={props.activeSettings}
+					onNavigate={() => closeThen(props.onNavigateSettings)}
+				/>
+			</footer>
+		</Modal>
 	);
 }

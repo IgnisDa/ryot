@@ -125,7 +125,6 @@
 	"pokemon-details.weight-value": "{value, number} hg",
 	"pokemon-picker.add-to-collection": "Adicionar {name} à coleção",
 	"pokemon-picker.adding": "A adicionar Pokémon…",
-	"pokemon-picker.cancel-adding": "Cancelar adição de Pokémon",
 	"pokemon-picker.choose-title": "Escolha uma coleção",
 	"pokemon-picker.collections-empty": "Nenhuma coleção disponível.",
 	"pokemon-picker.collections-unavailable": "As coleções estão indisponíveis.",

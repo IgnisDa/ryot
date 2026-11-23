@@ -105,7 +105,7 @@ describe("workout editor overlays", () => {
 				click(pressSet);
 				click(screen.getByRole("button", { name: "Delete 2 selected" }));
 
-				const confirmation = screen.getByRole("dialog", { name: "Delete selected items?" });
+				const confirmation = screen.getByRole("alertdialog", { name: "Delete selected items?" });
 				expect(
 					within(confirmation).getByText("Delete 1 exercise and 1 individual set?"),
 				).toBeTruthy();
@@ -192,7 +192,7 @@ describe("workout editor overlays", () => {
 				expect(screen.getByText("Editing Superset A")).toBeTruthy();
 				expect(screen.getByRole("radio", { name: "Teal", checked: true })).toBeTruthy();
 				click(screen.getByRole("button", { name: "Delete Superset A" }));
-				const confirmation = screen.getByRole("dialog", { name: "Delete Superset A?" });
+				const confirmation = screen.getByRole("alertdialog", { name: "Delete Superset A?" });
 				expect(
 					within(confirmation).getByText(
 						"The superset will be removed. Its exercises and sets will remain in the workout.",

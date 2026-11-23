@@ -24,8 +24,8 @@ nonsecret contributor package, local plugin, revision, and installation identiti
 the exact `{ kind: "local", pluginId }` binding from that same contributor set. Missing or ambiguous
 membership fails; neither accessor supplies an ambient page-wide `self` owner.
 Reserved `Mod+J`, `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
-not raw keyboard events or public `RyotClient` capabilities. An active plugin `OverlayScope`
-suppresses forwarding.
+using the active document’s overlay shortcut scope. While a plugin overlay owns that scope,
+reserved shortcuts stay in the document.
 
 `usePageShortcut` binds a modifier-free key in this document and registers it with the kernel, which
 binds the same key in its own realm and sends a press message back. Key events never cross the

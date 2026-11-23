@@ -520,7 +520,7 @@ describe("EntityEditor", () => {
 				);
 				const view = within(container);
 				fireEvent.click(yield* Effect.promise(() => view.findByRole("button", { name: "Delete" })));
-				const dialog = yield* Effect.promise(() => within(document.body).findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => within(document.body).findByRole("alertdialog"));
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 				yield* Effect.promise(() =>
 					within(dialog).findByText("Remove this item's history before deleting it."),

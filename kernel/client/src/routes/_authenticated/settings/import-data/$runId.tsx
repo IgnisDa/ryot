@@ -144,10 +144,8 @@ function ImportRunRoute() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { runId } = Route.useLoaderData();
-	const { scope, runtime, backInterceptors } = Route.useRouteContext();
+	const { scope, runtime } = Route.useRouteContext();
 	const menuTrigger = useRef<HTMLButtonElement>(null);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
 	const [confirmation, setConfirmation] = useState<null | "cancel" | "delete">(null);
 	const [issueDownload, setIssueDownload] = useState<{
 		readonly runId: string;
@@ -187,20 +185,6 @@ function ImportRunRoute() {
 		refresh: detail.refetch,
 		enabled: run !== undefined && !isTerminalRunStatus(run.status),
 	});
-
-	useEffect(() => {
-		if (!menuOpen && confirmation === null) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			if (deletion.isPending || cancellation.isPending) {
-				return true;
-			}
-			setMenuOpen(false);
-			setConfirmation(null);
-			return true;
-		});
-	}, [backInterceptors, cancellation.isPending, confirmation, deletion.isPending, menuOpen]);
 
 	useEffect(() => () => issueDownloadController.current?.abort(), []);
 
@@ -265,7 +249,6 @@ function ImportRunRoute() {
 						destructive: true,
 						label: t(kernelMessage("client.route.settings.import-run.cancel-action")),
 						onSelect: () => {
-							setMenuOpen(false);
 							cancellation.reset();
 							setConfirmation("cancel");
 						},
@@ -277,7 +260,6 @@ function ImportRunRoute() {
 						destructive: true,
 						label: t(kernelMessage("client.route.settings.delete-record")),
 						onSelect: () => {
-							setMenuOpen(false);
 							deletion.reset();
 							setConfirmation("delete");
 						},
@@ -331,29 +313,21 @@ function ImportRunRoute() {
 			}
 			actions={
 				run !== undefined && (canDeleteImportRun(run.status) || canCancelImportRun(run.status)) ? (
-					<>
-						<button
-							type="button"
-							ref={menuTrigger}
-							aria-haspopup="menu"
-							aria-expanded={menuOpen}
-							onClick={() => setMenuOpen((open) => !open)}
-							aria-label={t(kernelMessage("client.route.settings.import-run.actions"))}
-							className="flex size-11 shrink-0 items-center justify-center text-text-muted"
-						>
-							<AppIcon size={20} name="more-horizontal" />
-						</button>
-						{menuOpen && (
-							<Menu
-								items={menuItems}
-								triggerRef={menuTrigger}
-								activeIndex={activeIndex}
-								onClose={() => setMenuOpen(false)}
-								onActiveIndexChange={setActiveIndex}
-								label={t(kernelMessage("client.route.settings.import-run.actions"))}
-							/>
-						)}
-					</>
+					<Menu
+						items={menuItems}
+						label={t(kernelMessage("client.route.settings.import-run.actions"))}
+						trigger={
+							<button
+								type="button"
+								ref={menuTrigger}
+
+								aria-label={t(kernelMessage("client.route.settings.import-run.actions"))}
+								className="flex size-11 shrink-0 items-center justify-center text-text-muted"
+							>
+								<AppIcon size={20} name="more-horizontal" />
+							</button>
+						}
+					/>
 				) : undefined
 			}
 		>

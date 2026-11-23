@@ -107,7 +107,6 @@ export function MediaImageGallery(
 						<Modal
 							triggerRef={tileRef}
 							onClose={() => setLightbox(undefined)}
-							closeLabel={text("gallery.close-image")}
 							className="flex h-full w-full flex-col bg-bg"
 							label={text("gallery.position", { index: lightbox + 1, total: visible.length })}
 						>

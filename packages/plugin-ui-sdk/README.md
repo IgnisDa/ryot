@@ -100,7 +100,7 @@ reduced motion inside its document, not through kernel-only CSS.
 | Component                         | Use and caller obligations                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Button`                          | One primary next step per region; secondary for frequent actions, outline on artwork, ghost for tertiary controls. Destructive entry uses `dangerGhost`, confirmation `danger`; `link`/`linkPlain` are inline text actions that ignore `size` and default to `type="button"`. Loading preserves its accessible label; icon-only buttons require one. `shortcut` sets `aria-keyshortcuts` and shows the keys in a decorative hover hint instead of an inline keycap. |
-| `MultiSelect` / `MenuButton`      | Searchable choices or action menus. Chip variant fits filter rows. `MenuButton` defaults to a more-horizontal overflow trigger sized by `trigger` (`inline`, `toolbar`, or `bar` for screen bars); items may name an `AppIcon`. `triggerRef` shares the trigger with follow-up dialogs. Custom triggers spread the supplied props/ref; closing restores focus.                                                                                                      |
+| `MultiSelect` / `MenuButton`      | Searchable choices or action menus. Chip variant fits filter rows. `MenuButton` defaults to a more-horizontal overflow trigger sized by `trigger` (`inline`, `toolbar`, or `bar` for screen bars); items may name an `AppIcon`. `triggerRef` shares the trigger with follow-up dialogs. Supply a custom button as `triggerElement`; the SDK composes trigger behavior. Closing restores focus.                                                                      |
 | `Field` / inputs                  | Field connects label, hint, and error. `CellInput` serves repeated numeric entry.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `CopyField`                       | Read-only value with a labelled copy action: one-line truncated URLs, or `multiline` wrapping secrets; `href` adds an open-in-new-tab link. Callers inject `action`: its `kind` (`copy` or native `share`), the `perform` effect, and a clock-backed `run` (the client SDK schedule's `run`). Copy failures show an inline message; "Copied" reverts after two seconds.                                                                                             |
 | `Switch` / `Checkbox` / `Radio`   | Switch applies immediately; checkbox/radio belong to saved forms.                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -119,7 +119,6 @@ reduced motion inside its document, not through kernel-only CSS.
 | `Shelf`                           | Horizontal item rail with hidden scrollbar, Arrow-key item focus, and desktop paging controls (pass `icons`). Bleeds to the compact gutter.                                                                                                                                                                                                                                                                                                                         |
 | `StatStrip`                       | Description-list figures without a surface; values above labels, optional detail below.                                                                                                                                                                                                                                                                                                                                                                             |
 | `MetricGrid` / `ChartCard`        | Reporting figures and chart surfaces. `MetricGrid` takes `Metric`s (value, `MetricUnit`, optional `delta`, `hint`, `atLeast`) as `tiles`, one `panel`, or `plain`; change badges read "vs …" from `comparisonLabel`. `ChartCard` titles one chart or table with trailing `actions`.                                                                                                                                                                                 |
-| `MenuSelect`                      | Compact "Label: Value" toolbar choice that opens an anchored radio `Menu`; use `Select` for form fields.                                                                                                                                                                                                                                                                                                                                                            |
 | `Timeline`                        | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                                                                                                                                      |
 | `ActivityTray` / `Toast`          | Shell-owned activity notices: attributed `source`, text-only `title`/`status`/`detail`, one optional action, and dismissal. The tray owns one visually hidden polite region; callers throttle its `announcement`. Compact trays span the bottom above the safe area.                                                                                                                                                                                                |
 | `JsonSchemaValues`                | Read-only labeled view of a JSON value described by a JSON Schema document. Follows `$defs` references and `anyOf`/`oneOf` branches, orders fields by the schema, labels them from `title` or the raw key, and lists unknown fields last. Nested objects and object arrays render as labelled groups with their field or item count under a left rule; groups below the second level start collapsed.                                                               |
@@ -242,27 +241,24 @@ control colors and press feedback. Keep ticking numbers and input values outside
 Use `MotionScrollRoot` for a scroll container containing layout-animated elements. The client SDK
 uses it for each plugin screen. `ScreenFrame` and `ActionDock` mark top and bottom scroll obstructions.
 
-Wrap conditional dialogs in `MotionPresence`, giving each direct child a stable key, to retain panels
-and scrims through their exit. Exiting controls are inert and hidden from assistive technology;
-background locks last until the exit completes. Nested dialogs share lock ownership and restore focus
-only when another overlay has not already taken it.
-
-Bottom sheets drag downward from their handle or header. Short pulls snap back; a deliberate pull or
-flick uses the same dismissal gate as Escape and the scrim. The content area keeps normal scrolling.
+The UI SDK bundles Base UI privately. Modal and anchored popup components own their portals,
+focus, Escape, outside dismissal and position in their own document. Use controlled `open` for
+overlays whose owners persist across close so primitive transitions run to completion. Keep the
+SDK's centered and side dialogs, swipeable sheets, and alerts on their respective modal
+primitives. Bottom sheets keep their content scrollable and leave the bridged safe-area values
+to the SDK layout.
 
 `useFocusedFieldVisibility` runs once per document, shared by mounted callers. Kernel startup and
 `RyotProvider` install it for their own realms. Focus and viewport changes reveal editable fields
 inside their scroll containers, clear of pinned chrome. Native iOS keyboard resizing requires a
 second reveal after WebKit resets its scroll insets; sandboxed plugin focus is not visible to the kernel.
 
-`useShortcut` ignores single-key shortcuts while editable content has focus and registers each
-shortcut in the nearest `OverlayScope`. Only the top scope runs, so callers do not gate shortcuts on
-whether another overlay is open.
-
-`OverlayScope` owns shortcut scope and Escape arbitration. `useFocusTrap` contains Tab only.
-`useFieldEscape` gives search fields clear-then-blur behavior, but is not for ordinary form fields.
-Ordinary shortcuts stay document-local; reserved kernel shortcuts are forwarded semantically by the
-client SDK.
+`useShortcut` registers shortcuts in the nearest active overlay scope. Ordinary shortcuts stay
+document-local, and the client SDK forwards reserved kernel shortcuts semantically. The overlay
+Back adapter also stays document-local and knows which open overlay can handle a platform Back
+request. A veto consumes Back while the overlay stays open. Route-owned modals opt out of
+registration because navigation already represents their state. `useFieldEscape` gives standalone
+search fields clear-then-blur behavior.
 
 ## Screen Frame
 
@@ -307,9 +303,11 @@ services.
 
 `RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection; disabled options
 are announced but never selected, focused by arrows, or used as the tab stop. Consumers provide
-visuals through `renderOption`; menus are not radiogroups. `Select` closes on activation, while a
-radio picker stays open for keyboard selection. `ChipRadioGroup` is that composition for chip rows
-that scroll or wrap.
+visuals through `renderOption`. `ChipRadioGroup` is that composition for chip rows that scroll or
+wrap. Use `Select` for a single committed choice, with `variant="compact"` for toolbars or
+`searchable` for a filtered picker. `MultiSelect` shares the searchable list and stays open while
+options toggle. Pass its `search` state to use choices supplied by the caller's query.
+`ActionSearch` provides a keyboard-navigable list of externally ranked actions.
 
 `ReorderableList` ships pointer and keyboard reordering without a drag-and-drop dependency. Its drag
 handle is a real button, supports Arrow/Home/End, and announces the new position through a live

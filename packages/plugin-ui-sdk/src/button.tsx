@@ -79,7 +79,7 @@ export function Button({
 			)}
 		</button>
 	);
-	return shortcut === undefined ? button : <Tooltip shortcut={shortcut}>{() => button}</Tooltip>;
+	return shortcut === undefined ? button : <Tooltip shortcut={shortcut}>{button}</Tooltip>;
 }
 
 const iconToneClasses = {

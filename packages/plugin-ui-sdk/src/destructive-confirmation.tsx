@@ -30,12 +30,13 @@ export function DestructiveConfirmation(props: {
 
 	return (
 		<Dialog
+			kind="alert"
 			closeIcon={null}
 			title={props.title}
 			onClose={props.onClose}
 			description={props.detail}
+			dismissible={!props.pending}
 			triggerRef={props.triggerRef}
-			onInterceptBack={() => props.pending}
 			closeLabel={t(kernelMessage("common.action.close"))}
 			initialFocusRef={requiresConfirmation ? confirmationRef : cancelRef}
 			footer={

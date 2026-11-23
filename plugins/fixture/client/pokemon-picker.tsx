@@ -138,7 +138,6 @@ export const PokemonPicker = () => {
 					onClose={close}
 					backEnabled={false}
 					labelledBy="pokemon-picker-title"
-					closeLabel={text("pokemon-picker.cancel-adding")}
 					className="m-auto flex max-h-[calc(100%-2rem)] w-[min(32rem,calc(100%-2rem))] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-xl"
 				>
 					<h2 id="pokemon-picker-title" className="font-display text-xl text-text">

@@ -22,6 +22,7 @@ import {
 	ReportText,
 	Skeleton,
 	useMetricFormat,
+	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { formatReportingDateTime, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { DataTable } from "@ryot-app/plugin-ui-sdk/table";
@@ -53,6 +54,10 @@ export function AnalyticsMeasurements(props: {
 	const [metric, setMetric] = useState<null | SelectedMetric>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const metricButtonRef = useRef<HTMLButtonElement>(null);
+	useValueChange(scope.reference.pluginId, () => {
+		setMetric(null);
+		setPickerOpen(false);
+	});
 	return (
 		<div className="flex min-w-0 flex-col gap-5">
 			<section

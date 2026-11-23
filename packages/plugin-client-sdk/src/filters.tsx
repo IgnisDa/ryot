@@ -16,11 +16,11 @@ import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
-	Checkbox,
 	entitlementActionLabel,
 	IconButton,
 	type MetricFormat,
 	Modal,
+	ModalClose,
 	MultiSelect,
 	SegmentedControl,
 	Select,
@@ -98,7 +98,7 @@ export function ViewFiltersSheet({
 			label={title}
 			onClose={onClose}
 			triggerRef={triggerRef}
-			closeLabel={t(kernelMessage("common.action.close"))}
+			placement={compact ? "sheet" : "center"}
 			containerClassName={compact ? "items-end justify-center" : "items-center justify-center p-4"}
 			className={
 				compact
@@ -106,7 +106,10 @@ export function ViewFiltersSheet({
 					: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
 			}
 		>
-			<h2 className="font-display text-lg font-semibold text-text">{title}</h2>
+			<div className="flex items-center justify-between gap-2">
+				<h2 className="font-display text-lg font-semibold text-text">{title}</h2>
+				<ModalClose label={t(kernelMessage("common.action.close"))} />
+			</div>
 			{children}
 		</Modal>
 	);
@@ -351,8 +354,6 @@ function LinkedValueEditor({
 	readonly onChange: (values: readonly string[]) => void;
 }) {
 	const t = useT();
-	const formatters = useFormatters();
-	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const searchText = useDeferredValue(search.trim());
 	const page = useRyotQuery(
@@ -366,76 +367,20 @@ function LinkedValueEditor({
 		...(known.data ?? []).filter(({ value }) => !pageValues.has(value)),
 		...pageChoices,
 	];
-	const labels = new Map((known.data ?? []).map(({ value, label }) => [value, label]));
-	const resolved = selected.every((value) => labels.has(value));
-	let summary: string = t(kernelMessage("ui.multi-select.placeholder"));
-	if (selected.length > 0) {
-		summary = resolved
-			? formatters
-					.list({ type: "unit", style: "short" })
-					.format(selected.map((value) => labels.get(value) ?? value))
-			: t(kernelMessage("sdk.selection.selected-count", { count: selected.length }));
-	}
-	const close = () => {
-		setOpen(false);
-		setSearch("");
-	};
+	const resolved = selected.every((value) => choices.some((choice) => choice.value === value));
 	return (
-		<>
-			<button
-				type="button"
-				onClick={() => setOpen(true)}
-				aria-label={t(kernelMessage("sdk.filters.values-summary", { summary, field: field.label }))}
-				className="flex h-9 min-w-0 items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 pointer-coarse:h-11"
-			>
-				<span className="min-w-0 flex-1 truncate text-left text-sm text-text">{summary}</span>
-				<AppIcon size={14} name="chevron-down" className="text-text-muted" />
-			</button>
-			{open && (
-				<Modal
-					onClose={close}
-					label={formatDisplayText(t, field.label)}
-					containerClassName="items-center justify-center p-4"
-					closeLabel={t(kernelMessage("ui.select.close-options"))}
-					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-raised p-4 shadow-modal"
-				>
-					<h3 className="mb-3 text-base font-semibold text-text">
-						{formatDisplayText(t, field.label)}
-					</h3>
-					<TextField
-						value={search}
-						autoComplete="off"
-						placeholder={t(kernelMessage("common.action.search"))}
-						onChange={(event) => setSearch(event.currentTarget.value)}
-						aria-label={t(kernelMessage("ui.select.search-field", { label: field.label }))}
-					/>
-					<div className="mt-3 grid min-h-0 flex-1 content-start gap-1 overflow-y-auto">
-						{choices.map((choice) => (
-							<Checkbox
-								key={choice.value}
-								label={choice.label}
-								checked={selected.includes(choice.value)}
-								onChange={(event) =>
-									onChange(
-										event.currentTarget.checked
-											? [...selected, choice.value]
-											: selected.filter((value) => value !== choice.value),
-									)
-								}
-							/>
-						))}
-						{choices.length === 0 && !page.isPending && (
-							<p className="py-4 text-center text-sm text-text-muted">
-								{t(kernelMessage("ui.select.no-matches"))}
-							</p>
-						)}
-					</div>
-					<Button onClick={close} className="mt-3" variant="secondary">
-						{t(kernelMessage("common.action.done"))}
-					</Button>
-				</Modal>
-			)}
-		</>
+		<MultiSelect
+			selected={selected}
+			onChange={onChange}
+			label={formatDisplayText(t, field.label)}
+			search={{ query: search, onChange: setSearch, pending: page.isPending }}
+			choices={choices.map(({ value, label }) => ({ value, label: formatDisplayText(t, label) }))}
+			{...(!resolved && {
+				unresolvedSummary: t(
+					kernelMessage("sdk.selection.selected-count", { count: selected.length }),
+				),
+			})}
+		/>
 	);
 }
 

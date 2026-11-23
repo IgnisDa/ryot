@@ -168,7 +168,7 @@ describe("entity browser", () => {
 				const filters = screen.getByRole("button", { name: /Filters/ });
 				expect(filters.hasAttribute("disabled")).toBe(false);
 				expect(filters.getAttribute("aria-label")).toBe("Filters, 0 active filters");
-				expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
+				expect(screen.queryByRole("combobox", { name: /^Sort by/ })).toBeNull();
 				const add = screen.getByRole("button", { name: "Add" });
 				expect(add.getAttribute("aria-keyshortcuts")).toBe("A");
 				expect(screen.getByRole("radio", { name: "Grid view" })).toBeTruthy();
@@ -178,7 +178,7 @@ describe("entity browser", () => {
 					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
 				);
 				expect(dialog.textContent).toContain("Add filter");
-				expect(screen.getByRole("button", { name: /^Sort by/ })).toBeTruthy();
+				expect(screen.getByRole("combobox", { name: /^Sort by/ })).toBeTruthy();
 				expect(dialog.textContent).not.toContain("View as");
 			}),
 		testTimeout,
@@ -995,21 +995,26 @@ const openFilters = (name = "Filters") =>
 		return yield* Effect.promise(() => waitFor(() => screen.getByRole("dialog", { name })));
 	});
 
+const chooseOption = (name: string) =>
+	Effect.gen(function* () {
+		const option = yield* Effect.promise(() => screen.findByRole("option", { name }));
+		fireEvent.pointerDown(option, { pointerType: "mouse" });
+		fireEvent.click(option);
+	});
+
 const selectBrowserSort = (label: string) =>
 	Effect.gen(function* () {
-		fireEvent.click(screen.getByRole("button", { name: /^Sort by/ }));
-		fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: label })));
+		fireEvent.click(screen.getByRole("combobox", { name: /^Sort by/ }));
+		yield* chooseOption(label);
 		yield* Effect.promise(() =>
-			waitFor(() => expect(screen.queryByRole("dialog", { name: "Sort by" })).toBeNull()),
+			waitFor(() => expect(screen.queryByRole("listbox", { name: /^Sort by/ })).toBeNull()),
 		);
 	});
 
 const addFilter = (field: string, position = 1) =>
 	Effect.gen(function* () {
-		fireEvent.click(screen.getByRole("button", { name: /^Add filter/ }));
-		fireEvent.click(
-			yield* Effect.promise(() => waitFor(() => screen.getByRole("radio", { name: field }))),
-		);
+		fireEvent.click(screen.getByRole("combobox", { name: /^Add filter/ }));
+		yield* chooseOption(field);
 		return yield* Effect.promise(() =>
 			waitFor(() => screen.getByRole("group", { name: `Filter ${position}` })),
 		);
@@ -1077,7 +1082,7 @@ describe("entity browser sorting", () => {
 				expect(descending.request).toEqual({ ...first.request, sort: "name-desc" });
 				page.navigate(routeLocation("/v/all-items", search));
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Sort by: Default order" }),
+					screen.findByRole("combobox", { name: "Sort by: Default order" }),
 				);
 				replyBrowser(page, descending.requestId, [browserRow("two", "Sample Z")]);
 				page.navigate(routeLocation("/v/all-items", published));
@@ -1112,16 +1117,16 @@ describe("entity browser sorting", () => {
 				expect(
 					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
 				).toBe(true);
-				fireEvent.click(screen.getByRole("button", { name: "Sort by: Default order" }));
+				fireEvent.click(screen.getByRole("combobox", { name: "Sort by: Default order" }));
 				const dialog = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Sort by" }),
+					screen.findByRole("listbox", { name: /^Sort by/ }),
 				);
 				expect(
 					within(dialog)
-						.getAllByRole("radio")
-						.map((radio) => radio.textContent),
+						.getAllByRole("option")
+						.map((option) => option.textContent),
 				).toEqual(["Default order", "Name", "Release year"]);
-				fireEvent.click(screen.getByRole("radio", { name: "Release year" }));
+				yield* chooseOption("Release year");
 				const descending = yield* browserRequest(page, 2);
 				expect(descending.request).toMatchObject({
 					sort: "year-desc",
@@ -1178,7 +1183,7 @@ describe("entity browser sorting", () => {
 				const first = yield* browserRequest(page, 0);
 				replyBrowser(page, first.requestId, [browserRow("one", "One")]);
 				yield* openFilters("View options");
-				expect(screen.getByRole("button", { name: "Sort by: Release year" })).toBeTruthy();
+				expect(screen.getByRole("combobox", { name: "Sort by: Release year" })).toBeTruthy();
 				fireEvent.click(screen.getByRole("button", { name: "Sort direction: Oldest first" }));
 				const next = yield* browserRequest(page, 1);
 				replyBrowser(page, next.requestId, [browserRow("two", "Two")]);
@@ -1189,7 +1194,7 @@ describe("entity browser sorting", () => {
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: Z–A" }));
 				page.navigate(routeLocation("/v/all-items", "sort=missing-desc"), { compact: true });
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Sort by: Default order" }),
+					screen.findByRole("combobox", { name: "Sort by: Default order" }),
 				);
 				expect(
 					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
@@ -1228,7 +1233,7 @@ describe("entity browser filters", () => {
 				yield* waitForMessagePortMacrotask;
 				expect(page.queryRequests("savedView")).toHaveLength(1);
 				expect(page.queryRequests("count")).toHaveLength(1);
-				expect(screen.getByRole("button", { name: "Counting…" })).toBeTruthy();
+				expect(screen.getByText("Counting…")).toBeTruthy();
 
 				page.replyQuery(count.requestId, {
 					outcome: "success",
@@ -1255,12 +1260,8 @@ describe("entity browser filters", () => {
 				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 				yield* openFilters();
 				yield* addFilter("Status");
-				fireEvent.click(screen.getByRole("button", { name: "Status values" }));
-				fireEvent.click(
-					yield* Effect.promise(() =>
-						waitFor(() => screen.getByRole("checkbox", { name: "Read" })),
-					),
-				);
+				fireEvent.click(screen.getByRole("combobox", { name: "Status values" }));
+				yield* chooseOption("Read");
 
 				const filtered = yield* browserRequest(page, 1);
 				const document = yield* encodeJson(filtered.request);
@@ -1271,8 +1272,13 @@ describe("entity browser filters", () => {
 					waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
 				);
 				expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
+				fireEvent.keyDown(screen.getByRole("combobox", { name: "Search Status values" }), {
+					key: "Escape",
+				});
 				fireEvent.click(screen.getByRole("button", { name: "Close" }));
-				expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Filters, 1 active filter" }),
+				);
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 					"Status is any of Read",
 				);
@@ -1291,7 +1297,10 @@ describe("entity browser filters", () => {
 				yield* addFilter("Year");
 				expect(page.queryRequests("savedView")).toHaveLength(1);
 				expect(lastFiltersUpdate(page)).toBeUndefined();
-				expect(screen.getByRole("button", { name: "Filters, 0 active filters" })).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Filters, 0 active filters" }),
+				);
 			}),
 		testTimeout,
 	);
@@ -1477,7 +1486,7 @@ describe("entity browser filters", () => {
 				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 				yield* openFilters();
 				yield* addFilter("Authors");
-				fireEvent.click(screen.getByRole("button", { name: /^Authors values/ }));
+				fireEvent.click(screen.getByRole("combobox", { name: "Authors" }));
 				const lookup = yield* Effect.promise(() =>
 					waitFor(() => {
 						const found = page.queryRequests("choices").at(-1);
@@ -1488,9 +1497,7 @@ describe("entity browser filters", () => {
 					}),
 				);
 				replyChoices(page, lookup.requestId, [{ id: "p-1", name: "Ann" }]);
-				fireEvent.click(
-					yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Ann" }))),
-				);
+				yield* chooseOption("Ann");
 				const request = yield* browserRequest(page, 1);
 				replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
 				yield* Effect.promise(() =>

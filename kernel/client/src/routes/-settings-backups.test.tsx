@@ -512,7 +512,7 @@ describe("backup records", () => {
 						screen.findByRole("button", { name: "Delete the backup record from 1 hour ago" }),
 					),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				expect(dialog.textContent).toContain("any copy you already downloaded is untouched");
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete record" }));
 
@@ -540,13 +540,13 @@ describe("backup records", () => {
 						screen.findByRole("button", { name: "Delete the backup record from 1 hour ago" }),
 					),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete record" }));
 
 				yield* Effect.promise(() =>
 					screen.findByText("This record could not be deleted. Try again."),
 				);
-				expect(screen.getByRole("dialog")).toBeTruthy();
+				expect(screen.getByRole("alertdialog")).toBeTruthy();
 			}),
 		testTimeout,
 	);

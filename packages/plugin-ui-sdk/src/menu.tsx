@@ -1,208 +1,155 @@
+import { Menu as BaseMenu } from "@base-ui/react/menu";
 import type { Text } from "@ryot-app/i18n/text";
+import type { HotkeyChord } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
-import {
-	type KeyboardEvent,
-	type ReactNode,
-	type RefObject,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from "react";
-import { createPortal } from "react-dom";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { AppIcon } from "./icon";
-import { useDismissOnOutside } from "./overlay";
-import { OverlayScope } from "./shortcut";
-
-const MENU_GAP = 4;
-const MENU_WIDTH = 224;
-const VIEWPORT_PADDING = 8;
+import { ShortcutScopeContext, useOverlayScope, useShortcut } from "./shortcut";
 
 export type MenuItem = {
 	readonly key: string;
 	readonly label: Text;
-	/** An `AppIcon` name shown before the label. */
 	readonly icon?: string;
-	/** Makes the item a radio choice; the checked one shows `checkIcon`. */
+	readonly title?: string;
 	readonly checked?: boolean;
 	readonly disabled?: boolean;
+	readonly content?: ReactNode;
 	readonly onSelect: () => void;
 	readonly destructive?: boolean;
+	readonly accessibleLabel?: Text;
 };
 
-type MenuProps = {
-	readonly id?: string;
+export function Menu(props: {
 	readonly label: Text;
-	readonly note?: string;
+	readonly open?: boolean;
 	readonly className?: string;
-	readonly activeIndex: number;
+	readonly trigger: ReactElement;
 	readonly checkIcon?: ReactNode;
+	readonly shortcut?: HotkeyChord;
+	readonly note?: Text | undefined;
+	readonly align?: "end" | "start";
+	readonly focusSelected?: boolean;
+	readonly matchTriggerWidth?: boolean;
+	readonly onSelectAfterClose?: boolean;
 	readonly items: ReadonlyArray<MenuItem>;
-	readonly onInterceptBack?: () => boolean;
-	readonly onClose: (restoreFocus: boolean) => void;
-	readonly triggerRef: RefObject<null | HTMLElement>;
-	readonly onActiveIndexChange: (index: number) => void;
-};
-
-const enabledIndices = (items: ReadonlyArray<MenuItem>) =>
-	items.flatMap((item, index) => (item.disabled === true ? [] : [index]));
-
-export function Menu({
-	id,
-	note,
-	label,
-	items,
-	onClose,
-	checkIcon,
-	className,
-	triggerRef,
-	activeIndex,
-	onInterceptBack,
-	onActiveIndexChange,
-}: MenuProps) {
-	const menuRef = useRef<HTMLDivElement>(null);
-	const menuItems = useRef<Array<null | HTMLButtonElement>>([]);
-	const [position, setPosition] = useState({ top: 0, left: 0 });
-	const close = (restoreFocus: boolean) => {
-		if (onInterceptBack?.() === true) {
-			return;
-		}
-		onClose(restoreFocus);
-	};
-
-	useLayoutEffect(() => {
-		const updatePosition = () => {
-			const trigger = triggerRef.current;
-			const menu = menuRef.current;
-			if (trigger === null || menu === null) {
-				return;
-			}
-			const triggerRect = trigger.getBoundingClientRect();
-			const menuRect = menu.getBoundingClientRect();
-			const viewportWidth = Math.max(window.innerWidth, document.documentElement.clientWidth);
-			const viewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
-			const menuWidth =
-				menuRect.width || Math.min(MENU_WIDTH, viewportWidth - VIEWPORT_PADDING * 2);
-			const menuHeight = menuRect.height;
-			const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
-			const left = Math.min(Math.max(triggerRect.right - menuWidth, VIEWPORT_PADDING), maxLeft);
-			const below = triggerRect.bottom + MENU_GAP;
-			const above = triggerRect.top - menuHeight - MENU_GAP;
-			const maxTop = Math.max(VIEWPORT_PADDING, viewportHeight - menuHeight - VIEWPORT_PADDING);
-			const top =
-				above >= VIEWPORT_PADDING && below + menuHeight > viewportHeight - VIEWPORT_PADDING
-					? above
-					: Math.min(Math.max(below, VIEWPORT_PADDING), maxTop);
-			setPosition({ top, left });
+	readonly onOpenChange?: (open: boolean) => void;
+}) {
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = props.open ?? internalOpen;
+	const onOpenChange = props.onOpenChange ?? setInternalOpen;
+	const actions = useRef<BaseMenu.Root.Actions>(null);
+	const selectedItem = useRef<HTMLElement>(null);
+	const pendingSelection = useRef<null | (() => void)>(null);
+	const overlay = useOverlayScope(open, () => actions.current?.close());
+	const focusSelected = () => selectedItem.current?.focus();
+	const checkedKey = props.items.find((item) => item.checked === true)?.key;
+	const items = props.items.map((item) => {
+		const itemProps = {
+			label: item.label,
+			title: item.title,
+			disabled: item.disabled,
+			"aria-label": item.accessibleLabel,
+			onClick: () => {
+				if (props.onSelectAfterClose === true) {
+					pendingSelection.current = item.onSelect;
+				} else {
+					item.onSelect();
+				}
+			},
+			className: clsx(
+				"flex min-h-8 w-full cursor-default items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm outline-none data-highlighted:bg-hover data-disabled:text-text-subtle pointer-coarse:min-h-11",
+				item.destructive === true ? "text-danger" : "text-text",
+			),
+			children: item.content ?? (
+				<>
+					{item.icon === undefined ? null : (
+						<AppIcon size={16} name={item.icon} className="shrink-0 text-text-muted" />
+					)}
+					<span className="min-w-0 flex-1 truncate">{item.label}</span>
+					{item.checked === true && (
+						<span aria-hidden="true" className="shrink-0 text-accent-text">
+							{props.checkIcon}
+						</span>
+					)}
+				</>
+			),
 		};
-
-		updatePosition();
-		window.addEventListener("resize", updatePosition);
-		document.addEventListener("scroll", updatePosition, true);
-		return () => {
-			window.removeEventListener("resize", updatePosition);
-			document.removeEventListener("scroll", updatePosition, true);
-		};
-	}, [triggerRef]);
-
-	useEffect(() => {
-		const indices = enabledIndices(items);
-		const index = items[activeIndex]?.disabled === true ? indices.at(0) : activeIndex;
-		if (index === undefined) {
-			return;
-		}
-		if (index === activeIndex) {
-			menuItems.current[index]?.focus();
-			return;
-		}
-		onActiveIndexChange(index);
-	}, [activeIndex, items, onActiveIndexChange]);
-
-	useDismissOnOutside([menuRef, triggerRef], () => close(false), { enabled: true });
-
-	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-		const indices = enabledIndices(items);
-		if (indices.length === 0) {
-			return;
-		}
-		let index: number | undefined;
-		if (event.key === "Home") {
-			index = indices[0];
-		} else if (event.key === "End") {
-			index = indices.at(-1);
-		} else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-			const current = Math.max(0, indices.indexOf(activeIndex));
-			const offset = event.key === "ArrowDown" ? 1 : -1;
-			index = indices[(current + offset + indices.length) % indices.length];
-		}
-		if (index !== undefined) {
-			event.preventDefault();
-			onActiveIndexChange(index);
-		}
-	};
-
-	return createPortal(
-		<OverlayScope onEscape={() => close(true)}>
-			<div
-				id={id}
-				role="menu"
-				ref={menuRef}
-				aria-label={label}
-				onKeyDown={onKeyDown}
-				style={{ top: position.top, left: position.left }}
-				className={clsx(
-					"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-lg border border-border bg-raised p-1 shadow-card",
-					className,
-				)}
-				onBlur={(event) => {
-					const relatedTarget = event.relatedTarget;
-					if (
-						!(relatedTarget instanceof Node) ||
-						(!event.currentTarget.contains(relatedTarget) &&
-							triggerRef.current?.contains(relatedTarget) !== true)
-					) {
-						close(false);
+		return item.checked === undefined ? (
+			<BaseMenu.Item key={item.key} {...itemProps} />
+		) : (
+			<BaseMenu.RadioItem
+				closeOnClick
+				key={item.key}
+				value={item.key}
+				ref={item.checked && !item.disabled ? selectedItem : undefined}
+				{...itemProps}
+			/>
+		);
+	});
+	return (
+		<BaseMenu.Root
+			loopFocus
+			open={open}
+			modal={false}
+			actionsRef={actions}
+			onOpenChange={(next) => onOpenChange(next)}
+			onOpenChangeComplete={(opened) => {
+				if (opened) {
+					if (props.focusSelected) {
+						focusSelected();
 					}
-				}}
-			>
-				{items.map((item, index) => (
-					<button
-						type="button"
-						key={item.key}
-						onClick={item.onSelect}
-						disabled={item.disabled}
-						aria-checked={item.checked}
-						tabIndex={index === activeIndex ? 0 : -1}
-						onFocus={() => onActiveIndexChange(index)}
-						role={item.checked === undefined ? "menuitem" : "menuitemradio"}
-						ref={(element) => {
-							menuItems.current[index] = element;
-						}}
-						className={clsx(
-							"flex min-h-8 w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm hover:bg-hover focus-visible:bg-hover focus-visible:outline-none pointer-coarse:min-h-11",
-							item.destructive === true ? "text-danger" : "text-text",
-							"disabled:text-text-subtle disabled:hover:bg-transparent",
-						)}
+					return;
+				}
+				const select = pendingSelection.current;
+				pendingSelection.current = null;
+				if (select !== null) {
+					requestAnimationFrame(select);
+				}
+			}}
+		>
+			<BaseMenu.Trigger render={props.trigger} />
+			{props.shortcut !== undefined && (
+				<MenuShortcut shortcut={props.shortcut} activate={() => onOpenChange(true)} />
+			)}
+			<BaseMenu.Portal>
+				<ShortcutScopeContext value={overlay.scope}>
+					{props.shortcut !== undefined && props.focusSelected === true && (
+						<MenuShortcut activate={focusSelected} shortcut={props.shortcut} />
+					)}
+					<BaseMenu.Positioner
+						sideOffset={4}
+						className="z-50"
+						collisionPadding={8}
+						align={props.align ?? "end"}
 					>
-						{item.icon === undefined ? null : (
-							<AppIcon size={16} name={item.icon} className="shrink-0 text-text-muted" />
-						)}
-						<span className="min-w-0 flex-1 truncate">{item.label}</span>
-						{item.checked === true ? (
-							<span aria-hidden="true" className="shrink-0 text-accent-text">
-								{checkIcon}
-							</span>
-						) : null}
-					</button>
-				))}
-				{note !== undefined && (
-					<p className="mt-1 border-t border-border px-2.5 pt-2 pb-1 text-xs text-text-subtle">
-						{note}
-					</p>
-				)}
-			</div>
-		</OverlayScope>,
-		document.body,
+						<BaseMenu.Popup
+							aria-label={props.label}
+							className={clsx(
+								"flex max-h-(--available-height) max-w-(--available-width) flex-col overflow-y-auto overscroll-contain rounded-lg border border-border bg-raised p-1 shadow-card outline-none",
+								props.matchTriggerWidth ? "w-(--anchor-width)" : "w-56",
+								props.className,
+							)}
+						>
+							{props.items.some((item) => item.checked !== undefined) ? (
+								<BaseMenu.RadioGroup value={checkedKey ?? null}>{items}</BaseMenu.RadioGroup>
+							) : (
+								items
+							)}
+							{props.note !== undefined && (
+								<p className="mt-1 border-t border-border px-2.5 pt-2 pb-1 text-xs text-text-subtle">
+									{props.note}
+								</p>
+							)}
+						</BaseMenu.Popup>
+					</BaseMenu.Positioner>
+				</ShortcutScopeContext>
+			</BaseMenu.Portal>
+		</BaseMenu.Root>
 	);
+}
+
+function MenuShortcut(props: { readonly activate: () => void; readonly shortcut: HotkeyChord }) {
+	useShortcut(props.shortcut, props.activate);
+	return null;
 }

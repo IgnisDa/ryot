@@ -9,7 +9,7 @@ import {
 	type RyotQueryResult,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { ChartCard, MenuSelect, QueryStatus } from "@ryot-app/plugin-ui-sdk";
+import { ChartCard, QueryStatus, Select } from "@ryot-app/plugin-ui-sdk";
 import {
 	CalendarHeatmap,
 	type ChartView,
@@ -128,7 +128,8 @@ function TrendRegion(props: {
 			title={text("client.analytics.workouts.trend")}
 			description={text("client.analytics.workouts.trend-description")}
 			actions={
-				<MenuSelect
+				<Select
+					variant="compact"
 					value={props.metric}
 					onChange={props.onMetricChange}
 					checkIcon={<AppIcon size={14} name="check" />}

@@ -41,8 +41,8 @@ export function AddTitleMenu(props: { readonly variant: "icon" | "button" }) {
 			{...(props.variant === "icon"
 				? {}
 				: {
-						renderTrigger: (trigger) => (
-							<Button variant="secondary" {...trigger}>
+						triggerElement: (
+							<Button variant="secondary">
 								<AppIcon size={15} name="plus" />
 								{text("home.add-title")}
 							</Button>

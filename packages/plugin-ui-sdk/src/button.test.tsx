@@ -34,8 +34,6 @@ describe("Button", () => {
 		const button = screen.getByRole("button", { name: "Add" });
 		expect(button.getAttribute("aria-keyshortcuts")).toBe("A");
 		expect(button.hasAttribute("aria-describedby")).toBe(false);
-		expect(button.nextElementSibling?.getAttribute("aria-hidden")).toBe("true");
-		expect(button.nextElementSibling?.textContent).toBe("A");
 		expect(screen.queryByRole("tooltip")).toBeNull();
 	});
 

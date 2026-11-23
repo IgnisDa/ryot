@@ -8,6 +8,7 @@ import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
+import { act } from "react";
 
 import {
 	type ActivityLogFake,
@@ -208,25 +209,25 @@ const radioLabels = (container: HTMLElement, group: string) =>
 	).map((element) => element.textContent);
 
 const orderTrigger = (container: HTMLElement) =>
-	getByRole(container, "button", { name: /^Episode order:/ });
+	getByRole(container, "combobox", { name: /^Episode order:/ });
 
 const orderChoices = (container: HTMLElement) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() => click(orderTrigger(container)));
-		const dialog = getByRole(document.body, "dialog", { name: "Episode order" });
-		const labels = Array.from(dialog.querySelectorAll('[role="radio"]')).map(
+		const list = getByRole(document.body, "listbox", { name: "Episode order" });
+		const labels = Array.from(list.querySelectorAll('[role="option"]')).map(
 			(element) => element.textContent,
 		);
-		fireEvent.keyDown(dialog, { key: "Escape" });
+		void act(() => fireEvent.keyDown(list, { key: "Escape" }));
 		return labels;
 	});
 
 const selectOrder = (container: HTMLElement, label: string) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() => click(orderTrigger(container)));
-		yield* Effect.promise(() =>
-			click(radio(getByRole(document.body, "dialog", { name: "Episode order" }), label)),
-		);
+		const option = getByRole(document.body, "option", { name: label });
+		void act(() => fireEvent.pointerDown(option, { pointerType: "mouse" }));
+		yield* Effect.promise(() => click(option));
 	});
 
 const click = (element: Element | undefined) => {
@@ -735,7 +736,7 @@ describe("show episode logging", () => {
 				const sheet = yield* Effect.promise(() =>
 					waitFor(() => {
 						const found = getByRole(document.body, "dialog", { name: "Log activity" });
-						getByRole(found, "button", { name: "Season: Season 2" });
+						getByRole(found, "combobox", { name: "Season: Season 2" });
 						return found;
 					}),
 				);
@@ -778,7 +779,7 @@ describe("show episode logging", () => {
 				const sheet = yield* Effect.promise(() =>
 					waitFor(() => {
 						const found = getByRole(document.body, "dialog", { name: "Log activity" });
-						getByRole(found, "button", { name: "Season: Season 2" });
+						getByRole(found, "combobox", { name: "Season: Season 2" });
 						return found;
 					}),
 				);

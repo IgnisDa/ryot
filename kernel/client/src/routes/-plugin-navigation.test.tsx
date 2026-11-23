@@ -2561,7 +2561,7 @@ describe("collection host screens", () => {
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete collection" }));
 				expect(deleted).toEqual([]);
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Delete Favorites?" }),
+					screen.findByRole("alertdialog", { name: "Delete Favorites?" }),
 				);
 				fireEvent.click(within(confirmation).getByRole("button", { name: "Delete collection" }));
 
@@ -2627,7 +2627,7 @@ describe("collection host screens", () => {
 				);
 				fireEvent.click(within(reopened).getByRole("button", { name: "Remove from collection" }));
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Remove from Favorites?" }),
+					screen.findByRole("alertdialog", { name: "Remove from Favorites?" }),
 				);
 				fireEvent.click(
 					within(confirmation).getByRole("button", { name: "Remove from collection" }),

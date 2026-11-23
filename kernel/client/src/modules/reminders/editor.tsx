@@ -252,6 +252,7 @@ export function ReminderEditor(props: {
 							</span>
 							<Select
 								{...selectIcons}
+								searchable
 								choices={zones}
 								value={timezone}
 								searchIcon={<AppIcon size={16} name="search" />}

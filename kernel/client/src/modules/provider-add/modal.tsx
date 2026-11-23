@@ -276,7 +276,6 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 	return (
 		<Modal
 			onClose={close}
-			closeLabel={t(kernelMessage("common.action.close"))}
 			containerClassName="md:items-center md:justify-center md:p-6"
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
 			label={

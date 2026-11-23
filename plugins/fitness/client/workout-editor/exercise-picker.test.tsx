@@ -504,8 +504,10 @@ describe("ExercisePicker", () => {
 
 				click(screen.getByRole("button", { name: "Presets" }));
 				expect(
-					screen.getByRole("menuitem", { name: "Save current filters…" }).hasAttribute("disabled"),
-				).toBe(true);
+					screen
+						.getByRole("menuitem", { name: "Save current filters…" })
+						.getAttribute("aria-disabled"),
+				).toBe("true");
 				expect(
 					page
 						.clientMessages()

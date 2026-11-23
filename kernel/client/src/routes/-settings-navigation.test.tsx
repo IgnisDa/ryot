@@ -165,6 +165,12 @@ const mountImpersonationView = (
 		),
 	);
 
+const chooseOption = (name: string) => {
+	const option = screen.getByRole("option", { name });
+	fireEvent.pointerDown(option, { pointerType: "mouse" });
+	fireEvent.click(option);
+};
+
 describe("authenticated route gate", () => {
 	it.live(
 		"releases the committed authenticated layout when logout redirects to auth",
@@ -410,7 +416,7 @@ describe("settings navigation", () => {
 				expect(screen.getByTestId("screen-frame-bar")).toBeTruthy();
 				expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
 				expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
-				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 			}),
 		testTimeout,
 	);
@@ -1095,7 +1101,7 @@ describe("administration settings", () => {
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
 				expect(view.router.state.location.pathname).toBe("/instance-admin/users");
 				expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 				expect(screen.queryByTitle("fixture plugin")).toBeNull();
 			}),
 		testTimeout,
@@ -1177,7 +1183,7 @@ describe("preferences settings", () => {
 				);
 				expect(
 					screen
-						.getByRole("button", { name: "Content language: Provider default" })
+						.getByRole("combobox", { name: "Content language: Provider default" })
 						.hasAttribute("disabled"),
 				).toBe(true);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -1198,7 +1204,7 @@ describe("preferences settings", () => {
 			Effect.gen(function* () {
 				mountPreferences();
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Content language: Provider default" }),
+					screen.findByRole("combobox", { name: "Content language: Provider default" }),
 				);
 
 				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
@@ -1209,7 +1215,7 @@ describe("preferences settings", () => {
 				).not.toBeNull();
 				expect(screen.queryByRole("switch")).toBeNull();
 				expect(
-					screen.getByRole("button", { name: "Content language: Provider default" }),
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
 				).not.toBeNull();
 			}),
 		testTimeout,
@@ -1244,8 +1250,10 @@ describe("preferences settings", () => {
 				);
 				expect(submit.hasAttribute("disabled")).toBe(true);
 
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Spanish");
 				expect(submit.hasAttribute("disabled")).toBe(false);
 				fireEvent.click(submit);
 
@@ -1311,13 +1319,15 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(screen.getByRole("button", { name: "Interface language: English" }));
-				expect(screen.queryByRole("radio", { name: /en-XA/ })).toBeNull();
-				fireEvent.click(screen.getByRole("radio", { name: "Use device locale" }));
+				fireEvent.click(screen.getByRole("combobox", { name: "Interface language: English" }));
+				expect(screen.queryByRole("option", { name: /en-XA/ })).toBeNull();
+				chooseOption("Use device locale");
 				fireEvent.click(
-					screen.getByRole("button", { name: "First day of the week: Language default (Sunday)" }),
+					screen.getByRole("combobox", {
+						name: "First day of the week: Language default (Sunday)",
+					}),
 				);
-				fireEvent.click(screen.getByRole("radio", { name: "Monday" }));
+				chooseOption("Monday");
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
@@ -1342,8 +1352,10 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Other language…" }));
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Other language…");
 				fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
 					target: { value: "sv" },
 				});
@@ -1363,8 +1375,10 @@ describe("preferences settings", () => {
 				const gate = Deferred.makeUnsafe<void>();
 				mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Spanish");
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				const savingButton = yield* Effect.promise(() =>
@@ -1373,7 +1387,7 @@ describe("preferences settings", () => {
 				expect(savingButton.hasAttribute("disabled")).toBe(true);
 				expect(
 					screen
-						.getByRole("button", { name: "Content language: Spanish" })
+						.getByRole("combobox", { name: "Content language: Spanish" })
 						.hasAttribute("disabled"),
 				).toBe(true);
 
@@ -1391,8 +1405,10 @@ describe("preferences settings", () => {
 					makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Spanish");
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 				expect(view.interestEvents).toEqual(["acquire"]);
@@ -1409,14 +1425,16 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Spanish");
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 				expect(
 					screen
-						.getByRole("button", { name: "Content language: Spanish" })
+						.getByRole("combobox", { name: "Content language: Spanish" })
 						.hasAttribute("disabled"),
 				).toBe(false);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -1443,17 +1461,19 @@ describe("preferences settings", () => {
 					}),
 				);
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Content language: Provider default" }),
+					screen.findByRole("combobox", { name: "Content language: Provider default" }),
 				);
 
-				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-				const language = screen.getByRole("button", { name: "Content language: Spanish" });
+				fireEvent.click(
+					screen.getByRole("combobox", { name: "Content language: Provider default" }),
+				);
+				chooseOption("Spanish");
+				const language = screen.getByRole("combobox", { name: "Content language: Spanish" });
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
 				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-				expect(screen.getByRole("button", { name: "Content language: Spanish" })).toBe(language);
+				expect(screen.getByRole("combobox", { name: "Content language: Spanish" })).toBe(language);
 				expect(
 					screen.queryByText("Could not load your settings. Check the server and try again."),
 				).toBeNull();

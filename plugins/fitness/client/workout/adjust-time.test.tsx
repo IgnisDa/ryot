@@ -260,11 +260,13 @@ describe("DST workout time corrections", () => {
 				).toBeTruthy();
 				act(() => {
 					fireEvent.click(
-						screen.getByRole("button", { name: "Start time occurrence: Choose an occurrence" }),
+						screen.getByRole("combobox", { name: "Start time occurrence: Choose an occurrence" }),
 					);
 				});
 				act(() => {
-					fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+					const second = screen.getByRole("option", { name: "Second occurrence (UTC-05:00)" });
+					fireEvent.pointerDown(second, { pointerType: "mouse" });
+					fireEvent.click(second);
 				});
 				act(() => {
 					fireEvent.click(screen.getByRole("button", { name: "Save time correction" }));

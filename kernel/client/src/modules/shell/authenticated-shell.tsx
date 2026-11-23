@@ -21,7 +21,6 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { assistantAttentionEntries, useAssistantActivity } from "#/modules/assistant/activity";
@@ -34,7 +33,6 @@ import { useIsDemoSession } from "#/modules/demo-protection";
 import { impactHaptic } from "#/modules/device/haptics";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
 import { IosLiveActivityScope } from "#/modules/ios-live-activities/lifecycle";
-import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
 import {
 	hasWorkspaceChrome,
@@ -100,12 +98,10 @@ export function AuthenticatedShell(props: {
 	const isDesktop = useIsDesktop();
 	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
-	const progress = useMotionValue(0);
 	const { state, search, pathname, searchStr } = useRouterState({
 		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
 	});
 	const assistantPanel = useAssistantPanel({ pathname, compact: !isDesktop });
-	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
 	const triggerRef = useRef<HTMLElement>(null);
 	const { scope, server, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });
 	const navigateDeviceTarget = (target: Parameters<typeof toNavigationRequest>[0]["target"]) => {
@@ -210,14 +206,6 @@ export function AuthenticatedShell(props: {
 					href: navigationViewHref(item),
 					replace: activeKey?.startsWith("view:") === true,
 				});
-	const interceptSearchBack = () => {
-		setSearchOpen(false);
-		return true;
-	};
-	const interceptDiscardBack = () => {
-		setDiscarding(false);
-		return true;
-	};
 	const toggleAssistant = useStableHandler(assistantPanel.toggle);
 	const sidebarAssistant = {
 		mood: activity.mood,
@@ -345,24 +333,6 @@ export function AuthenticatedShell(props: {
 	});
 
 	useEffect(() => {
-		if (!drawerOpen) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			setDrawerOpen(false);
-			return true;
-		});
-	}, [backInterceptors, drawerOpen]);
-	useEffect(() => {
-		if (!searchOpen) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			setSearchOpen(false);
-			return true;
-		});
-	}, [backInterceptors, searchOpen]);
-	useEffect(() => {
 		if (!customizeActive || !customize.isDirty || discarding) {
 			return undefined;
 		}
@@ -412,31 +382,24 @@ export function AuthenticatedShell(props: {
 					) : null
 				}
 			/>
-			<EdgeGesture
-				edge={edge}
-				onBack={goBack}
-				progress={progress}
-				isOpen={drawerOpen}
-				onOpenChange={(open) => setDrawerOpen(open)}
-			/>
+			<EdgeGesture edge={edge} onBack={goBack} isOpen={drawerOpen} />
 			<MobileDrawer
 				current={current}
 				catalog={catalog}
 				session={session}
 				sections={sections}
-				progress={progress}
 				isPro={props.isPro}
 				drawerId={drawerId}
 				isOpen={drawerOpen}
 				activeKey={activeKey}
 				triggerRef={triggerRef}
 				activeHome={homeActive}
-				hasDrawer={workspaceChrome}
 				assistant={sidebarAssistant}
 				navigation={props.navigation}
 				onNavigateItem={navigateItem}
 				onNavigateHome={navigateHome}
 				activeSettings={settingsActive}
+				onOpen={() => setDrawerOpen(true)}
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
 				onOpenSearch={() => setSearchOpen(true)}
@@ -445,6 +408,7 @@ export function AuthenticatedShell(props: {
 				onCustomize={() => openCustomize("workspaces")}
 				onCreateCollection={() => setCreatingCollection(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
+				swipeToOpen={edge.intent === "drawer" && edge.owner === "kernel"}
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
 				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />
@@ -454,11 +418,11 @@ export function AuthenticatedShell(props: {
 						<PluginTitleContext value={pluginTitle}>
 							<EdgeContext value={edge}>
 								<ShellChromeContext value={shellChrome}>
-									<motion.div
+									<div
 										inert={drawerOpen}
-										style={{ x: contentShift }}
 										data-testid="shell-content"
-										className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+										data-drawer-open={drawerOpen || undefined}
+										className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-transform duration-150 data-drawer-open:translate-x-[18px] motion-reduce:transition-none"
 									>
 										{impersonation && authSnapshot.status === "authenticated" && (
 											<ImpersonationBanner
@@ -485,7 +449,7 @@ export function AuthenticatedShell(props: {
 													?.href === `${pathname}${searchStr}`
 											}
 										/>
-									</motion.div>
+									</div>
 									<AssistantPanel disabled={isDemo} compact={!isDesktop} panel={assistantPanel} />
 								</ShellChromeContext>
 							</EdgeContext>
@@ -510,39 +474,36 @@ export function AuthenticatedShell(props: {
 							: (routeConversationId ?? null),
 				})}
 			/>
-			{discarding && (
-				<Modal
-					onClose={() => setDiscarding(false)}
-					onInterceptBack={interceptDiscardBack}
-					containerClassName="items-center justify-center p-4"
-					label={t(kernelMessage("client.shell.discard.title"))}
-					closeLabel={t(kernelMessage("client.shell.discard.dismiss"))}
-					className="w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-card"
-				>
-					<h2 className="font-display text-lg font-semibold text-text">
-						{t(kernelMessage("client.shell.discard.title"))}
-					</h2>
-					<p className="mt-2 text-sm text-text-muted">
-						{t(kernelMessage("client.shell.discard.detail"))}
-					</p>
-					<div className="mt-4 flex justify-end gap-2">
-						<button
-							type="button"
-							onClick={() => setDiscarding(false)}
-							className="rounded-lg px-3 py-2 text-sm font-medium text-text-muted"
-						>
-							{t(kernelMessage("client.shell.discard.keep"))}
-						</button>
-						<button
-							type="button"
-							onClick={leaveCustomize}
-							className="rounded-lg bg-danger-solid px-3 py-2 text-sm font-medium text-danger-ink"
-						>
-							{t(kernelMessage("client.shell.discard.confirm"))}
-						</button>
-					</div>
-				</Modal>
-			)}
+			<Modal
+				open={discarding}
+				onClose={() => setDiscarding(false)}
+				containerClassName="items-center justify-center p-4"
+				label={t(kernelMessage("client.shell.discard.title"))}
+				className="w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-card"
+			>
+				<h2 className="font-display text-lg font-semibold text-text">
+					{t(kernelMessage("client.shell.discard.title"))}
+				</h2>
+				<p className="mt-2 text-sm text-text-muted">
+					{t(kernelMessage("client.shell.discard.detail"))}
+				</p>
+				<div className="mt-4 flex justify-end gap-2">
+					<button
+						type="button"
+						onClick={() => setDiscarding(false)}
+						className="rounded-lg px-3 py-2 text-sm font-medium text-text-muted"
+					>
+						{t(kernelMessage("client.shell.discard.keep"))}
+					</button>
+					<button
+						type="button"
+						onClick={leaveCustomize}
+						className="rounded-lg bg-danger-solid px-3 py-2 text-sm font-medium text-danger-ink"
+					>
+						{t(kernelMessage("client.shell.discard.confirm"))}
+					</button>
+				</div>
+			</Modal>
 			{creatingCollection && (
 				<CollectionEditor
 					onClose={() => setCreatingCollection(false)}
@@ -553,21 +514,19 @@ export function AuthenticatedShell(props: {
 					}}
 				/>
 			)}
-			{searchOpen && (
-				<CommandCenter
-					scope={scope}
-					catalog={catalog}
-					runtime={runtime}
-					navigation={props.navigation}
-					onClose={() => setSearchOpen(false)}
-					onInterceptBack={interceptSearchBack}
-					onNavigate={(href) => void navigate({ href })}
-					onAsk={(text) => {
-						setSearchOpen(false);
-						assistantPanel.ask(text);
-					}}
-				/>
-			)}
+			<CommandCenter
+				scope={scope}
+				open={searchOpen}
+				catalog={catalog}
+				runtime={runtime}
+				navigation={props.navigation}
+				onClose={() => setSearchOpen(false)}
+				onNavigate={(href) => void navigate({ href })}
+				onAsk={(text) => {
+					setSearchOpen(false);
+					assistantPanel.ask(text);
+				}}
+			/>
 		</div>
 	);
 }

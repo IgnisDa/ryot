@@ -29,6 +29,7 @@ import { activeDurationSeconds } from "./timers";
 
 export function ConfirmDialog(props: {
 	readonly title: Text;
+	readonly open?: boolean;
 	readonly description: Text;
 	readonly cancelLabel: Text;
 	readonly disabled?: boolean;
@@ -39,9 +40,11 @@ export function ConfirmDialog(props: {
 	return (
 		<Dialog
 			size="sm"
+			kind="alert"
 			closeIcon={null}
 			title={props.title}
 			onClose={props.onClose}
+			open={props.open ?? true}
 			closeLabel={props.cancelLabel}
 			description={props.description}
 			footer={

@@ -730,16 +730,16 @@ describe("SchemaForm", () => {
 					/>,
 				);
 				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Source: alpha" })),
+					yield* Effect.promise(() => screen.findByRole("combobox", { name: "Source: alpha" })),
 				);
-				fireEvent.change(screen.getByRole("textbox", { name: "Search Source" }), {
+				fireEvent.change(screen.getByRole("combobox", { name: "Search Source" }), {
 					target: { value: "iot" },
 				});
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.queryByRole("radio", { name: "beta" })).toBeNull()),
+					waitFor(() => expect(screen.queryByRole("option", { name: "beta" })).toBeNull()),
 				);
-				fireEvent.click(screen.getByRole("radio", { name: "iota" }));
-				expect(screen.getByRole("button", { name: "Source: iota" })).toBeTruthy();
+				fireEvent.click(screen.getByRole("option", { name: "iota" }));
+				expect(screen.getByRole("combobox", { name: "Source: iota" })).toBeTruthy();
 				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 				yield* Effect.promise(() => waitFor(() => expect(submitted).toEqual([{ source: "iota" }])));
 				fireEvent.click(screen.getByRole("button", { name: "Clear Source" }));
@@ -754,7 +754,7 @@ describe("SchemaForm", () => {
 	it("renders an enum-array as a multi-select trigger", () => {
 		render(<SchemaFormHarness schema={multiSelectSchema} onSubmit={() => undefined} />);
 
-		expect(screen.getByRole("button", { name: "Tags" })).toBeTruthy();
+		expect(screen.getByRole("combobox", { name: "Tags" })).toBeTruthy();
 	});
 
 	it.live(
@@ -771,16 +771,16 @@ describe("SchemaForm", () => {
 
 				fireEvent.click(
 					yield* Effect.promise(() =>
-						screen.findByRole("button", { name: "Timezone: Asia/Calcutta" }),
+						screen.findByRole("combobox", { name: "Timezone: Asia/Calcutta" }),
 					),
 				);
-				fireEvent.change(screen.getByRole("textbox", { name: "Search Timezone" }), {
+				fireEvent.change(screen.getByRole("combobox", { name: "Search Timezone" }), {
 					target: { value: "tokyo" },
 				});
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.queryByRole("radio", { name: "Europe/Paris" })).toBeNull()),
+					waitFor(() => expect(screen.queryByRole("option", { name: "Europe/Paris" })).toBeNull()),
 				);
-				fireEvent.click(screen.getByRole("radio", { name: "Asia/Tokyo" }));
+				fireEvent.click(screen.getByRole("option", { name: "Asia/Tokyo" }));
 				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
 				yield* Effect.promise(() =>
@@ -824,9 +824,11 @@ describe("SchemaForm", () => {
 				);
 				expect(submitted).toEqual([]);
 				fireEvent.click(
-					screen.getByRole("button", { name: "Start at occurrence: Choose an occurrence" }),
+					screen.getByRole("combobox", { name: "Start at occurrence: Choose an occurrence" }),
 				);
-				fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+				const second = screen.getByRole("option", { name: "Second occurrence (UTC-05:00)" });
+				fireEvent.pointerDown(second, { pointerType: "mouse" });
+				fireEvent.click(second);
 				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 				yield* Effect.promise(() =>
 					waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),

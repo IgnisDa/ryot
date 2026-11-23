@@ -6,7 +6,7 @@ import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { PluginArchiveWizard } from "#/modules/plugins/management/archive-wizard";
 import {
@@ -41,22 +41,11 @@ const feedbackTarget = (action: PluginManagementAction) =>
 
 function PluginManagement() {
 	const t = useT();
-	const { backInterceptors } = Route.useRouteContext();
 	const query = useRyotQuery(pluginManagementQuery, undefined);
 	const mutation = useRyotMutation(pluginManagementMutation);
 	const [feedback, setFeedback] = useState<PluginManagementFeedback>();
 	const [archive, setArchive] = useState<{ readonly installation?: ManagedPluginInstallation }>();
 	const isArchiveOpen = archive !== undefined;
-
-	useEffect(() => {
-		if (!isArchiveOpen) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			setArchive(undefined);
-			return true;
-		});
-	}, [backInterceptors, isArchiveOpen]);
 
 	const run = (action: PluginManagementAction) => {
 		setFeedback(undefined);

@@ -142,11 +142,11 @@ const replyRequests = (
 const choose = (label: string, selected: string, option: string) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() =>
-			act(() => fireEvent.click(screen.getByRole("button", { name: `${label}: ${selected}` }))),
+			act(() => fireEvent.click(screen.getByRole("combobox", { name: `${label}: ${selected}` }))),
 		);
-		yield* Effect.promise(() =>
-			act(() => fireEvent.click(screen.getByRole("menuitemradio", { name: option }))),
-		);
+		const row = screen.getByRole("option", { name: option });
+		fireEvent.pointerDown(row, { pointerType: "mouse" });
+		yield* Effect.promise(() => act(() => fireEvent.click(row)));
 	});
 
 const tableToggles = () => screen.getAllByRole("radio", { name: "Table" });

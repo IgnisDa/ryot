@@ -1,13 +1,10 @@
 import { expect } from "bun:test";
 
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-
-import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 
 import { mountReminderTestScreen } from "./reminder-screen.test-support";
 import { useReminderScreen } from "./screens";
@@ -37,13 +34,9 @@ it.live(
 	"Back closes the reminder editor before the manager and returns cancelled",
 	() =>
 		Effect.gen(function* () {
-			const backInterceptors = createBackInterceptors();
 			const outcomes: Array<unknown> = [];
-			const view = mountReminderTestScreen(
-				<OverlayBackProvider adapter={backInterceptors}>
-					<Harness outcomes={outcomes} />
-				</OverlayBackProvider>,
-			);
+			const view = mountReminderTestScreen(<Harness outcomes={outcomes} />);
+			const { backInterceptors } = view;
 			yield* Effect.addFinalizer(() => Effect.promise(view.dispose));
 
 			fireEvent.click(

@@ -107,7 +107,7 @@ describe("SetSheet", () => {
 				click(screen.getByRole("button", { name: "Delete set" }));
 
 				expect(deleted).toEqual(["set"]);
-				expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull();
+				expect(screen.queryByRole("alertdialog", { name: "Delete completed set?" })).toBeNull();
 			}),
 		testTimeout,
 	);
@@ -121,7 +121,7 @@ describe("SetSheet", () => {
 
 				click(screen.getByRole("button", { name: "Delete set" }));
 
-				const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
+				const confirmation = screen.getByRole("alertdialog", { name: "Delete completed set?" });
 				expect(
 					within(confirmation).getByText(
 						"This completed set will be removed. This action cannot be undone.",
@@ -132,7 +132,7 @@ describe("SetSheet", () => {
 				expect(deleted).toEqual([]);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull(),
+						expect(screen.queryByRole("alertdialog", { name: "Delete completed set?" })).toBeNull(),
 					),
 				);
 			}),
@@ -149,7 +149,7 @@ describe("SetSheet", () => {
 				);
 				click(screen.getByRole("button", { name: "Delete set" }));
 
-				const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
+				const confirmation = screen.getByRole("alertdialog", { name: "Delete completed set?" });
 				const confirm = within(confirmation).getByRole("button", { name: "Delete set" });
 
 				render(propsFor(makeSet(false), { onDelete: () => deleted.push("not-included") }));
