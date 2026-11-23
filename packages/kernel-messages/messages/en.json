@@ -430,17 +430,11 @@
 	"client.background-submissions.reload-may-have-saved": "It may have been saved. Reload to see the latest version.",
 	"client.background-submissions.reload-not-saved": "It was not saved. Reload, then try again.",
 	"client.background-submissions.retry-may-have-saved": "It may have been saved. Retrying won't save it twice.",
-	"client.background-submissions.retry-to-finish": "Retry to finish.",
-	"client.background-submissions.saved-so-far": {
-		"message": "{count, number} saved so far. Retry to finish.",
-		"description": "{count} is how many items were saved before the submission stopped."
-	},
 	"client.background-submissions.status.app-updated": "Ryot was updated",
 	"client.background-submissions.status.changed": "Changed elsewhere, not saved",
 	"client.background-submissions.status.malformed-result": "Unexpected server response",
 	"client.background-submissions.status.not-saved": "Not saved",
 	"client.background-submissions.status.page-write-access-required": "Page write access is required",
-	"client.background-submissions.status.partly-saved": "Partly saved",
 	"client.background-submissions.status.saved": "Saved",
 	"client.background-submissions.status.transport": "Couldn't confirm it was saved",
 	"client.background-submissions.tray-label": "Background activity",

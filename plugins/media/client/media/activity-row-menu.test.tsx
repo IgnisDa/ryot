@@ -139,7 +139,7 @@ describe("activity row menu", () => {
 				yield* eventually(() =>
 					expect(queryByRole(document.body, "dialog", { name: "Delete 3 records?" })).toBeNull(),
 				);
-				background.settle("submission-1", { status: "incomplete" });
+				background.settle("submission-1", { status: "failed", reason: "transport" });
 				expect(queryByRole(document.body, "dialog")).toBeNull();
 			}),
 		testTimeout,

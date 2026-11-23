@@ -98,7 +98,6 @@ export type BackgroundSubmissionFailureClass = Schema.Schema.Type<
 
 export const BackgroundSubmissionOutcome = Schema.Union([
 	strictStruct({ status: Schema.Literal("succeeded") }),
-	strictStruct({ status: Schema.Literal("incomplete") }),
 	strictStruct({
 		status: Schema.Literal("failed"),
 		reason: Schema.Literals([

@@ -320,25 +320,24 @@ Backend batch traversal remains separate from user-driven pagination.
 
 ## Retryable Submissions
 
-`useRyotSubmission(mutation, { isComplete, createId })` composes an existing mutation whose input is
+`useRyotSubmission(mutation, { createId })` composes an existing mutation whose input is
 `RyotSubmission<Input>` (`submissionId`, `submittedAt`, and `input`). It captures and freezes a structured-cloneable
 plain-data input on `submit`, blocks another submission immediately, and retains the same snapshot
-and ID (`status: "retained"`) only when the write's outcome is unknown, or when a successful result
-fails the completion predicate. `retry` resends that snapshot. A `RyotClientError` with reason
+and ID (`status: "retained"`) only when the write's outcome is unknown. `retry` resends that snapshot. A `RyotClientError` with reason
 `transport`, `protocol`, `disposed`, or `malformed-result`, and any other error, leaves the outcome
 unknown because the request may have been applied. Every other `RyotClientError` reason is a definite
 failure: the write was not applied, so the submission settles `idle` and `error` stays set until
 `reset`. Callers show the failure and start a fresh submission instead of retrying the same one;
 they do not catch definite failures into success values. `abandon` releases retained work, but
-cannot interrupt pending writes or undo committed writes. The default completion predicate accepts
-successful results; domain callers provide a predicate for partial outcomes. IDs default to UUIDs;
+cannot interrupt pending writes or undo committed writes. A successful result settles the submission
+`idle`. IDs default to UUIDs;
 tests can inject their generator. The submission timestamp uses the SDK clock and is retained
 across retries.
 
 The helper provides no server durability, automatic retries, or persistence. Use it only where the
 owning backend write enforces retry safety and the caller needs the result; other tracking writes
-use [background submissions](#background-submissions). Fields, recovery messages, and whether an
-incomplete submission can be abandoned remain caller-owned.
+use [background submissions](#background-submissions). Fields, recovery messages, and whether a
+retained submission can be abandoned remain caller-owned.
 
 ## Background Submissions
 

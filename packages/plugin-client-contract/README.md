@@ -78,7 +78,7 @@ by demo protection as `operation-rejected` with its own message.
 namespace and renders in the tray. It never carries a content hash, action, URL, or icon. The reply
 `background-operation-accepted` returns a kernel `submissionId` or fails with `transport`,
 `operation-failed`, or `malformed-result`. Later, `background-operation-settled` reports that
-submission's outcome: `succeeded`, `incomplete`, or `failed` with `transport`, `operation-failed`,
+submission's outcome: `succeeded` or `failed` with `transport`, `operation-failed`,
 `malformed-result`, `app-updated`, `operation-rejected` plus its message, or `changes-conflict` plus
 its `CommitConflictCode`. It never carries the
 operation result. `BACKGROUND_SUBMISSION_LIMITS` (8 in flight per kernel service, 4 per bridge

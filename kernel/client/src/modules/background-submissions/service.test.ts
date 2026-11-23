@@ -316,33 +316,23 @@ describe("background submission tray", () => {
 	);
 
 	it.effect(
-		"shows incomplete with a count and retries with the same input and key",
+		"offers Retry for an unconfirmed submission and resends the same input and key",
 		() =>
 			Effect.gen(function* () {
 				const test = harness();
-				const settled: BackgroundSubmissionOutcome[] = [];
 				const tray = yield* openTray(test);
-				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
 				yield* drain;
-				yield* reply(
-					test,
-					0,
-				)({
-					outcome: "success",
-					committed: { events: [] },
-					value: { count: 100, status: "incomplete" },
-				});
+				yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
 				const [entry] = tray.getSnapshot().entries;
-				expect(entry.state).toEqual({ count: 100, status: "incomplete" });
-				expect(settled).toEqual([{ status: "incomplete" }]);
 				const presented = present(tray, entry);
 				expect(presented).toMatchObject({
+					tone: "error",
 					source: "Media",
-					tone: "warning",
 					title: "Logged k1",
-					status: "Partly saved",
 					action: { label: "Retry" },
-					detail: "100 saved so far. Retry to finish.",
+					status: "Couldn't confirm it was saved",
+					detail: "It may have been saved. Retrying won't save it twice.",
 				});
 
 				presented.action?.onClick();

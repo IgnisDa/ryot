@@ -61,8 +61,7 @@ type BackgroundSubmissionSnapshot = {
 type BackgroundSubmissionState =
 	| { readonly status: "pending" }
 	| { readonly status: "succeeded" }
-	| Extract<BackgroundSubmissionOutcome, { readonly status: "failed" }>
-	| { readonly status: "incomplete"; readonly count: number | undefined };
+	| Extract<BackgroundSubmissionOutcome, { readonly status: "failed" }>;
 
 type SubmissionRecord = {
 	reserved: boolean;
@@ -81,8 +80,7 @@ const retryableReasons: ReadonlySet<BackgroundSubmissionFailureClass> =
 	new Set<BackgroundSubmissionFailureClass>(["transport", "malformed-result"]);
 
 export const isRetryable = (state: BackgroundSubmissionState) =>
-	state.status === "incomplete" ||
-	(state.status === "failed" && retryableReasons.has(state.reason));
+	state.status === "failed" && retryableReasons.has(state.reason);
 
 export const resolveBackgroundSubmissionTarget = (
 	identity: Pick<PreparedClientPage["identity"], "contributors" | "operationTargets">,
@@ -103,9 +101,6 @@ export const resolveBackgroundSubmissionTarget = (
 		: { ...target, pluginName: plugin.name };
 };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const settledState = (outcome: PluginOperationDispatchOutcome): BackgroundSubmissionState => {
 	if (outcome.outcome === "stale-session") {
 		return { status: "failed", reason: "app-updated" };
@@ -113,13 +108,6 @@ const settledState = (outcome: PluginOperationDispatchOutcome): BackgroundSubmis
 	if (outcome.outcome === "failure") {
 		const { outcome: _failure, ...failure } = outcome;
 		return { ...failure, status: "failed" };
-	}
-	if (isRecord(outcome.value) && outcome.value.status === "incomplete") {
-		const { count } = outcome.value;
-		return {
-			status: "incomplete",
-			count: typeof count === "number" && Number.isFinite(count) ? count : undefined,
-		};
 	}
 	return { status: "succeeded" };
 };
@@ -150,8 +138,7 @@ const failureStatus = {
 const settledStatus = {
 	pending: kernelMessage("common.status.saving"),
 	succeeded: kernelMessage("client.background-submissions.status.saved"),
-	incomplete: kernelMessage("client.background-submissions.status.partly-saved"),
-} as const satisfies Record<"pending" | "succeeded" | "incomplete", Message>;
+} as const satisfies Record<"pending" | "succeeded", Message>;
 
 export const backgroundSubmissionStatus = ({ state }: BackgroundSubmissionEntry): Message =>
 	state.status === "failed" ? failureStatus[state.reason] : settledStatus[state.status];
@@ -282,10 +269,8 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 							/* Delivery to a departed document is best effort. */
 						}
 					}
-					if (state.status === "succeeded" || state.status === "incomplete") {
-						options.onSucceeded();
-					}
 					if (state.status === "succeeded") {
+						options.onSucceeded();
 						schedule(SUCCESS_DISMISS_MS, () => {
 							if (records.get(record.id)?.state.status === "succeeded") {
 								records.delete(record.id);

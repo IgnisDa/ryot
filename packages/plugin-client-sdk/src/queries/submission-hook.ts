@@ -22,7 +22,7 @@ const isOutcomeUnknown = (cause: Cause.Cause<unknown>) => {
 
 export const useRyotSubmission = <Input, Data, Failure extends Error>(
 	definition: RyotMutation<RyotSubmission<Input>, Data, Failure>,
-	options?: { readonly createId?: () => string; readonly isComplete?: (data: Data) => boolean },
+	options?: { readonly createId?: () => string },
 ) => {
 	const schedule = useRyotSchedule();
 	const [controller] = useState(() =>
@@ -38,11 +38,7 @@ export const useRyotSubmission = <Input, Data, Failure extends Error>(
 			Effect.andThen(Effect.yieldNow, mutation.mutateEffect(submission)).pipe(
 				Effect.onExit((exit) =>
 					Effect.sync(() =>
-						controller.settle(
-							Exit.isSuccess(exit)
-								? (options?.isComplete?.(exit.value) ?? true)
-								: !isOutcomeUnknown(exit.cause),
-						),
+						controller.settle(Exit.isSuccess(exit) || !isOutcomeUnknown(exit.cause)),
 					),
 				),
 				Effect.catchCause(() => Effect.void),

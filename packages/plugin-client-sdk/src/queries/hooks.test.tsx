@@ -255,23 +255,21 @@ describe("Effect-native React definitions", () => {
 		testTimeout,
 	);
 	it.live(
-		"retains a submission through transport and incomplete results before accepting a new one",
+		"retains a submission through an unknown transport outcome before accepting a new one",
 		() =>
 			Effect.gen(function* () {
 				const attempts: RyotSubmission<{ value: number }>[] = [];
 				let identity = 0;
-				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, boolean>(
-					({ input }) =>
-						Effect.suspend(() => {
-							attempts.push(input);
-							return attempts.length === 1
-								? Effect.fail(new RyotClientError({ reason: "transport" }))
-								: Effect.succeed(attempts.length >= 3);
-						}),
+				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, null>(({ input }) =>
+					Effect.suspend(() => {
+						attempts.push(input);
+						return attempts.length === 1
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
+							: Effect.succeed(null);
+					}),
 				);
 				const View = () => {
 					const submission = useRyotSubmission(mutation, {
-						isComplete: (complete) => complete,
 						createId: () => `submission-${++identity}`,
 					});
 					return (
@@ -297,26 +295,19 @@ describe("Effect-native React definitions", () => {
 				expect(attempts).toHaveLength(1);
 				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
 				yield* Effect.promise(() =>
-					waitFor(() => {
-						expect(attempts).toHaveLength(2);
-						expect(container.querySelector("p")?.textContent).toBe("retained");
-					}),
-				);
-				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
-				yield* Effect.promise(() =>
 					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("idle")),
 				);
 				const submittedAt = attempts[0]?.submittedAt;
 				expect(attempts).toEqual<unknown>(
-					Array.from({ length: 3 }, () => ({
+					Array.from({ length: 2 }, () => ({
 						submittedAt,
 						input: { value: 0 },
 						submissionId: "submission-1",
 					})),
 				);
 				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
-				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(4)));
-				expect(attempts[3]?.submissionId).toBe("submission-2");
+				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(3)));
+				expect(attempts[2]?.submissionId).toBe("submission-2");
 			}),
 		testTimeout,
 	);
