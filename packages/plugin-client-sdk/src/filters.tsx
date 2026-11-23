@@ -95,10 +95,10 @@ export function ViewFiltersSheet({
 	const t = useT();
 	return (
 		<Modal
+			{...(compact ? { kind: "drawer", placement: "sheet" } : { kind: "dialog" })}
 			label={title}
 			onClose={onClose}
 			triggerRef={triggerRef}
-			placement={compact ? "sheet" : "center"}
 			containerClassName={compact ? "items-end justify-center" : "items-center justify-center p-4"}
 			className={
 				compact

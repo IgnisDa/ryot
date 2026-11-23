@@ -40,6 +40,7 @@ function NestedOverlays(props: {
 			</button>
 			<Modal
 				open={outer}
+				kind="drawer"
 				placement="sheet"
 				triggerRef={trigger}
 				label={testText("Editor")}

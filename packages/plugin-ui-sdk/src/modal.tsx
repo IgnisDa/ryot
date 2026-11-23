@@ -11,7 +11,21 @@ import { AppIcon } from "./icon";
 import { ReportProvider } from "./report";
 import { dismissTopOverlay, ShortcutScopeContext, useOverlayScope } from "./shortcut";
 
-type ModalProps = {
+type ModalPlacement =
+	| {
+			readonly kind: "drawer";
+			readonly onSwipeOpen?: () => void;
+			readonly swipeArea?: ReactElement;
+			readonly placement: "left" | "sheet";
+	  }
+	| {
+			readonly swipeArea?: never;
+			readonly onSwipeOpen?: never;
+			readonly kind?: "alert" | "dialog";
+			readonly placement?: "side" | "center";
+	  };
+
+type ModalProps = ModalPlacement & {
 	readonly id?: string;
 	readonly label?: Text;
 	readonly open?: boolean;
@@ -21,12 +35,8 @@ type ModalProps = {
 	readonly onClose: () => void;
 	readonly dismissible?: boolean;
 	readonly backEnabled?: boolean;
-	readonly onSwipeOpen?: () => void;
-	readonly swipeArea?: ReactElement;
-	readonly kind?: "alert" | "dialog";
 	readonly containerClassName?: string;
 	readonly onClosed?: undefined | (() => void);
-	readonly placement?: "left" | "side" | "sheet" | "center";
 	readonly triggerRef?: undefined | RefObject<null | HTMLElement>;
 	readonly initialFocusRef?: undefined | RefObject<null | HTMLElement>;
 };
@@ -65,10 +75,8 @@ export function ModalClose(props: {
 
 export function Modal({
 	open = true,
-	kind = "dialog",
 	backEnabled = true,
 	dismissible = true,
-	placement = "center",
 	...props
 }: ModalProps) {
 	const requestClose = () => {
@@ -126,7 +134,8 @@ export function Modal({
 		</ReportProvider>
 	);
 
-	if (placement === "sheet" || placement === "left") {
+	if (props.kind === "drawer") {
+		const { placement } = props;
 		return (
 			<Drawer.Root {...root} swipeDirection={placement === "left" ? "left" : "down"}>
 				{props.swipeArea !== undefined && <Drawer.SwipeArea render={props.swipeArea} />}
@@ -156,7 +165,7 @@ export function Modal({
 		);
 	}
 
-	const Surface = kind === "alert" ? AlertDialog : Dialog;
+	const Surface = props.kind === "alert" ? AlertDialog : Dialog;
 	return (
 		<Surface.Root {...root}>
 			<Surface.Portal>
@@ -166,7 +175,7 @@ export function Modal({
 						{...popup}
 						className={clsx(
 							popupClassName,
-							dialogOffset[placement],
+							dialogOffset[props.placement ?? "center"],
 							"data-ending-style:opacity-0 data-starting-style:opacity-0",
 							props.className,
 						)}

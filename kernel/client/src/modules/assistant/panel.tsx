@@ -96,6 +96,7 @@ export function AssistantPanel(props: {
 	if (props.compact) {
 		return (
 			<Modal
+				kind="drawer"
 				placement="sheet"
 				onClose={panel.close}
 				label={ASSISTANT_NAME}

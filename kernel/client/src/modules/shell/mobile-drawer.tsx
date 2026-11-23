@@ -69,6 +69,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 
 	return (
 		<Modal
+			kind="drawer"
 			onClose={close}
 			placement="left"
 			open={props.isOpen}

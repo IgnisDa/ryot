@@ -20,31 +20,38 @@ const panelClasses = {
 	center: "max-h-[min(90%,48rem)] rounded-xl",
 } as const;
 
-export function Dialog(props: {
-	readonly title: Text;
-	readonly open?: boolean;
-	readonly closeLabel: Text;
-	readonly footer?: ReactNode;
-	readonly onClose: () => void;
-	readonly children?: ReactNode;
-	readonly closeIcon?: ReactNode;
-	readonly dismissible?: boolean;
-	readonly description?: ReactNode;
-	readonly safeAreaBottom?: number;
-	readonly kind?: "alert" | "dialog";
-	readonly size?: keyof typeof sizeClasses;
-	readonly placement?: "side" | "sheet" | "center";
-	readonly triggerRef?: RefObject<null | HTMLElement>;
-	readonly initialFocusRef?: RefObject<null | HTMLElement>;
-}) {
+type DialogPlacement =
+	| { readonly kind: "alert"; readonly placement?: "side" | "center" }
+	| { readonly kind?: "dialog"; readonly placement?: "side" | "sheet" | "center" };
+
+export function Dialog(
+	props: DialogPlacement & {
+		readonly title: Text;
+		readonly open?: boolean;
+		readonly closeLabel: Text;
+		readonly footer?: ReactNode;
+		readonly onClose: () => void;
+		readonly children?: ReactNode;
+		readonly closeIcon?: ReactNode;
+		readonly dismissible?: boolean;
+		readonly description?: ReactNode;
+		readonly safeAreaBottom?: number;
+		readonly size?: keyof typeof sizeClasses;
+		readonly onClosed?: undefined | (() => void);
+		readonly triggerRef?: RefObject<null | HTMLElement>;
+		readonly initialFocusRef?: RefObject<null | HTMLElement>;
+	},
+) {
 	const placement = props.placement ?? "center";
 	const Content = placement === "sheet" ? Drawer.Content : "div";
 	return (
 		<Modal
-			placement={placement}
+			{...(placement === "sheet"
+				? { placement, kind: "drawer" }
+				: { placement, kind: props.kind ?? "dialog" })}
 			onClose={props.onClose}
+			onClosed={props.onClosed}
 			open={props.open ?? true}
-			kind={props.kind ?? "dialog"}
 			triggerRef={props.triggerRef}
 			dismissible={props.dismissible ?? true}
 			initialFocusRef={props.initialFocusRef}
