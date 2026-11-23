@@ -319,8 +319,8 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* waitForSearchParam(page, null);
 
 		yield* runtime.getByRole("button", { name: /Filters/ }).click();
-		yield* runtime.getByRole("button", { name: "Sort by: Default order" }).click();
-		yield* runtime.getByRole("radio", { exact: true, name: "Name" }).click();
+		yield* runtime.getByRole("combobox", { name: "Sort by: Default order" }).click();
+		yield* runtime.getByRole("option", { exact: true, name: "Name" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
 		yield* runtime.getByRole("button", { name: "Sort direction: A–Z" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
@@ -528,8 +528,8 @@ it.live(
 
 			const filtersDialog = runtime.getByRole("dialog", { exact: true, name: "Filters" });
 			yield* runtime.getByRole("button", { name: /^Filters/ }).click();
-			yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
-			yield* runtime.getByRole("radio", { exact: true, name: "Note" }).click();
+			yield* filtersDialog.getByRole("combobox", { name: /^Add filter/ }).click();
+			yield* runtime.getByRole("option", { exact: true, name: "Note" }).click();
 			yield* filtersDialog.getByRole("textbox", { name: "Note value" }).fill("Second");
 			yield* page.keyboard.press("Escape");
 			yield* filtersDialog.waitFor({ state: "hidden" });

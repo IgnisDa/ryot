@@ -308,13 +308,10 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 
 		yield* body.click();
 		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
-		const sidebar = page.getByTestId("desktop-sidebar");
-		const workspaces = sidebar.getByRole("menu", { name: "Workspaces" });
+		const workspaces = page.getByRole("menu", { name: "Workspaces" });
 		yield* workspaces.waitFor({ state: "visible" });
 		const currentWorkspace = workspaces.getByRole("menuitemradio", { checked: true });
-		expect(yield* currentWorkspace.evaluate((element) => document.activeElement === element)).toBe(
-			true,
-		);
+		yield* currentWorkspace.waitForFunction((element) => document.activeElement === element);
 		yield* page.keyboard.press("Escape");
 		yield* workspaces.waitFor({ state: "hidden" });
 		expect(yield* frame.evaluate((element, initial) => element === initial, iframe)).toBe(true);

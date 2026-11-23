@@ -83,7 +83,11 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const { page, frame, fixture, section } = yield* openFitnessAnalytics;
-			const summary = frame.getByRole("region", { exact: true, name: "Fitness analytics summary" });
+			const summary = frame.getByRole("region", {
+				exact: true,
+				includeHidden: true,
+				name: "Fitness analytics summary",
+			});
 			yield* summary.waitFor({ state: "visible" });
 			const initialSummary = yield* summary.innerText();
 			expect(yield* termDefinition(summary, "Measurement entries").innerText()).toMatch(
@@ -199,12 +203,12 @@ it.live(
 				})
 				.click();
 			yield* dialog.waitFor({ state: "hidden" });
-			yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-			yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
+			yield* frame.getByRole("combobox", { exact: true, name: "Group by: Day" }).click();
+			yield* frame.getByRole("option", { exact: true, name: "Week" }).click();
 			const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
 			yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
 			yield* dialog.waitFor({ state: "hidden" });
-			yield* frame.getByRole("button", { exact: true, name: "Group by: Week" }).waitFor();
+			yield* frame.getByRole("combobox", { exact: true, name: "Group by: Week" }).waitFor();
 			expect(yield* summary.innerText()).toBe(initialSummary);
 			yield* goToRankingsWithKeyboard(frame);
 			yield* exercises.getByRole("radio", { exact: true, name: "Exercises" }).click();
@@ -218,7 +222,7 @@ it.live(
 				hasAnalyticsLocation(url, fixture.reportingSelection, section),
 			);
 			yield* dialog.waitFor({ state: "hidden" });
-			yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).waitFor();
+			yield* frame.getByRole("combobox", { exact: true, name: "Group by: Day" }).waitFor();
 			expect(yield* summary.innerText()).toBe(initialSummary);
 			yield* goToRankingsWithKeyboard(frame);
 			yield* exercises.getByRole("radio", { exact: true, name: "Exercises" }).click();

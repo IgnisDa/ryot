@@ -18,7 +18,7 @@ it.live("initializes an existing account from its first signed-in browser", () =
 		const page = yield* browser.newPage({ locale: "en-GB" });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
-		yield* page.getByRole("button", { name: "Interface language: British English" }).waitFor();
+		yield* page.getByRole("combobox", { name: "Interface language: British English" }).waitFor();
 		expect((yield* getUserSettings(client)).preferences.interfaceLocale).toBe("en-GB");
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -51,10 +51,10 @@ it.live("keeps account locale and reporting zone across devices", () =>
 		yield* firstZone.waitFor({ state: "visible" });
 		expect(yield* firstZone.inputValue()).toBe("America/New_York");
 		yield* firstPage
-			.getByRole("button", { name: "Interface language: Australian English" })
+			.getByRole("combobox", { name: "Interface language: Australian English" })
 			.waitFor();
 		yield* firstPage
-			.getByRole("button", { name: "First day of the week: Language default (Monday)" })
+			.getByRole("combobox", { name: "First day of the week: Language default (Monday)" })
 			.waitFor();
 		yield* firstZone.fill("Asia/Kolkata");
 		yield* firstPage.getByRole("button", { name: "Save changes" }).click();
@@ -73,16 +73,16 @@ it.live("keeps account locale and reporting zone across devices", () =>
 		expect(yield* secondZone.inputValue()).toBe("Asia/Kolkata");
 
 		yield* secondPage
-			.getByRole("button", { name: "Interface language: Australian English" })
+			.getByRole("combobox", { name: "Interface language: Australian English" })
 			.click();
-		yield* secondPage.getByRole("radio", { name: "Use device locale" }).click();
+		yield* secondPage.getByRole("option", { name: "Use device locale" }).click();
 		yield* secondPage.getByRole("button", { name: "Save changes" }).click();
 		yield* secondPage.getByText("Preferences saved.", { exact: true }).waitFor();
 		yield* secondPage
-			.getByRole("button", { name: "Interface language: American English" })
+			.getByRole("combobox", { name: "Interface language: American English" })
 			.waitFor();
 		yield* secondPage
-			.getByRole("button", { name: "First day of the week: Language default (Sunday)" })
+			.getByRole("combobox", { name: "First day of the week: Language default (Sunday)" })
 			.waitFor();
 
 		yield* secondZone.fill("Not/AZone");

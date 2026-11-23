@@ -88,7 +88,10 @@ it.live("cancels then confirms media-data removal while preserving metadata", ()
 		yield* media.getByText("83 / 100", { exact: true }).waitFor({ state: "visible" });
 
 		yield* clickYourDataAction(media, "Remove from library");
-		const cancelled = media.getByRole("dialog", { exact: true, name: "Remove your media data?" });
+		const cancelled = media.getByRole("alertdialog", {
+			exact: true,
+			name: "Remove your media data?",
+		});
 		yield* cancelled.getByRole("button", { exact: true, name: "Cancel" }).click();
 		yield* cancelled.waitFor({ state: "hidden" });
 		expect(yield* listEventsForEntity(client, seeded.movie.id, undefined, 100)).toEqual(
@@ -97,7 +100,7 @@ it.live("cancels then confirms media-data removal while preserving metadata", ()
 		expect(yield* mediaLibraryRows(client, seeded.movie.id, seeded.schemaSlug)).toHaveLength(1);
 
 		yield* clickYourDataAction(media, "Remove from library");
-		const confirmation = media.getByRole("dialog", {
+		const confirmation = media.getByRole("alertdialog", {
 			exact: true,
 			name: "Remove your media data?",
 		});
@@ -148,7 +151,10 @@ it.live("merges data through the same-schema entity picker and opens the destina
 		const picker = page.getByRole("dialog", { exact: true, name: "Choose Movie" });
 		yield* picker.getByLabel("Search", { exact: true }).fill(target.movie.name);
 		yield* picker.getByRole("button", { exact: true, name: target.movie.name }).click();
-		const confirmation = media.getByRole("dialog", { exact: true, name: "Merge your media data?" });
+		const confirmation = media.getByRole("alertdialog", {
+			exact: true,
+			name: "Merge your media data?",
+		});
 		yield* confirmation.getByRole("button", { exact: true, name: "Merge data" }).click();
 		yield* page.waitForURL(`${getFrontendUrl()}/e/${target.movie.id}`);
 		const targetMedia = mediaPluginFrame(page).contentFrame();
@@ -220,7 +226,10 @@ it.live("keeps an episodic mapping conflict visible without changing either show
 		const picker = page.getByRole("dialog", { exact: true, name: "Choose Show" });
 		yield* picker.getByLabel("Search", { exact: true }).fill(target.show.name);
 		yield* picker.getByRole("button", { exact: true, name: target.show.name }).click();
-		const confirmation = media.getByRole("dialog", { exact: true, name: "Merge your media data?" });
+		const confirmation = media.getByRole("alertdialog", {
+			exact: true,
+			name: "Merge your media data?",
+		});
 		yield* confirmation.getByRole("button", { exact: true, name: "Merge data" }).click();
 		yield* confirmation.getByRole("alert").waitFor({ state: "visible" });
 		expect(

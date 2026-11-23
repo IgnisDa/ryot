@@ -39,7 +39,7 @@ export const discardDraft = (frame: Playwright.FrameLocator) =>
 	Effect.gen(function* () {
 		yield* frame.getByRole("button", { exact: true, name: "Discard workout" }).click();
 		yield* frame
-			.getByRole("dialog", { exact: true, name: "Discard workout?" })
+			.getByRole("alertdialog", { exact: true, name: "Discard workout?" })
 			.getByRole("button", { exact: true, name: "Discard workout" })
 			.click();
 	});

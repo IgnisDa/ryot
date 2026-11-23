@@ -35,7 +35,7 @@ it.live("adds a workout template to a collection and confirms permanent deletion
 		yield* manager.waitFor({ state: "hidden" });
 		yield* more.click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Delete template" }).click();
-		const deletion = frame.getByRole("dialog", { exact: true, name: "Delete template?" });
+		const deletion = frame.getByRole("alertdialog", { exact: true, name: "Delete template?" });
 		yield* deletion.getByRole("button", { exact: true, name: "Delete template" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/v/p/ryot/fitness/all-workout-templates");
 	}).pipe(PlaywrightSpawner.withBrowser),

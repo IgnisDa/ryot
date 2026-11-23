@@ -166,7 +166,7 @@ it.live("starts, follows and deletes an import from settings", () =>
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete record" }).click();
-			const confirmation = page.getByRole("dialog");
+			const confirmation = page.getByRole("alertdialog", { name: "Delete this import record?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByRole("button", { name: "Delete record" }).click();
 
@@ -243,7 +243,7 @@ it.live("requires confirmation, cancels, and deletes a slow import", () =>
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Cancel import" }).click();
-			const confirmation = page.getByRole("dialog", { name: "Cancel this import?" });
+			const confirmation = page.getByRole("alertdialog", { name: "Cancel this import?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByText(/Items already added stay in your library/).waitFor();
 			const action = confirmation.getByRole("button", { name: "Cancel import" });
@@ -265,7 +265,7 @@ it.live("requires confirmation, cancels, and deletes a slow import", () =>
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete record" }).click();
-			const deletion = page.getByRole("dialog", { name: "Delete this import record?" });
+			const deletion = page.getByRole("alertdialog", { name: "Delete this import record?" });
 			yield* deletion.getByRole("button", { name: "Delete record" }).click();
 			yield* page.waitForURL((url) => url.pathname === "/settings/import-data");
 			const deleted = page.getByRole("link", { name: /Open the E2E import pinning import from/ });

@@ -117,7 +117,7 @@ it.live(
 			yield* owner.goto(`${getFrontendUrl()}/settings/pages`);
 			yield* owner.getByRole("button", { exact: true, name: `Manage ${name}` }).click();
 			yield* owner.getByRole("button", { exact: true, name: "Delete page" }).click();
-			const dialog = owner.getByRole("dialog", { name: "Delete this page?" });
+			const dialog = owner.getByRole("alertdialog", { name: "Delete this page?" });
 			yield* dialog.getByRole("button", { exact: true, name: "Delete page" }).click();
 			yield* dialog
 				.getByText(

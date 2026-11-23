@@ -202,10 +202,10 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			`${frontendUrl}/settings/plugin-preferences/${mediaInstallation.installationId}`,
 		);
 		yield* page
-			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.getByRole("combobox", { exact: true, name: "Viewing country: Automatic (browser region)" })
 			.click();
-		yield* page.getByRole("textbox", { name: "Search Viewing country" }).fill("United Kingdom");
-		yield* page.getByRole("radio", { exact: true, name: "United Kingdom" }).click();
+		yield* page.getByRole("combobox", { name: "Search Viewing country" }).fill("United Kingdom");
+		yield* page.getByRole("option", { exact: true, name: "United Kingdom" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
@@ -365,24 +365,21 @@ it.live("filters All Movies by status and rating and sorts them by rating", () =
 
 		const filters = view.getByRole("dialog", { exact: true, name: "Filters" });
 		yield* view.getByRole("button", { name: /^Filters/ }).click();
-		yield* filters.getByRole("button", { name: /^Add filter/ }).click();
-		yield* view.getByRole("radio", { exact: true, name: "Status" }).click();
-		yield* filters.getByRole("button", { exact: true, name: "Status values" }).click();
-		yield* view.getByRole("checkbox", { exact: true, name: "In progress" }).click();
-		yield* view
-			.getByRole("dialog", { exact: true, name: "Status values" })
-			.getByRole("button", { exact: true, name: "Close options" })
-			.click();
+		yield* filters.getByRole("combobox", { name: /^Add filter/ }).click();
+		yield* view.getByRole("option", { exact: true, name: "Status" }).click();
+		yield* filters.getByRole("combobox", { exact: true, name: "Status values" }).click();
+		yield* view.getByRole("option", { exact: true, name: "In progress" }).click();
+		yield* page.keyboard.press("Escape");
 		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "detached" });
 		yield* view.locator(`article[data-entity-id="${watching}"]`).waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([watching]);
 
 		yield* filters.getByRole("button", { exact: true, name: "Remove filter 1" }).click();
-		yield* view.getByRole("button", { name: /^Sort by/ }).click();
-		expect(
-			yield* view.getByRole("dialog", { exact: true, name: "Sort by" }).getByRole("radio").count,
-		).toBe(9);
-		yield* view.getByRole("radio", { exact: true, name: "Your rating" }).click();
+		yield* view.getByRole("combobox", { name: /^Sort by/ }).click();
+		const sortOptions = view.getByRole("listbox", { name: "Sort by" });
+		yield* sortOptions.waitFor({ state: "visible" });
+		expect(yield* sortOptions.getByRole("option").count).toBe(9);
+		yield* view.getByRole("option", { exact: true, name: "Your rating" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "userRating-desc");
 		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([finished, watching, planned]);

@@ -31,7 +31,16 @@ const WORKOUT_DETAILS = "Workout details";
 const startWorkoutFromList = (frame: Playwright.FrameLocator) =>
 	frame.locator('button[aria-keyshortcuts="A"]').filter({ hasText: "Start workout" });
 
-it.live("dismisses a workout overlay with an edge swipe without leaving the draft", () =>
+const swipeBack = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
+		yield* page.use((raw) => raw.mouse.move(8, 400));
+		yield* page.use((raw) => raw.mouse.down());
+		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
+		yield* page.use((raw) => raw.mouse.up());
+	});
+
+it.live("dismisses a menu before its workout sheet and preserves the draft on Back", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
 		const page = yield* (yield* Playwright.Browser).newPage();
@@ -47,11 +56,20 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = overlay(frame, "Add exercises");
 		yield* picker.waitFor({ state: "visible" });
-		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
-		yield* page.use((raw) => raw.mouse.move(8, 400));
-		yield* page.use((raw) => raw.mouse.down());
-		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
-		yield* page.use((raw) => raw.mouse.up());
+		const sort = picker.getByRole("button", { name: "Sort exercises" });
+		const menu = frame.getByRole("menu", { name: "Sort exercises" });
+		yield* sort.click();
+		yield* menu.waitFor({ state: "visible" });
+		yield* page.keyboard.press("Escape");
+		yield* menu.waitFor({ state: "hidden" });
+		yield* picker.waitFor({ state: "visible" });
+		yield* sort.waitForFunction((element) => element.ownerDocument.activeElement === element);
+		yield* sort.click();
+		yield* menu.waitFor({ state: "visible" });
+		yield* swipeBack(page);
+		yield* menu.waitFor({ state: "hidden" });
+		yield* picker.waitFor({ state: "visible" });
+		yield* swipeBack(page);
 		yield* picker.waitFor({ state: "hidden" });
 		yield* frame
 			.getByRole("button", { exact: true, name: "Edit workout details, Swipe recovery" })
@@ -158,7 +176,8 @@ it.live("retries a committed workout after a lost response and reload without du
 		const reorder = overlay(frame, "Reorder exercises");
 		yield* reorder.getByRole("button", { exact: true, name: `Reorder ${second}` }).press("ArrowUp");
 		yield* reorder.waitFor({ state: "hidden" });
-		yield* page.goto(`${getFrontendUrl()}/settings/import-data`);
+		yield* page.getByRole("link", { exact: true, name: "Open settings" }).click();
+		yield* page.waitForURL((url) => url.pathname === "/settings/preferences");
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
 		yield* draftHeading(frame, name).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();

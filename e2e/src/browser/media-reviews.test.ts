@@ -67,7 +67,7 @@ it.live("creates, edits and deletes a rating-only review from Movie detail", () 
 		yield* media.getByRole("button", { exact: true, name: "Record actions" }).click();
 		yield* media.getByRole("menuitem", { exact: true, name: "Delete" }).click();
 		yield* media
-			.getByRole("dialog", { name: "Delete this review?" })
+			.getByRole("alertdialog", { name: "Delete this review?" })
 			.getByRole("button", { exact: true, name: "Delete review" })
 			.click();
 		yield* media.getByText("82 / 100", { exact: true }).waitFor({ state: "hidden" });
@@ -98,8 +98,8 @@ it.live("enters and shows Media review ratings in the rating scale chosen in Set
 		yield* signInThroughHostedOAuth(page, email, password);
 
 		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
-		yield* page.getByRole("button", { name: "Rating scale: Out of 100" }).click();
-		yield* page.getByRole("radio", { exact: true, name: "Out of 10" }).click();
+		yield* page.getByRole("combobox", { name: "Rating scale: Out of 100" }).click();
+		yield* page.getByRole("option", { exact: true, name: "Out of 10" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Preferences saved.", { exact: true }).waitFor({ state: "visible" });
 
@@ -164,13 +164,10 @@ it.live(
 				.waitFor({ state: "visible" });
 			yield* media.getByRole("button", { exact: true, name: "Rate or review" }).click();
 			const create = media.getByRole("dialog", { name: "Rate or review" });
-			yield* create.getByRole("button", { name: "About: Not a specific time" }).click();
-			yield* media
-				.getByRole("dialog", { name: "About" })
-				.getByRole("radio", { name: /^Finished · / })
-				.click();
+			yield* create.getByRole("combobox", { name: "About: Not a specific time" }).click();
+			yield* media.getByRole("option", { name: /^Finished · / }).click();
 			yield* create
-				.getByRole("button", { name: /^About: Finished · / })
+				.getByRole("combobox", { name: /^About: Finished · / })
 				.waitFor({ state: "visible" });
 			yield* create.getByLabel("Rating (out of 100, optional)").fill("70");
 			yield* create.getByRole("button", { exact: true, name: "Save review" }).click();
@@ -185,7 +182,7 @@ it.live(
 			const edit = media.getByRole("dialog", { name: "Edit review" });
 			expect(yield* edit.getByLabel("Rating (out of 100, optional)").inputValue()).toBe("70");
 			yield* edit
-				.getByRole("button", { name: /^About: Finished · / })
+				.getByRole("combobox", { name: /^About: Finished · / })
 				.waitFor({ state: "visible" });
 		}).pipe(PlaywrightSpawner.withBrowser),
 );

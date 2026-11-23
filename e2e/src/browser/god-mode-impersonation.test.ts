@@ -18,7 +18,10 @@ const openSettingsFromWorkspace = (page: Playwright.Page, frontendUrl: string, i
 	Effect.gen(function* () {
 		if (isMobile) {
 			yield* pluginFrame(page).getByRole("button", { name: "Open navigation" }).click();
-			yield* page.getByTestId("mobile-drawer").getByRole("link", { name: "Open settings" }).click();
+			yield* page
+				.getByRole("dialog", { name: "Navigation" })
+				.getByRole("link", { name: "Open settings" })
+				.click();
 		} else {
 			yield* page.getByRole("link", { name: "Open settings" }).click();
 		}

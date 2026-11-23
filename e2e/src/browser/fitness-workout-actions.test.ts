@@ -45,7 +45,7 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 		yield* manager.waitFor({ state: "hidden" });
 		yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Delete workout" }).click();
-		const deletion = frame.getByRole("dialog", { exact: true, name: "Delete workout?" });
+		const deletion = frame.getByRole("alertdialog", { exact: true, name: "Delete workout?" });
 		yield* deletion.getByRole("button", { exact: true, name: "Cancel" }).click();
 		yield* frame
 			.getByRole("heading", { name, level: 1, exact: true })
@@ -77,10 +77,10 @@ it.live("narrows the workouts list by a Started filter and keeps it after reload
 		yield* frame.getByRole("link", { exact: true, name: recent }).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { name: /^Filters/ }).click();
 		const dialog = frame.getByRole("dialog", { exact: true, name: "Filters" });
-		yield* dialog.getByRole("button", { name: /^Add filter/ }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Started" }).click();
-		yield* dialog.getByRole("button", { name: /^Filter 1 operator/ }).click();
-		yield* frame.getByRole("radio", { name: "is within the last (days)" }).click();
+		yield* dialog.getByRole("combobox", { name: /^Add filter/ }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Started" }).click();
+		yield* dialog.getByRole("combobox", { name: /^Filter 1 operator/ }).click();
+		yield* frame.getByRole("option", { name: "is within the last (days)" }).click();
 		yield* dialog.getByRole("spinbutton", { name: "Started days" }).fill("7");
 		yield* page.keyboard.press("Escape");
 		yield* dialog.waitFor({ state: "hidden" });
@@ -127,13 +127,12 @@ it.live("narrows the workouts list by an Exercises filter", () =>
 		yield* frame.getByRole("link", { name: push, exact: true }).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { name: /^Filters/ }).click();
 		const dialog = frame.getByRole("dialog", { exact: true, name: "Filters" });
-		yield* dialog.getByRole("button", { name: /^Add filter/ }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Exercises" }).click();
-		yield* dialog.getByRole("button", { name: /^Exercises values/ }).click();
-		const picker = frame.getByRole("dialog", { exact: true, name: "Exercises" });
-		yield* picker.getByRole("textbox", { name: "Search Exercises" }).fill(suffix);
-		yield* picker.getByRole("checkbox", { name: squat.exercise.name }).check();
-		yield* picker.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* dialog.getByRole("combobox", { name: /^Add filter/ }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Exercises" }).click();
+		yield* dialog.getByRole("combobox", { exact: true, name: "Exercises" }).click();
+		yield* frame.getByRole("combobox", { name: "Search Exercises" }).fill(suffix);
+		yield* frame.getByRole("option", { name: squat.exercise.name }).click();
+		yield* page.keyboard.press("Escape");
 		yield* page.keyboard.press("Escape");
 		yield* dialog.waitFor({ state: "hidden" });
 		yield* frame

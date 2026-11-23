@@ -90,7 +90,7 @@ it.live("creates, downloads and deletes a backup from settings", () =>
 			expect(saved.suggestedFilename()).toMatch(/^ryot-backup-.+\.zip$/);
 
 			yield* deleteButton(page).click();
-			const confirmation = page.getByRole("dialog", { name: "Delete this backup record?" });
+			const confirmation = page.getByRole("alertdialog", { name: "Delete this backup record?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByRole("button", { name: "Delete record" }).click();
 

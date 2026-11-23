@@ -92,7 +92,7 @@ it.live(
 			yield* attachments.press("Escape");
 			yield* frame.getByRole("button", { exact: true, name: "Discard changes" }).click();
 			yield* frame
-				.getByRole("dialog", { exact: true, name: "Discard changes?" })
+				.getByRole("alertdialog", { exact: true, name: "Discard changes?" })
 				.getByRole("button", { exact: true, name: "Discard changes" })
 				.click();
 			yield* frame

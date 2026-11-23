@@ -366,7 +366,7 @@ for (const sourceKind of ["custom", "global"] as const) {
 			).toBe(0);
 			yield* picker.getByRole("radio", { exact: true, name: `Merge target ${id}` }).click();
 			yield* picker.getByRole("button", { exact: true, name: "Merge into" }).click();
-			const confirmation = frame.getByRole("dialog", { exact: true, name: "Merge exercise?" });
+			const confirmation = frame.getByRole("alertdialog", { exact: true, name: "Merge exercise?" });
 			yield* visible(confirmation);
 			yield* confirmation.getByRole("button", { exact: true, name: "Merge" }).click();
 

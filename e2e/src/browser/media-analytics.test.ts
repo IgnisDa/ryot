@@ -321,8 +321,8 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* page.setViewportSize(desktopViewport);
 		yield* trendChart.waitForFunction((image) => image.getBoundingClientRect().height === 260);
 
-		yield* frame.getByRole("button", { exact: true, name: "Show: Activity entries" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Activity entries" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Pages" }).click();
 		const pagesDisplay = frame.getByRole("radiogroup", {
 			exact: true,
 			name: "Pages by reporting period display",
@@ -363,14 +363,14 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			}
 		}
 		const exactPages = yield* pagesTable.innerText();
-		yield* frame.getByRole("button", { exact: true, name: "Type: All" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Book" }).click();
-		expect(yield* frame.getByRole("button", { exact: true, name: "Show: Pages" }).count).toBe(1);
+		yield* frame.getByRole("combobox", { exact: true, name: "Type: All" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Book" }).click();
+		expect(yield* frame.getByRole("combobox", { exact: true, name: "Show: Pages" }).count).toBe(1);
 		expect(yield* pagesTable.innerText()).toBe(exactPages);
-		yield* frame.getByRole("button", { exact: true, name: "Type: Book" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "All" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Show: Pages" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Time spent" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Type: Book" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "All" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Pages" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Time spent" }).click();
 		const trendCard = frame
 			.getByRole("heading", { level: 3, exact: true, name: "Activity over time" })
 			.locator("xpath=ancestor::header/..");
@@ -379,21 +379,24 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		expect(
 			yield* frame.getByRole("img", { exact: true, name: "Time spent by reporting period" }).count,
 		).toBe(0);
-		yield* frame.getByRole("button", { exact: true, name: "Show: Time spent" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Time spent" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Pages" }).click();
 		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* pagesTable.waitFor({ state: "hidden" });
 
 		const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
-		yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Group by: Day" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Week" }).click();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
-		yield* frame.getByRole("button", { exact: true, name: "Group by: Week" }).waitFor();
-		const freshMetric = frame.getByRole("button", { exact: true, name: "Show: Activity entries" });
+		yield* frame.getByRole("combobox", { exact: true, name: "Group by: Week" }).waitFor();
+		const freshMetric = frame.getByRole("combobox", {
+			exact: true,
+			name: "Show: Activity entries",
+		});
 		yield* freshMetric.waitFor();
 		expect(yield* freshMetric.count).toBe(1);
 		yield* freshMetric.click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Pages" }).click();
 		yield* frame.getByRole("img", { exact: true, name: "Pages by reporting period" }).waitFor();
 		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 3);
@@ -410,11 +413,11 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* pagesTable.waitFor({ state: "hidden" });
 		yield* page.goBack();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
-		yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).waitFor();
+		yield* frame.getByRole("combobox", { exact: true, name: "Group by: Day" }).waitFor();
 		yield* freshMetric.waitFor();
 		expect(yield* freshMetric.count).toBe(1);
 		yield* freshMetric.click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Pages" }).click();
 		yield* frame.getByRole("img", { exact: true, name: "Pages by reporting period" }).waitFor();
 		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 8);
@@ -732,9 +735,9 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			}).count,
 		).toBe(1);
 		yield* refreshedFrame
-			.getByRole("button", { exact: true, name: "Show: Activity entries" })
+			.getByRole("combobox", { exact: true, name: "Show: Activity entries" })
 			.click();
-		yield* refreshedFrame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* refreshedFrame.getByRole("option", { exact: true, name: "Pages" }).click();
 		yield* refreshedFrame
 			.getByRole("radiogroup", { exact: true, name: "Pages by reporting period display" })
 			.getByRole("radio", { exact: true, name: "Table" })
