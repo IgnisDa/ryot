@@ -194,7 +194,7 @@ kind selection.
 
 | Kind         | Helper                   | Use                                                                               |
 | ------------ | ------------------------ | --------------------------------------------------------------------------------- |
-| `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                                      |
+| `script`     | `defineScript`           | Cron, bootstrap, or internal execution                                            |
 | `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                                                |
 | `workflow`   | `defineWorkflow`         | Bounded orchestration with explicit saved checkpoints; no local host capabilities |
 | `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                                       |
@@ -748,7 +748,7 @@ export default defineWorkflow({
 is defined with `defineActivity`, whose `run` returns the output the reference's `output` schema
 describes, or with `defineActivityWithChanges`, whose `run` returns `{ output, changes? }`: the
 kernel commits those changes once when it completes and hands the workflow only `output`. The backend compiler rejects a `step.activity` target that is not
-defined with `defineActivity`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+defined with `defineActivity` or `defineActivityWithChanges`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
 workflow that finishes in one step can omit `checkpoint`.
@@ -871,9 +871,10 @@ slug must be a unique relationship schema declared in the same manifest whose so
 schema. Omission means the schema has no editor. Adding, changing, or removing an editor is an
 allowed evolution.
 
-Crons target one script and use either `{ cron }` or `{ tier: "infrequent" }`. Boot entries target one
-script and run once per server start. Both run with system subject through durable execution; dispatch
-is skipped when `scheduler.disableDispatchers` is enabled. Boot scripts must be idempotent.
+Crons target one script or workflow and use either `{ cron }` or `{ tier: "infrequent" }`. They run
+with system subject through durable execution; dispatch is skipped when
+`scheduler.disableDispatchers` is enabled. The kernel does not commit changes a cron script returns,
+so a cron that writes targets a workflow, whose steps and activities commit theirs.
 
 Operations map a public slug and `user` or `integration` auth to an `operation`-kind script.
 Every operation declares a `title`, `input` and `output` JSON Schema documents, a description of its
@@ -936,9 +937,10 @@ the commit. A part the writer may not write fails the whole change set.
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
 receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502); outputs are
 success-only. A baseline that changed is reported by the commit of the returned changes as HTTP 409
-`changes-conflict`. A signal notification automation is `defineSignalNotification({ manifest,
-signals })` from `automation`, where each signal schema slug names a properties schema and a `notify`
-formatter; undecodable properties fail with `SignalNotificationError`. Import
+`changes-conflict`. A signal notification automation passes `notifySignals(signals)` from
+`automation` as the `run` of `defineAutomation`: each signal schema slug names a properties schema and
+a `notify` formatter, the formatted message is returned as a change-set notification, and undecodable
+properties fail with `SignalNotificationError`. Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
 the kernel validates each file and exposes it by field name for `readNamedArtifact(key)`. Payload-only
 sources use ordinary fields.

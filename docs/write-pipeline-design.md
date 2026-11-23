@@ -53,8 +53,8 @@ returned changes.
 One schema for every kind. It generalizes today's `UserCommand`:
 
 - `entity`: an optional root entity create or update, with the expected baseline for updates.
-- `events`: `creates`, `changes` (updates and deletes with expected snapshots), and optional
-  `expected` session IDs and scope `baselines`.
+- `events`: one `changes` list of creates, updates and deletes (updates and deletes with expected
+  snapshots), and optional `expected` session event IDs and scope `baselines`.
 - `relationships`: user relationship changes referencing the root or existing entities.
 - `settings`: a patch of the plugin's user settings.
 
@@ -65,10 +65,10 @@ requests; kernel writers add triggers and population bookkeeping in the internal
 
 ### Response
 
-An operation cannot see its own commit. The response is `{ output, committed }`; `committed` carries
-the root entity ID and each written event's ID by item identity. Commit conflicts reach the caller
-as one typed conflict error. The client uses `committed` to update its cache; that design belongs to
-the client discussion.
+An operation cannot see its own commit. The HTTP response is `{ result, committed }`: `result` is
+the operation's `output`, and `committed` carries the root entity ID and each written event's ID by
+item identity. Commit conflicts reach the caller as one typed conflict error. The client uses
+`committed` to update its cache; that design belongs to the client discussion.
 
 ## Pipeline
 
@@ -84,7 +84,7 @@ population, after hooks, and Ryo tool calls.
    folds (phase 4), checks event groups, plans after-hook jobs, and records the idempotency receipt.
 4. **Derive.** Inside that transaction, each affected subject's fold gets its previous state and the
    changed events. Outputs are written as a patch.
-5. **Respond.** `{ output, committed }`.
+5. **Respond.** `{ result, committed }`.
 6. **Afterwards.** After hooks, notifications, pushes, and signals run as jobs queued by the commit.
 
 ### Admission
