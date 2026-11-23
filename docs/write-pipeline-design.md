@@ -145,7 +145,8 @@ the fold with an empty list; fold jobs, absorbed values, entity content changes 
 changed events replay. Media appends read only events at the instants they land on; past edits replay
 from the previous completion of the touched title or episode to the present (from the previous explicit
 completion on Anime and Manga), and a Show or Podcast replays in full for anything but an append,
-because coverage spans episodes. The fold contract and both plugins live in
+because coverage spans episodes. A Media value past half the fold value limit drops its append carry,
+so that subject's next change replays. The fold contract and both plugins live in
 [derived values](../kernel/backend/src/modules/derived-values/README.md).
 
 ## After hooks
