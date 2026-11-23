@@ -148,7 +148,7 @@ is rejected, as are a merge into itself, a missing exercise, and exercises of di
 a `rejection.exercise-merge.*` message. The client blocks merging an exercise used by the active workout/template draft.
 
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
-the shared review slug. Notes are reviews without a spoiler flag: text is required, the rating is the
+the shared review slug, and refuse a missing one with a `rejection.exercise-note.*` message. Notes are reviews without a spoiler flag: text is required, the rating is the
 shared optional 0–100 `ReviewRating`, and the manifest's rating field is the shared review rating
 field. Create, update, and delete return one event change as their change set; updates patch only text/rating through the shared review patch helper. Input text is
 trimmed/bounded, while stored text remains unbounded for migrated notes. The exercise page shows and
@@ -210,7 +210,7 @@ averages. Loaded rows remain during pagination; malformed/repeated cursors fail 
 Pinned metrics define tiles and log columns, ordered by pin time. Pins are
 `measurement-metric-pinned` relationships to the Fitness Library. Pin requests matching current state
 return no changes; the limit of three is checked before the change set is built, not enforced atomically across concurrent
-requests. Metric creation returns the metric as the root entity and, while the caller has fewer than two metrics, the pin
+requests, and a pin past it is refused with `rejection.measurement-metric.pin-limit`. Metric creation returns the metric as the root entity and, while the caller has fewer than two metrics, the pin
 relationship from it to the Fitness Library in the same change set; imports do not pin.
 
 `MeasurementComposer` is shared by the page and live workout editor. It accepts one timestamp,
@@ -239,7 +239,8 @@ children (including imported entries larger than 100 values), validates event an
 returns one change set: the entry update with its expected name, properties and `updatedAt`, updates of kept
 readings, creates of added values, deletes of cleared values, and a scope baseline, so a concurrent edit fails the
 commit as `changes-conflict`. Delete returns the entry's entity delete, which cascades to all session children,
-including children the client has never loaded.
+including children the client has never loaded. A missing entry or metric is refused with
+`rejection.measurement-entry.missing` or `rejection.measurement-metric.missing`.
 
 Metric creation uses shared normalization and canonical units for known keys; empty normalized names
 and incompatible units fail. Unknown keys may have custom units. Client duplicate detection is not an

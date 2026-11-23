@@ -1,7 +1,7 @@
 import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
@@ -9,11 +9,8 @@ import {
 	MeasurementMetricPinInput,
 	MeasurementMetricPinOutput,
 } from "../../shared/measurement-metric-operations";
-import {
-	measurementMetricPinChanges,
-	MeasurementMetricPinLimitError,
-	pinnedMeasurementMetricIds,
-} from "./measurement-pins";
+import { catalogMessage } from "../../shared/messages.generated";
+import { measurementMetricPinChanges, pinnedMeasurementMetricIds } from "./measurement-pins";
 import { requireMeasurementMetrics } from "./measurement-readings";
 
 export const manifest = defineManifest({
@@ -35,8 +32,10 @@ export default defineOperation({
 				return { output };
 			}
 			if (input.pinned && pinnedIds.length >= MEASUREMENT_PIN_LIMIT) {
-				return yield* new MeasurementMetricPinLimitError({
-					message: `Only ${MEASUREMENT_PIN_LIMIT} measurement metrics can be pinned`,
+				return yield* new OperationRejectedError({
+					reason: catalogMessage("rejection.measurement-metric.pin-limit", {
+						limit: MEASUREMENT_PIN_LIMIT,
+					}),
 				});
 			}
 			const changes = yield* measurementMetricPinChanges(

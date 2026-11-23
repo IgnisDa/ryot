@@ -7,7 +7,6 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import deleteDefinition, { manifest } from "./measurement-reading-delete.sandbox";
-import { MeasurementEntryNotFoundError } from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -39,7 +38,10 @@ describe("measurement reading delete operation", () => {
 						yield* Effect.flip(
 							runSandboxTestScript(deleteDefinition, { entryId }, host, execution),
 						),
-					).toBeInstanceOf(MeasurementEntryNotFoundError);
+					).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.measurement-entry.missing" },
+					});
 				}
 				yield* Effect.flip(
 					runSandboxTestScript(deleteDefinition, { entryId: "" }, host, execution),

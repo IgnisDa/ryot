@@ -3,7 +3,7 @@ import {
 	existingEntity,
 	type ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
@@ -16,14 +16,9 @@ import {
 
 type ExecuteRyotql = ScriptHost["executeRyotql"];
 
-export class MeasurementMetricPinLimitError extends Schema.TaggedError<
-	MeasurementMetricPinLimitError,
-	{ readonly brand: unique symbol }
->()("MeasurementMetricPinLimitError", { message: Schema.String }) {}
-
 export const pinnedMeasurementMetricIds = (executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, pinnedMeasurementMetricIdsRecipe, {});
-export const measurementMetricIds = (limit: number, executeRyotql: ExecuteRyotql) =>
+export const measurementMetricIds = (executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, allMeasurementMetricIdsRecipe, {});
 export const measurementMetricPinChanges = Effect.fn("measurementMetricPinChanges")(function* (
 	input: { readonly pinned: boolean; readonly metric: ChangeSetEntityReference },

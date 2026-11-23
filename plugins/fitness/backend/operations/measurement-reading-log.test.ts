@@ -7,7 +7,6 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import logDefinition, { manifest } from "./measurement-reading-log.sandbox";
-import { MeasurementMetricNotFoundError } from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-27T08:00:00.000Z";
@@ -87,7 +86,10 @@ describe("measurement reading log operation", () => {
 							],
 						}),
 					);
-					expect(failure).toBeInstanceOf(MeasurementMetricNotFoundError);
+					expect(failure).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.measurement-metric.missing" },
+					});
 				}
 				for (const values of [
 					[],

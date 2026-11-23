@@ -11,10 +11,6 @@ import {
 	measurementTables,
 } from "./in-memory-ryotql.test-support";
 import updateDefinition, { manifest } from "./measurement-reading-update.sandbox";
-import {
-	MeasurementEntryNotFoundError,
-	MeasurementMetricNotFoundError,
-} from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-28T07:30:00.000Z";
@@ -175,7 +171,10 @@ describe("measurement reading update operation", () => {
 						execution,
 					),
 				);
-				expect(foreignReading).toBeInstanceOf(MeasurementEntryNotFoundError);
+				expect(foreignReading).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.measurement-entry.missing" },
+				});
 				const foreignMetric = yield* Effect.flip(
 					runSandboxTestScript(
 						updateDefinition,
@@ -191,7 +190,10 @@ describe("measurement reading update operation", () => {
 						execution,
 					),
 				);
-				expect(foreignMetric).toBeInstanceOf(MeasurementMetricNotFoundError);
+				expect(foreignMetric).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.measurement-metric.missing" },
+				});
 			}),
 		testTimeout,
 	);

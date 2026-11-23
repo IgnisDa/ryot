@@ -12,7 +12,6 @@ import {
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";
 import deleteDefinition, { manifest as deleteManifest } from "./exercise-note-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./exercise-note-update.sandbox";
-import { ExerciseNoteNotFoundError } from "./exercise-notes";
 import { inMemoryRyotql, type StoredTables } from "./in-memory-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
@@ -154,7 +153,10 @@ describe("exercise note operations", () => {
 							execution,
 						),
 					);
-					expect(failure).toBeInstanceOf(ExerciseNoteNotFoundError);
+					expect(failure).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.exercise-note.missing-exercise" },
+					});
 				}
 			}),
 		testTimeout,
@@ -173,11 +175,17 @@ describe("exercise note operations", () => {
 							execution,
 						),
 					);
-					expect(updateFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
+					expect(updateFailure).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.exercise-note.missing" },
+					});
 					const deleteFailure = yield* Effect.flip(
 						runSandboxTestScript(deleteDefinition, { noteId }, hosts.delete, execution),
 					);
-					expect(deleteFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
+					expect(deleteFailure).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.exercise-note.missing" },
+					});
 				}
 			}),
 		testTimeout,

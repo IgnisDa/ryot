@@ -1,4 +1,5 @@
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import {
 	and,
@@ -20,10 +21,6 @@ import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { catalogMessage } from "../../shared/messages.generated";
 
 type ExecuteRyotql = (request: PluginExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
-export class ExerciseNoteNotFoundError extends Schema.TaggedError<
-	ExerciseNoteNotFoundError,
-	{ readonly brand: unique symbol }
->()("ExerciseNoteNotFoundError", { message: Schema.String }) {}
 const exerciseNoteExerciseRecipe = (() => {
 	const inputParameters = parameters({
 		fields: {
@@ -80,17 +77,15 @@ const exerciseNoteEventRecipe = (() => {
 		},
 	});
 })();
-const requireFound = (message: string) => (id: string | undefined) =>
-	id === undefined
-		? Effect.fail(new ExerciseNoteNotFoundError({ message: message }))
-		: Effect.succeed(id);
+const requireFound = (reason: OperationRejectedError["reason"]) => (id: string | undefined) =>
+	id === undefined ? Effect.fail(new OperationRejectedError({ reason })) : Effect.succeed(id);
 
 export const requireExerciseNoteExercise = (exerciseId: string, executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, exerciseNoteExerciseRecipe, { exerciseId: exerciseId }).pipe(
-		Effect.flatMap(requireFound("Exercise not found")),
+		Effect.flatMap(requireFound(catalogMessage("rejection.exercise-note.missing-exercise"))),
 	);
 
 export const requireExerciseNote = (noteId: string, executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, exerciseNoteEventRecipe, { noteId: noteId }).pipe(
-		Effect.flatMap(requireFound("Exercise note not found")),
+		Effect.flatMap(requireFound(catalogMessage("rejection.exercise-note.missing"))),
 	);

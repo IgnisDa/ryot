@@ -1855,6 +1855,14 @@
 		"description": "Label of a query parameter that selects workouts."
 	},
 	"rejection.exercise-merge.too-many-templates": "This exercise is in too many workout templates to merge. Remove it from some templates and try again.",
+	"rejection.exercise-note.missing": "This note no longer exists.",
+	"rejection.exercise-note.missing-exercise": "This exercise no longer exists.",
+	"rejection.measurement-entry.missing": "This measurement no longer exists.",
+	"rejection.measurement-metric.missing": "One or more metrics no longer exist.",
+	"rejection.measurement-metric.pin-limit": {
+		"message": "Only {limit, plural, one {# metric} other {# metrics}} can be pinned. Unpin one first.",
+		"description": "{limit} is the maximum number of pinned metrics."
+	},
 	"rejection.workout-exercise.context-missing": "This exercise is not part of a workout.",
 	"rejection.workout-exercise.taxonomy-capacity": "This exercise lists more muscles or equipment than a workout can record.",
 	"rejection.workout-set.confirmed-at-invalid": "This set's completion time is not valid.",

@@ -1,4 +1,5 @@
-import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -9,17 +10,9 @@ import {
 	measurementEntryRecipe,
 	measurementMetricIdsRecipe,
 } from "../../shared/measurement-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 
 type ExecuteRyotql = (request: PluginExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
-export class MeasurementEntryNotFoundError extends Schema.TaggedError<
-	MeasurementEntryNotFoundError,
-	{ readonly brand: unique symbol }
->()("MeasurementEntryNotFoundError", { message: Schema.String }) {}
-
-export class MeasurementMetricNotFoundError extends Schema.TaggedError<
-	MeasurementMetricNotFoundError,
-	{ readonly brand: unique symbol }
->()("MeasurementMetricNotFoundError", { message: Schema.String }) {}
 
 export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(function* (
 	entryId: string,
@@ -29,7 +22,9 @@ export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(func
 		entryId: entryId,
 	});
 	if (found === null) {
-		return yield* new MeasurementEntryNotFoundError({ message: "Measurement entry not found" });
+		return yield* new OperationRejectedError({
+			reason: catalogMessage("rejection.measurement-entry.missing"),
+		});
 	}
 	return found;
 });
@@ -54,7 +49,9 @@ export const requireMeasurementMetrics = Effect.fn("requireMeasurementMetrics")(
 		(ids) => executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe, { metricIds: ids }),
 	)).flat();
 	if (found.length !== unique.length) {
-		return yield* new MeasurementMetricNotFoundError({ message: "Measurement metric not found" });
+		return yield* new OperationRejectedError({
+			reason: catalogMessage("rejection.measurement-metric.missing"),
+		});
 	}
 	return found;
 });

@@ -7,8 +7,6 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { inMemoryRyotql, measurementTables } from "./in-memory-ryotql.test-support";
 import pinDefinition, { manifest } from "./measurement-metric-pin.sandbox";
-import { MeasurementMetricPinLimitError } from "./measurement-pins";
-import { MeasurementMetricNotFoundError } from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -90,13 +88,19 @@ describe("measurement metric pin operation", () => {
 					yield* Effect.flip(
 						runSandboxTestScript(pinDefinition, { pinned: true, metricId: "bmi" }, host, execution),
 					),
-				).toBeInstanceOf(MeasurementMetricPinLimitError);
+				).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { params: { limit: 3 }, key: "rejection.measurement-metric.pin-limit" },
+				});
 				for (const metricId of ["missing", "exercise-1"]) {
 					expect(
 						yield* Effect.flip(
 							runSandboxTestScript(pinDefinition, { metricId, pinned: true }, host, execution),
 						),
-					).toBeInstanceOf(MeasurementMetricNotFoundError);
+					).toMatchObject({
+						_tag: "OperationRejectedError",
+						reason: { key: "rejection.measurement-metric.missing" },
+					});
 				}
 			}),
 		testTimeout,
