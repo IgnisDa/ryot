@@ -48,6 +48,7 @@ const OUT = String(process.env.WARM_WRITES_OUT);
 const WARMUP = Number(process.env.WARM_WRITES_WARMUP ?? "3");
 const SAMPLES = Number(process.env.WARM_WRITES_SAMPLES ?? "20");
 const ONLY = process.env.WARM_WRITES_ONLY?.split(",").filter(Boolean);
+const USER_RANKS = (process.env.WARM_WRITES_USER_RANKS ?? "0").split(",").map(Number);
 const OVERSIZED_FOLD_BYTES = 65_536;
 
 const reviewCreate = defineOperationRecipe({
@@ -449,14 +450,19 @@ const authorized = <A>(session: Session, write: (client: Client) => Write<A>) =>
 		),
 	);
 
+/**
+ * Times a scenario as the session's user. `quiet` waits for the database to settle between samples;
+ * users measured together cannot wait for each other, so their statement counts include each other's.
+ */
 const measure = Effect.fn("measure")(function* (
 	db: PerfDatabase,
 	name: string,
 	scenario: Scenario,
-	session: Session,
+	user: { readonly rank: number; readonly session: Session; readonly quiet: Effect.Effect<void> },
 ) {
+	const { rank, quiet, session } = user;
 	const samples: Array<{ ms: number; calls: number; execMs: number; aftermath: number }> = [];
-	yield* db.quiet;
+	yield* quiet;
 	for (let index = 0; index < WARMUP + SAMPLES; index++) {
 		const before = statementCalls(yield* db.statements);
 		const startedAt = performance.now();
@@ -467,10 +473,10 @@ const measure = Effect.fn("measure")(function* (
 		const ms = performance.now() - startedAt;
 		const after = statementCalls(yield* db.statements);
 		if (outcome !== "ok") {
-			yield* appendReport(OUT, { name, outcome, info: scenario.info, failedSample: index });
+			yield* appendReport(OUT, { name, rank, outcome, info: scenario.info, failedSample: index });
 			return;
 		}
-		yield* db.quiet;
+		yield* quiet;
 		const settled = statementCalls(yield* db.statements);
 		if (index >= WARMUP) {
 			samples.push({
@@ -481,10 +487,11 @@ const measure = Effect.fn("measure")(function* (
 			});
 		}
 		yield* authorized(session, scenario.undo);
-		yield* db.quiet;
+		yield* quiet;
 	}
 	yield* appendReport(OUT, {
 		name,
+		rank,
 		n: samples.length,
 		info: scenario.info,
 		statementsMax: Math.max(...samples.map((sample) => sample.calls)),
@@ -521,24 +528,37 @@ describe.skipIf(!RUN_WARM_WRITES)("warm writes", () => {
 	it.live("times writes against a restored library's longest and shortest histories", () =>
 		Effect.gen(function* () {
 			const db = yield* perfDatabase;
-			const { userId } = requirePresent(
-				(yield* db.query(
-					UserRows,
-					`select e.user_id as "userId" from event e join "user" u on u.id = e.user_id
-					where u.disabled_at is null group by 1 order by count(*) desc limit 1`,
-				))[0],
-				"the restored database has no events",
+			const ranked = yield* db.query(
+				UserRows,
+				`select e.user_id as "userId" from event e join "user" u on u.id = e.user_id
+				where u.disabled_at is null group by 1 order by count(*) desc, 1 limit $1`,
+				[Math.max(...USER_RANKS) + 1],
 			);
-			const session: Session = { renew: impersonate(userId), client: yield* impersonate(userId) };
-			for (const [name, prepare] of Object.entries(scenarios(db, userId))) {
-				if (ONLY !== undefined && !ONLY.some((prefix) => name.startsWith(prefix))) {
-					continue;
-				}
-				const scenario = yield* prepare;
-				yield* scenario === undefined
-					? appendReport(OUT, { name, outcome: "no-target" })
-					: measure(db, name, scenario, session);
-			}
+			const quiet = USER_RANKS.length === 1 ? db.quiet : Effect.void;
+			yield* Effect.forEach(
+				USER_RANKS,
+				(rank) =>
+					Effect.gen(function* () {
+						const { userId } = requirePresent(
+							ranked[rank],
+							"the restored database has no such user",
+						);
+						const session: Session = {
+							renew: impersonate(userId),
+							client: yield* impersonate(userId),
+						};
+						for (const [name, prepare] of Object.entries(scenarios(db, userId))) {
+							if (ONLY !== undefined && !ONLY.some((prefix) => name.startsWith(prefix))) {
+								continue;
+							}
+							const scenario = yield* prepare;
+							yield* scenario === undefined
+								? appendReport(OUT, { name, rank, outcome: "no-target" })
+								: measure(db, name, scenario, { rank, quiet, session });
+						}
+					}),
+				{ discard: true, concurrency: "unbounded" },
+			);
 		}),
 	);
 });

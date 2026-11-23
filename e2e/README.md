@@ -73,8 +73,11 @@ scenario to `LIBRARY_CHECK_OUT` or `WARM_WRITES_OUT`: sample count, p50/p95 roun
 statements per request and their execution time, response bytes, and for reads the slowest
 statements' per-request time, length and parameter count. Failures report only their tag. Other
 knobs are `*_WARMUP`, `*_SAMPLES`, `LIBRARY_CHECK_ONLY` (read labels), `WARM_WRITES_ONLY` (scenario
-prefixes), `LIBRARY_CHECK_PAGE_LOADS` and `LIBRARY_CHECK_TODAY`. `LIBRARY_CHECK_WRITES=1` adds
-lifecycle writes that leave fixture titles behind, so never set it against real data.
+prefixes), `LIBRARY_CHECK_PAGE_LOADS` and `LIBRARY_CHECK_TODAY`. `WARM_WRITES_USER_RANKS` (default
+`0`) lists users by their rank in event count; several ranks run concurrently without waiting for a
+quiet database, so their statement counts include each other's writes, and each line carries its
+`rank`. `LIBRARY_CHECK_WRITES=1` adds lifecycle writes that leave fixture titles behind, so never set
+it against real data.
 
 They run against a server the harness did not start when `E2E_TARGET_URL` names its origin and
 `E2E_TARGET_CREDENTIALS` a JSON file `{ "adminAccessToken": "...", "databaseUrl": "..." }`; the test
