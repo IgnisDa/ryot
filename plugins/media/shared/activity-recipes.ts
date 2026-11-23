@@ -182,7 +182,7 @@ const activityRecipe = <const Parameters extends AuthoredAppSchema>(
 				joins: [
 					...types.joins,
 					join(
-						"inner",
+						"left",
 						typeSchema,
 						and(
 							eq(column(typeSchema, "slug"), mediaTypeOf(types.entity)),

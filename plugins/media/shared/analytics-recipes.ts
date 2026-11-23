@@ -550,7 +550,7 @@ export const mediaAnalyticsRecordsRecipe = (structural: {
 					...source.joins,
 					type.join,
 					join(
-						"inner",
+						"left",
 						eventSchema,
 						and(
 							eq(column(eventSchema, "slug"), column(event, "eventSchemaSlug")),
