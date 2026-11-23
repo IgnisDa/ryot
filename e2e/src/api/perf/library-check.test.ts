@@ -453,7 +453,7 @@ const measure = Effect.fn("measure")(function* (
 ) {
 	const once = Effect.gen(function* () {
 		const outcome = yield* attempt(run, session.client);
-		if (outcome !== "AuthUnauthorized") {
+		if (!outcome.startsWith("AuthUnauthorized")) {
 			return outcome;
 		}
 		session.client = yield* session.renew;
