@@ -166,8 +166,13 @@ describe("Workout editor E2E", () => {
 				[saveWorkoutEditor(client, input), saveWorkoutEditor(client, input)],
 				{ concurrency: "unbounded" },
 			);
-			expect(retry).toEqual(saved);
-			expect(concurrent).toEqual(saved);
+			const savedSet = requirePresent(saved.sets[0], "Expected the saved set");
+			expect(saved.committed.events).toContainEqual({
+				eventId: EventId.make(savedSet.eventId),
+				itemIdentity: `set:${savedSet.clientId}`,
+			});
+			expect(retry.committed).toEqual(saved.committed);
+			expect(concurrent.committed).toEqual(saved.committed);
 
 			const changed = { ...input, data: { ...input.data, name: `${name} changed` } };
 			const rejected = yield* Effect.flip(saveWorkoutEditor(client, changed));
@@ -261,7 +266,7 @@ describe("Workout editor E2E", () => {
 				expect(saved.sets).toEqual<unknown>([{ eventId: originalSet.id, clientId: anyOf(String) }]);
 
 				const replay = yield* saveWorkoutEditor(client, editInput);
-				expect(replay).toEqual(saved);
+				expect(replay.committed).toEqual(saved.committed);
 				const stale = yield* Effect.flip(
 					saveWorkoutEditor(client, {
 						...editInput,

@@ -74,7 +74,9 @@ describe("Workout editor with a valid Pro key", () => {
 				});
 				const createInput = operationInput(template);
 				const created = yield* saveWorkoutEditor(client, createInput);
-				expect(yield* saveWorkoutEditor(client, createInput)).toEqual(created);
+				expect((yield* saveWorkoutEditor(client, createInput)).committed).toEqual(
+					created.committed,
+				);
 				const baseline = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(baseline.baseline.entity.properties["exercises"]).toMatchObject([
 					{
@@ -127,7 +129,7 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				);
 				const edited = yield* saveWorkoutEditor(client, editInput);
-				expect(yield* saveWorkoutEditor(client, editInput)).toEqual(edited);
+				expect((yield* saveWorkoutEditor(client, editInput)).committed).toEqual(edited.committed);
 				const stale = yield* Effect.flip(
 					saveWorkoutEditor(client, {
 						...editInput,

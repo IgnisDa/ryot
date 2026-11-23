@@ -30,8 +30,8 @@ export const workoutEditorTimes = {
 };
 
 /**
- * Saves `input` and reads back the saved workout's set events, each matched to the input set at its
- * exercise and set position.
+ * Saves `input`, returning the commit receipt and, for a workout, the saved set event matched to each
+ * input set at its exercise and set position. Templates store their sets as properties, not events.
  */
 export const saveWorkoutEditor = (
 	client: Client,
@@ -42,6 +42,9 @@ export const saveWorkoutEditor = (
 			idempotencyKey: input.submissionId,
 		});
 		const entityId = requirePresent(committed.entityId, "Expected the saved workout ID");
+		if (input.data.kind === "template") {
+			return { entityId, sets: [], committed };
+		}
 		const stored = yield* fitnessRecipes.collect(
 			client,
 			workoutEditorSetsRecipe({ reference: yield* workoutReference(client) }),
@@ -50,14 +53,18 @@ export const saveWorkoutEditor = (
 		);
 		return {
 			entityId,
+			committed,
 			sets: input.data.occurrences.flatMap(({ sets }, exerciseOrder) =>
-				sets.flatMap(({ clientId }, setOrder) => {
-					const saved = stored.find(
-						({ properties }) =>
-							properties.exerciseOrder === exerciseOrder && properties.setOrder === setOrder,
-					);
-					return saved === undefined ? [] : [{ clientId, eventId: saved.id }];
-				}),
+				sets.map(({ clientId }, setOrder) => ({
+					clientId,
+					eventId: requirePresent(
+						stored.find(
+							({ properties }) =>
+								properties.exerciseOrder === exerciseOrder && properties.setOrder === setOrder,
+						),
+						`Expected a saved set for input set ${clientId}`,
+					).id,
+				})),
 			),
 		};
 	});
