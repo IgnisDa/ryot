@@ -15,7 +15,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { MotionList } from "@ryot-app/plugin-ui-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
@@ -130,7 +130,10 @@ export function WorkoutEditorScreen(props: {
 		);
 	}, [editorDraft?.activeOccurrenceId, editorDraft?.activeSetId, isActive, scrollToEditorTarget]);
 
-	const names = new Map(exercises.data?.map(({ id, name }) => [id, name]));
+	const names = useMemo(
+		() => new Map(exercises.data?.map(({ id, name }) => [id, name])),
+		[exercises.data],
+	);
 	const disabled = snapshot.status !== "ready" || saving || editorDraft?.submission !== undefined;
 	const uploading = snapshot.status === "ready" && snapshot.uploading;
 	const locked = disabled || request.existingGuard || request.starting;
@@ -293,10 +296,10 @@ export function WorkoutEditorScreen(props: {
 			draft={editorDraft}
 			snapshot={snapshot}
 			exercises={exercises}
-			onSave={actions.save}
 			onResume={togglePause}
 			historical={historical}
 			conflict={actions.conflict}
+			onSave={() => actions.save()}
 			hasContext={context !== undefined}
 			measurementError={measurement.error}
 			onReload={() => setOverlay("reload")}
@@ -453,7 +456,7 @@ export function WorkoutEditorScreen(props: {
 					snapshot={snapshot}
 					draft={editorDraft}
 					disabled={disabled}
-					onSave={actions.save}
+					onSaved={props.onSaved}
 					mediaLabel={mediaLabel}
 					controller={controller}
 					measurement={measurement}

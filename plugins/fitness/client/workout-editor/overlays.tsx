@@ -305,7 +305,12 @@ function HistorySession(props: {
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
 export function ReorderOverlay(
-	props: DraftOverlayProps & { readonly onDrop: () => void; readonly onPickUp: () => void },
+	props: DraftOverlayProps & {
+		readonly open: boolean;
+		readonly onDrop: () => void;
+		readonly onClosed: () => void;
+		readonly onPickUp: () => void;
+	},
 ) {
 	const text = useFitnessMessages();
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -314,7 +319,9 @@ export function ReorderOverlay(
 	const groups = supersetNames(text, props.draft);
 	return (
 		<EditorSheet
+			open={props.open}
 			onClose={props.onClose}
+			onClosed={props.onClosed}
 			title={text("client.reorder.title")}
 			closeLabel={text("client.reorder.close")}
 			footer={<Button onClick={props.onClose}>{text("common.action.done")}</Button>}

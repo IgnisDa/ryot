@@ -188,7 +188,7 @@ export function useEditorActions(input: {
 		);
 	};
 
-	const save = () => {
+	const save = (onSaved = input.onSaved) => {
 		const current = controller.getSnapshot();
 		if (current.status === "ready" && current.uploading) {
 			setMessage(text("client.actions.wait-upload"));
@@ -237,7 +237,7 @@ export function useEditorActions(input: {
 					return;
 				}
 				if (result.kind === "saved") {
-					input.onSaved?.(result.entityId);
+					onSaved?.(result.entityId);
 					return;
 				}
 				rejectSave(saveFailureMessage(text, result), result.kind === "conflict");

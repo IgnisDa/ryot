@@ -248,8 +248,10 @@ describe("workout editor overlays", () => {
 				let result = reorderDraft;
 				yield* mountDialogInPluginPage(() => (
 					<ReorderOverlay
+						open
 						onDrop={() => {}}
 						onClose={() => {}}
+						onClosed={() => {}}
 						onPickUp={() => {}}
 						draft={reorderDraft}
 						names={reorderNames}

@@ -1,5 +1,6 @@
 import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog } from "@ryot-app/plugin-ui-sdk";
+import { useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
@@ -25,7 +26,7 @@ import {
 } from "./overlays";
 import { UnitsAndDefaultsSheet } from "./preferences";
 import type { EditorExercise } from "./queries";
-import type { useEditorActions } from "./use-editor-actions";
+import type { SavedEntityId, useEditorActions } from "./use-editor-actions";
 import type { useWorkoutEditor } from "./use-workout-editor";
 import {
 	ConfirmDialog,
@@ -50,12 +51,20 @@ type OverlayKind =
 	| "delete-exercise"
 	| Exclude<ExerciseSheet, "attachments">;
 
+type RetainedSheet = (
+	| { readonly kind: "reorder"; readonly scrollTarget?: string }
+	| { readonly kind: "finish"; readonly savedId?: SavedEntityId }
+) & {
+	readonly draft: WorkoutEditorDraft;
+	readonly occurrenceId: string | undefined;
+	readonly names: ReadonlyMap<string, string>;
+};
+
 export function EditorOverlays(props: {
 	readonly now: number;
 	readonly locked: boolean;
 	readonly mediaLabel: Text;
 	readonly disabled: boolean;
-	readonly onSave: () => void;
 	readonly onClose: () => void;
 	readonly existingGuard: boolean;
 	readonly onReloaded: () => void;
@@ -74,6 +83,7 @@ export function EditorOverlays(props: {
 	readonly mediaTarget: undefined | WorkoutMediaTarget;
 	readonly actions: ReturnType<typeof useEditorActions>;
 	readonly exercises: undefined | readonly EditorExercise[];
+	readonly onSaved: undefined | ((id: SavedEntityId) => void);
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) {
@@ -81,6 +91,31 @@ export function EditorOverlays(props: {
 	const { draft, actions, context, onClose, overlay, snapshot, exercises, controller } = props;
 	const kind = typeof overlay === "string" ? overlay : overlay?.kind;
 	const occurrenceId = typeof overlay === "object" ? overlay.occurrenceId : undefined;
+	const [sheet, setSheet] = useState<RetainedSheet>();
+	if (
+		draft !== undefined &&
+		(kind === "reorder" || kind === "finish") &&
+		(sheet?.kind !== kind ||
+			sheet.draft !== draft ||
+			sheet.names !== props.names ||
+			sheet.occurrenceId !== occurrenceId ||
+			(sheet.kind === "reorder" && sheet.scrollTarget !== undefined))
+	) {
+		setSheet({ kind, draft, occurrenceId, names: props.names });
+	}
+	const closeSheet = () => {
+		setSheet(undefined);
+		if (sheet?.kind === "finish" && sheet.savedId !== undefined) {
+			props.onSaved?.(sheet.savedId);
+		} else if (
+			kind === undefined &&
+			sheet?.kind === "reorder" &&
+			sheet.scrollTarget !== undefined
+		) {
+			props.scrollTo(`occurrence-${sheet.scrollTarget}`);
+		}
+	};
+	const currentSheetDraft = draft?.draftId === sheet?.draft.draftId ? draft : undefined;
 	const currentOccurrence = draft?.occurrences.find(({ clientId }) => clientId === occurrenceId);
 	const currentExercise = exercises?.find(({ id }) => id === currentOccurrence?.exerciseId);
 	const exerciseName = currentExercise?.name ?? text("client.overlays.exercise-unavailable");
@@ -194,19 +229,21 @@ export function EditorOverlays(props: {
 					preferences={actions.local}
 				/>
 			) : null}
-			{kind === "reorder" && draft !== undefined ? (
+			{sheet?.kind === "reorder" ? (
 				<ReorderOverlay
 					key="reorder"
-					draft={draft}
 					onClose={onClose}
-					names={props.names}
+					onClosed={closeSheet}
 					onChange={actions.change}
-					initialOccurrenceId={occurrenceId}
+					draft={currentSheetDraft ?? sheet.draft}
+					initialOccurrenceId={sheet.occurrenceId}
+					open={kind === "reorder" && draft !== undefined}
 					onPickUp={() => actions.hapticFeedback("impact")}
 					onDrop={() => actions.hapticFeedback("selection")}
+					names={currentSheetDraft === undefined ? sheet.names : props.names}
 					onMoved={(id) => {
+						setSheet({ ...sheet, scrollTarget: id });
 						onClose();
-						props.scrollTo(`occurrence-${id}`);
 					}}
 				/>
 			) : null}
@@ -288,15 +325,22 @@ export function EditorOverlays(props: {
 				onConfirm={() => actions.reloadSaved(props.onReloaded)}
 				description={text("client.overlays.reload-description")}
 			/>
-			{kind === "finish" && draft !== undefined ? (
+			{sheet?.kind === "finish" ? (
 				<FinishReview
 					key="finish"
-					draft={draft}
 					now={props.now}
 					onClose={onClose}
-					names={props.names}
-					onSave={props.onSave}
-					saving={isWorkoutEditorSaving(snapshot)}
+					onClosed={closeSheet}
+					open={kind === "finish"}
+					draft={currentSheetDraft ?? sheet.draft}
+					saving={isWorkoutEditorSaving(snapshot) || draft === undefined}
+					names={currentSheetDraft === undefined ? sheet.names : props.names}
+					onSave={() =>
+						actions.save((savedId) => {
+							setSheet({ ...sheet, savedId });
+							onClose();
+						})
+					}
 				/>
 			) : null}
 			<ConfirmDialog

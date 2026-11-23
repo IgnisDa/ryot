@@ -240,9 +240,11 @@ export function WorkoutDetailsSheet(props: {
 
 export function FinishReview(props: {
 	readonly now: number;
+	readonly open: boolean;
 	readonly saving: boolean;
 	readonly onSave: () => void;
 	readonly onClose: () => void;
+	readonly onClosed: () => void;
 	readonly draft: WorkoutEditorDraft;
 	readonly names: ReadonlyMap<string, string>;
 }) {
@@ -269,7 +271,9 @@ export function FinishReview(props: {
 	return (
 		<EditorSheet
 			title={title}
+			open={props.open}
 			onClose={props.onClose}
+			onClosed={props.onClosed}
 			dismissible={!props.saving}
 			closeLabel={text("client.wsheets.close-review")}
 			footer={

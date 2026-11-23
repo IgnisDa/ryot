@@ -174,8 +174,14 @@ it.live("retries a committed workout after a lost response and reload without du
 		}
 		yield* frame.getByRole("button", { exact: true, name: "Reorder" }).click();
 		const reorder = overlay(frame, "Reorder exercises");
+		yield* reorder.evaluate((element) => {
+			if (element instanceof HTMLElement) {
+				element.style.transitionDuration = "500ms";
+			}
+		});
 		yield* reorder.getByRole("button", { exact: true, name: `Reorder ${second}` }).press("ArrowUp");
-		yield* reorder.waitFor({ state: "hidden" });
+		yield* reorder.and(frame.locator("[data-ending-style]")).waitFor({ state: "attached" });
+		yield* reorder.waitFor({ state: "detached" });
 		yield* page.getByRole("link", { exact: true, name: "Open settings" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/settings/preferences");
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
@@ -263,11 +269,17 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		yield* page.reload;
 		yield* draftHeading(frame, `${name} repeated`).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Complete set 1" }).click();
-		yield* saveDraft(page, frame, {
-			review: "Finish",
-			confirm: "Save workout",
-			name: `${name} repeated`,
+		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
+		const finish = overlay(frame, "Finish workout?");
+		yield* finish.evaluate((element) => {
+			if (element instanceof HTMLElement) {
+				element.style.transitionDuration = "500ms";
+			}
 		});
+		yield* finish.getByRole("button", { exact: true, name: "Save workout" }).click();
+		yield* finish.and(frame.locator("[data-ending-style]")).waitFor({ state: "attached" });
+		expect(new URL(page.url()).pathname).toBe("/p/ryot/fitness/workout-editor");
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
 		yield* frame
 			.getByRole("link", { exact: false, name: `Repeated from ${name}` })
 			.waitFor({ state: "visible" });
