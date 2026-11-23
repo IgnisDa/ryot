@@ -99,9 +99,7 @@ To measure a V1 backup, keep the data and the server on a Docker network created
    [V1 to V2 migration](../apps/server/src/migrations/README.md). Set `PORT` and `FRONTEND_URL` to the
    same loopback origin the probes use (for example `PORT=18000`,
    `FRONTEND_URL=http://127.0.0.1:18000`): the server fetches its own OAuth keys from that origin.
-   Analytics need Pro, so run a stub verifier on the network that answers every request with
-   `{"valid":true,"expiry":"2030-01-01"}` and point `SERVER_PRO_KEY` and
-   `SERVER_PRO_KEY_VERIFICATION_URL` at it.
+   Analytics reads need Pro; without a Pro key the probes report them by their failure tag.
 3. Check egress from a container on the network, for example
    `bun -e 'await fetch("https://example.com", { signal: AbortSignal.timeout(5000) })'`, which must fail.
 4. Publish the server and database to the host through a forwarding container attached to the
