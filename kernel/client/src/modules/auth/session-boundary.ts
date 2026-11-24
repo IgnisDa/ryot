@@ -4,14 +4,13 @@ import { Effect } from "effect";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
+import { browserSessionChangeKey } from "#/modules/auth/browser-session";
 import {
 	awaitDocumentVisible,
 	waitForImpersonationExpiry,
 } from "#/modules/auth/impersonation-expiry";
-import { oauthTokenKey } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
-import { subscribeOAuthSessionBoundary } from "#/modules/auth/token-identity";
 import type { ClientRuntime } from "#/runtime";
 
 export function useAuthenticatedSession(runtime: ClientRuntime, server: ServerOrigin) {
@@ -50,10 +49,14 @@ export function useAuthenticatedSession(runtime: ClientRuntime, server: ServerOr
 		if (runtime.runSync(RuntimeOAuthClientService).isNative) {
 			return undefined;
 		}
-		return subscribeOAuthSessionBoundary(window, oauthTokenKey(server), () =>
-			window.location.reload(),
-		);
-	}, [runtime, server]);
+		const onStorage = (event: StorageEvent) => {
+			if (event.key === browserSessionChangeKey) {
+				window.location.reload();
+			}
+		};
+		window.addEventListener("storage", onStorage);
+		return () => window.removeEventListener("storage", onStorage);
+	}, [runtime]);
 	useEffect(() => {
 		if (impersonation === undefined) {
 			return undefined;

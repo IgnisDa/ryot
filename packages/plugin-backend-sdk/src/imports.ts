@@ -9,6 +9,7 @@ import {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
+import { LocalMessage } from "@ryot-app/i18n/message";
 import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
@@ -103,6 +104,7 @@ export const genericImportFailureSchema = strictStruct({
 	sourceIdentifier: Schema.String,
 	recordKind: Schema.NonEmptyString,
 	operationId: Schema.NonEmptyString,
+	detail: Schema.optionalKey(LocalMessage),
 	entitySchemaSlug: Schema.optional(Schema.String),
 	stage: Schema.optional(
 		Schema.Literals([

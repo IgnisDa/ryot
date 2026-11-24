@@ -208,14 +208,13 @@ describe("OAuth callback", () => {
 	);
 
 	it.live(
-		"clears local OAuth tokens after a marked impersonation logout callback",
+		"clears native OAuth tokens after a marked impersonation logout callback",
 		() =>
 			Effect.gen(function* () {
-				const { cleared } = mountCallback("/auth/logout/callback?state=impersonation");
-				yield* Effect.promise(() =>
-					waitFor(() => expect(cleared).toEqual([window.location.origin])),
-				);
-				expect(cleared).toEqual([window.location.origin]);
+				const { cleared } = mountCallback("/auth/logout/callback?state=impersonation", {
+					native: true,
+				});
+				yield* Effect.promise(() => waitFor(() => expect(cleared).toEqual([server])));
 			}),
 		testTimeout,
 	);

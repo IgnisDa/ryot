@@ -1,4 +1,4 @@
-import { StoredTokenSet } from "@ryot-app/contract/oauth";
+import type { StoredTokenSet } from "@ryot-app/contract/oauth";
 import { Option, Schema } from "effect";
 
 import { decodeOAuthTokenClaims } from "./token-claims";
@@ -20,49 +20,4 @@ export const oauthTokenSessionKey = (tokens: null | StoredTokenSet) => {
 	return identity === null
 		? tokens.accessToken
 		: JSON.stringify([identity.sub, identity.sid ?? null]);
-};
-
-const accessTokenFromStorage = (value: string) =>
-	Option.getOrUndefined(Schema.decodeOption(Schema.fromJsonString(StoredTokenSet))(value))
-		?.accessToken;
-
-export const oauthSessionBoundaryChanged = (previous: null | string, next: null | string) => {
-	if (previous === null || next === null) {
-		return previous !== next;
-	}
-	const previousToken = accessTokenFromStorage(previous);
-	const nextToken = accessTokenFromStorage(next);
-	if (previousToken === undefined || nextToken === undefined) {
-		return previousToken !== nextToken;
-	}
-	const previousIdentity = decodeOAuthTokenIdentity(previousToken);
-	const nextIdentity = decodeOAuthTokenIdentity(nextToken);
-	if (previousIdentity === null || nextIdentity === null) {
-		return previousIdentity !== nextIdentity;
-	}
-	return previousIdentity.sub !== nextIdentity.sub || previousIdentity.sid !== nextIdentity.sid;
-};
-
-export const handleOAuthSessionStorageEvent = (
-	event: Pick<StorageEvent, "key" | "newValue" | "oldValue">,
-	key: string,
-	reload: () => void,
-) => {
-	if (event.key === key && oauthSessionBoundaryChanged(event.oldValue, event.newValue)) {
-		reload();
-	}
-};
-
-export const subscribeOAuthSessionBoundary = (
-	target: Pick<EventTarget, "addEventListener" | "removeEventListener">,
-	key: string,
-	reload: () => void,
-) => {
-	const listener: EventListener = (event) => {
-		if (event instanceof StorageEvent) {
-			handleOAuthSessionStorageEvent(event, key, reload);
-		}
-	};
-	target.addEventListener("storage", listener);
-	return () => target.removeEventListener("storage", listener);
 };

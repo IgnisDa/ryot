@@ -1,3 +1,4 @@
+import { formatDisplayText } from "@ryot-app/i18n/format";
 import { useFormatters, useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
@@ -26,6 +27,9 @@ import {
 	ImportsService,
 } from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
+import { integrationTitle } from "#/modules/integrations/presentation";
+import { integrationProviderNames } from "#/modules/integrations/provider-selection";
+import { integrationDetailQuery, integrationProvidersQuery } from "#/modules/integrations/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import {
 	isTerminalRunStatus,
@@ -64,6 +68,14 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 		),
 });
 
+type RunFrameProps = {
+	readonly title: Text;
+	readonly meta?: ReactNode;
+	readonly actions?: ReactNode;
+	readonly children: ReactNode;
+	readonly integrationId?: string;
+};
+
 function ImportRunLoaderError() {
 	const t = useT();
 	const router = useRouter();
@@ -86,12 +98,10 @@ function ImportRunPending() {
 	);
 }
 
-function ImportRunFrame(props: {
-	readonly title: Text;
-	readonly meta?: ReactNode;
-	readonly actions?: ReactNode;
-	readonly children: ReactNode;
-}) {
+function ImportRunFrame(props: RunFrameProps) {
+	if (props.integrationId !== undefined) {
+		return <IntegrationRunFrame {...props} integrationId={props.integrationId} />;
+	}
 	return (
 		<SettingsFrame
 			meta={props.meta}
@@ -139,6 +149,28 @@ function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
 	);
 }
 
+function IntegrationRunFrame(props: RunFrameProps & { readonly integrationId: string }) {
+	const t = useT();
+	const integration = useRyotQuery(integrationDetailQuery, props.integrationId);
+	const providers = useRyotQuery(integrationProvidersQuery);
+	const title = integration.data
+		? formatDisplayText(
+				t,
+				integrationTitle(integration.data, integrationProviderNames(providers.data ?? [], t)),
+			)
+		: t(kernelMessage("client.route.settings.integration.title"));
+	return (
+		<SettingsFrame
+			title={title}
+			meta={props.meta}
+			actions={props.actions}
+			backFallbackHref={`/settings/integrations/${props.integrationId}`}
+		>
+			{props.children}
+		</SettingsFrame>
+	);
+}
+
 function ImportRunRoute() {
 	const formatters = useFormatters();
 	const router = useRouter();
@@ -172,6 +204,7 @@ function ImportRunRoute() {
 	const displayedDetail =
 		detail.data ?? (retainedDetail?.runId === runId ? retainedDetail.detail : undefined);
 	const state = displayedDetail === undefined ? undefined : detailState(displayedDetail);
+	const integrationId = displayedDetail?.run?.integrationId ?? undefined;
 	const nowMs = useNowMs(RUN_POLL_MS);
 	const cancelPhrase = t(kernelMessage("client.route.settings.import-run.cancel-phrase"));
 	const sourceNames = importSourceNames(sources.data ?? [], t);
@@ -310,14 +343,18 @@ function ImportRunRoute() {
 	return (
 		<ImportRunFrame
 			title={title}
+			integrationId={integrationId}
 			meta={
 				run === undefined ? undefined : (
 					<div className="flex flex-col gap-2">
 						<p className="text-xs text-text-subtle">
 							{t(
-								kernelMessage("client.route.settings.import-run.meta", {
-									timestamp: runTimestampLabel(formatters, run.createdAt),
-								}),
+								kernelMessage(
+									integrationId === undefined
+										? "client.route.settings.import-run.meta"
+										: "client.route.settings.import-run.integration-meta",
+									{ timestamp: runTimestampLabel(formatters, run.createdAt) },
+								),
 							)}
 						</p>
 						<div className="flex items-center gap-2">

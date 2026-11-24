@@ -9,7 +9,7 @@ import { IpNetwork } from "effect/net";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
-import { EgressDenied, egressHttpClientLayer } from "./http-client";
+import { EgressDenied, egressHttpClientLayer, RequirePublicHttps } from "./http-client";
 import { EgressResolutionError, EgressResolver } from "./resolver";
 
 type CapturedFetch = Readonly<{
@@ -99,6 +99,29 @@ const denialReason = (request: HttpClientRequest.HttpClientRequest) =>
 	});
 
 const deniedGet = (url: string) => denialReason(HttpClientRequest.get(url));
+
+layer(egressLayer([IpNetwork.fromStringUnsafe("10.0.0.0/24")]))((test) => {
+	test.effect(
+		"requires HTTPS for public destinations and an explicit CIDR for local notification HTTP",
+		() =>
+			Effect.gen(function* () {
+				const client = yield* HttpClient.HttpClient;
+				expect(yield* deniedGet("http://example.test/")).toBe("address");
+				expect(yield* deniedGet("http://10.0.1.1/")).toBe("address");
+				expect(yield* deniedGet("https://169.254.169.254/")).toBe("address");
+				expect(yield* deniedGet("http://mixed.test/")).toBe("address");
+				yield* client.execute(HttpClientRequest.post("https://example.test/"));
+				yield* client.execute(HttpClientRequest.post("http://10.0.0.1/"));
+
+				const recorded = yield* Recorded;
+				expect(yield* recorded.fetches).toMatchObject([
+					{ redirect: "manual", url: "https://93.184.215.14/" },
+					{ redirect: "manual", url: "http://10.0.0.1/" },
+				]);
+			}).pipe(Effect.provideService(RequirePublicHttps, true)),
+		testTimeout,
+	);
+});
 
 layer(egressLayer())((test) => {
 	test.effect(

@@ -18,31 +18,37 @@ const HARD_BLOCKED = networks(
 	"2001::/32",
 );
 
-const DENIED_UNLESS_ALLOWED = networks(
+const LOCAL_NETWORKS = networks(
 	"10.0.0.0/8",
 	"100.64.0.0/10",
 	"127.0.0.0/8",
 	"172.16.0.0/12",
-	"192.0.0.0/24",
-	"192.0.2.0/24",
-	"192.31.196.0/24",
-	"192.52.193.0/24",
-	"192.88.99.0/24",
 	"192.168.0.0/16",
-	"192.175.48.0/24",
-	"198.18.0.0/15",
-	"198.51.100.0/24",
-	"203.0.113.0/24",
 	"::1/128",
-	"100::/64",
-	"100:0:0:1::/64",
-	"2001::/23",
-	"2001:db8::/32",
-	"2620:4f:8000::/48",
-	"3fff::/20",
-	"5f00::/16",
 	"fc00::/7",
 );
+
+const DENIED_UNLESS_ALLOWED = [
+	...LOCAL_NETWORKS,
+	...networks(
+		"192.0.0.0/24",
+		"192.0.2.0/24",
+		"192.31.196.0/24",
+		"192.52.193.0/24",
+		"192.88.99.0/24",
+		"192.175.48.0/24",
+		"198.18.0.0/15",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"100::/64",
+		"100:0:0:1::/64",
+		"2001::/23",
+		"2001:db8::/32",
+		"2620:4f:8000::/48",
+		"3fff::/20",
+		"5f00::/16",
+	),
+];
 
 const IPV4_EMBEDDING = networks("::/96", "64:ff9b::/96");
 
@@ -71,15 +77,25 @@ const canonicalAddress = (address: NetAddress.IpAddress): NetAddress.IpAddress =
 export const classifyAddress = (
 	ip: string,
 	allowedNetworks: ReadonlyArray<IpNetwork.IpNetwork>,
+	mode: "private" | "standard" | "public-or-private" = "standard",
 ): "denied" | "allowed" =>
 	Option.match(Option.map(Result.getSuccess(NetAddress.ipFromString(ip)), canonicalAddress), {
 		onNone: () => "denied",
 		onSome: (address) => {
 			const within = (network: IpNetwork.IpNetwork) => IpNetwork.contains(network, address);
-			return HARD_BLOCKED.some(within) ||
-				(DENIED_UNLESS_ALLOWED.some(within) && !allowedNetworks.some(within))
-				? "denied"
-				: "allowed";
+			if (HARD_BLOCKED.some(within)) {
+				return "denied";
+			}
+			const isPrivate = LOCAL_NETWORKS.some(within);
+			if (mode === "private" && !isPrivate) {
+				return "denied";
+			}
+			if (!DENIED_UNLESS_ALLOWED.some(within)) {
+				return "allowed";
+			}
+			return (mode === "standard" || isPrivate) && allowedNetworks.some(within)
+				? "allowed"
+				: "denied";
 		},
 	});
 

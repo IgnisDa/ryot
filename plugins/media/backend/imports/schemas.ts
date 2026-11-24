@@ -109,6 +109,7 @@ export const MediaImportAdapterFailure = Schema.Struct({
 	sourceLabel: Schema.optional(Schema.String),
 	unit: Schema.optional(Schema.NonEmptyString),
 	stage: genericImportFailureSchema.fields.stage,
+	detail: genericImportFailureSchema.fields.detail,
 	sourceIdentifier: Schema.optional(Schema.String),
 	recordKind: Schema.optional(Schema.NonEmptyString),
 	entitySchemaSlug: genericImportFailureSchema.fields.entitySchemaSlug,

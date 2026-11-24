@@ -39,6 +39,7 @@ const failureSource = (
 
 const adapterFailure = (failure: MediaImportFailure): GenericImportFailure => ({
 	message: failure.message,
+	...(failure.detail === undefined ? {} : { detail: failure.detail }),
 	itemIndex: failure.itemIndex,
 	unit: failure.unit ?? "records",
 	operationId: failure.operationId,

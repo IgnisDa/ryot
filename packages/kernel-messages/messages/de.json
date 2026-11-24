@@ -1433,6 +1433,7 @@
 	"client.route.settings.import-run.cancel-title": "Diesen Import abbrechen?",
 	"client.route.settings.import-run.cancelling": "Wird abgebrochen…",
 	"client.route.settings.import-run.delete-title": "Diesen Importeintrag löschen?",
+	"client.route.settings.import-run.integration-meta": "Integration · {timestamp}",
 	"client.route.settings.import-run.loading": "Dieser Import wird geladen…",
 	"client.route.settings.import-run.meta": "Import · {timestamp}",
 	"client.route.settings.import-run.not-found-detail": "Dieser Import befindet sich nicht mehr auf deinem Server.",

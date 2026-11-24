@@ -1,6 +1,6 @@
 # Auth
 
-Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony and the hosted `/oauth/two-factor` page, where a fresh password sign-in precedes TOTP management; API middleware never accepts them.
+Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept OAuth bearer tokens, user API keys, and first-party browser sessions. The browser exchanges its PKCE code at `/api/auth/browser-session`. The server verifies the nonce and signed OAuth grant, then stores its authority against an opaque session cookie and the originating Better Auth session. Browser requests carry a public session identifier so stale tabs cannot act under a replacement login. Cookie-authenticated writes require the configured frontend origin. A browser grant expires with its originating session or its cookie lifetime, whichever comes first. Better Auth's own cookie authenticates hosted ceremonies, including login and fresh sign-in for TOTP changes.
 
 ## First-Party Clients
 
@@ -68,7 +68,7 @@ Instance Admin authorizes a one-use, 60-second handoff to a hosted browser. Rede
 
 Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and broadcasts an invalidation that closes its live-update streams. Normal user sessions are unaffected.
 
-The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked Instance Admin. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
+The client replaces its previous login and shows an impersonation banner. Browser logout revokes the application grant and ends the matching hosted session. Native logout uses the OAuth end-session ceremony. Both return to locked Instance Admin. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
 God-mode password reset capture reserves a random ID for each email, listens before initiating an internal Better Auth request, and carries that ID in the internal request header. The link arrives through a callback of that in-process request, so capture stays local. The reset callback delivers only if that request's ID still owns the reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 
