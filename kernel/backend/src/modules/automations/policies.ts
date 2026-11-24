@@ -152,12 +152,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 					return true;
 				}
 				const subject = item.request.draft.entityId;
-				if (
-					subjects.has(subject) ||
-					item.request.excludedOncePerSubjectPolicies?.some(
-						(identity) => identity.pluginId === policy.pluginId && identity.hookSlug === hook.slug,
-					)
-				) {
+				if (subjects.has(subject)) {
 					return false;
 				}
 				subjects.add(subject);

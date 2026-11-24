@@ -132,8 +132,10 @@ policy batch chunked by entity.
 
 Event changes are then prepared in one events transaction, with positions matching the change list,
 and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
-once-per-subject policy runs once per subject. The relationship writes of the `relationships` part and
-of every clear and merge form one relationship policy batch, chunked the same way by source entity.
+once-per-subject policy runs once per subject; a subject with more than 50 items gets a chunk of its
+own that size, and a chunk whose policy input exceeds the sandbox context limit fails with
+`policy-execution-failed`. The relationship writes of the `relationships` part and of every clear
+and merge form one relationship policy batch, chunked the same way by source entity.
 Event, relationship and entity policies are matched inside that transaction. When none matches, the commit
 continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
 per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is

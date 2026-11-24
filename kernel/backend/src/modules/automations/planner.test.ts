@@ -2193,7 +2193,7 @@ describe("LifecyclePolicies PostgreSQL", () => {
 		"policies harness",
 		(test) => {
 			test.effect(
-				"gives a once-per-subject policy one item per subject and skips excluded subjects",
+				"gives a once-per-subject policy one item per subject",
 				() =>
 					Effect.gen(function* () {
 						const policies = yield* LifecyclePolicies;
@@ -2213,13 +2213,6 @@ describe("LifecyclePolicies PostgreSQL", () => {
 							...request,
 							draft: { ...request.draft, entityId: "other" },
 						});
-						const excluded = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
-							...request,
-							draft: { ...request.draft, entityId: "excluded" },
-							excludedOncePerSubjectPolicies: [
-								{ pluginId: policy.pluginId, hookSlug: policy.hook.slug },
-							],
-						});
 						const output = yield* policies.run({
 							policy,
 							trigger,
@@ -2228,7 +2221,6 @@ describe("LifecyclePolicies PostgreSQL", () => {
 								{ request, itemIdentity: "first" },
 								{ request, itemIdentity: "repeat" },
 								{ request: other, itemIdentity: "other" },
-								{ request: excluded, itemIdentity: "excluded" },
 							],
 						});
 						expect(output.items.map(({ itemIdentity }) => itemIdentity)).toEqual([

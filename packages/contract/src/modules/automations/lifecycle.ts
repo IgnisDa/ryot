@@ -337,21 +337,9 @@ export const AutomationHookIdentity = strictStruct({
 });
 export type AutomationHookIdentity = typeof AutomationHookIdentity.Type;
 
-const eventRequestPlanningFields = {
-	excludedOncePerSubjectPolicies: Schema.optional(Schema.Array(AutomationHookIdentity)),
-};
-export const AutomationEventCreateRequestPayload = strictStruct({
-	...eventPayloads.request.create.fields,
-	...eventRequestPlanningFields,
-});
-export const AutomationEventUpdateRequestPayload = strictStruct({
-	...eventPayloads.request.update.fields,
-	...eventRequestPlanningFields,
-});
-export const AutomationEventDeleteRequestPayload = strictStruct({
-	...eventPayloads.request.delete.fields,
-	...eventRequestPlanningFields,
-});
+export const AutomationEventCreateRequestPayload = eventPayloads.request.create;
+export const AutomationEventUpdateRequestPayload = eventPayloads.request.update;
+export const AutomationEventDeleteRequestPayload = eventPayloads.request.delete;
 export const AutomationEventRequestPayload = Schema.Union([
 	AutomationEventCreateRequestPayload,
 	AutomationEventUpdateRequestPayload,
@@ -469,14 +457,9 @@ const projectedMutationPayloads = <
 const projectedEntityPayloads = projectedMutationPayloads(entityPayloads);
 const projectedEventPayloads = projectedMutationPayloads(eventPayloads);
 const projectedRelationshipPayloads = projectedMutationPayloads(relationshipPayloads);
-const projectedEventRequests = [
-	strictStruct({ ...projectedEventPayloads.request.create.fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...projectedEventPayloads.request.update.fields, ...eventRequestPlanningFields }),
-	strictStruct({ ...projectedEventPayloads.request.delete.fields, ...eventRequestPlanningFields }),
-] as const;
 export const AutomationProjectedRequestPayload = Schema.Union([
 	...Object.values(projectedEntityPayloads.request),
-	...projectedEventRequests,
+	...Object.values(projectedEventPayloads.request),
 	...Object.values(projectedRelationshipPayloads.request),
 ]);
 export type AutomationProjectedRequestPayload = typeof AutomationProjectedRequestPayload.Type;

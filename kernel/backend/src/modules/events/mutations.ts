@@ -784,7 +784,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					row: (typeof rows)[number];
 					command: DomainLifecycleCommand;
 					schema: NonNullable<ReturnType<typeof schemasByScope.get>>;
-					processed: PolicyBatchResult["items"][number]["processed"];
 					draft: Extract<
 						PolicyBatchResult["items"][number]["request"],
 						{ resource: "event" }
@@ -849,7 +848,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						properties: draft.properties,
 						propertiesSchema: schema.propertiesSchema,
 					});
-					validatedRows.push({ row, index, draft, schema, command, processed: accepted.processed });
+					validatedRows.push({ row, index, draft, schema, command });
 				}
 				yield* assets
 					.lock(assetOwners)

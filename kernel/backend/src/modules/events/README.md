@@ -104,8 +104,8 @@ Violations fail as a generic `EventBadRequest` mutation conflict and roll back s
 
 Before policies run outside this transaction and do not establish cardinality or binding consistency.
 A change set runs its event policies in chunks of at most 50 items, so one invocation fits the sandbox
-context limit; a subject's items share a chunk. All accepted items then commit in one transaction
-(see [change sets](../changes/README.md)).
+context limit; a subject's items share a chunk, so a subject with more than 50 items gets one that
+size. All accepted items then commit in one transaction (see [change sets](../changes/README.md)).
 Historical restore validates final consistency with SQL, without comparing or recapturing immutable
 properties from live metadata.
 

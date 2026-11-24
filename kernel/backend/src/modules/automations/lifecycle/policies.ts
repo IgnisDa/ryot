@@ -1,7 +1,6 @@
 import { DbError, SandboxFailureKind } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
-	AutomationHookIdentity,
 	type AutomationPolicyBatchOutput,
 	AutomationPolicyPatch,
 	AutomationRequestPayload,
@@ -9,7 +8,6 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	AutomationHookSlug,
 	AutomationRunId,
 	EntityId,
 	PluginConfigRevisionId,
@@ -93,7 +91,6 @@ const State = Schema.Struct({
 	...PolicyBatchItem.fields,
 	rejected: Schema.NullOr(Message),
 	patches: Schema.Array(AutomationPolicyPatch),
-	processed: Schema.Array(AutomationHookIdentity),
 	error: Schema.NullOr(
 		Schema.Union([
 			Schema.Struct({
@@ -163,7 +160,8 @@ const policyChunkSize = 50;
 
 /**
  * Items in chunks of at most 50, which one policy invocation fits in the sandbox context limit. A
- * subject's items share a chunk, so a once-per-subject policy still runs once for it.
+ * subject's items share a chunk, so a once-per-subject policy runs once for it, and a subject with
+ * more than 50 items gets a chunk of its own that size.
  */
 export const subjectChunks = <T>(items: ReadonlyArray<T>, subjectOf: (item: T) => string) => {
 	const chunks: Array<Array<T>> = [];
@@ -199,13 +197,7 @@ export type MatchedPolicyChunks<T> = ReadonlyArray<{
 
 export const unchangedPolicyBatch = (input: PolicyBatchPayload): PolicyBatchResult => ({
 	references: input.references,
-	items: input.items.map((item) => ({
-		...item,
-		patches: [],
-		error: null,
-		processed: [],
-		rejected: null,
-	})),
+	items: input.items.map((item) => ({ ...item, patches: [], error: null, rejected: null })),
 });
 
 /** Calls each matched policy in order with the items earlier policies left active, stopping once none are. */
@@ -251,22 +243,15 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 				if (!decision || item.rejected !== null || item.error !== null) {
 					return item;
 				}
-				const processed =
-					policy.hook.batchFrequency === "once-per-subject"
-						? [
-								...item.processed,
-								{ pluginId: policy.pluginId, hookSlug: AutomationHookSlug.make(policy.hook.slug) },
-							]
-						: item.processed;
 				if (decision.action === "reject") {
-					return { ...item, processed, rejected: definitionText(policy.pluginId, decision.reason) };
+					return { ...item, rejected: definitionText(policy.pluginId, decision.reason) };
 				}
 				if (decision.action === "allow") {
-					return { ...item, processed };
+					return item;
 				}
 				const patched = applyLifecyclePolicyPatch(item.request, decision.patch);
 				if (!patched.ok || patched.request.operation === "delete") {
-					return { ...item, processed, error: { code: "invalid-policy-transform" as const } };
+					return { ...item, error: { code: "invalid-policy-transform" as const } };
 				}
 				const propertiesSchema = yield* propertiesSchemaOf(item);
 				const properties = yield* parseAppSchemaProperties({
@@ -276,7 +261,7 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					allowedMissingRequiredPaths: Object.keys(propertiesSchema.fields).map((key) => [key]),
 				}).pipe(Effect.result);
 				if (properties._tag === "Failure") {
-					return { ...item, processed, error: invalidProperties(properties.failure) };
+					return { ...item, error: invalidProperties(properties.failure) };
 				}
 				const decodedRequest = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
 					...patched.request,
@@ -293,7 +278,7 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					},
 				}).pipe(Effect.result);
 				if (decodedRequest._tag === "Failure") {
-					return { ...item, processed, error: { code: "invalid-policy-transform" as const } };
+					return { ...item, error: { code: "invalid-policy-transform" as const } };
 				}
 				const request = decodedRequest.success;
 				if (
@@ -311,7 +296,6 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					if (!reference) {
 						return {
 							...item,
-							processed,
 							error: {
 								code: "reference-not-found" as const,
 								entityId: request.draft.sessionEntityId,
@@ -331,12 +315,7 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					}).pipe(Effect.mapError(() => new DbError({ message: "Invalid policy reference" })));
 				}
 				const patch = canonicalLifecyclePolicyPatch(item.request, request);
-				return {
-					...item,
-					request,
-					processed,
-					patches: patch ? [...item.patches, patch] : item.patches,
-				};
+				return { ...item, request, patches: patch ? [...item.patches, patch] : item.patches };
 			}),
 		);
 		result = { items, references };

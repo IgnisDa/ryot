@@ -16,7 +16,7 @@ Each run pins the exact sandbox script, its input projection, plugin revision, a
 
 The automations feature Layer constructs the planner with its resolver, run repository, and trigger repository. The planner implementation keeps those collaborators as constructor requirements; transaction-scoped catalog reads use the same resolver instance throughout a plan.
 
-Batch owners mark request items with the policies already processed for their entity as `excludedOncePerSubjectPolicies`, keyed by `pluginId`/`hookSlug`. A `once-per-subject` event policy skips those items and receives at most one item per subject in each call.
+A `once-per-subject` event policy receives at most one item per subject in each call. Batch owners keep a subject's items in one policy chunk, so it runs once per subject.
 
 A logical batch opens, records its changes and seals inside one transaction. Before its first write it resolves its applicable batch-hook candidates and pins their revisions and scripts in that transaction's memory. Only batches with candidates keep committed item change evidence. Sealing creates matching immutable batch triggers and runs before the transaction commits. A batch hook receives changed items belonging to its exact definition owner in its scope/resource chunk, even when only some match its local targets. Its pinned projection selects properties. Item hooks (`frequency` omitted or `"item"`) match only non-batch triggers and batch hooks match only batch triggers. `executionScope` is compared against the run's `executionUserId`, not the trigger's scope user.
 

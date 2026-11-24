@@ -535,13 +535,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								continue;
 							}
 							assert(request.resource === "event" && request.operation === "create");
-							if (
-								oncePerSubject &&
-								(seenEntityIds.has(request.draft.entityId) ||
-									request.excludedOncePerSubjectPolicies?.some(
-										(excluded) => `${excluded.pluginId}/${excluded.hookSlug}` === identity,
-									))
-							) {
+							if (oncePerSubject && seenEntityIds.has(request.draft.entityId)) {
 								continue;
 							}
 							seenEntityIds.add(request.draft.entityId);
@@ -1443,6 +1437,36 @@ layer(
 				expect(result.outcomes).toHaveLength(51);
 				expect(yield* h.executed).toHaveLength(50);
 				expect(yield* h.inputs).toHaveLength(50);
+				expect((yield* h.calls).filter((call) => call === "batch-policy")).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	harnessLayer({
+		noHooks: true,
+		policies: [{ position: 1, slug: "subject", frequency: "once-per-subject" }],
+	}),
+)("independent events", (test) => {
+	test.effect(
+		"keeps a subject with more than 50 items in one policy chunk",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* IndependentEventsHarness;
+				const [template] = payload.payload;
+				assert(template);
+				const result = yield* run({
+					...payload,
+					payload: [
+						...Array.from({ length: 51 }, () =>
+							Object.assign({}, template, { entityId: EntityId.make("large-subject") }),
+						),
+						{ ...template, entityId: EntityId.make("small-subject") },
+					],
+				});
+				expect(result.outcomes).toHaveLength(52);
+				expect(yield* h.executed).toHaveLength(2);
 				expect((yield* h.calls).filter((call) => call === "batch-policy")).toHaveLength(2);
 			}),
 		testTimeout,
