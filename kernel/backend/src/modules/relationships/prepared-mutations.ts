@@ -49,6 +49,11 @@ import {
 } from "./mutation-support";
 
 export type UserRelationshipMode = "merge" | "upsert" | "update" | "ensure";
+/** What a write expects of the relationship it changes: its target, and property values it holds. */
+export type RelationshipExpectation = {
+	readonly targetEntityId?: EntityId;
+	readonly properties?: Readonly<Record<string, unknown>>;
+};
 /**
  * A user relationship write validated before its commit, with the request its policies receive;
  * persistence revalidates it under locks. A null request writes nothing.
@@ -225,7 +230,7 @@ export const makePreparedRelationshipMutations = (
 		commandInput: DomainLifecycleCommand,
 		mode: "delete" | UserRelationshipMode,
 		createdEntities: ReadonlyArray<PreparedEntityCreate> = [],
-		expectedTargetEntityId?: EntityId,
+		expected: RelationshipExpectation = {},
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -244,7 +249,10 @@ export const makePreparedRelationshipMutations = (
 			mode,
 			input,
 			command,
-			...(expectedTargetEntityId === undefined ? {} : { expectedTargetEntityId }),
+			...(expected.targetEntityId === undefined
+				? {}
+				: { expectedTargetEntityId: expected.targetEntityId }),
+			...(expected.properties === undefined ? {} : { expectedProperties: expected.properties }),
 		};
 		if (mode !== "delete") {
 			if (!("properties" in submitted)) {
@@ -302,16 +310,8 @@ export const makePreparedRelationshipMutations = (
 			command: DomainLifecycleCommand,
 			mode: UserRelationshipMode,
 			createdEntities: ReadonlyArray<PreparedEntityCreate> = [],
-			expectedTargetEntityId?: EntityId,
-		) =>
-			prepareUserMutation(
-				preparation,
-				input,
-				command,
-				mode,
-				createdEntities,
-				expectedTargetEntityId,
-			),
+			expected: RelationshipExpectation = {},
+		) => prepareUserMutation(preparation, input, command, mode, createdEntities, expected),
 	);
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(
 		(

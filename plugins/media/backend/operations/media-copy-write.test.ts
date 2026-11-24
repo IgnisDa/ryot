@@ -110,3 +110,42 @@ it.live("removes only the selected copy", () =>
 		});
 	}),
 );
+
+it.live("updates a copy only while it keeps the origin it read", () =>
+	Effect.gen(function* () {
+		const host = hostFor([
+			{
+				name: "Title",
+				id: "import:disc",
+				entityId: "title",
+				entitySchemaSlug: "movie",
+				properties: { format: "dvd", source: "trakt", origin: "import" },
+			},
+		]);
+		expect(
+			yield* runSandboxTestScript(
+				definition,
+				{ action: "update", copyId: "import:disc", details: { format: "blu-ray" } },
+				host,
+				execution,
+			),
+		).toEqual<unknown>({
+			output: { copyId: "import:disc" },
+			changes: {
+				relationships: {
+					upserts: [
+						{
+							target: title,
+							source: library,
+							key: "import:disc",
+							propertiesMode: "replace",
+							relationshipSchemaSlug: "media-copy",
+							expected: { properties: { origin: "import" } },
+							properties: { source: "trakt", origin: "import", format: "blu-ray" },
+						},
+					],
+				},
+			},
+		});
+	}),
+);

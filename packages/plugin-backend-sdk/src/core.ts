@@ -54,15 +54,6 @@ export {
 	httpCallFailureDetailsSchema,
 } from "./core/http";
 export {
-	rootEntity,
-	existingEntity,
-	updateEventChange,
-	deleteEventChange,
-	entityUpdateTarget,
-	expectedEventFields,
-	upsertedGlobalEntity,
-} from "./core/changes";
-export {
 	logArgsSchema,
 	logEntrySchema,
 	spanArgsSchema,
@@ -72,6 +63,16 @@ export {
 	spanResultSchema,
 	spanEntriesSchema,
 } from "./core/logging";
+export {
+	rootEntity,
+	existingEntity,
+	updateEventChange,
+	deleteEventChange,
+	entityUpdateTarget,
+	expectedEventFields,
+	upsertedGlobalEntity,
+	expectedRelationshipProperties,
+} from "./core/changes";
 export type {
 	SandboxHostMethodMap,
 	CoreSandboxHostMethodMap,

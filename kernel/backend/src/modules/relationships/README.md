@@ -46,6 +46,10 @@ entity user-data merge moves a keyed relationship's target in place: it checks t
 and preserves the row ID. Other declarations use their endpoint pair as identity. Keyed
 relationships are user-scoped and carry their key through change sets, imports, RyotQL, and backups.
 
+An upsert's `expected` properties are the relationship as its writer read it: preparation fails with
+`concurrent-relationship-change` unless the relationship exists and holds each of those values, and
+the commit's conditional write fails the same way if it changed since preparation.
+
 ## Projections
 
 A plugin relationship schema may declare `projection: { propertiesSchema }`. The fold of the link's

@@ -1,4 +1,4 @@
-import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
+import { existingEntity, expectedRelationshipProperties } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
@@ -150,6 +150,9 @@ export default defineOperation({
 							{
 								...identity,
 								propertiesMode: "replace" as const,
+								...(existing === undefined
+									? {}
+									: { expected: expectedRelationshipProperties(existing.properties, ["origin"]) }),
 								properties: {
 									...input.details,
 									origin,

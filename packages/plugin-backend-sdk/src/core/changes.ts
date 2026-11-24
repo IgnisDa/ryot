@@ -43,6 +43,18 @@ export const entityUpdateTarget = (entity: {
 });
 
 /**
+ * The precondition that a relationship still exists and holds the `checked` properties the writer read.
+ */
+export const expectedRelationshipProperties = (
+	properties: NonNullable<RelationshipUpsert["expected"]>["properties"],
+	checked: ReadonlyArray<string>,
+): NonNullable<RelationshipUpsert["expected"]> => ({
+	properties: Object.fromEntries(
+		Object.entries(properties).filter(([key]) => checked.includes(key)),
+	),
+});
+
+/**
  * The precondition that an event still has the fields the writer read. With `editable` it checks only
  * those properties, including which of them are absent.
  */

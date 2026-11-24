@@ -633,6 +633,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							identityCommand(options.relationships, itemIdentity, relation),
 							mode,
 							createdEntities,
+							relation.expected ?? {},
 						),
 					});
 				});

@@ -249,6 +249,16 @@ export const makeRelationshipMutationPrimitives = ({
 		) {
 			return yield* concurrentChange();
 		}
+		const { expectedProperties } = mutation;
+		if (
+			expectedProperties !== undefined &&
+			(!before ||
+				Object.entries(expectedProperties).some(
+					([key, value]) => !equal(before.properties[key], value),
+				))
+		) {
+			return yield* concurrentChange();
+		}
 		if (mutation.mode === "ensure" && before !== null) {
 			return null;
 		}

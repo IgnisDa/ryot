@@ -125,6 +125,12 @@ export const ChangeSet = strictStruct({
 						...relationshipEndpoints,
 						properties,
 						propertiesMode: Schema.Literals(["merge", "replace"]),
+						/**
+						 * The relationship as the writer read it: the upsert applies only while the relationship
+						 * exists and holds each of these property values, and fails as
+						 * `concurrent-relationship-change` otherwise.
+						 */
+						expected: Schema.optionalKey(strictStruct({ properties })),
 					}),
 				),
 			),

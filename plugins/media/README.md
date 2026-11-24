@@ -440,9 +440,10 @@ An add takes a client-selected ID and returns the complete copy ID. Use the retu
 updates and deletes. The `owned-copies` RyotQL query pages the inventory and accepts technical
 filters. Adding the first copy also saves the title. Removing the last copy clears its Owned status
 while leaving the library membership and history. The plugin protects integration-managed copies
-from manual edits. The operation returns its writes as its change set: a keyed `media-copy` upsert
-or delete and, for an add, an `in-media-library` membership merge. Its schemas live in
-`shared/media-ownership-operations.ts`.
+from manual edits: an update expects the copy's origin as it read it, so an update of a copy removed
+or taken over by an integration since fails as a conflict instead of writing it back. The operation
+returns its writes as its change set: a keyed `media-copy` upsert or delete and, for an add, an
+`in-media-library` membership merge. Its schemas live in `shared/media-ownership-operations.ts`.
 
 Jellyfin and Emby inventory integrations scan all visible movie and episode media versions.
 Plex Yank adds copies when **Sync owned copies** is enabled. It reads video and audio stream

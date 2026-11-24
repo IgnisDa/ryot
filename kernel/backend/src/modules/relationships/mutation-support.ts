@@ -95,6 +95,7 @@ export const RelationshipMutation = Schema.Struct({
 	expectedTargetEntityId: Schema.optionalKey(EntityId),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
 	mode: Schema.Literals(["upsert", "update", "delete", "merge", "ensure"]),
+	expectedProperties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type Mutation = typeof RelationshipMutation.Type;
 

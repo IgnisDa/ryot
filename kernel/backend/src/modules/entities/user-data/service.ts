@@ -317,7 +317,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							itemCommand(command, `relationship:${relationship.id}:create`),
 							"upsert",
 							[],
-							retarget ? relationship.targetEntityId : undefined,
+							retarget ? { targetEntityId: relationship.targetEntityId } : {},
 						)
 						.pipe(
 							Effect.catchTags({

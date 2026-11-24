@@ -909,7 +909,8 @@ commit's conflict code.
 
 `ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
-references, `entityUpdateTarget(entity)` and `expectedEventFields(event, editable?)` baselines,
+references, `entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)` and
+`expectedRelationshipProperties(properties, checked)` baselines,
 `updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
 `EventDelete`, `EventChange`, `RelationshipUpsert`, `SignalChange` and `GlobalRelationship`. Every part names schemas of the writing plugin by slug, and every slug must be declared
 by its revision.
@@ -921,7 +922,7 @@ by its revision.
 | `entities.clears`     | An entity's user data: its events and relationships                                                                      | User executions                                                            |
 | `entities.merges`     | One entity's user data into another of the same plugin schema                                                            | User executions                                                            |
 | `entities.ensures`    | One user entity per schema, created only when absent                                                                     | The plugin's user bootstrap script                                         |
-| `relationships`       | `upserts` (`merge` or `replace` properties) and `deletes` between the root or existing entities                          | User executions and user automation runs                                   |
+| `relationships`       | `upserts` (`merge` or `replace` properties, optionally `expected`) and `deletes` between root or existing entities       | User executions and user automation runs                                   |
 | `events`              | One `changes` list of `create`, `update` and `delete` items, with `expected` session events and `baselines`              | User executions and user automation runs                                   |
 | `settings`            | A patch of the plugin's settings for the execution user                                                                  | User executions, except integrations, imports and bootstraps               |
 | `signals`             | Signal emissions with a discriminator and optional subject entity                                                        | Automation runs; system ones need a system plugin automation               |

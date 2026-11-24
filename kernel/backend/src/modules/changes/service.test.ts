@@ -1737,6 +1737,76 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"applies a keyed upsert only while the relationship holds its expected properties",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const input = yield* fixture({
+					...source,
+					manifest: {
+						...source.manifest,
+						relationshipSchemas: [
+							...source.manifest.relationshipSchemas,
+							{
+								keyed: true,
+								slug: "atomic-keyed",
+								name: { key: "test.link" },
+								sourceEntitySchemaSlug: "record",
+								targetEntitySchemaSlug: "record",
+								propertiesSchema: { fields: { origin: stringField("origin") } },
+							},
+						],
+					},
+				});
+				const root = yield* commitUserCommand(input);
+				const copy = {
+					key: "copy",
+					source: existing(root.entityId),
+					target: existing(targetOf(input)),
+					propertiesMode: "replace" as const,
+					relationshipSchemaSlug: "atomic-keyed",
+				};
+				const upsert = (origin: string, expected?: string) =>
+					commit(
+						{
+							relationships: {
+								upserts: [
+									{
+										...copy,
+										properties: { origin },
+										...(expected === undefined
+											? {}
+											: { expected: { properties: { origin: expected } } }),
+									},
+								],
+							},
+						},
+						nextCommand(input),
+					);
+				const conflict = { reason: { code: "concurrent-relationship-change" } };
+				expect(yield* upsert("manual", "manual").pipe(Effect.flip)).toMatchObject(conflict);
+				yield* upsert("manual");
+				yield* upsert("edited", "manual");
+				yield* upsert("integration");
+				expect(yield* upsert("stale", "edited").pipe(Effect.flip)).toMatchObject(conflict);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ properties: tables.relationship.properties })
+							.from(tables.relationship)
+							.where(
+								and(
+									eq(tables.relationship.relationshipSchemaSlug, "atomic-keyed"),
+									eq(tables.relationship.relationshipSchemaPluginId, input.pluginId),
+								),
+							),
+					),
+				).toEqual([{ properties: { origin: "integration" } }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"ensures the bootstrap's entity once and refuses ensures from other scripts",
 		() =>
 			Effect.gen(function* () {
