@@ -157,19 +157,31 @@ const patch = (input: {
 	readonly accountUserId?: UserId;
 	readonly values: Readonly<Record<string, JsonValue>>;
 }) =>
-	Effect.flatMap(PluginUserSettingsWriter, (writer) =>
-		writer.patch({
-			values: input.values,
-			userId: input.userId,
-			pluginId: input.pluginId,
-			pluginRevisionId: input.revisionId,
-			accountUserId: input.accountUserId ?? input.userId,
-		}),
-	);
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const writer = yield* PluginUserSettingsWriter;
+		return yield* session
+			.transaction(
+				writer
+					.lockForPatch(input.userId)
+					.pipe(
+						Effect.andThen(
+							writer.patchWithin({
+								values: input.values,
+								userId: input.userId,
+								pluginId: input.pluginId,
+								pluginRevisionId: input.revisionId,
+								accountUserId: input.accountUserId ?? input.userId,
+							}),
+						),
+					),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+	});
 
 const rejected = (message: string) => new PluginUserSettingsPatchError({ message });
 
-describe("PluginUserSettingsWriter.patch", () => {
+describe("PluginUserSettingsWriter.patchWithin", () => {
 	layer(writerLayer)((test) => {
 		test.effect(
 			"writes only the executing user's own installation and invalidates their catalog",

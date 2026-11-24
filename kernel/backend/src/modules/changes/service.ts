@@ -1560,7 +1560,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				// Every catalog read and write check of a commit transaction follows its catalog lock, so they
 				// share one current reading of the user's plugins.
-				const lockCatalog = planner.lockCatalog([input.userId]);
+				const lockCatalog = Effect.andThen(
+					input.settings !== undefined && pluginRevision !== null && input.userId !== null
+						? settingsWriter.lockForPatch(input.userId)
+						: Effect.void,
+					planner.lockCatalog([input.userId]),
+				);
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {

@@ -273,7 +273,9 @@ The commit rechecks references and schema fingerprints, persists the entity, rel
 event changes, and plans dispatch atomically.
 
 A settings patch is applied first in the commit transaction through `PluginUserSettingsWriter`;
-integration, import, and bootstrap executions cannot write settings.
+integration, import, and bootstrap executions cannot write settings. A transaction of a change set
+with settings takes the user's ingestion fence and user-write lock before its catalog lock, because
+the patch updates an installation row that other commits' catalog locks hold shared.
 
 The commit holds its entity reference locks until it ends, so change sets that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update

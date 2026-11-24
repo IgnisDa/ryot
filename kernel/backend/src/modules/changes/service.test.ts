@@ -1188,6 +1188,12 @@ const atomicLink = (input: Fixture) => ({
 
 const existing = (entityId: EntityId) => ({ entityId, kind: "existing" as const });
 
+const stringField = (key: string) => ({
+	description: key,
+	type: "string" as const,
+	label: { key: `test.${key}` },
+});
+
 const kernelWriterCommand = (input: Fixture): DomainLifecycleCommand => ({
 	...command(crypto.randomUUID()),
 	writeContext: null,
@@ -1903,6 +1909,80 @@ layer(testLayer(false))((test) => {
 						nextCommand(input),
 					),
 				).toEqual({ events: [] });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"commits concurrent settings patches for one user",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const input = yield* fixture({
+					...source,
+					manifest: {
+						...source.manifest,
+						userSettingsSchema: {
+							unknownKeys: "strict",
+							fields: { theme: stringField("theme"), layout: stringField("layout") },
+						},
+					},
+				});
+				const changeSets = yield* ChangeSets;
+				const patches: ReadonlyArray<readonly [string, Record<string, string>]> = [
+					["theme", { theme: "dark" }],
+					["layout", { layout: "grid" }],
+				];
+				const inCommit = yield* Ref.make(0);
+				const bothInCommit = yield* Deferred.make<void>();
+				const loads = yield* Effect.forEach(patches, () => Ref.make(0));
+				// A commit loads its receipt once before preparing and once in each commit transaction it
+				// starts; its first commit transaction waits there until both commits are in theirs, and a
+				// transaction retried after a deadlock loads it again.
+				yield* Effect.forEach(
+					patches,
+					([item, settings], index) => {
+						const count = loads[index];
+						assert(count);
+						return changeSets.commitScript(
+							{ settings },
+							{
+								...command(`${input.command.causation.executionId}:${item}`),
+								writeContext: input.command.writeContext,
+								accountUserId: input.command.accountUserId,
+							},
+							{
+								...unrecordedChanges,
+								load: Effect.gen(function* () {
+									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 2) {
+										if (
+											(yield* Ref.updateAndGet(inCommit, (value) => value + 1)) === patches.length
+										) {
+											yield* Deferred.succeed(bothInCommit, undefined);
+										}
+										yield* Deferred.await(bothInCommit);
+									}
+									return null;
+								}),
+							},
+						);
+					},
+					{ concurrency: "unbounded" },
+				);
+				expect(yield* Effect.forEach(loads, Ref.get)).toEqual([2, 2]);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ userSettings: tables.pluginInstallation.userSettings })
+							.from(tables.pluginInstallation)
+							.where(
+								and(
+									eq(tables.pluginInstallation.userId, userId),
+									eq(tables.pluginInstallation.pluginId, input.pluginId),
+								),
+							),
+					),
+				).toEqual([{ userSettings: { theme: "dark", layout: "grid" } }]);
 			}),
 		testTimeout,
 	);
