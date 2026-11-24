@@ -1,12 +1,18 @@
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
+import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
+	fakeProviderDetailsResult,
+	getGlobalEntityByProvenance,
 	getImportRun,
 	listEventsForEntity,
 	listEventSlugs,
 	pollImportRunUntilTerminal,
+	shippedPluginTestProviders,
 	uploadImportFile,
 	waitForEventSlugs,
 } from "~/fixtures/kernel";
@@ -14,10 +20,12 @@ import {
 	findMediaEntitySchema,
 	queryInMediaLibraryRelationship,
 	seedGlobalShowEpisodeTree,
+	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { assertCompleted } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 describe("Watcharr Show Import E2E (episode resolution)", () => {
 	it.live(
@@ -164,6 +172,125 @@ describe("Jellyfin import completion dates", () => {
 				{ dateUnknown: true },
 			]);
 			expect(completions[0]?.properties["completionMode"]).toBeUndefined();
+		}),
+	);
+});
+
+describe("Media history import of an unpopulated show", () => {
+	let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
+	let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
+	let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+	beforeAll(() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Media History Import");
+				target = harness.target;
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
+			}),
+		),
+	);
+
+	afterAll(() => runPromise(harness?.stop ?? Effect.void));
+
+	it.live("fetches the show, records the listed episode, and reports the unlisted one", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient(target);
+			const { pluginId } = yield* findMediaEntitySchema(client, "show");
+			const suffix = yield* randomUuid;
+			const showExternalId = `history-show-${suffix}`;
+			const episodeExternalId = `history-episode-${suffix}`;
+			const provider = yield* media.attachProvider({
+				rootEntitySchemaSlug: "show",
+				details: fakeProviderDetailsResult({
+					name: "History Show",
+					properties: { productionStatus: "Ended" },
+					childEntities: [
+						{
+							name: "Season 2",
+							entitySchemaSlug: "show-season",
+							properties: { seasonNumber: 2 },
+							externalId: `history-season-${suffix}`,
+							childEntities: [
+								{
+									name: "Episode 1",
+									externalId: episodeExternalId,
+									entitySchemaSlug: "show-episode",
+									properties: { seasonNumber: 2, episodeNumber: 1 },
+								},
+							],
+						},
+					],
+				}),
+			});
+			yield* seedMediaEntity({
+				target,
+				properties: {},
+				name: "History Show",
+				entitySchemaSlug: "show",
+				externalId: showExternalId,
+				providerId: provider.providerId,
+			});
+			const document = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
+				{
+					title: "History Show",
+					entitySchemaSlug: "show",
+					externalId: showExternalId,
+					providerSlug: provider.providerSlug,
+					events: [
+						{
+							eventSchemaSlug: "complete",
+							occurredAt: "2024-01-02T00:00:00.000Z",
+							episode: { type: "show", seasonNumber: 2, episodeNumber: 1 },
+							properties: { sourceRun: "seen:listed", calendarDate: "2024-01-02" },
+						},
+						{
+							eventSchemaSlug: "complete",
+							occurredAt: "2024-01-03T00:00:00.000Z",
+							episode: { type: "show", seasonNumber: 9, episodeNumber: 1 },
+							properties: { dateUnknown: true, sourceRun: "seen:unlisted" },
+						},
+					],
+				},
+			]);
+			const uploadToken = yield* uploadImportFile(
+				client,
+				document,
+				"media-history.json",
+				"application/json",
+			);
+			const created = yield* client.call((c) =>
+				c.imports.createRun({
+					payload: {
+						uploadToken,
+						source: { slug: "media-history", owner: { pluginId, kind: "plugin" } },
+					},
+				}),
+			);
+			assertCompleted(
+				yield* pollImportRunUntilTerminal(client, created.id),
+				"Media history import",
+			);
+
+			const episode = yield* getGlobalEntityByProvenance(client, {
+				externalId: episodeExternalId,
+				providerId: provider.providerId,
+				entitySchemaSlug: "show-episode",
+			});
+			yield* waitForEventSlugs(client, episode.id, "complete");
+			const completions = yield* listEventsForEntity(client, episode.id, undefined, 20, {
+				eventSchemaSlug: "complete",
+			});
+			expect(completions.map(({ properties }) => properties)).toMatchObject([
+				{ calendarDate: "2024-01-02", sourceRun: stringContaining('"seen:listed"]') },
+			]);
+
+			const run = yield* getImportRun(client, created.id, undefined, 20);
+			expect(
+				run.issues.items.flatMap(({ data }) =>
+					data.reason.code === "provider-resolution-failed" ? [data.recordKind] : [],
+				),
+			).toEqual(["complete"]);
 		}),
 	);
 });
