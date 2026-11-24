@@ -91,6 +91,7 @@ const AnomalyCode = Schema.Literals([
 	"asset-deletion-failed",
 	"exercise-ownerless-unreferenced",
 	"person-identity-duplicate-merged",
+	"custom-media-copied",
 	"genre-name-blank",
 	"collection-name-duplicate-renamed",
 	"integration-cache-provider-unmapped",
