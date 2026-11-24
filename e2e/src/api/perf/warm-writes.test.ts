@@ -156,6 +156,7 @@ const reviewScenario = Effect.fn("reviewScenario")(function* (
 		from event v join entity e on e.id = v.entity_id
 		where v.user_id = $1 and v.event_schema_slug = 'review' and e.entity_schema_slug = $2
 			and not (v.properties ? 'consumptionEventId')
+			and (v.properties->>'rating' is not null or nullif(btrim(v.properties->>'text'), '') is not null)
 		order by history ${order}, v.id limit 1`,
 		[userId, schemaSlug],
 	))[0];
