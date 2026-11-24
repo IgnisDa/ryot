@@ -37,6 +37,7 @@ import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/
 import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { isUniqueConstraintError } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import {
@@ -573,8 +574,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			 */
 			const lockOutcomes = Effect.fn("ImportsRepository.lockOutcomes")(function* (
 				scope: IngestionScope,
+				transaction: WriteTransaction,
 			) {
-				yield* lockPluginIngestionShared(database, [scope.userId]);
+				yield* lockPluginIngestionShared(database, [scope.userId], transaction);
 				yield* lockProjection(scope, ["running", "cancelling"]);
 			});
 			const checkCaptureOwner = Effect.fn("ImportsRepository.checkCaptureOwner")(function* (

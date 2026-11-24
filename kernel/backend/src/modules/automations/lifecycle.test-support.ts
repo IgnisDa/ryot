@@ -89,22 +89,22 @@ export const withLifecycleBatchPlanning = (
 		plan: recordPlan,
 		lockCatalog: () => Effect.void,
 		recordBatchChange: () => Effect.void,
-		planChange: (input) =>
-			Effect.map(recordPlan(input), (result) =>
-				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
-			),
 		prepareBatch: (_transaction, input) =>
 			Effect.succeed({
 				hasCandidates,
 				id: stableStringify([input.command.itemIdentity, ...input.identity]),
 			}),
-		planChanges: (triggers) =>
+		planChange: (input, transaction) =>
+			Effect.map(recordPlan({ ...input, transaction }), (result) =>
+				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
+			),
+		planChanges: (triggers, transaction) =>
 			Effect.forEach(triggers, (trigger) =>
-				Effect.map(recordPlan({ trigger }), (result) =>
+				Effect.map(recordPlan({ trigger, transaction }), (result) =>
 					result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
 				),
 			),
-		planBatch: (input) =>
+		planBatch: (transaction, input) =>
 			Effect.gen(function* () {
 				const identity = stableStringify([
 					input.command.causation.executionId,
@@ -123,7 +123,7 @@ export const withLifecycleBatchPlanning = (
 					yield* lifecycleBatchTriggers(input, maxItems, relevant),
 					(trigger) =>
 						planner
-							.plan({ trigger })
+							.plan({ trigger, transaction })
 							.pipe(
 								Effect.map((result) =>
 									result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],

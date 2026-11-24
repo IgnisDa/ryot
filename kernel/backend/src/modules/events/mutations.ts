@@ -363,9 +363,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				for (const [, account] of [...accounts].sort(([left], [right]) =>
 					left.localeCompare(right),
 				)) {
-					yield* admission.admitAccount(account);
+					yield* admission.admitAccount(account, transaction);
 				}
-				yield* schemas.lockCatalog([input.userId, ...accounts.keys()]);
+				yield* schemas.lockCatalog([input.userId, ...accounts.keys()], transaction);
 				const mutationReferences = preparedMutationReferences(input);
 				yield* repository.lockMutationReferences(mutationReferences);
 				return yield* groups.capture(transaction, {
@@ -656,7 +656,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				},
 			) {
 				yield* session.requireTransaction.pipe(Effect.orDie);
-				yield* schemas.lockCatalog([input.userId]);
+				yield* schemas.lockCatalog([input.userId], transaction);
 				const mutationReferences = preparedMutationReferences({
 					batches: [input],
 					userId: input.userId,
@@ -951,7 +951,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					if (row.change.kind === "create") {
 						yield* keys.recordImportItem(command, input.userId, "created");
 					}
-					yield* planner.recordBatchChange(preparedBatch.id, {
+					yield* planner.recordBatchChange(transaction, preparedBatch.id, {
 						payload: change,
 						scopeUserId: input.userId,
 						index: (input.batchIndexOffset ?? 0) + index,
@@ -963,7 +963,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				const planned = yield* planner.planChanges(triggers, transaction);
 				dispatch.push(...planned.flat());
 				if (input.sealBatch !== false) {
-					dispatch.push(...(yield* planner.planBatch(batch)));
+					dispatch.push(...(yield* planner.planBatch(transaction, batch)));
 				}
 				return { results, dispatch };
 			});

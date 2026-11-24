@@ -3,10 +3,10 @@
 `AccountAdmission` owns account admission and `IdempotencyKeys` owns request keys. Neither
 imports concrete workflows or the workflow engine.
 
-Account admission is one `for share` read of the user row, done once per transaction. Account
-retirement stamps `retiring_at` on that row under its exclusive lock and deletes the account's jobs in
-the same transaction, so a waiting admission re-reads the stamp. A stamped account, or a command
-from a job that no longer exists, is refused.
+Account admission is one `for share` read of the user row, done once per `WriteTransaction` its
+callers pass. Account retirement stamps `retiring_at` on that row under its exclusive lock and
+deletes the account's jobs in the same transaction, so a waiting admission re-reads the stamp. A
+stamped account, or a command from a job that no longer exists, is refused.
 
 The workflow engine records which account an execution works for (see
 [`platform/workflow`](../../platform/workflow/README.md)). `workflow-dispatch.ts` binds dispatch to it:

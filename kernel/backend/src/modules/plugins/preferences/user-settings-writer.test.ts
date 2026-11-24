@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
@@ -163,7 +164,7 @@ const patch = (input: {
 		return yield* session
 			.transaction(
 				writer
-					.lockForPatch(input.userId)
+					.lockForPatch(input.userId, new WriteTransaction())
 					.pipe(
 						Effect.andThen(
 							writer.patchWithin({

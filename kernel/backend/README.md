@@ -9,7 +9,10 @@ Routes decode requests and call services. Services own access control, business 
 boundaries; repositories own row normalization and persistence through their captured
 `DatabaseSession`. Its `session.run` selects the active executor and maps native database failures.
 Shared writes join the caller's transaction without passing raw executors between services. Owners
-that require a top-level transaction reject an already active one.
+that require a top-level transaction reject an already active one. State a feature keeps for one
+transaction, such as the locks it holds or a catalog reading, is keyed on the transaction's
+`WriteTransaction` through `writeState`, never on the executor. A savepoint's writes get their own
+`WriteTransaction`, so rolling the savepoint back drops what they took.
 
 Runtime writes from imports, collections, provider population, reminders, signal schedules, jobs,
 the change sets scripts return, bootstrap, the entity editor, and HTTP commit

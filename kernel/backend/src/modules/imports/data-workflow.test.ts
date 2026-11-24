@@ -34,6 +34,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
@@ -177,7 +178,10 @@ const fixture = Effect.fnUntraced(function* (
 			commitOnce: (input, _lifecycle, receipt, options) =>
 				Effect.gen(function* () {
 					submitted.push(input);
-					if (options?.precondition && !(yield* options.precondition.check)) {
+					if (
+						options?.precondition &&
+						!(yield* options.precondition.check(new WriteTransaction()))
+					) {
 						return yield* Effect.die("A data import precondition failed");
 					}
 					const creates = input.events?.changes ?? [];

@@ -306,7 +306,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				principal: Principal,
 				plugin: NonNullable<Principal["pluginRevision"]>,
 			) {
-				yield* lockPluginConfigShared(session, [plugin.id]);
+				yield* lockPluginConfigShared(session, [plugin.id], transaction);
 				const userId = sandboxSubjectUserId(principal.subject);
 				const prepared = transaction.preparation
 					? preparedPins(transaction.preparation).get(stableStringify(principal))
@@ -327,14 +327,8 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				return yield* readRevision(principal, plugin);
 			});
 			// A transaction's locked reads hold their locks until it ends, and the commit changes no
-			// plugin, installation, or account rows, so each read stays valid for the rest of it. A
-			// savepoint has its own executor, so its reads and locks never outlive its rollback.
-			const lockedAuthority = new WeakMap<object, AuthorityReads>();
-			const lockedReads = (db: object, transaction: WriteTransaction) => {
-				const known = lockedAuthority.get(db);
-				if (known) {
-					return known;
-				}
+			// plugin, installation, or account rows, so each read stays valid for the rest of it.
+			const lockedReads = writeState((transaction: WriteTransaction): AuthorityReads => {
 				const revisions = new Map<string, Result.Result<undefined | DomainWritePin, DbError>>();
 				const resolved = new Map<string, Result.Result<unknown, DbError>>();
 				const accounts = new Map<
@@ -345,8 +339,8 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					string,
 					Result.Result<Effect.Success<ReturnType<typeof readInstallation>>, DbError>
 				>();
-				const reads: AuthorityReads = {
-					fence: (userIds) => lockPluginIngestionShared(session, userIds),
+				return {
+					fence: (userIds) => lockPluginIngestionShared(session, userIds, transaction),
 					revision: (principal, plugin) =>
 						once(
 							revisions,
@@ -365,9 +359,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 							),
 					},
 				};
-				lockedAuthority.set(db, reads);
-				return reads;
-			};
+			});
 			const authorize = Effect.fnUntraced(function* (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
@@ -461,8 +453,8 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 									new DbError({ message: "Domain authority commit checks require a transaction" }),
 							),
 							Effect.andThen(
-								session.run((db) =>
-									authorize(command, owner, scopeUserId, lockedReads(db, transaction)),
+								Effect.suspend(() =>
+									authorize(command, owner, scopeUserId, lockedReads(transaction)),
 								),
 							),
 						)

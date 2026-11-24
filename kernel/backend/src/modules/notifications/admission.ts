@@ -3,6 +3,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 
 import { NotificationDeliveryJob } from "./delivery-job";
@@ -24,6 +25,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 			/** Admits within the caller's transaction; the queued delivery job runs after it commits. */
 			const admitWithin = Effect.fn("NotificationAdmissions.admitWithin")(function* (
 				input: NotificationAdmission,
+				transaction?: WriteTransaction,
 			) {
 				yield* session.requireTransaction.pipe(
 					Effect.mapError(
@@ -37,7 +39,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 				}
 				const now = yield* DateTime.nowAsDate;
 				const id = yield* Effect.gen(function* () {
-					yield* admission.admitAccount(input.accountUserId);
+					yield* admission.admitAccount(input.accountUserId, transaction);
 					if (
 						!(yield* sources.authorize({
 							runId: input.sourceRunId,

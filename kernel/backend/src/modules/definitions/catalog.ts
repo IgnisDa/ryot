@@ -818,7 +818,7 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 						}
 						return Effect.tap(
 							scope instanceof WriteTransaction
-								? Effect.andThen(lockPluginIngestionShared(session, [userId]), load)
+								? Effect.andThen(lockPluginIngestionShared(session, [userId], scope), load)
 								: load,
 							(plugins) => Effect.sync(() => known.set(userId, plugins)),
 						);

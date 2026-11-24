@@ -253,9 +253,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					entityIds,
 					events: input.events,
 					relationships: input.relationships,
-					lock: Effect.gen(function* () {
+					lock: Effect.fnUntraced(function* (transaction: WriteTransaction) {
 						if (input.command.accountUserId) {
-							yield* admission.admitAccount(input.command.accountUserId);
+							yield* admission.admitAccount(input.command.accountUserId, transaction);
 						}
 						yield* entitiesRepository.lockUserDataReferences(entityIds);
 						yield* input.recheck;
@@ -265,7 +265,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						const written = yield* input.write(transaction, batch, accept);
 						return {
 							result: written.result,
-							dispatch: [...written.dispatch, ...(yield* planner.planBatch(batch))],
+							dispatch: [...written.dispatch, ...(yield* planner.planBatch(transaction, batch))],
 						};
 					}),
 				});

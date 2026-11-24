@@ -657,9 +657,10 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					...options,
 					precondition: {
 						written: () => Effect.void,
-						check: repository
-							.lockOutcomes(scope)
-							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
+						check: (transaction) =>
+							repository
+								.lockOutcomes(scope, transaction)
+								.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
 					},
 				},
 				(committed) =>

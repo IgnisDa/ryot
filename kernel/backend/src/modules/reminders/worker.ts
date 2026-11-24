@@ -23,6 +23,7 @@ import { summarizeNotification } from "#modules/notifications/ledger";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { REMINDER_PAGE_LIMIT, RemindersRepository } from "./repository";
 
@@ -48,10 +49,13 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 			const config = yield* AppConfig;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-			const lockCandidate = Effect.fnUntraced(function* (captured: ReminderRecord) {
+			const lockCandidate = Effect.fnUntraced(function* (
+				captured: ReminderRecord,
+				writes?: WriteTransaction,
+			) {
 				const userId = UserId.make(captured.userId);
-				yield* admission.admitAccount(userId);
-				yield* plugins.lockIngestionShared([userId]);
+				yield* admission.admitAccount(userId, writes);
+				yield* plugins.lockIngestionShared([userId], writes);
 				yield* entities.lockUserDataReferences(
 					[captured.entityId, captured.parentEntityId]
 						.filter((id) => id !== null)
@@ -128,7 +132,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 					{ ...command, writeContext: null },
 					{
 						precondition: {
-							check: Effect.map(lockCandidate(captured), (row) => row !== null),
+							check: (writes) => Effect.map(lockCandidate(captured, writes), (row) => row !== null),
 							written: Effect.fnUntraced(function* (result) {
 								const [signal] = result.signals;
 								if (signal?.plan.trigger.blockedReason !== null) {

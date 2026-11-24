@@ -107,7 +107,7 @@ import type {
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { WritePreparation, type WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	authorizeChangeSet,
@@ -161,12 +161,12 @@ export const ChangeSetFailure = Schema.Union([
 
 /**
  * Durable state the commit consults: `check` runs before preparation and again in the commit
- * transaction, where false records an empty result; `written` runs after every write of a commit that
- * wrote anything, with what it wrote.
+ * transaction, each time given that transaction's `WriteTransaction`, where false records an empty
+ * result; `written` runs after every write of a commit that wrote anything, with what it wrote.
  */
 export type CommitPrecondition = {
-	readonly check: Effect.Effect<boolean, DbError>;
 	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
+	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, DbError>;
 };
 
 /**
@@ -337,13 +337,19 @@ const unrecorded: CommitReceipt<CommitResult> = {
 };
 
 /** The result a receipt recorded, or the empty result a false precondition records; null commits. */
-const settledByReceipt = <A>(receipt: CommitReceipt<A>, precondition?: CommitPrecondition) =>
+const settledByReceipt = <A>(
+	receipt: CommitReceipt<A>,
+	transaction: WriteTransaction,
+	precondition?: CommitPrecondition,
+) =>
 	Effect.gen(function* () {
 		const stored = yield* receipt.load;
 		if (stored !== null) {
 			return stored;
 		}
-		return precondition && !(yield* precondition.check) ? yield* receipt.record(emptyResult) : null;
+		return precondition && !(yield* precondition.check(transaction))
+			? yield* receipt.record(emptyResult)
+			: null;
 	});
 
 /**
@@ -1052,7 +1058,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						});
 						const lockedReferences = yield* entityRows.getMutationEntities(lockedEntityIds, true);
 						for (const prepared of userDataWrites) {
-							yield* prepared.lock;
+							yield* prepared.lock(transaction);
 						}
 						if (scope) {
 							for (const baseline of baselines) {
@@ -1120,7 +1126,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								dispatch.push(...work.dispatch);
 								relationshipResults.push({ ...work.result, itemIdentity });
 							}
-							dispatch.push(...(yield* planner.planBatch(batch)));
+							dispatch.push(...(yield* planner.planBatch(transaction, batch)));
 						}
 						const recordedChanges: EventMutation[] = [];
 						for (const event of input.relationships?.events ?? []) {
@@ -1219,7 +1225,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
 							);
 					dispatch.push(...written.dispatch);
-					dispatch.push(...(yield* planner.planBatch(eventBatch)));
+					dispatch.push(...(yield* planner.planBatch(transaction, eventBatch)));
 					const root = entity === undefined ? undefined : saved.entities[0]?.entity;
 					const committed: CommittedChanges = {
 						events: written.results,
@@ -1239,13 +1245,16 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const groups = yield* eventBatches(validated);
 					const accept = acceptRelationshipPolicies(validated.relationships);
 					if (input.settings !== undefined && pluginRevision !== null && userId !== null) {
-						yield* settingsWriter.patchWithin({
-							userId,
-							accountUserId: userId,
-							values: input.settings,
-							pluginId: pluginRevision.id,
-							pluginRevisionId: pluginRevision.revisionId,
-						});
+						yield* settingsWriter.patchWithin(
+							{
+								userId,
+								accountUserId: userId,
+								values: input.settings,
+								pluginId: pluginRevision.id,
+								pluginRevisionId: pluginRevision.revisionId,
+							},
+							transaction,
+						);
 					}
 					const written = yield* sourceWrites(transaction, groups, accept, validated.entities);
 					const dispatch = [...written.dispatch];
@@ -1514,21 +1523,24 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					const planned: Array<CommitResult["signals"][number]> = [];
 					for (const signal of input.signals ?? []) {
-						const plan = yield* signals.planSignal({
-							reference: signal.reference,
-							principal: signal.principal,
-							properties: signal.properties,
-							command: itemCommand(command, signal.itemIdentity),
-							...(signal.subjectEntityId === undefined
-								? {}
-								: { subjectEntityId: signal.subjectEntityId }),
-						});
+						const plan = yield* signals.planSignal(
+							{
+								reference: signal.reference,
+								principal: signal.principal,
+								properties: signal.properties,
+								command: itemCommand(command, signal.itemIdentity),
+								...(signal.subjectEntityId === undefined
+									? {}
+									: { subjectEntityId: signal.subjectEntityId }),
+							},
+							transaction,
+						);
 						planned.push({ plan, itemIdentity: signal.itemIdentity });
 						dispatch.push(toLifecycleDispatchPlan(plan));
 					}
 					if (script) {
 						for (const notice of script.authority.notifications) {
-							yield* notifications.admitMessageWithin(notice);
+							yield* notifications.admitMessageWithin(notice, transaction);
 						}
 					}
 					if (input.folds && pluginId !== null) {
@@ -1554,9 +1566,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					value,
 					dispatch: [],
 				});
-				const unchecked = Effect.map(settledByReceipt(receipt, precondition), (value) =>
-					value === null ? null : settled(value),
-				);
+				const unchecked = (writes: WriteTransaction) =>
+					Effect.map(settledByReceipt(receipt, writes, precondition), (value) =>
+						value === null ? null : settled(value),
+					);
 				const transaction = <X, E, R>(
 					work: (transaction: WriteTransaction) => Effect.Effect<X, E, R>,
 				) =>
@@ -1567,20 +1580,21 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				// Every catalog read and write check of a commit transaction follows its catalog lock, so they
 				// share one current reading of the user's plugins.
-				const lockCatalog = Effect.andThen(
-					input.settings !== undefined && pluginRevision !== null && input.userId !== null
-						? settingsWriter.lockForPatch(input.userId)
-						: Effect.void,
-					planner.lockCatalog([input.userId]),
-				);
+				const lockCatalog = (writes: WriteTransaction) =>
+					Effect.andThen(
+						input.settings !== undefined && pluginRevision !== null && input.userId !== null
+							? settingsWriter.lockForPatch(input.userId, writes)
+							: Effect.void,
+						planner.lockCatalog([input.userId], writes),
+					);
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {
-							const stopped = yield* unchecked;
+							const stopped = yield* unchecked(writes);
 							if (stopped !== null) {
 								return { committed: stopped, kind: "committed" as const };
 							}
-							yield* lockCatalog;
+							yield* lockCatalog(writes);
 							const planned = yield* prepared.planPolicies(writes);
 							if (
 								[
@@ -1608,11 +1622,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const validated = yield* prepared.validatePolicies(started.planned);
 					return yield* transaction((writes) =>
 						Effect.gen(function* () {
-							const stopped = yield* unchecked;
+							const stopped = yield* unchecked(writes);
 							if (stopped !== null) {
 								return stopped;
 							}
-							yield* lockCatalog;
+							yield* lockCatalog(writes);
 							return yield* writeAll(writes, validated);
 						}),
 					).pipe(
@@ -1721,7 +1735,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const settled =
 					options.precondition === undefined && receipt.peek
 						? yield* receipt.peek
-						: yield* inTransaction(settledByReceipt(receipt, options.precondition));
+						: yield* inTransaction(
+								Effect.suspend(() =>
+									settledByReceipt(receipt, new WriteTransaction(), options.precondition),
+								),
+							);
 				return settled ?? (yield* commitKernel(input, command, receipt, options));
 			});
 			/** Commits independent event creates once per key, held by the account's idempotency key. */

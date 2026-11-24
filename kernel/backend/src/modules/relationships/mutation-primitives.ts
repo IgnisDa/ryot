@@ -566,10 +566,17 @@ export const makeRelationshipMutationPrimitives = ({
 		);
 		return { change, dispatch };
 	});
-	const lockMutations = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {
+	const lockMutations = Effect.fnUntraced(function* (
+		mutations: ReadonlyArray<Mutation>,
+		transaction?: WriteTransaction,
+	) {
 		yield* assertActiveTransaction;
 		for (const { input, command } of mutations) {
-			yield* admission.admitCommand(command, input.scope === "user" ? input.userId : null);
+			yield* admission.admitCommand(
+				command,
+				input.scope === "user" ? input.userId : null,
+				transaction,
+			);
 		}
 		yield* entities.lockEntityReferencesByIds(
 			mutations.flatMap(({ input, expectedTargetEntityId }) => [
@@ -583,6 +590,7 @@ export const makeRelationshipMutationPrimitives = ({
 			mutations.flatMap(({ input, command }) =>
 				mutationUserIds(command, input.scope === "user" ? input.userId : null),
 			),
+			transaction,
 		);
 	});
 	return {

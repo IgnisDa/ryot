@@ -20,7 +20,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { lockPluginConfigShared } from "#modules/plugins/packages/ingestion-fence";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { DatabaseSession } from "#platform/db/session";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
@@ -151,9 +151,12 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const catalogs = yield* DefinitionCatalog;
-			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
+			const lockCatalogUncached = Effect.fn(function* (
+				users: ReadonlyArray<null | UserId>,
+				transaction: WriteTransaction,
+			) {
 				const userIds = users.filter((id) => id !== null);
-				yield* repository.lockIngestionShared(userIds);
+				yield* repository.lockIngestionShared(userIds, transaction);
 				const rows = yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -181,7 +184,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (!ids.length) {
 					return;
 				}
-				yield* lockPluginConfigShared(session, ids);
+				yield* lockPluginConfigShared(session, ids, transaction);
 				yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -208,7 +211,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const catalogUncached = Effect.fn(function* (
 				userId: null | UserId,
-				transaction: undefined | WriteTransaction,
+				transaction: WriteTransaction,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
 				const plugins =
 					userId === null
@@ -238,57 +241,41 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
 			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
 			// can move the pointers a catalog read resolved: a second read within the same transaction
-			// cannot observe anything different, so both are worth resolving once. Callers must plan
-			// inside `session.transaction(...)`; entries are keyed on that transaction's executor
-			// value and die with it.
-			const memos = new WeakMap<object, TransactionCatalogMemo>();
-			const memoFor = (db: object) => {
-				const existing = memos.get(db);
-				if (existing) {
-					return existing;
+			// cannot observe anything different, so both are resolved once per `WriteTransaction`.
+			const memoFor = writeState((_: WriteTransaction): TransactionCatalogMemo => ({
+				scripts: new Map(),
+				catalogs: new Map(),
+				lockedSets: new Set(),
+			}));
+			const lockCatalog = Effect.fn(function* (
+				users: ReadonlyArray<null | UserId>,
+				transaction: WriteTransaction,
+			) {
+				const memo = memoFor(transaction);
+				const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
+				if (memo.lockedSets.has(key)) {
+					return;
 				}
-				const created: TransactionCatalogMemo = {
-					scripts: new Map(),
-					catalogs: new Map(),
-					lockedSets: new Set(),
-				};
-				memos.set(db, created);
-				return created;
-			};
-			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
-				yield* session.run((db) =>
-					Effect.gen(function* () {
-						const memo = memoFor(db);
-						const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
-						if (memo.lockedSets.has(key)) {
-							return;
-						}
-						yield* lockCatalogUncached(users);
-						memo.lockedSets.add(key);
-					}),
-				);
+				yield* lockCatalogUncached(users, transaction);
+				memo.lockedSets.add(key);
 			});
-			const catalog = Effect.fn(function* (
-				userId: null | UserId,
-				transaction: undefined | WriteTransaction,
+			const catalog = Effect.fn(function* (userId: null | UserId, transaction: WriteTransaction) {
+				const memo = memoFor(transaction);
+				const cached = memo.catalogs.get(userId);
+				if (cached) {
+					return cached;
+				}
+				const resolved = yield* catalogUncached(userId, transaction);
+				memo.catalogs.set(userId, resolved);
+				return resolved;
+			});
+			const materialize = Effect.fn(function* (
+				selected: ReadonlyArray<SelectedHook>,
+				transaction: WriteTransaction,
 			) {
 				return yield* session.run((db) =>
 					Effect.gen(function* () {
-						const memo = memoFor(db);
-						const cached = memo.catalogs.get(userId);
-						if (cached) {
-							return cached;
-						}
-						const resolved = yield* catalogUncached(userId, transaction);
-						memo.catalogs.set(userId, resolved);
-						return resolved;
-					}),
-				);
-			});
-			const materialize = Effect.fn(function* (selected: ReadonlyArray<SelectedHook>) {
-				return yield* session.run((db) =>
-					Effect.gen(function* () {
-						const memo = memoFor(db);
+						const memo = memoFor(transaction);
 						const missing = new Map(
 							selected
 								.map(({ hook, plugin }) => ({
@@ -340,7 +327,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,
 				executionUserId: null | UserId,
-				transaction?: WriteTransaction,
+				transaction: WriteTransaction,
 			) {
 				const available = yield* catalog(executionUserId, transaction);
 				const result: Array<{
@@ -457,7 +444,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					}
 				}
 				result.push(
-					...(yield* materialize(selected)).map(({ hook, plugin, script }) => ({
+					...(yield* materialize(selected, transaction)).map(({ hook, plugin, script }) => ({
 						hook,
 						plugin,
 						script,
@@ -534,16 +521,18 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						selected.push({ hook, plugin });
 					}
 				}
-				return (yield* materialize(selected)).map(({ hook, plugin, script }): BatchHookPin => ({
-					payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
-					references: {
-						scopeUserId: input.userId,
-						sandboxScriptId: script.id,
-						pluginId: PluginId.make(plugin.id),
-						pluginRevisionId: plugin.pluginRevisionId,
-						pluginConfigRevisionId: plugin.pluginConfigRevisionId,
-					},
-				}));
+				return (yield* materialize(selected, input.transaction)).map(
+					({ hook, plugin, script }): BatchHookPin => ({
+						payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
+						references: {
+							scopeUserId: input.userId,
+							sandboxScriptId: script.id,
+							pluginId: PluginId.make(plugin.id),
+							pluginRevisionId: plugin.pluginRevisionId,
+							pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+						},
+					}),
+				);
 			});
 			return { resolve, lockCatalog, resolveBatchCandidates };
 		}),

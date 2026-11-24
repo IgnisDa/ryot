@@ -64,7 +64,7 @@ export const makePlannedRelationshipReconciliation = (
 			groups.map((group) => ({ command, scopeUserId, owner: group.relationshipSchema.owner })),
 			transaction,
 		);
-		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId));
+		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId), transaction);
 		const references = groups.map((group) => group.relationshipSchema);
 		const schemas =
 			scope.scope === "user"
@@ -195,7 +195,7 @@ export const makePlannedRelationshipReconciliation = (
 				...batchScope,
 				scopes: [scopeUserId],
 			});
-			yield* primitives.lockMutations(mutations);
+			yield* primitives.lockMutations(mutations, transaction);
 			const reads = yield* primitives.readEntities(mutations);
 			const rows = yield* repository.findRelationships(mutations.map(({ input }) => input));
 			const prepared: Array<{
@@ -259,10 +259,14 @@ export const makePlannedRelationshipReconciliation = (
 					population,
 					mutation: item,
 				});
-				yield* planner.recordBatchChange(decision.id, { index, scopeUserId, payload: change });
+				yield* planner.recordBatchChange(transaction, decision.id, {
+					index,
+					scopeUserId,
+					payload: change,
+				});
 				groupDispatch.push(...itemDispatch);
 			}
-			groupDispatch.push(...(yield* planner.planBatch(batchScope)));
+			groupDispatch.push(...(yield* planner.planBatch(transaction, batchScope)));
 			const groupResult = {
 				upserted: desired.length,
 				created: counts.createdCount,

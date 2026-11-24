@@ -75,7 +75,7 @@ export const commitPopulation = Effect.fn("commitPopulation")(function* (input: 
 			queueFolds: true,
 			entities: { verbatimIdentities: true },
 			precondition: {
-				check,
+				check: () => check,
 				written: () =>
 					(input.written ?? Effect.void).pipe(
 						Effect.catchTag("DatabaseSessionStateError", Effect.die),

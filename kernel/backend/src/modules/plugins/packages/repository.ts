@@ -37,6 +37,7 @@ import {
 import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { pluginRevisionSections } from "#platform/db/immutable-revisions";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import { redactPluginConfig } from "../configuration/redaction";
@@ -257,7 +258,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 			);
 
 			const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(
-				(userIds: ReadonlyArray<string>) => lockPluginIngestionShared(database, userIds),
+				(userIds: ReadonlyArray<string>, transaction?: WriteTransaction) =>
+					lockPluginIngestionShared(database, userIds, transaction),
 			);
 			const lockIngestionForUser = Effect.fn("PluginRepository.lockIngestionForUser")(
 				(userId: string) => lockPluginIngestionForUser(database, userId),

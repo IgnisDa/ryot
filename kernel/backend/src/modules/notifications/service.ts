@@ -9,6 +9,8 @@ import type { Message } from "@ryot-app/i18n/message";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
+import type { WriteTransaction } from "#platform/db/write-transaction";
+
 import { NotificationAdmissions } from "./admission";
 import { NotificationsRepository } from "./repository";
 
@@ -70,23 +72,22 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 			});
 
 			/** Admits a run's message within the caller's transaction; delivery is queued work. */
-			const admitMessageWithin = Effect.fn("NotificationsService.admitMessageWithin")(
-				function* (input: {
-					message: Message;
-					sourceKey: string;
-					sourceRunId: string;
-					accountUserId: UserId;
-				}) {
-					return yield* admissions.admitWithin({
+			const admitMessageWithin = Effect.fn("NotificationsService.admitMessageWithin")(function* (
+				input: { message: Message; sourceKey: string; sourceRunId: string; accountUserId: UserId },
+				transaction: WriteTransaction,
+			) {
+				return yield* admissions.admitWithin(
+					{
 						sourceSubmittedAt: null,
 						sourceKey: input.sourceKey,
 						userId: input.accountUserId,
 						sourceRunId: input.sourceRunId,
 						accountUserId: input.accountUserId,
 						request: { kind: "message", message: input.message },
-					});
-				},
-			);
+					},
+					transaction,
+				);
+			});
 
 			return { test, create, update, delete: remove, admitMessageWithin };
 		}),

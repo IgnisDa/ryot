@@ -15,6 +15,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
@@ -143,20 +144,22 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 			 */
 			const lockForPatch = Effect.fn("PluginUserSettingsWriter.lockForPatch")(function* (
 				userId: UserId,
+				writes: WriteTransaction,
 			) {
-				yield* plugins.lockIngestionShared([userId]);
+				yield* plugins.lockIngestionShared([userId], writes);
 				yield* database.acquireUserWriteLock(userId);
 			});
 			/** Patches inside the caller's transaction, which holds `lockForPatch`. */
 			const patchWithin = Effect.fn("PluginUserSettingsWriter.patchWithin")(function* (
 				input: PatchInput,
+				writes?: WriteTransaction,
 			) {
 				if (input.accountUserId !== input.userId) {
 					return yield* new DbError({
 						message: "Plugin user settings account does not match the execution user",
 					});
 				}
-				yield* admission.admitAccount(input.accountUserId);
+				yield* admission.admitAccount(input.accountUserId, writes);
 				const pinned = yield* installations.findUserSettingsForRevision({
 					userId: input.userId,
 					pluginId: input.pluginId,

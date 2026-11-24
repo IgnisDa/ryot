@@ -8,6 +8,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { NotificationAdmissions } from "./admission";
 import type { NotificationAdmission } from "./ledger";
@@ -84,12 +85,15 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationsService;
-				yield* service.admitMessageWithin({
-					sourceRunId: "run-1",
-					accountUserId: user.id,
-					sourceKey: "run-1-changes-0-notification",
-					message: { namespace: "plugin1", key: "notification.run-completed" },
-				});
+				yield* service.admitMessageWithin(
+					{
+						sourceRunId: "run-1",
+						accountUserId: user.id,
+						sourceKey: "run-1-changes-0-notification",
+						message: { namespace: "plugin1", key: "notification.run-completed" },
+					},
+					new WriteTransaction(),
+				);
 				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
 					userId: user.id,
 					sourceRunId: "run-1",

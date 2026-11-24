@@ -12,6 +12,7 @@ import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 import { registerJobHandler } from "#platform/jobs/worker";
 
@@ -60,8 +61,8 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 			}) {
 				const { key, event, command, identity, coalescing } = input;
 				const observedAt = DateTime.toDateUtc(DateTime.makeUnsafe(command.occurredAt));
-				const select = Effect.gen(function* () {
-					yield* accounts.admitAccount(key.userId);
+				const select = Effect.fnUntraced(function* (transaction?: WriteTransaction) {
+					yield* accounts.admitAccount(key.userId, transaction);
 					const unchanged = keys.recordImportItem(
 						{ ...command, itemIdentity: identity },
 						key.userId,
@@ -157,8 +158,8 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 					...pending.command,
 					itemIdentity: stableStringify(["integration-event-flush", pending.command.itemIdentity]),
 				};
-				const select = Effect.gen(function* () {
-					yield* accounts.admitAccount(key.userId);
+				const select = Effect.fnUntraced(function* (transaction?: WriteTransaction) {
+					yield* accounts.admitAccount(key.userId, transaction);
 					if (!(yield* streams.lock(key))) {
 						return false;
 					}
@@ -192,7 +193,7 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 				) {
 					yield* database.transaction(
 						Effect.gen(function* () {
-							if (yield* select) {
+							if (yield* select()) {
 								yield* streams.write(key, { ...state, pending: null });
 							}
 						}),

@@ -444,10 +444,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				work: Effect.Effect<A, E, R>,
 				userIds: ReadonlyArray<UserId>,
 				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof admission.currentAccount>>>,
+				transaction?: WriteTransaction,
 			) =>
 				Effect.gen(function* () {
 					for (const account of [...accounts].sort((left, right) => left.localeCompare(right))) {
-						yield* admission.admitAccount(account);
+						yield* admission.admitAccount(account, transaction);
 					}
 					yield* repository.lockSchemaCatalog([...userIds, ...accounts]);
 					return yield* work;
@@ -679,7 +680,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						transaction,
 					)
 					.pipe(Effect.catch(writeFailure));
-				return yield* planner.planBatch({ ...batch, resource: "entity" });
+				return yield* planner.planBatch(transaction, { ...batch, resource: "entity" });
 			});
 			const savedToken = Effect.fnUntraced(function* (
 				save: Omit<PreparedEntitySave[typeof preparedEntitySave], "matched" | "unmatched"> & {
@@ -1416,6 +1417,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							),
 						],
 						accounts,
+						transaction,
 					);
 				},
 				(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),

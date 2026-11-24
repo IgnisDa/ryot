@@ -154,7 +154,7 @@ export const makePersistMutation = <E, R, Result>({
 			]),
 		);
 		for (const input of admissions.values()) {
-			yield* admission.admitCommand(input.lifecycle, input.scopeUserId);
+			yield* admission.admitCommand(input.lifecycle, input.scopeUserId, transaction);
 		}
 		const assetRecords: OwnedManagedAssetPropertyRecord[] = items.flatMap(
 			({ input, propertiesSchema }) =>
@@ -333,7 +333,7 @@ export const makePersistMutation = <E, R, Result>({
 				);
 			}
 			if (batch && evidence) {
-				yield* planner.recordBatchChange(batch.id, {
+				yield* planner.recordBatchChange(transaction, batch.id, {
 					payload: evidence,
 					index: item.batchIndex,
 					scopeUserId: input.scopeUserId,

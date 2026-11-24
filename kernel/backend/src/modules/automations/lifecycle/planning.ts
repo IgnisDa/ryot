@@ -133,23 +133,29 @@ export class LifecyclePlanner extends Context.Service<
 		 * plugin's configuration lock and shared locks on its plugin and installation rows, held to the
 		 * transaction's end.
 		 */
-		lockCatalog: (users: ReadonlyArray<null | UserId>) => Effect.Effect<void, DbError>;
+		lockCatalog: (
+			users: ReadonlyArray<null | UserId>,
+			transaction: WriteTransaction,
+		) => Effect.Effect<void, DbError>;
 		planBatch: (
+			transaction: WriteTransaction,
 			input: LifecycleBatchInput,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
+		planChange: (
+			input: { trigger: AutomationTrigger },
+			transaction: WriteTransaction,
+		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 		recordBatchChange: (
+			transaction: WriteTransaction,
 			id: string,
 			change: LifecycleBatchChange & { readonly index: number },
 		) => Effect.Effect<void, DbError>;
 		/** Plans a committed change or signal trigger's after hooks on the caller's transaction. */
 		plan: (input: {
 			trigger: AutomationTrigger;
+			transaction: WriteTransaction;
 			recipients?: ReadonlyArray<UserId>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
-		planChange: (
-			input: { trigger: AutomationTrigger },
-			transaction: WriteTransaction,
-		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
 		planChanges: (
 			triggers: ReadonlyArray<AutomationTrigger>,

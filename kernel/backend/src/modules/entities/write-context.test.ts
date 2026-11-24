@@ -72,12 +72,12 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				const session = yield* DatabaseSession;
 				const checks = yield* DomainWriteChecks;
 				const { command, pluginId, revisionId } = yield* installedWriter;
-				const check = Effect.suspend(() =>
-					checks.check(command, definitionOwner(pluginId), userId, new WriteTransaction()),
-				);
+				const check = (transaction: WriteTransaction) =>
+					checks.check(command, definitionOwner(pluginId), userId, transaction);
 				const outcome = yield* session.transaction(
 					Effect.gen(function* () {
-						const first = yield* check;
+						const transaction = new WriteTransaction();
+						const first = yield* check(transaction);
 						yield* session.run((db) =>
 							db
 								.update(tables.pluginInstallation)
@@ -89,7 +89,7 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 									),
 								),
 						);
-						return { first, reused: yield* check };
+						return { first, reused: yield* check(transaction) };
 					}),
 				);
 				expect(outcome.reused).toEqual(outcome.first);
@@ -103,7 +103,9 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 					),
 				).toEqual(outcome.first);
 				assertExitFails(
-					yield* Effect.exit(session.transaction(check)),
+					yield* Effect.exit(
+						session.transaction(Effect.suspend(() => check(new WriteTransaction()))),
+					),
 					new DbError({ message: "Current domain write installation authority is unavailable" }),
 				);
 			}),
@@ -184,8 +186,10 @@ layer(DomainWriteChecksLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((te
 				const { command, upgrade, pluginId, revisionId } = yield* installedWriter;
 				const owner = definitionOwner(pluginId);
 				const preparation = new WritePreparation();
-				const commit = session.transaction(
-					checks.check(command, owner, userId, new WriteTransaction(preparation)),
+				const commit = Effect.suspend(() =>
+					session.transaction(
+						checks.check(command, owner, userId, new WriteTransaction(preparation)),
+					),
 				);
 				yield* checks.preparePin(command, owner, userId, preparation);
 				const upgraded = yield* upgrade;

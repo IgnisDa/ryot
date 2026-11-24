@@ -33,6 +33,7 @@ import {
 import { userPluginQuery } from "#modules/definitions/catalog-relations";
 import { referenceWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import { PluginConfigRevisions } from "../configuration/revisions";
@@ -204,8 +205,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const repository = yield* PluginRepository;
 			const configs = yield* PluginConfigRevisions;
 			const catalogs = yield* DefinitionCatalog;
-			const lockCatalog = (userIds: ReadonlyArray<string>) =>
-				repository.lockIngestionShared(userIds);
+			const lockCatalog = (userIds: ReadonlyArray<string>, transaction?: WriteTransaction) =>
+				repository.lockIngestionShared(userIds, transaction);
 
 			// A revision's row and scripts never change after ingestion, so its decoded sections stay valid.
 			const executableSections = yield* revisionCache(

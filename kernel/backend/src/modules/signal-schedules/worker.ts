@@ -149,8 +149,8 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					{ ...command, writeContext: null },
 					{
 						precondition: {
-							check: Effect.gen(function* () {
-								yield* admission.admitAccount(userId);
+							check: Effect.fnUntraced(function* (transaction) {
+								yield* admission.admitAccount(userId, transaction);
 								return yield* repository.lockUndelivered(ledger, candidate.occurrence);
 							}),
 							written: Effect.fnUntraced(function* (result) {

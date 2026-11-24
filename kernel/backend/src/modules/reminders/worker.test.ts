@@ -435,12 +435,12 @@ layer(services)((test) => {
 				const changeSets = yield* userDataChangeSets().pipe(
 					Effect.provideService(SignalEmissionService, {
 						...signals,
-						planSignal: (input) =>
+						planSignal: (input, transaction) =>
 							input.command.itemIdentity.startsWith(first.id)
 								? signals
-										.planSignal(input)
+										.planSignal(input, transaction)
 										.pipe(Effect.andThen(Effect.fail(new DbError({ message: "Planning failed" }))))
-								: signals.planSignal(input),
+								: signals.planSignal(input, transaction),
 					}),
 				);
 				const worker = yield* ReminderWorker.make.pipe(

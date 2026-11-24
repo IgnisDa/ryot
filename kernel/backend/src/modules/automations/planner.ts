@@ -27,7 +27,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import type { WriteTransaction } from "#platform/db/write-transaction";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
@@ -61,7 +61,7 @@ type OpenBatch = {
 };
 
 // A batch opens and seals inside one transaction, so its state lives and dies with that transaction.
-const openBatches = new WeakMap<object, Map<string, OpenBatch>>();
+const openBatches = writeState((_: WriteTransaction) => new Map<string, OpenBatch>());
 
 const batchId = (input: LifecycleBatchInput) =>
 	sha256Base64Url(
@@ -99,7 +99,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		});
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
-			transaction?: WriteTransaction;
+			transaction: WriteTransaction;
 			recipients?: ReadonlyArray<UserId>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
@@ -136,7 +136,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			}
 			const payload = trigger.payload;
 			if (!input.pinnedBatchCandidates) {
-				yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
+				yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId], input.transaction);
 			}
 			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
@@ -272,30 +272,18 @@ export const LifecyclePlannerLive = Layer.effect(
 				runs: yield* runs.insertQueued({ runs: ordered, triggerPayload: payload }),
 			};
 		});
-		const transactionBatches = session.requireTransaction.pipe(
-			Effect.mapError(() => new DbError({ message: "Batch planning requires a transaction" })),
-			Effect.andThen(
-				session.run((db) =>
-					Effect.sync(() => {
-						const batches = openBatches.get(db) ?? new Map<string, OpenBatch>();
-						openBatches.set(db, batches);
-						return batches;
-					}),
-				),
-			),
-		);
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
 			transaction: WriteTransaction,
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) {
 			const id = batchId(input);
-			const batches = yield* transactionBatches;
+			const batches = openBatches(transaction);
 			const existing = batches.get(id);
 			if (existing) {
 				return { id, hasCandidates: existing.candidates.length > 0 };
 			}
 			const scopes = [...new Set(input.scopes)].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
-			yield* resolver.lockCatalog(scopes);
+			yield* resolver.lockCatalog(scopes, transaction);
 			const candidates = (yield* Effect.forEach(scopes, (userId) =>
 				resolver.resolveBatchCandidates({
 					userId,
@@ -308,10 +296,11 @@ export const LifecyclePlannerLive = Layer.effect(
 			return { id, hasCandidates: candidates.length > 0 };
 		});
 		const recordBatchChange = Effect.fn("LifecyclePlanner.recordBatchChange")(function* (
+			transaction: WriteTransaction,
 			id: string,
 			change: LifecycleBatchChange & { readonly index: number },
 		) {
-			const batch = (yield* transactionBatches).get(id);
+			const batch = openBatches(transaction).get(id);
 			if (!batch) {
 				return yield* new DbError({ message: `Missing batch decision ${id}` });
 			}
@@ -321,10 +310,11 @@ export const LifecyclePlannerLive = Layer.effect(
 			return undefined;
 		});
 		const planBatch = Effect.fn("LifecyclePlanner.planBatch")(function* (
+			transaction: WriteTransaction,
 			input: LifecycleBatchInput,
 		) {
 			const id = batchId(input);
-			const contents = (yield* transactionBatches).get(id);
+			const contents = openBatches(transaction).get(id);
 			if (!contents) {
 				return yield* new DbError({ message: `Missing batch decision ${id}` });
 			}
@@ -362,7 +352,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
 				yield* lifecycleBatchTriggers(input, maxItems, changes),
-				(trigger) => plan({ trigger, pinnedBatchCandidates: candidates }),
+				(trigger) => plan({ trigger, transaction, pinnedBatchCandidates: candidates }),
 			);
 			const dispatch = planned.flatMap((item) =>
 				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],

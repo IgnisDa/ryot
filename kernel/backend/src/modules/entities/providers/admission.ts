@@ -65,9 +65,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					.transaction(
 						Effect.gen(function* () {
 							const transaction = new WriteTransaction();
-							yield* runtime.lockCatalog([input.userId]);
+							yield* runtime.lockCatalog([input.userId], transaction);
 							yield* session.acquireUserWriteLock(input.userId);
-							yield* admission.admitAccount(input.userId);
+							yield* admission.admitAccount(input.userId, transaction);
 							const provider = yield* checks.checkProvider(
 								input.payload.providerId,
 								definitionOwner(input.payload.pluginId),

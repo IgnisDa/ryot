@@ -363,7 +363,7 @@ export const makePreparedRelationshipMutations = (
 		yield* assertActiveTransaction;
 		const { before, request, mutation } = token;
 		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)], transaction);
-		yield* primitives.lockMutations([mutation]);
+		yield* primitives.lockMutations([mutation], transaction);
 		// An ensure stands when its relationship exists by commit, including one written since it was prepared.
 		if (request === null || mutation.mode === "ensure") {
 			const row = yield* repository.findRelationship(mutation.input);
@@ -411,7 +411,7 @@ export const makePreparedRelationshipMutations = (
 		);
 		const { change, dispatch } = yield* primitives.planChange(transaction, { payload, mutation });
 		yield* recordRelationshipImportItem(keys, mutation, persisted.operation);
-		yield* planner.recordBatchChange(batch.id, {
+		yield* planner.recordBatchChange(transaction, batch.id, {
 			payload: change,
 			index: batchInput?.index ?? 0,
 			scopeUserId: mutation.input.scope === "user" ? mutation.input.userId : null,

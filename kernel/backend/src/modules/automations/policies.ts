@@ -70,7 +70,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 			if (trigger.payload?.category !== "request") {
 				return yield* new DbError({ message: "Policies match only request triggers" });
 			}
-			yield* resolver.lockCatalog([trigger.scopeUserId]);
+			yield* resolver.lockCatalog([trigger.scopeUserId], transaction);
 			const matches = yield* resolver.resolve(trigger, trigger.scopeUserId, transaction);
 			const policies = yield* Effect.forEach(
 				matches,

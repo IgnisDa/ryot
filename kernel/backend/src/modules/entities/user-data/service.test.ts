@@ -255,7 +255,13 @@ const clear = (entityId: EntityId, lifecycle: DomainLifecycleCommand = command) 
 		);
 		const written = yield* (yield* DatabaseSession)
 			.transaction(
-				Effect.andThen(prepared.lock, prepared.write(new WriteTransaction(), Effect.succeed)),
+				Effect.suspend(() => {
+					const transaction = new WriteTransaction();
+					return Effect.andThen(
+						prepared.lock(transaction),
+						prepared.write(transaction, Effect.succeed),
+					);
+				}),
 			)
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		return { ...written, events: prepared.events };
@@ -277,7 +283,13 @@ const merge = (
 		);
 		const written = yield* (yield* DatabaseSession)
 			.transaction(
-				Effect.andThen(prepared.lock, prepared.write(new WriteTransaction(), Effect.succeed)),
+				Effect.suspend(() => {
+					const transaction = new WriteTransaction();
+					return Effect.andThen(
+						prepared.lock(transaction),
+						prepared.write(transaction, Effect.succeed),
+					);
+				}),
 			)
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		return { ...written, events: prepared.events };
@@ -630,7 +642,7 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 		planner: Layer.mock(LifecyclePlanner)({
 			plan: () => Effect.die("unused"),
 			prepareBatch: () => Effect.succeed({ id: "prepared", hasCandidates: true }),
-			planBatch: (input) =>
+			planBatch: (_transaction, input) =>
 				Effect.gen(function* () {
 					const persisted = callsOf(yield* recorded).filter(
 						(value) => value === "persist:relationship",
