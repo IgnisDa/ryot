@@ -2,7 +2,9 @@ import {
 	buildEpisodeAbsentDetailSql,
 	buildEpisodeAmbiguousDetailSql,
 	buildEpisodeResolutionFallbackSql,
+	handedOffConsequence,
 } from "./episode-resolution-sql";
+import { buildHistoryHandoffStagingSql, isoUtcSql } from "./history-handoff-sql";
 // V1 review.entity_id (generated COALESCE of the entity FK columns) equals the V2 entity.id since
 // legacy ids are preserved; reviews whose entity was not migrated are skipped via INNER JOIN.
 // Ratings are clamped to 100 via a CASE guard — LEAST(NULL, 100) returns 100, not NULL. Manga
@@ -19,8 +21,6 @@ import {
 
 const reviewReportPhase = "review -> event";
 
-const reviewAbsentDetailSql = buildEpisodeAbsentDetailSql("this review", "u");
-
 const reviewAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("u");
 
 const seasonIdentity = {
@@ -34,12 +34,13 @@ const seasonIdentity = {
 	] as const,
 };
 
-const reviewSeasonAbsentDetailSql = buildReportDetailSql({
-	...seasonIdentity,
-	sentence: `format(
-		'The show''s stored season list has no season %s — it has %s — so there was no season to attach this review to.',
-		u.requested_season, u.available_summary)`,
-});
+const reviewSeasonAbsentDetailSql = (consequence: string) =>
+	buildReportDetailSql({
+		...seasonIdentity,
+		sentence: `format(
+			'The show''s stored season list has no season %s — it has %s — so ${consequence}.',
+			u.requested_season, u.available_summary)`,
+	});
 
 const reviewSeasonAmbiguousDetailSql = buildReportDetailSql({
 	...seasonIdentity,
@@ -72,6 +73,30 @@ const showSeasonResolutionSql = (mediaPluginId: string, review: string, entity: 
 		  AND season.properties ->> 'seasonNumber' = ${review}.show_extra_information ->> 'season'
 	) show_season ON ${entity}.entity_schema_slug = 'show' AND ${seasonOnlyLocatorSql(review)}`;
 
+const reviewPropertiesSql = (r: string) => `jsonb_strip_nulls(
+	jsonb_build_object(
+		'rating', CASE WHEN ${r}.rating IS NOT NULL THEN LEAST(${r}.rating, 100) END,
+		'text',   NULLIF(${r}.text, '')
+	) || CASE WHEN ${r}.entity_schema_slug = 'exercise' THEN '{}'::jsonb ELSE jsonb_build_object(
+		'isSpoiler', ${r}.is_spoiler,
+		'position',  CASE
+			WHEN ${r}.entity_schema_slug = 'anime' AND ${r}.anime_extra_information ->> 'episode' IS NOT NULL THEN jsonb_build_object(
+				'unit', 'episodes',
+				'position', (${r}.anime_extra_information ->> 'episode')::int
+			)
+			WHEN ${r}.entity_schema_slug = 'manga' AND NULLIF(${r}.manga_extra_information ->> 'chapter', '') IS NOT NULL THEN jsonb_build_object(
+				'unit', 'chapters',
+				'position', (${r}.manga_extra_information ->> 'chapter')::float8,
+				'volume', (${r}.manga_extra_information ->> 'volume')::int
+			)
+			WHEN ${r}.entity_schema_slug = 'manga' AND ${r}.manga_extra_information ->> 'volume' IS NOT NULL THEN jsonb_build_object(
+				'unit', 'volumes',
+				'position', (${r}.manga_extra_information ->> 'volume')::int
+			)
+		END
+	) END
+)`;
+
 export const buildReviewMigrationSql = (mediaPluginId: string) => `
 DO $$
 DECLARE
@@ -84,6 +109,8 @@ DECLARE
 	unresolved_ambiguous_rows int := 0;
 	unresolved_season_absent_rows int := 0;
 	unresolved_season_ambiguous_rows int := 0;
+	handed_off_episode_rows int := 0;
+	handed_off_season_rows int := 0;
 	report_seq int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
@@ -167,29 +194,7 @@ BEGIN
 			COALESCE(r.show_episode_entity_id, r.podcast_episode_entity_id, r.show_season_entity_id, r.entity_id),
 			'review',
 			r.entity_schema_plugin_id,
-			jsonb_strip_nulls(
-				jsonb_build_object(
-					'rating', CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
-					'text',   NULLIF(r.text, '')
-				) || CASE WHEN r.entity_schema_slug = 'exercise' THEN '{}'::jsonb ELSE jsonb_build_object(
-					'isSpoiler', r.is_spoiler,
-					'position',  CASE
-						WHEN r.entity_schema_slug = 'anime' AND r.anime_extra_information ->> 'episode' IS NOT NULL THEN jsonb_build_object(
-							'unit', 'episodes',
-							'position', (r.anime_extra_information ->> 'episode')::int
-						)
-						WHEN r.entity_schema_slug = 'manga' AND NULLIF(r.manga_extra_information ->> 'chapter', '') IS NOT NULL THEN jsonb_build_object(
-							'unit', 'chapters',
-							'position', (r.manga_extra_information ->> 'chapter')::float8,
-							'volume', (r.manga_extra_information ->> 'volume')::int
-						)
-						WHEN r.entity_schema_slug = 'manga' AND r.manga_extra_information ->> 'volume' IS NOT NULL THEN jsonb_build_object(
-							'unit', 'volumes',
-							'position', (r.manga_extra_information ->> 'volume')::int
-						)
-					END
-				) END
-			),
+			${reviewPropertiesSql("r")},
 			r.posted_on,
 			r.posted_on
 		FROM rows r
@@ -292,15 +297,56 @@ BEGIN
 	  AND e.entity_schema_slug = 'show'
 	  AND ${seasonOnlyLocatorSql("rv")};
 
+	${buildHistoryHandoffStagingSql({
+		kind: "review",
+		stagedTable: "_review_handoff",
+		candidates: `
+			SELECT u.legacy_record_id, u.user_id, u.parent_entity_id, jsonb_build_object(
+				'eventSchemaSlug', 'review',
+				'occurredAt', ${isoUtcSql("r.posted_on")},
+				'episode', u.episode,
+				'properties', ${reviewPropertiesSql("r")}
+			) AS event
+			FROM (
+				SELECT legacy_record_id, user_id, parent_entity_id, CASE WHEN kind = 'show'
+					THEN jsonb_build_object('type', 'show', 'seasonNumber', requested_season::numeric,
+						'episodeNumber', requested_episode::numeric)
+					ELSE jsonb_build_object('type', 'podcast', 'episodeNumber', requested_episode::numeric)
+				END AS episode
+				FROM _review_unresolved_positions WHERE cause = 'absent'
+				UNION ALL
+				SELECT legacy_record_id, user_id, parent_entity_id,
+					jsonb_build_object('type', 'show-season', 'seasonNumber', requested_season::numeric)
+				FROM _review_unresolved_seasons WHERE candidate_count = 0
+			) u
+			INNER JOIN (
+				SELECT review.*, entity.entity_schema_slug FROM "review" review
+				INNER JOIN "entity" entity ON entity.id = review.entity_id
+			) r ON r.id = u.legacy_record_id`,
+	})}
+
 	${buildAnomalyReportSql({
 		phase: reviewReportPhase,
 		seqVariable: "report_seq",
 		code: "review-season-absent",
-		detail: reviewSeasonAbsentDetailSql,
 		countVariable: "unresolved_season_absent_rows",
-		source: "_review_unresolved_seasons u WHERE u.candidate_count = 0",
+		detail: reviewSeasonAbsentDetailSql("there was no season to attach this review to"),
+		source: `_review_unresolved_seasons u WHERE u.candidate_count = 0
+			AND NOT EXISTS (SELECT 1 FROM _review_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
 		message:
 			"Some reviews were not carried over because the season they were written about does not exist in the show's stored season list. Each skipped review is listed below with what the stored list actually contains.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: reviewReportPhase,
+		seqVariable: "report_seq",
+		code: "review-season-handed-off",
+		countVariable: "handed_off_season_rows",
+		detail: reviewSeasonAbsentDetailSql(handedOffConsequence("this review")),
+		source: `_review_unresolved_seasons u
+			WHERE EXISTS (SELECT 1 FROM _review_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
+		message:
+			"Some reviews were written about a season that is not in the show's stored season list. Each of these reviews was handed to a Media history import run in its user's imports, which fetches the show from its provider and records the review if the provider lists that season; that run's report lists any it still cannot place.",
 	})}
 
 	${buildAnomalyReportSql({
@@ -318,11 +364,24 @@ BEGIN
 		phase: reviewReportPhase,
 		seqVariable: "report_seq",
 		code: "review-episode-absent",
-		detail: reviewAbsentDetailSql,
 		countVariable: "unresolved_absent_rows",
-		source: "_review_unresolved_positions u WHERE u.cause = 'absent'",
+		detail: buildEpisodeAbsentDetailSql("there was no episode to attach this review to", "u"),
+		source: `_review_unresolved_positions u WHERE u.cause = 'absent'
+			AND NOT EXISTS (SELECT 1 FROM _review_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
 		message:
 			"Some reviews were not carried over because the episode they were written about does not exist in the show or podcast's stored episode list. Each skipped review is listed below with what the stored list actually contains.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: reviewReportPhase,
+		seqVariable: "report_seq",
+		code: "review-episode-handed-off",
+		countVariable: "handed_off_episode_rows",
+		detail: buildEpisodeAbsentDetailSql(handedOffConsequence("this review"), "u"),
+		source: `_review_unresolved_positions u
+			WHERE EXISTS (SELECT 1 FROM _review_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
+		message:
+			"Some reviews were written about an episode that is not in the show or podcast's stored episode list. Each of these reviews was handed to a Media history import run in its user's imports, which fetches the title from its provider and records the review if the provider lists that episode; that run's report lists any it still cannot place.",
 	})}
 
 	${buildAnomalyReportSql({

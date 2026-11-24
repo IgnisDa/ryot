@@ -78,12 +78,15 @@ const elapsedSecondsSql = "round(extract(epoch from clock_timestamp() - started_
 
 const AnomalyCode = Schema.Literals([
 	"seen-episode-absent",
+	"seen-episode-handed-off",
 	"seen-episode-ambiguous",
 	"seen-episode-malformed",
 	"seen-consumed-on-dropped",
 	"review-episode-absent",
+	"review-episode-handed-off",
 	"review-episode-ambiguous",
 	"review-season-absent",
+	"review-season-handed-off",
 	"review-season-ambiguous",
 	"review-consumption-shared",
 	"review-consumption-unresolved",

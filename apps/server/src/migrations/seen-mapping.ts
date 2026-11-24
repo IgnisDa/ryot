@@ -8,7 +8,9 @@ import {
 	buildEpisodeAmbiguousDetailSql,
 	buildEpisodeMalformedDetailSql,
 	buildEpisodeResolutionFallbackSql,
+	handedOffConsequence,
 } from "./episode-resolution-sql";
+import { buildHistoryHandoffStagingSql, isoUtcSql } from "./history-handoff-sql";
 import {
 	buildConsumedOnDroppedDetailSql,
 	buildSeenConsumptionFactsSql,
@@ -25,6 +27,8 @@ import {
 
 const seenReportPhase = "seen -> event";
 
+const seenCompletesSql = "(f.state = 'completed' OR f.progress = 100)";
+
 export const buildSeenMigrationSql = (mediaPluginId: string) => `
 DO $$
 DECLARE
@@ -36,6 +40,7 @@ DECLARE
 	item_inserted int := 0;
 	term_inserted int := 0;
 	unresolved_absent_rows int := 0;
+	handed_off_rows int := 0;
 	unresolved_ambiguous_rows int := 0;
 	unresolved_malformed_rows int := 0;
 	report_seq int;
@@ -271,15 +276,48 @@ BEGIN
 	LEFT JOIN _legacy_episodic_inventory inventory ON inventory.parent_entity_id = e.id
 	WHERE e.entity_schema_slug IN ('show', 'podcast') AND facts.episode_entity_id IS NULL;
 
+	${buildHistoryHandoffStagingSql({
+		kind: "seen",
+		stagedTable: "_seen_handoff",
+		candidates: `
+			SELECT u.legacy_record_id, u.user_id, u.parent_entity_id, jsonb_build_object(
+				'eventSchemaSlug', CASE WHEN ${seenCompletesSql} THEN 'complete' ELSE 'progress' END,
+				'occurredAt', ${isoUtcSql(`CASE WHEN ${seenCompletesSql} THEN COALESCE(f.finished_on, f.ordering_time) ELSE f.ordering_time END`)},
+				'episode', CASE WHEN u.kind = 'show'
+					THEN jsonb_build_object('type', 'show', 'seasonNumber', u.requested_season::numeric,
+						'episodeNumber', u.requested_episode::numeric)
+					ELSE jsonb_build_object('type', 'podcast', 'episodeNumber', u.requested_episode::numeric) END,
+				'properties', CASE WHEN ${seenCompletesSql}
+					THEN ${seenConsumptionPropertiesSql("f", "f.finished_on")} - 'consumptionBasis'
+					ELSE (${seenConsumptionPropertiesSql("f", null)} - 'consumptionBasis') || jsonb_strip_nulls(
+						jsonb_build_object('progressPercent', CASE WHEN f.progress > 0 THEN f.progress END)) END
+			) AS event
+			FROM _seen_unresolved_positions u
+			INNER JOIN _legacy_seen_consumption f ON f.seen_id = u.legacy_record_id
+			WHERE u.cause = 'absent' AND f.state IN ('completed', 'in_progress')`,
+	})}
+
 	${buildAnomalyReportSql({
 		phase: seenReportPhase,
 		seqVariable: "report_seq",
 		code: "seen-episode-absent",
 		countVariable: "unresolved_absent_rows",
-		detail: buildEpisodeAbsentDetailSql("this watch", "u"),
-		source: "_seen_unresolved_positions u WHERE u.cause = 'absent'",
+		detail: buildEpisodeAbsentDetailSql("there was no episode to attach this watch to", "u"),
+		source: `_seen_unresolved_positions u WHERE u.cause = 'absent'
+			AND NOT EXISTS (SELECT 1 FROM _seen_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
 		message:
 			"Some watch history was not carried over because the episode it was recorded against does not exist in the show or podcast's stored episode list. Each skipped watch is listed below with what the stored list actually contains.",
+	})}
+	${buildAnomalyReportSql({
+		phase: seenReportPhase,
+		seqVariable: "report_seq",
+		code: "seen-episode-handed-off",
+		countVariable: "handed_off_rows",
+		detail: buildEpisodeAbsentDetailSql(handedOffConsequence("this watch"), "u"),
+		source: `_seen_unresolved_positions u
+			WHERE EXISTS (SELECT 1 FROM _seen_handoff h WHERE h.legacy_record_id = u.legacy_record_id)`,
+		message:
+			"Some watch history was recorded against an episode that is not in the show or podcast's stored episode list. Each of these watches was handed to a Media history import run in its user's imports, which fetches the title from its provider and records the watch if the provider lists that episode; that run's report lists any it still cannot place.",
 	})}
 	${buildAnomalyReportSql({
 		phase: seenReportPhase,

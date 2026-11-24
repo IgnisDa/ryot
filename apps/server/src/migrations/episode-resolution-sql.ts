@@ -166,21 +166,24 @@ const episodeIdentity = (alias: string) => ({
 	] as const,
 });
 
-export const buildEpisodeAbsentDetailSql = (subject: string, alias: string) =>
+export const buildEpisodeAbsentDetailSql = (consequence: string, alias: string) =>
 	buildReportDetailSql({
 		...episodeIdentity(alias),
 		sentence: `CASE
 			WHEN ${alias}.kind = 'podcast' THEN format(
-				'The podcast''s stored episode list has no episode %s — it has %s — so there was no episode to attach ${subject} to.',
+				'The podcast''s stored episode list has no episode %s — it has %s — so ${consequence}.',
 				COALESCE(${alias}.requested_episode, 'with that number'), ${alias}.available_summary)
 			WHEN ${alias}.season_exists THEN format(
-				'Season %s is in the show''s stored season list but has no episode %s, so there was no episode to attach ${subject} to.',
+				'Season %s is in the show''s stored season list but has no episode %s, so ${consequence}.',
 				${alias}.requested_season, ${alias}.requested_episode)
 			ELSE format(
-				'The show''s stored season list has no season %s — it has %s — so there was no episode to attach ${subject} to.',
+				'The show''s stored season list has no season %s — it has %s — so ${consequence}.',
 				${alias}.requested_season, ${alias}.available_summary)
 		END`,
 	});
+
+export const handedOffConsequence = (subject: string) =>
+	`${subject} was handed to a Media history import run for its user, which fetches the title from its provider before recording it`;
 
 export const buildEpisodeAmbiguousDetailSql = (alias: string) =>
 	buildReportDetailSql({
