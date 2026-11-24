@@ -591,11 +591,12 @@ reporting, cancellation, and replay contracts belong to
 [imports](../../kernel/backend/src/modules/imports/README.md). Independent imports append history and
 can duplicate earlier activity.
 
-| Source  | Behavior                                                                                                                                                                                                                                                                                                         |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IMDb    | Watchlist/ratings CSV. Ratings 1–10 become reviews 10–100. Rating or rated date creates an undated completion; review dates do not establish consumption dates. Dates accept `YYYY-MM-DD` or `YYYY/MM/DD`. Rows with neither rating nor date create backlog; malformed values fail per row.                      |
-| Trakt   | `user` imports history/ratings/watchlist/lists/collection; `list` imports a public user list; `export` imports an uploaded ZIP without API calls. API modes need `traktClientId`. List URLs are restricted to Trakt's `/users/{username}/lists/{slug}`. Export ratings/comments may target episodes and seasons. |
-| Spotify | Extended-history ZIP: each `trackdone` Spotify-track source row is independent, including equal `(track, ts)` pairs. Six-play transport groups do not change listening-event counts. Exact `ms_played` supplies recorded minutes; absent duration stays unknown.                                                 |
+| Source        | Behavior                                                                                                                                                                                                                                                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMDb          | Watchlist/ratings CSV. Ratings 1–10 become reviews 10–100. Rating or rated date creates an undated completion; review dates do not establish consumption dates. Dates accept `YYYY-MM-DD` or `YYYY/MM/DD`. Rows with neither rating nor date create backlog; malformed values fail per row.                                                               |
+| Trakt         | `user` imports history/ratings/watchlist/lists/collection; `list` imports a public user list; `export` imports an uploaded ZIP without API calls. API modes need `traktClientId`. List URLs are restricted to Trakt's `/users/{username}/lists/{slug}`. Export ratings/comments may target episodes and seasons.                                          |
+| Spotify       | Extended-history ZIP: each `trackdone` Spotify-track source row is independent, including equal `(track, ts)` pairs. Six-play transport groups do not change listening-event counts. Exact `ms_played` supplies recorded minutes; absent duration stays unknown.                                                                                          |
+| Media history | `shared/media-history.ts` document: a JSON array of provider titles (`entitySchemaSlug`, `providerSlug`, `externalId`, `title`), each with events (`eventSchemaSlug`, UTC `occurredAt`, optional `UnresolvedEpisodeRef` `episode`, `properties`). Event schemas validate properties at write time; an episode the populated parent lacks fails per event. |
 
 Rating scales belong to each source, not the rating value: Goodreads, StoryGraph, Hardcover, and
 Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. MyAnimeList and
@@ -844,6 +845,8 @@ date-only precision. When a historical date/precision cannot be supported, retai
 ordering timestamp and mark the observation undated instead of fabricating hourly activity.
 
 Manual import runs namespace source identity with the ingestion run and original row/event indexes.
+A Media history event's own `sourceRun` replaces the event index, so a title's events that share it
+share one run.
 Baseline progress and its explicit AniList/MyAnimeList completion share a run; independent repeats
 and numbered items retain separate identities across paging. Goodreads/StoryGraph count-derived
 repeats are undated except for the latest supported read date. Hardcover, Grouvee date-only history,

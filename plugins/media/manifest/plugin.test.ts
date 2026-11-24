@@ -748,6 +748,7 @@ it.effect(
 				"igdb",
 				"grouvee",
 				"watcharr",
+				"media-history",
 				"movary",
 				"myanimelist",
 				"jellyfin",

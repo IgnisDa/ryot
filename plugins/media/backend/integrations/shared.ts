@@ -2,11 +2,8 @@ import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import type {
-	ImportEntityRef,
-	MediaIntegrationAdapterResult,
-	UnresolvedEpisodeRef,
-} from "../imports/schemas";
+import type { UnresolvedEpisodeRef } from "../../shared/media-history";
+import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../imports/schemas";
 import { IntegrationConfirmationInput } from "./schemas";
 
 export const SinkInput = Schema.Union([

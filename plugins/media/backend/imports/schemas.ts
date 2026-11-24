@@ -7,6 +7,7 @@ import { jsonValueSchema, strictStruct } from "@ryot-app/plugin-backend-sdk/wire
 import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaCopyDetails } from "../../shared/media-copy";
+import { UnresolvedEpisodeRef } from "../../shared/media-history";
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 
 const isHttpUrl = (value: string): true | string => {
@@ -50,19 +51,6 @@ export const NetflixResolutionOutput = Schema.Struct({
 		Schema.Struct({ index: Schema.Int, entityRef: Schema.NullOr(ResolvedEntityRef) }),
 	),
 });
-
-export const UnresolvedEpisodeRef = Schema.Union([
-	Schema.Struct({ seasonNumber: Schema.Int, type: Schema.Literal("show-season") }),
-	Schema.Struct({
-		seasonNumber: Schema.Int,
-		episodeNumber: Schema.Int,
-		type: Schema.Literal("show"),
-	}),
-	Schema.Struct({ episodeNumber: Schema.Int, type: Schema.Literal("podcast") }),
-	Schema.Struct({ episodeTitle: Schema.NonEmptyString, type: Schema.Literal("podcast-title") }),
-]);
-
-export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
 
 const mediaEventFields = {
 	occurredAt: Schema.String,

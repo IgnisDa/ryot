@@ -33,6 +33,7 @@ export const mediaSources = defineExecutableAlternatives({
 		media_tracker: source("import.media_tracker"),
 		"trakt-export": source("import.trakt-export"),
 		audiobookshelf: source("import.audiobookshelf"),
+		"media-history": source("import.media-history"),
 	},
 });
 export const MediaControlInput = Schema.Union([

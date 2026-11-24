@@ -1511,6 +1511,19 @@ export const mediaPlugin = definePlugin({
 				),
 			},
 			{
+				slug: "media-history",
+				workflowSlug: "import",
+				exportHelp: importDocs("media-history"),
+				name: catalogMessage("import-source.media-history.name"),
+				description: catalogMessage("import-source.media-history.description"),
+				inputSchema: uploadInputSchema(
+					catalogMessage("property.media-history-file"),
+					catalogMessage("property.media-history-file-hint"),
+					"Media history JSON document",
+					["json"],
+				),
+			},
+			{
 				slug: "movary",
 				workflowSlug: "import",
 				exportHelp: importDocs("movary"),

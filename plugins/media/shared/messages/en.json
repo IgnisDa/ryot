@@ -1073,6 +1073,11 @@
 		"message": "Jellyfin",
 		"description": "Name of the Jellyfin service; usually not translated."
 	},
+	"import-source.media-history.description": "Import watch history and reviews of provider media from a Media history JSON document",
+	"import-source.media-history.name": {
+		"message": "Media history (JSON)",
+		"description": "Name of a generic import format; translate the descriptive words and keep JSON."
+	},
 	"import-source.media-tracker.description": "Import media history, reviews, lifecycle states, and collections from MediaTracker",
 	"import-source.media-tracker.name": {
 		"message": "MediaTracker",
@@ -1786,6 +1791,8 @@
 	"property.main-story-minutes": "Main story (minutes)",
 	"property.manga-export": "Manga export",
 	"property.manga-export-hint": "MyAnimeList manga export",
+	"property.media-history-file": "Media history file",
+	"property.media-history-file-hint": "Media history JSON document",
 	"property.metadata-property": "Metadata property",
 	"property.metadata-provider": "Metadata provider",
 	"property.metadata-provider-hint": "Provider used to identify Jellyfin media",

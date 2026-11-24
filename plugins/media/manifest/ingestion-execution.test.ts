@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { hasValidExecutableDependencies } from "@ryot-app/contract/modules/plugins/execution";
+import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import { loadPluginSandboxScripts } from "@ryot-app/kernel-backend/modules/plugins/source.test-support";
 import { pluginLoadLayer } from "@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support";
 import { assert } from "@ryot-app/testing/assert";
@@ -61,6 +62,7 @@ layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 					"import.netflix",
 					"import.trakt",
 					"import.trakt-export",
+					"import.media-history",
 				]) {
 					expect(integration.scripts).not.toContain(collector);
 				}
@@ -73,6 +75,34 @@ layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 					const selection = provider.plan.selections["integration-adapter"];
 					assert("value" in selection);
 					expect(integration.scripts).toContain(selection.value);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"gates Media history imports only on the configuration every Media import needs",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* loadPluginSandboxScripts(new URL("..", import.meta.url).pathname);
+				for (const slug of ["watcharr", "media-history"]) {
+					const source = mediaPlugin.importSources.find((candidate) => candidate.slug === slug);
+					assert(source);
+					expect(
+						evaluateIngestionReadiness({
+							kind: "workflow",
+							sourcePlan: source.plan,
+							settingsSchema: { fields: {} },
+							operation: source.workflowSlug,
+							settings: { uploadToken: "upload" },
+							metadata: {
+								oauthProviders: [],
+								availableConfigKeys: [],
+								workflows: mediaPlugin.workflows,
+								scripts: compiled.map(({ script }) => script),
+							},
+						}).blockReasons,
+					).toEqual([{ key: "tmdbAccessToken", code: "configuration-required" }]);
 				}
 			}),
 		testTimeout,
