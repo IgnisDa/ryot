@@ -261,10 +261,13 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			const route = Effect.fn("FoldMarks.route")(function* (input: {
-				readonly sources: ReadonlyArray<FoldSource>;
-				readonly subjects: ReadonlyArray<FoldSubject>;
-			}) {
+			const route = Effect.fn("FoldMarks.route")(function* (
+				input: {
+					readonly sources: ReadonlyArray<FoldSource>;
+					readonly subjects: ReadonlyArray<FoldSubject>;
+				},
+				transaction?: WriteTransaction,
+			) {
 				const subjects = new Map<string, ResolvedFold>();
 				const users = new Set([
 					...input.sources.map((source) => source.userId),
@@ -274,10 +277,11 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					const userId = UserId.make(user);
 					const sources = input.sources.filter((source) => source.userId === user);
 					const explicit = input.subjects.filter((subject) => subject.userId === user);
-					const known = yield* declarations(userId, [
-						...sources.flatMap(sourceEntities),
-						...explicit.map((subject) => subject.entityId),
-					]);
+					const known = yield* declarations(
+						userId,
+						[...sources.flatMap(sourceEntities), ...explicit.map((subject) => subject.entityId)],
+						transaction,
+					);
 					const add = (declaration: undefined | FoldDeclaration) => {
 						if (declaration) {
 							const subject = { userId, entityId: declaration.entityId };
@@ -482,11 +486,14 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			});
 
 			/** Queues the plugin's folds of the entities for one user, or for every user with their events. */
-			const request = Effect.fn("FoldMarks.request")(function* (input: {
-				readonly pluginId: PluginId;
-				readonly userId: null | UserId;
-				readonly entityIds: ReadonlyArray<EntityId>;
-			}) {
+			const request = Effect.fn("FoldMarks.request")(function* (
+				input: {
+					readonly pluginId: PluginId;
+					readonly userId: null | UserId;
+					readonly entityIds: ReadonlyArray<EntityId>;
+				},
+				transaction: WriteTransaction,
+			) {
 				yield* requireTransaction;
 				const users =
 					input.userId === null
@@ -499,12 +506,15 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 								),
 							)).map((row) => UserId.make(row.userId))
 						: [input.userId];
-				const resolved = yield* route({
-					sources: [],
-					subjects: users.flatMap((userId) =>
-						input.entityIds.map((entityId) => ({ userId, entityId })),
-					),
-				});
+				const resolved = yield* route(
+					{
+						sources: [],
+						subjects: users.flatMap((userId) =>
+							input.entityIds.map((entityId) => ({ userId, entityId })),
+						),
+					},
+					transaction,
+				);
 				return yield* queueResolved(
 					resolved.filter(({ declaration }) => declaration.pluginId === input.pluginId),
 				);

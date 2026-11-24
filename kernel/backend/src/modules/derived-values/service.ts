@@ -373,6 +373,7 @@ export class Folds extends Context.Service<Folds>()(
 				scriptSlug: string,
 				entries: ReadonlyArray<FoldRun>,
 				lock: boolean,
+				transaction?: WriteTransaction,
 			) {
 				const binding = yield* scripts.resolve({ userId, pluginId, scriptSlug });
 				if (!binding) {
@@ -415,7 +416,7 @@ export class Folds extends Context.Service<Folds>()(
 				const known = new Map([
 					...(images.length === 0
 						? []
-						: yield* declarations(userId, images.flatMap(sourceEntities))),
+						: yield* declarations(userId, images.flatMap(sourceEntities), transaction)),
 					...entries.map(({ declaration }) => [declaration.entityId, declaration] as const),
 				]);
 				const now = new Map(images.map((row) => [row.id, row]));
@@ -698,7 +699,14 @@ export class Folds extends Context.Service<Folds>()(
 						declaration: { pluginId, scriptSlug },
 					},
 				] = entries;
-				const { binding, prepared } = yield* prepare(userId, pluginId, scriptSlug, entries, true);
+				const { binding, prepared } = yield* prepare(
+					userId,
+					pluginId,
+					scriptSlug,
+					entries,
+					true,
+					transaction,
+				);
 				const changed: Array<Changed> = [];
 				for (const subjects of pack(prepared)) {
 					changed.push(

@@ -1986,6 +1986,24 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"requests folds under the commit transaction's reading of the user's plugins",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				const spans: Tracer.Span[] = [];
+				yield* commit(
+					{ ...input.input, folds: { scope: "user", entityIds: [root.entityId] } },
+					nextCommand(input),
+				).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				expect(
+					recordedStatements(spans).filter((text) => text.includes("from plugin_installation i")),
+				).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"commits concurrent settings patches for one user",
 		() =>
 			Effect.gen(function* () {

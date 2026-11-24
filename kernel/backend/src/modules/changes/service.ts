@@ -1544,11 +1544,14 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}
 					}
 					if (input.folds && pluginId !== null) {
-						yield* folds.request({
-							pluginId,
-							entityIds: input.folds.entityIds,
-							userId: input.folds.scope === "user" ? input.userId : null,
-						});
+						yield* folds.request(
+							{
+								pluginId,
+								entityIds: input.folds.entityIds,
+								userId: input.folds.scope === "user" ? input.userId : null,
+							},
+							transaction,
+						);
 					}
 					const result: CommitResult = {
 						...written.result,
