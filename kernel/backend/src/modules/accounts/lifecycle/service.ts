@@ -5,7 +5,7 @@ import {
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
 } from "@ryot-app/instance-contract/account-admin";
-import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Cause, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -18,6 +18,7 @@ import { classifyAuthState } from "./auth-state";
 import { UserLifecycleRepository } from "./repository";
 
 const ACCESS_REVOCATION_CLAIM_TIMEOUT_MS = 60_000;
+const ACCESS_REVOCATION_CLAIM_POLL = Duration.millis(100);
 
 const accessRevocationStaleBefore = (now: Date) =>
 	new Date(now.getTime() - ACCESS_REVOCATION_CLAIM_TIMEOUT_MS);
@@ -37,79 +38,81 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			const database = yield* DatabaseSession;
 			const jobs = yield* JobQueue;
 			const repository = yield* UserLifecycleRepository;
-			const revokeClaimedAccess = Effect.fnUntraced(function* (
-				operationId: string,
-				claimed: NonNullable<Effect.Success<ReturnType<typeof repository.claimAccessRevocation>>>,
-			) {
-				if (yield* repository.userExists(claimed.operation.userId)) {
-					const disabledAt = claimed.metadata.user.disabledAt
-						? DateTime.toDate(DateTime.makeUnsafe(claimed.metadata.user.disabledAt))
-						: yield* DateTime.nowAsDate;
-					yield* auth.updateAuthUserDisabled(claimed.operation.userId, {
-						disabledAt,
-						updatedAt: yield* DateTime.nowAsDate,
-					});
-				}
-				yield* auth.deleteUserSessions(claimed.operation.userId);
-				yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
-				yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
-				yield* auth.revokePasswordResetLinks(claimed.operation.userId);
-				return (
-					(yield* repository.markAccessRevoked(operationId)) ??
-					(yield* new InstanceAdminInternalFailure({
-						reason: { code: "access-revocation-failed" },
-					}))
-				);
-			});
+			const revokeClaimedAccess = Effect.fnUntraced(
+				function* (
+					operationId: string,
+					claimed: NonNullable<Effect.Success<ReturnType<typeof repository.claimAccessRevocation>>>,
+				) {
+					if (yield* repository.userExists(claimed.operation.userId)) {
+						const disabledAt = claimed.metadata.user.disabledAt
+							? DateTime.toDate(DateTime.makeUnsafe(claimed.metadata.user.disabledAt))
+							: yield* DateTime.nowAsDate;
+						yield* auth.updateAuthUserDisabled(claimed.operation.userId, {
+							disabledAt,
+							updatedAt: yield* DateTime.nowAsDate,
+						});
+					}
+					yield* auth.deleteUserSessions(claimed.operation.userId);
+					yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
+					yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
+					yield* auth.revokePasswordResetLinks(claimed.operation.userId);
+					return (
+						(yield* repository.markAccessRevoked(operationId)) ??
+						(yield* new InstanceAdminInternalFailure({
+							reason: { code: "access-revocation-failed" },
+						}))
+					);
+				},
+				(effect, operationId) =>
+					effect.pipe(
+						Effect.catchCause((cause) =>
+							repository
+								.releaseAccessRevocation(operationId)
+								.pipe(
+									Effect.ignoreCause,
+									Effect.andThen(
+										Cause.hasInterruptsOnly(cause)
+											? Effect.failCause(cause)
+											: Effect.logError("user lifecycle access revocation failed", cause).pipe(
+													Effect.annotateLogs({ operationId }),
+													Effect.andThen(
+														new InstanceAdminInternalFailure({
+															reason: { code: "access-revocation-failed" },
+														}),
+													),
+												),
+									),
+								),
+						),
+						Effect.mapError(
+							() =>
+								new InstanceAdminInternalFailure({ reason: { code: "access-revocation-failed" } }),
+						),
+					),
+			);
 
 			const revokeAccess = Effect.fn("UserLifecycleService.revokeAccess")(function* (
 				operationId: string,
 			) {
-				const current = yield* repository.getInternalById(operationId);
-				if (!current) {
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-state-conflict" },
-					});
+				for (;;) {
+					const current = yield* repository.getInternalById(operationId);
+					if (current && current.accessRevokedAt !== null) {
+						return current;
+					}
+					if (current?.operation.status !== "pending") {
+						return yield* new InstanceAdminInternalFailure({
+							reason: { code: "lifecycle-state-conflict" },
+						});
+					}
+					const claimed = yield* repository.claimAccessRevocation(
+						operationId,
+						accessRevocationStaleBefore(yield* DateTime.nowAsDate),
+					);
+					if (claimed) {
+						return yield* revokeClaimedAccess(operationId, claimed);
+					}
+					yield* Effect.sleep(ACCESS_REVOCATION_CLAIM_POLL);
 				}
-				if (current.accessRevokedAt !== null) {
-					return current;
-				}
-
-				const claimed = yield* repository.claimAccessRevocation(
-					operationId,
-					accessRevocationStaleBefore(yield* DateTime.nowAsDate),
-				);
-				if (!claimed) {
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-state-conflict" },
-					});
-				}
-
-				return yield* revokeClaimedAccess(operationId, claimed).pipe(
-					Effect.catchCause((cause) =>
-						repository
-							.releaseAccessRevocation(operationId)
-							.pipe(
-								Effect.ignoreCause,
-								Effect.andThen(
-									Cause.hasInterruptsOnly(cause)
-										? Effect.failCause(cause)
-										: Effect.logError("user lifecycle access revocation failed", cause).pipe(
-												Effect.annotateLogs({ operationId }),
-												Effect.andThen(
-													new InstanceAdminInternalFailure({
-														reason: { code: "access-revocation-failed" },
-													}),
-												),
-											),
-								),
-							),
-					),
-					Effect.mapError(
-						() =>
-							new InstanceAdminInternalFailure({ reason: { code: "access-revocation-failed" } }),
-					),
-				);
 			});
 
 			const request = Effect.fn("UserLifecycleService.request")(function* (

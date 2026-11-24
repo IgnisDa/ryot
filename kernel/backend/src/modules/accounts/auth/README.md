@@ -65,8 +65,8 @@ so a write either commits before retirement starts or fails once it has begun; a
 cannot commit work for the account. The transaction that creates or reactivates the operation also
 queues its lifecycle job, and the request then revokes access before it returns. The job revokes
 access first when it is still unrevoked, so an operation whose request failed or stopped after
-committing still revokes and runs. A request or job that finds another's revocation claim fresh fails
-with `lifecycle-state-conflict`; the job retries.
+committing still revokes and runs. A request or job that finds another's revocation claim fresh waits
+until that revocation is recorded, or claims it once it is released or goes stale.
 
 ## Impersonation
 
