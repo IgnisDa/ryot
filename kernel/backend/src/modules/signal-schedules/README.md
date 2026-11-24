@@ -18,7 +18,7 @@ owns eligibility through its `where` clause.
 ## Delivery
 
 The frequent cron evaluates effective schedules for users with an active subscription to the declared
-signal, skipping schedules whose `entitlement` the account does not hold. Each user's
+signal, leaving out schedules whose `entitlement` the deployment does not hold. Each user's
 reporting timezone defines their day. A row is due when `dueAt` plus `delayDays`
 falls in the local day or the two catch-up days before it; instants are bounded by now. Rows older
 than the window are skipped, not sent late. A null `confirmedAt` has no freshness requirement; an
@@ -31,7 +31,7 @@ when the occurrence is already recorded; its `written` step records
 `(user, plugin, schedule, occurrence)` in `signal_schedule_delivery` with the signal's trigger in the
 same transaction. Dispatch starts after commit. A recorded occurrence is never
 planned again, even if its date later moves, until retention deletes the row after 30 days. A failing
-target is logged and retried on the next run.
+target is logged and saves no evaluation, so a later run tries it again.
 
 ## Evaluation
 
@@ -69,10 +69,13 @@ its change is found once it commits, whatever its ID order.
 
 One query per page of 50 targets (ten pages per run) lists the targets to evaluate: those without
 an evaluation, in another time zone or content language, or with a data change, and those whose
-`next_due_at` has passed. There is no periodic refresh. Nothing else moves a target's result: its
-queries cannot read the clock, a local-day boundary or a date-precision `dueAt` enters the window
-at `next_due_at`, a row's freshness only expires, and a new plugin revision or catalog change
-writes a plugin or installation row.
+`next_due_at` has passed. Targets are listed in `(user, plugin, schedule)` order; a run that reads
+all ten pages leaves the next run to start after its last target, and a run that reaches the end
+leaves it to start from the beginning, so targets whose evaluation keeps failing cannot hold back
+later ones. There is no periodic refresh. Nothing else moves a target's result: its queries cannot
+read the clock, a local-day boundary or a date-precision `dueAt` enters the window at
+`next_due_at`, a row's freshness only expires, and a new plugin revision or catalog change writes a
+plugin or installation row.
 
 `evaluated_at` is when the evaluation's snapshot was taken. Each run first deletes evaluations older
 than two days and the `data_change` rows below every remaining snapshot's `xmin` and the current one,

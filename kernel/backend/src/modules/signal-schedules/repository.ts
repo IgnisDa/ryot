@@ -1,4 +1,5 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	and,
@@ -79,13 +80,15 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 			);
 
 			/**
-			 * Lists the targets to evaluate: those whose next known occurrence is due by `now`, and those
-			 * without a current evaluation, which is none, one in another time zone or content language,
-			 * or one whose snapshot does not see a data change it may read.
+			 * Lists the targets of schedules the deployment's `entitlements` allow that need evaluating:
+			 * those whose next known occurrence is due by `now`, and those without a current evaluation,
+			 * which is none, one in another time zone or content language, or one whose snapshot does not
+			 * see a data change it may read.
 			 */
 			const listTargets = Effect.fn("SignalScheduleRepository.listTargets")(function* (input: {
 				readonly now: Date;
 				readonly limit: number;
+				readonly entitlements: Entitlements;
 				readonly after: null | SignalScheduleCursor;
 			}) {
 				const { after, limit } = input;
@@ -138,6 +141,12 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 						)
 						.where(
 							and(
+								or(
+									isNull(schedule.entitlement),
+									input.entitlements.length === 0
+										? undefined
+										: inArray(schedule.entitlement, [...input.entitlements]),
+								),
 								or(stale, lte(evaluation.nextDueAt, input.now)),
 								after === null
 									? undefined

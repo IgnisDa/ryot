@@ -12,7 +12,6 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
 import { selectRecipe } from "@ryot-app/ryotql";
 import {
@@ -20,7 +19,7 @@ import {
 	signalScheduleRecipe,
 } from "@ryot-app/ryotql-recipes/signal-schedules";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { Context, DateTime, Effect, Layer, Option, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Ref, Result, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { ChangeSets } from "#modules/changes/service";
@@ -108,6 +107,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 			const admission = yield* AccountAdmission.make;
 			const changeSets = yield* ChangeSets;
 			const repository = yield* SignalScheduleRepository;
+			const resumeAfter = yield* Ref.make<null | SignalScheduleCursor>(null);
 
 			const admit = Effect.fn("SignalScheduleWorker.admit")(function* (
 				target: SignalScheduleTarget,
@@ -275,18 +275,16 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						),
 					);
 				const active = yield* entitlements.current;
-				let after: null | SignalScheduleCursor = null;
+				let after = yield* Ref.get(resumeAfter);
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
 					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets({
 						now,
 						after,
+						entitlements: active,
 						limit: TARGET_PAGE_SIZE,
 					});
 					const evaluations = [];
 					for (const target of targets) {
-						if (!isEntitled(active, target.entitlement)) {
-							continue;
-						}
 						const nextDueAt = yield* evaluateTarget(target, now).pipe(
 							Effect.asSome,
 							Effect.catchCause((cause) =>
@@ -315,11 +313,16 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					}
 					yield* repository.saveEvaluations(evaluations);
 					const last = targets.at(-1);
-					if (last === undefined || targets.length < TARGET_PAGE_SIZE) {
-						return;
+					after =
+						last === undefined || targets.length < TARGET_PAGE_SIZE
+							? null
+							: { slug: last.slug, userId: last.userId, pluginId: last.pluginId };
+					if (after === null) {
+						break;
 					}
-					after = { slug: last.slug, userId: last.userId, pluginId: last.pluginId };
 				}
+				// Targets whose evaluation keeps failing stay listed, so the next run resumes after this one's last.
+				yield* Ref.set(resumeAfter, after);
 			});
 
 			return { run };

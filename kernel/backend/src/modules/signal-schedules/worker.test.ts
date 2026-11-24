@@ -7,8 +7,8 @@ import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions
 import { castDate, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, sql } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
+import { eq, inArray, sql } from "drizzle-orm";
+import { Context, Deferred, Effect, Fiber, Layer, Ref, References } from "effect";
 import { TestClock } from "effect/testing";
 
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
@@ -126,6 +126,8 @@ describe("signal schedule due times", () => {
 	});
 });
 
+const failingUser = "failing-";
+
 class ScheduleQueries extends Context.Service<ScheduleQueries, Effect.Effect<number>>()(
 	"@ryot-app/kernel-backend/modules/signal-schedules/worker.test/ScheduleQueries",
 ) {}
@@ -157,7 +159,11 @@ const recordedQueries = Layer.effectContext(
 			...ryotql,
 			executeForUser: (...input: Parameters<typeof ryotql.executeForUser>) =>
 				Ref.update(executions, (count) => count + 1).pipe(
-					Effect.andThen(ryotql.executeForUser(...input)),
+					Effect.andThen(
+						input[0].startsWith(failingUser)
+							? Effect.die(new Error("Query unavailable"))
+							: ryotql.executeForUser(...input),
+					),
 				),
 		}).pipe(Context.add(ScheduleQueries, Ref.getAndSet(executions, 0)));
 	}),
@@ -198,7 +204,10 @@ const fixture = Layer.effect(
 		const plugin = revisionPackage();
 		const { pluginId } = yield* installRevisionPackage({
 			...plugin,
-			manifest: { ...plugin.manifest, signalSchedules: [schedule] },
+			manifest: {
+				...plugin.manifest,
+				signalSchedules: [schedule, { ...schedule, entitlement: "pro", slug: "pro-schedule" }],
+			},
 		});
 		const session = yield* DatabaseSession;
 		yield* (yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource());
@@ -459,6 +468,58 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(services))))((test) => 
 			yield* insertEntity("missed", start + hours(2));
 			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
 			expect(yield* runAt(start + hours(47))).toEqual({ queries: 1, delivered: ["missed"] });
+		}),
+	);
+
+	test.effect("lists a schedule's targets only while the deployment holds its entitlement", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const repository = yield* SignalScheduleRepository;
+			const slugs = (entitlements: ReadonlyArray<"pro">) =>
+				repository
+					.listTargets({ limit: 50, after: null, entitlements, now: new Date(start) })
+					.pipe(Effect.map((targets) => targets.map(({ slug }) => slug)));
+			expect(yield* slugs([])).toEqual(["schedule"]);
+			expect(yield* slugs(["pro"])).toEqual(["pro-schedule", "schedule"]);
+		}),
+	);
+
+	test.effect("reaches later targets past more failing targets than one run reads", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const { pluginId } = yield* Fixture;
+			const session = yield* DatabaseSession;
+			const failing = Array.from(
+				{ length: 500 },
+				(_, index) => `${failingUser}${String(index).padStart(3, "0")}`,
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values(failing.map((id) => ({ id, name: id, email: `${id}@example.test` }))),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.pluginInstallation)
+					.values(failing.map((userId) => ({ userId, pluginId }))),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.notificationSubscription)
+					.values(
+						failing.map((userId) => ({
+							userId,
+							signalSchemaPluginId: pluginId,
+							signalSchemaSlug: "fixture.signal",
+						})),
+					),
+			);
+			yield* insertEntity("due", start - hours(1));
+			expect(
+				yield* runAt(start).pipe(Effect.provideService(References.MinimumLogLevel, "Error")),
+			).toEqual({ queries: 500, delivered: [] });
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 1, delivered: ["due"] });
+			yield* session.run((db) => db.delete(tables.user).where(inArray(tables.user.id, failing)));
 		}),
 	);
 });
