@@ -36,7 +36,6 @@ import {
 	runDurationLabel,
 	runTimestampLabel,
 } from "#/modules/ui/run/run-status";
-import { RunStatusPill } from "#/modules/ui/run/run-status-pill";
 import { RUN_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { StatusState } from "#/modules/ui/status-state";
 import { useNowMs } from "#/modules/ui/use-now-ms";
@@ -326,6 +325,25 @@ function ImportRunRoute() {
 		<ImportRunFrame
 			title={title}
 			integrationId={integrationId}
+			meta={
+				run === undefined ? undefined : (
+					<div className="flex flex-col gap-2">
+						<p className="text-xs text-text-subtle">
+							{t(
+								kernelMessage(
+									integrationId === undefined
+										? "client.route.settings.import-run.meta"
+										: "client.route.settings.import-run.integration-meta",
+									{ timestamp: runTimestampLabel(formatters, run.createdAt) },
+								),
+							)}
+						</p>
+						{duration === undefined ? null : (
+							<span className="text-xs tabular-nums text-text-subtle">{duration}</span>
+						)}
+					</div>
+				)
+			}
 			actions={
 				run !== undefined && (canDeleteImportRun(run.status) || canCancelImportRun(run.status)) ? (
 					<Menu
@@ -344,28 +362,6 @@ function ImportRunRoute() {
 						}
 					/>
 				) : undefined
-			}
-			meta={
-				run === undefined ? undefined : (
-					<div className="flex flex-col gap-2">
-						<p className="text-xs text-text-subtle">
-							{t(
-								kernelMessage(
-									integrationId === undefined
-										? "client.route.settings.import-run.meta"
-										: "client.route.settings.import-run.integration-meta",
-									{ timestamp: runTimestampLabel(formatters, run.createdAt) },
-								),
-							)}
-						</p>
-						<div className="flex items-center gap-2">
-							<RunStatusPill status={run.status} />
-							{duration === undefined ? null : (
-								<span className="text-xs tabular-nums text-text-subtle">{duration}</span>
-							)}
-						</div>
-					</div>
-				)
 			}
 		>
 			{body}

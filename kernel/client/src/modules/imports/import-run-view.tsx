@@ -7,8 +7,8 @@ import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { importRunProvenanceLabel } from "#/modules/imports/run-presentation";
 import { StatusState } from "#/modules/ui/status-state";
 
-import { IngestionIssues } from "./ingestion-issues";
-import { IngestionRunReport } from "./ingestion-run-report";
+import { IngestionIssues, useIngestionIssues } from "./ingestion-issues";
+import { IngestionRunReport, IngestionRunTechnicalDetails } from "./ingestion-run-report";
 
 export type ImportRunDetailState =
 	{ readonly status: "failed" } | { readonly status: "ready"; readonly run: ImportRunSummary };
@@ -23,7 +23,6 @@ type ImportRunViewProps = {
 
 export function ImportRunView(props: ImportRunViewProps) {
 	const t = useT();
-	const formatters = useFormatters();
 	if (props.state.status === "failed") {
 		return (
 			<StatusState
@@ -39,20 +38,41 @@ export function ImportRunView(props: ImportRunViewProps) {
 			/>
 		);
 	}
-	const run = props.state.run;
+	return <ImportRunContent key={props.state.run.id} {...props} run={props.state.run} />;
+}
+
+function ImportRunContent(
+	props: { readonly run: ImportRunSummary } & Omit<ImportRunViewProps, "state" | "onRetry">,
+) {
+	const t = useT();
+	const formatters = useFormatters();
+	const { run } = props;
 	const provenance = importRunProvenanceLabel(t, formatters, run.inputSummary);
-	const wasCancelled = run.status === "cancelled";
+	const revision = `${run.status}:${run.activities.map(({ id, lastAdvancedAt }) => `${id}:${lastAdvancedAt}`).join(";")}`;
+	const issues = useIngestionIssues(run.id, revision);
+	const lead =
+		run.status === "failed"
+			? issues.issues.find(
+					({ data }) =>
+						data.severity === "error" &&
+						data.reason.code === run.failureReason?.code &&
+						"detail" in data.reason &&
+						data.reason.detail !== undefined,
+				)
+			: undefined;
+	const reason = lead?.data.reason;
+	const failureDetail = reason && "detail" in reason ? reason.detail : undefined;
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			{provenance === undefined ? null : (
 				<p className="line-clamp-2 text-sm text-text-muted">{provenance}</p>
 			)}
-			<IngestionRunReport run={run} />
-			<IngestionIssues
-				key={run.id}
-				runId={run.id}
-				revision={`${run.status}:${run.activities.map(({ id, lastAdvancedAt }) => `${id}:${lastAdvancedAt}`).join(";")}`}
-			>
+			<IngestionRunReport
+				run={run}
+				failureDetail={failureDetail}
+				hasIssues={issues.issues.length > 0}
+			/>
+			<IngestionIssues {...issues} leadIssueId={lead?.id}>
 				<Button
 					type="button"
 					variant="secondary"
@@ -79,19 +99,7 @@ export function ImportRunView(props: ImportRunViewProps) {
 					{t(kernelMessage("client.imports.keeps-running"))}
 				</p>
 			) : null}
-			{wasCancelled ? (
-				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">
-					<AppIcon size={18} name="circle-x" className="shrink-0 text-text-muted" />
-					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span className="text-sm font-medium text-text">
-							{t(kernelMessage("client.imports.cancelled.title"))}
-						</span>
-						<span className="text-sm leading-5 text-text-muted">
-							{t(kernelMessage("client.imports.cancelled.detail"))}
-						</span>
-					</div>
-				</div>
-			) : null}
+			<IngestionRunTechnicalDetails run={run} />
 		</div>
 	);
 }

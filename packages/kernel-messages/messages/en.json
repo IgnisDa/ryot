@@ -758,8 +758,6 @@
 		"message": "This stops future work. Items already added stay in your library. Type \"{phrase}\" to continue.",
 		"description": "{phrase} is the phrase the person must type to confirm."
 	},
-	"client.imports.cancelled.detail": "Future work stopped. Items already added remain in your library.",
-	"client.imports.cancelled.title": "Import cancelled",
 	"client.imports.check-setup-again": "Check setup again",
 	"client.imports.checking-setup": "Checking setup…",
 	"client.imports.choose-source": {
@@ -799,19 +797,22 @@
 	"client.imports.integrations-link-label": "Syncing on a schedule? Integrations",
 	"client.imports.integrations-prompt": "Syncing on a schedule?",
 	"client.imports.intro": "Bring your history over from another service. Files are uploaded to your own server, read once, and deleted when the import finishes.",
+	"client.imports.issues.explanation.database-commit-failed": "Could not save this record.",
+	"client.imports.issues.explanation.error": "An error occurred while processing this record.",
+	"client.imports.issues.explanation.event-policy-failed": "This record did not pass validation.",
+	"client.imports.issues.explanation.input-transformation-failed": "Could not read this record.",
+	"client.imports.issues.explanation.provider-details-failed": "Could not load details for this record.",
+	"client.imports.issues.explanation.provider-resolution-failed": "Could not find a match for this record.",
+	"client.imports.issues.explanation.source-fetch-failed": "Could not read the source.",
+	"client.imports.issues.explanation.warning": "A warning was recorded for this item.",
 	"client.imports.issues.heading": {
 		"message": "{subject} · {severity, select, warning {warning} error {error} other {error}}",
 		"description": "{subject} names the record or run the issue belongs to and {severity} is the issue's severity."
 	},
 	"client.imports.issues.load-failed": "Could not load record issues.",
-	"client.imports.issues.note": "Warnings and record errors are separate from a run failure. Expected skips appear in the outcome summary.",
 	"client.imports.issues.operation": {
 		"message": "Operation: {id}",
 		"description": "{id} is the operation's identifier."
-	},
-	"client.imports.issues.policy-reason": {
-		"message": "{kind} · {reason}",
-		"description": "{kind} is the kind of record and {reason} is the explanation a plugin's policy gave for skipping it."
 	},
 	"client.imports.issues.reason": {
 		"message": "{kind} · {code}",
@@ -867,6 +868,11 @@
 		"message": "{kind, select, reading {Reading} preparing {Preparing} resolving {Resolving} writing {Writing} finishing {Finishing} other {Working}} · {state, select, pending {Pending} running {Running} waiting {Waiting} completed {Completed} failed {Failed} cancelled {Cancelled} other {Running}}",
 		"description": "{kind} is what the import is doing and {state} is how far along that step is."
 	},
+	"client.imports.report.completed-with-issues": "Completed with issues",
+	"client.imports.report.current-step": {
+		"message": "{kind, select, reading {Reading input} preparing {Preparing records} resolving {Finding matches} writing {Adding records} finishing {Finishing up} other {Working}}",
+		"description": "{kind} is the current activity."
+	},
 	"client.imports.report.deadline": {
 		"message": "Setup deadline: {deadline}. The deadline does not extend.",
 		"description": "{deadline} is the formatted date and time."
@@ -876,7 +882,13 @@
 		"message": "Last advancement: {time}",
 		"description": "{time} is the formatted date and time."
 	},
+	"client.imports.report.nothing-saved": "Nothing was added or updated.",
+	"client.imports.report.outcome": {
+		"message": "{count, number} {outcome, select, created {added} updated {updated} unchanged {unchanged} skipped {skipped} unsuccessful {failed} other {failed}}",
+		"description": "{count} is the number of records and {outcome} is what happened to them."
+	},
 	"client.imports.report.resumes": "This delivery resumes automatically after setup is fixed.",
+	"client.imports.report.technical-details": "Technical details",
 	"client.imports.report.waiting": {
 		"message": "Waiting: {code}",
 		"description": "{code} is why the step is waiting."

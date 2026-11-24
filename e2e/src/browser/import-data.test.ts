@@ -160,12 +160,8 @@ it.live("starts, follows and deletes an import from settings", () =>
 			yield* page
 				.getByText("Completed", { exact: true })
 				.waitFor({ timeout: 60_000, state: "visible" });
-			expect(
-				yield* page.getByText(
-					"measurements: 3 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
-					{ exact: true },
-				).count,
-			).toBe(1);
+			yield* page.getByText("3 added", { exact: true }).waitFor();
+			yield* page.getByRole("progressbar").waitFor({ state: "hidden" });
 			yield* page.getByRole("heading", { name: "Record issues" }).waitFor({ state: "hidden" });
 			yield* page.getByRole("button", { name: "Download issues" }).waitFor({ state: "hidden" });
 
@@ -240,7 +236,10 @@ it.live("shows a Plex parser error in the same run detail as imports", () =>
 		yield* page.locator(`a[href="/settings/import-data/${runId}"]`).click();
 		yield* page.getByRole("heading", { level: 1, name: "Plex" }).waitFor();
 		yield* page.getByRole("heading", { name: "Record issues" }).waitFor();
+		yield* page.getByRole("heading", { exact: true, name: "Failed" }).waitFor();
 		yield* page.getByText("The Plex payload is missing a TMDB identifier.").waitFor();
+		yield* page.getByText("Nothing was added or updated.").waitFor();
+		yield* page.getByRole("progressbar").waitFor({ state: "hidden" });
 		expect(yield* page.getByText("Private webhook title").count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -294,7 +293,8 @@ it.live("requires confirmation, cancels, and deletes a slow import", () =>
 			yield* page
 				.getByText("Cancelled", { exact: true })
 				.waitFor({ timeout: 60_000, state: "visible" });
-			yield* page.getByText(/Items already added remain in your library/).waitFor();
+			yield* page.getByText("Nothing was added or updated.").waitFor();
+			yield* page.getByRole("progressbar").waitFor({ state: "hidden" });
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete record" }).click();
