@@ -1,4 +1,4 @@
-import { DbError } from "@ryot-app/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
 	type AutomationEntityRequestPayload,
@@ -178,6 +178,7 @@ type PreparedEntityEnsures = PolicyItems & {
 const preparedEntityDeletes = Symbol("PreparedEntityDeletes");
 type PreparedEntityDeletes = PolicyItems & {
 	readonly [preparedEntityDeletes]: {
+		readonly preserveHistory: boolean;
 		readonly accounts: ReadonlyArray<UserId>;
 		readonly lifecycle: DomainLifecycleCommand;
 		readonly orderedIds: ReadonlyArray<EntityId>;
@@ -1327,6 +1328,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						lifecycle,
 						orderedIds,
 						accounts: [...accounts.values()],
+						preserveHistory: target.preserveHistory === true,
 						prepared: prepared.map((entry) =>
 							entry === null ? null : { prepared: entry.prepared, scopeUserId: entry.scopeUserId },
 						),
@@ -1340,7 +1342,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					accept: EntityPolicyAcceptance = acceptPrepared,
 				) {
 					yield* assertActiveTransaction;
-					const { prepared, accounts, lifecycle, orderedIds } = deletes[preparedEntityDeletes];
+					const { prepared, accounts, lifecycle, orderedIds, preserveHistory } =
+						deletes[preparedEntityDeletes];
 					return yield* admitted(
 						Effect.gen(function* () {
 							const writeContext = lifecycle.writeContext;
@@ -1371,9 +1374,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							yield* repository.lockMutationKeys(orderedIds);
 							const rows = yield* repository.getMutationEntities(orderedIds, true);
 							if ((yield* eventsRepository.listEventIdentitiesForEntities(orderedIds)).length > 0) {
-								return yield* new DbError({
-									message: "Entity event references changed while deletion policies ran",
-								});
+								if (preserveHistory) {
+									return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
+								}
+								return yield* conflict(
+									"An event referenced the entity after its deletion was prepared",
+								);
 							}
 							const batchScope = { command: lifecycle, identity: ["deletes"] };
 							const decision = yield* planner.prepareBatch(transaction, {

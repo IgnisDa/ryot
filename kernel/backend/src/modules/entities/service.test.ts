@@ -979,13 +979,15 @@ describe("EntitiesService committed lifecycle", () => {
 							record.id,
 							recordSession.id,
 						);
-						const failure = yield* changeSets
-							.commit(deletesOf(owner, [recordSession.id]), command("late-event-delete"))
-							.pipe(Effect.flip);
-						expect(failure).toMatchObject({
-							_tag: "DbError",
-							message: "Entity event references changed while deletion policies ran",
-						});
+						assertExitFails(
+							yield* Effect.exit(
+								changeSets.commit(
+									deletesOf(owner, [recordSession.id]),
+									command("late-event-delete"),
+								),
+							),
+							new EntityBadRequest({ reason: { code: "mutation-conflict" } }),
+						);
 						expect(yield* (yield* EntitiesRepository).getById(recordSession.id)).toEqual<unknown>(
 							recordSession,
 						);
@@ -1005,6 +1007,37 @@ describe("EntitiesService committed lifecycle", () => {
 			);
 		},
 	);
+
+	layer(entitiesLayer())("entities service harness", (test) => {
+		test.effect(
+			"rejects a history-preserving delete when an event appears after its preparation",
+			() =>
+				Effect.gen(function* () {
+					const entities = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const record = yield* (yield* ChangeSets)
+						.commit(ownerCreate(), command("history-record"))
+						.pipe(Effect.flatMap(savedEntity));
+					const prepared = yield* entities.prepareDeletes(
+						new WritePreparation(),
+						[record.id],
+						command("history-delete"),
+						{ entitySchema, scopeUserId: owner, preserveHistory: true },
+					);
+					yield* createEvent(EventId.make("late-history-event"), owner, record.id);
+					assertExitFails(
+						yield* Effect.exit(
+							session.transaction(
+								entities.persistPreparedDeletes(new WriteTransaction(), prepared),
+							),
+						),
+						new EntityBadRequest({ reason: { code: "entity-has-history" } }),
+					);
+					expect(yield* (yield* EntitiesRepository).getById(record.id)).toEqual<unknown>(record);
+				}),
+			testTimeout,
+		);
+	});
 
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
