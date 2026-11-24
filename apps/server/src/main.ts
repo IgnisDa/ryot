@@ -12,6 +12,7 @@ import { RYOT_VERSION } from "@ryot-app/kernel-backend/platform/build-info";
 import { DatabaseOwner } from "@ryot-app/kernel-backend/platform/db/ownership";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
+import { LegacyHistoryHandoffLive } from "./migrations/history-handoff";
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
 import {
 	MediaCopyCutoverLive,
@@ -30,7 +31,11 @@ const MigrationSequenceLive = InternalOAuthProvisioningLive.pipe(
 	Layer.flatMap(() => MediaCopyCutoverLive),
 );
 
-const AppLive = MigrationSequenceLive.pipe(Layer.flatMap(() => RuntimeServerLive));
+// Handed-off legacy history is admitted once the runtime has registered the import workflows.
+const AppLive = MigrationSequenceLive.pipe(
+	Layer.flatMap(() => RuntimeServerLive),
+	Layer.flatMap(() => LegacyHistoryHandoffLive),
+);
 
 const StartupLive = Layer.effectDiscard(
 	Effect.gen(function* () {
