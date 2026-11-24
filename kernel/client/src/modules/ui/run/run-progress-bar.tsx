@@ -3,6 +3,7 @@ import clsx from "clsx";
 import type { RunProgress, RunProgressValue } from "#/modules/ui/run/run-status";
 
 export function RunProgressBar(props: {
+	readonly label: string;
 	readonly className?: string;
 	readonly progress: RunProgress;
 	readonly value: RunProgressValue;
@@ -10,6 +11,7 @@ export function RunProgressBar(props: {
 	return (
 		<div
 			role="progressbar"
+			aria-label={props.label}
 			aria-valuenow={props.value.now}
 			aria-valuemin={props.value.min}
 			aria-valuemax={props.value.max}

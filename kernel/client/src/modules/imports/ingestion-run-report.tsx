@@ -59,46 +59,48 @@ export function IngestionRunReport(props: { readonly run: ImportRunSummary }) {
 					{t(kernelMessage("client.imports.report.expired"))}
 				</p>
 			) : null}
-			{run.activities.map((activity) => (
-				<div key={activity.id} className="flex flex-col gap-2">
-					<p className="text-sm font-medium text-text">
-						{t(
-							kernelMessage("client.imports.report.activity", {
-								kind: activity.kind,
-								state: activity.state,
-							}),
-						)}
-					</p>
-					<RunProgressBar
-						value={ingestionActivityProgressValue(t, activity)}
-						progress={ingestionActivityProgress(t, formatters, activity)}
-					/>
-					<p className="text-xs tabular-nums text-text-muted">
-						{ingestionActivityProgressValue(t, activity).text}
-					</p>
-					<p className="text-xs text-text-subtle">
-						<time dateTime={activity.lastAdvancedAt}>
-							{t(
-								kernelMessage("client.imports.report.last-advancement", {
-									time: dateTime.format(new Date(activity.lastAdvancedAt)),
-								}),
-							)}
-						</time>
-					</p>
-					{activity.wait === null ? null : (
-						<p className="text-xs text-text-muted">
-							{t(
-								activity.wait.key === null
-									? kernelMessage("client.imports.report.waiting", { code: activity.wait.code })
-									: kernelMessage("client.imports.report.waiting-with-key", {
-											key: activity.wait.key,
-											code: activity.wait.code,
-										}),
-							)}
+			{run.activities.map((activity) => {
+				const label = t(
+					kernelMessage("client.imports.report.activity", {
+						kind: activity.kind,
+						state: activity.state,
+					}),
+				);
+				return (
+					<div key={activity.id} className="flex flex-col gap-2">
+						<p className="text-sm font-medium text-text">{label}</p>
+						<RunProgressBar
+							label={label}
+							value={ingestionActivityProgressValue(t, activity)}
+							progress={ingestionActivityProgress(t, formatters, activity)}
+						/>
+						<p className="text-xs tabular-nums text-text-muted">
+							{ingestionActivityProgressValue(t, activity).text}
 						</p>
-					)}
-				</div>
-			))}
+						<p className="text-xs text-text-subtle">
+							<time dateTime={activity.lastAdvancedAt}>
+								{t(
+									kernelMessage("client.imports.report.last-advancement", {
+										time: dateTime.format(new Date(activity.lastAdvancedAt)),
+									}),
+								)}
+							</time>
+						</p>
+						{activity.wait === null ? null : (
+							<p className="text-xs text-text-muted">
+								{t(
+									activity.wait.key === null
+										? kernelMessage("client.imports.report.waiting", { code: activity.wait.code })
+										: kernelMessage("client.imports.report.waiting-with-key", {
+												key: activity.wait.key,
+												code: activity.wait.code,
+											}),
+								)}
+							</p>
+						)}
+					</div>
+				);
+			})}
 			<p className="text-sm tabular-nums text-text-muted">
 				{importRunCountsLabel(t, formatters, run)}
 			</p>
