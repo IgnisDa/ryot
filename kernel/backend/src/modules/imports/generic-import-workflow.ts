@@ -1,4 +1,4 @@
-import { unknownToMessage } from "@ryot-app/contract/errors";
+import { type DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import {
 	type IngestionReason,
@@ -119,12 +119,15 @@ const ImportItemCommitted = Schema.Struct({
 
 /**
  * Commits one import item once: the account's idempotency key under the item's command identity holds
- * the result, so an activity retried after its commit replays it instead of writing again.
+ * the result, so an activity retried after its commit replays it instead of writing again. `recorded`
+ * runs in the transaction that records the result.
  */
 export const commitImportItem = Effect.fn("imports.commitImportItem")(function* (
 	changes: Changes & { readonly userId: UserId },
 	command: DomainLifecycleCommand,
 	options: CommitOptions,
+	recorded: (committed: typeof ImportItemCommitted.Type) => Effect.Effect<void, DbError> = () =>
+		Effect.void,
 ) {
 	const identity = idempotencyIdentity({
 		request: changes,
@@ -132,10 +135,11 @@ export const commitImportItem = Effect.fn("imports.commitImportItem")(function* 
 		userId: changes.userId,
 		key: command.itemIdentity,
 	});
-	return yield* (yield* ChangeSets).commitOnce(
-		changes,
-		command,
-		keyedReceipt(yield* IdempotencyKeys.make, identity, ImportItemCommitted, (result) => ({
+	const receipt = keyedReceipt(
+		yield* IdempotencyKeys.make,
+		identity,
+		ImportItemCommitted,
+		(result) => ({
 			events: toCreateEventsResponse(result.outcomes),
 			entities: result.entities.map(({ entity, itemIdentity }) => ({
 				itemIdentity,
@@ -145,7 +149,12 @@ export const commitImportItem = Effect.fn("imports.commitImportItem")(function* 
 				itemIdentity,
 				relationshipId: relationship?.id ?? null,
 			})),
-		})),
+		}),
+	);
+	return yield* (yield* ChangeSets).commitOnce(
+		changes,
+		command,
+		{ ...receipt, record: (result) => Effect.tap(receipt.record(result), recorded) },
 		options,
 	);
 });

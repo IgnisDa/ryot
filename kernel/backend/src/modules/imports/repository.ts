@@ -567,6 +567,16 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				}
 				return run;
 			});
+			/**
+			 * Takes the user's ingestion fence and the locks recording outcomes needs, before a commit's
+			 * catalog lock, so a commit that records outcomes takes the user-write lock first.
+			 */
+			const lockOutcomes = Effect.fn("ImportsRepository.lockOutcomes")(function* (
+				scope: IngestionScope,
+			) {
+				yield* lockPluginIngestionShared(database, [scope.userId]);
+				yield* lockProjection(scope, ["running", "cancelling"]);
+			});
 			const checkCaptureOwner = Effect.fn("ImportsRepository.checkCaptureOwner")(function* (
 				scope: IngestionScope,
 			) {
@@ -2092,6 +2102,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				listCaptures,
 				pageCaptures,
 				projectBatch,
+				lockOutcomes,
 				recordOutcome,
 				registerBatch,
 				expireBlocked,

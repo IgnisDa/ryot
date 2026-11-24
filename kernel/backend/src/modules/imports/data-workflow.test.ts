@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { DbError } from "@ryot-app/contract/errors";
 import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/schemas";
 import type {
 	IngestionBatch,
@@ -130,9 +131,12 @@ const defaultRecords = [
 const fixture = Effect.fnUntraced(function* (
 	cancelAfterWrite?: boolean,
 	records: ReadonlyArray<DataGraphRecord> = defaultRecords,
+	failedSkipRecords?: number,
 ) {
 	let run = ingestionTestRun();
+	let skipRecordFailures = failedSkipRecords ?? 0;
 	const items: ReturnType<typeof ingestionTestItem>[] = [];
+	const committedEvents: string[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
 	const issues: IngestionIssue[] = [];
 	const projections: IngestionBatch[] = [];
@@ -170,9 +174,12 @@ const fixture = Effect.fnUntraced(function* (
 		Layer.mock(EntityImportWorkflowOperations)({}),
 		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 		Layer.mock(ChangeSets)({
-			commitOnce: (input, _lifecycle, receipt) =>
-				Effect.suspend(() => {
+			commitOnce: (input, _lifecycle, receipt, options) =>
+				Effect.gen(function* () {
 					submitted.push(input);
+					if (options?.precondition && !(yield* options.precondition.check)) {
+						return yield* Effect.die("A data import precondition failed");
+					}
 					const creates = input.events?.changes ?? [];
 					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
 					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
@@ -190,19 +197,28 @@ const fixture = Effect.fnUntraced(function* (
 								reason: { namespace: "plugin1", key: "rejection.filtered" },
 							};
 						}
+						return { index, status: "written", eventId: EventId.make(itemIdentity) };
+					});
+					const recorded = yield* receipt.record({ ...emptyCommit, outcomes: written });
+					for (const outcome of written) {
+						const itemIdentity = creates[outcome.index]?.itemIdentity;
+						if (outcome.status !== "written" || itemIdentity === undefined) {
+							continue;
+						}
+						committedEvents.push(itemIdentity);
 						const item = ingestionTestItem(itemIdentity, "created");
 						if (!items.some(({ id }) => id === item.id)) {
 							items.push(item);
 						}
-						return { index, status: "written", eventId: EventId.make(itemIdentity) };
-					});
+					}
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
 					}
-					return receipt.record({ ...emptyCommit, outcomes: written });
+					return recorded;
 				}),
 		}),
 		Layer.mock(ImportsRepository)({
+			lockOutcomes: () => Effect.void,
 			storeBatchResult: () => Effect.void,
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
@@ -222,10 +238,12 @@ const fixture = Effect.fnUntraced(function* (
 					return true;
 				}),
 			recordOutcome: (_scope, outcome) =>
-				Effect.sync(() => {
-					outcomes.set(outcome.operationId, outcome);
-					return true;
-				}),
+				outcome.result === "skipped" && skipRecordFailures-- > 0
+					? Effect.fail(new DbError({ message: "Injected outcome failure" }))
+					: Effect.sync(() => {
+							outcomes.set(outcome.operationId, outcome);
+							return true;
+						}),
 			getCapture: () =>
 				Effect.succeed({
 					ordinal: 65,
@@ -265,7 +283,7 @@ const fixture = Effect.fnUntraced(function* (
 			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 		},
 	}).pipe(Effect.provideContext(context));
-	return { items, starts, issues, execute, outcomes, submitted, projections };
+	return { items, starts, issues, execute, outcomes, submitted, projections, committedEvents };
 });
 
 it.effect(
@@ -354,6 +372,34 @@ it.effect(
 					unit: "events",
 					recordKind: "event",
 					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"records a run's skipped events in its commit, so a failed recording rewrites no committed event",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture(
+				false,
+				[event("written"), event("skipped"), event("independent")],
+				1,
+			);
+			yield* test.execute;
+			expect(test.committedEvents).toEqual(
+				["written", "independent"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+			);
+			expect(test.submitted).toHaveLength(4);
+			expect(test.outcomes.get("data:event:skipped")?.result).toBe("skipped");
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 2, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 0 },
 				},
 			]);
 		}),

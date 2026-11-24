@@ -1,9 +1,6 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	CreateEventsResponse,
-	type EventCreateItemOutcome,
-} from "@ryot-app/contract/modules/events/schemas";
+import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
@@ -20,6 +17,7 @@ import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators"
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
 import type { Changes } from "#modules/changes/changes";
+import type { CommitOptions } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
@@ -642,34 +640,52 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			const command = ingestionOperationCommand(input.command, operation.operationId);
 			return { schema, command, operation, properties };
 		});
-		const recordSkipped = (
-			skipped: ReadonlyArray<{
-				readonly operation: IngestionOperation;
-				readonly reason: Extract<
-					EventCreateItemOutcome,
-					{ readonly status: "skipped_by_policy" }
-				>["reason"];
-			}>,
+		/**
+		 * Commits an item and records the events its policies skipped in the same transaction, so a
+		 * failed record writes nothing. The precondition takes the record's locks before the catalog lock.
+		 */
+		const commitRecorded = (
+			changes: Parameters<typeof commitImportItem>[0],
+			command: DomainLifecycleCommand,
+			options: CommitOptions,
+			operationOf: (index: number) => undefined | IngestionOperation,
 		) =>
-			skipped.length === 0
-				? Effect.void
-				: database.transaction(
-						Effect.forEach(
-							skipped,
-							({ reason, operation }) =>
-								Effect.gen(function* () {
-									const skip = { message: reason, code: "policy-rejected" as const };
-									yield* repository.recordOutcome(scope, {
-										...operation,
-										reason: skip,
-										result: "skipped",
-										inputFingerprint: input.batch.inputFingerprint,
-									});
-									yield* repository.recordIssue(scope, operationIssue(operation, "warning", skip));
+			commitImportItem(
+				changes,
+				command,
+				{
+					...options,
+					precondition: {
+						written: () => Effect.void,
+						check: repository
+							.lockOutcomes(scope)
+							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
+					},
+				},
+				(committed) =>
+					Effect.forEach(
+						committed.events.outcomes,
+						(outcome) => {
+							const operation = operationOf(outcome.index);
+							if (!operation || outcome.status !== "skipped_by_policy") {
+								return Effect.void;
+							}
+							const skip = { message: outcome.reason, code: "policy-rejected" as const };
+							return Effect.all([
+								repository.recordOutcome(scope, {
+									...operation,
+									reason: skip,
+									result: "skipped",
+									inputFingerprint: input.batch.inputFingerprint,
 								}),
-							{ discard: true },
-						),
-					);
+								repository.recordIssue(scope, operationIssue(operation, "warning", skip)),
+							]);
+						},
+						{ discard: true },
+					).pipe(
+						Effect.catchTags({ SchemaError: Effect.die, DatabaseSessionStateError: Effect.die }),
+					),
+			);
 		const writeRecord = Effect.fnUntraced(function* (item: DataGraphRecord, index: number) {
 			const { schema, command, operation, properties } = yield* prepareRecord(item);
 			let resolved: EntityId | undefined;
@@ -727,11 +743,16 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					if (invalid) {
 						return invalid;
 					}
-					const committed = yield* commitImportItem(changes, command, {
-						entities: { verbatimIdentities: true },
-						relationships: { verbatimIdentities: true },
-						events: { independent: true, verbatimIdentities: true },
-					});
+					const committed = yield* commitRecorded(
+						changes,
+						command,
+						{
+							entities: { verbatimIdentities: true },
+							relationships: { verbatimIdentities: true },
+							events: { independent: true, verbatimIdentities: true },
+						},
+						() => operation,
+					);
 					const failure = committed.events.failure;
 					if (failure) {
 						return {
@@ -743,11 +764,6 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 									: ("database_commit" as const),
 						};
 					}
-					yield* recordSkipped(
-						committed.events.outcomes.flatMap((outcome) =>
-							outcome.status === "skipped_by_policy" ? [{ operation, reason: outcome.reason }] : [],
-						),
-					);
 					const relationshipId = committed.relationships[0]?.relationshipId ?? null;
 					if (item.kind === "relationship" && relationshipId === null) {
 						return {
@@ -834,21 +850,14 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				success: CreateEventsResponse,
 				name: `write-data-events-${index + first.position}`,
 				execute: Effect.gen(function* () {
-					const written = yield* commitImportItem(
+					const written = yield* commitRecorded(
 						{ userId: input.userId, events: { changes: batch.map(({ create }) => create) } },
 						{
 							...first.prepared.command,
 							itemIdentity: stableStringify(["data-events", first.prepared.command.itemIdentity]),
 						},
 						{ events: { independent: true, verbatimIdentities: true } },
-					);
-					yield* recordSkipped(
-						written.events.outcomes.flatMap((outcome) => {
-							const event = batch[outcome.index];
-							return event && outcome.status === "skipped_by_policy"
-								? [{ reason: outcome.reason, operation: event.prepared.operation }]
-								: [];
-						}),
+						(eventIndex) => batch[eventIndex]?.prepared.operation,
 					);
 					return written.events;
 				}).pipe(Effect.mapError(toWorkflowError)),

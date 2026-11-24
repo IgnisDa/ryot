@@ -23,10 +23,12 @@ provider-resolved entity record is a reference, so its commit checks the entity'
 its `unchanged` import item. A run of consecutive event records references only records committed
 before it, so it commits as one independent-mode change set in one activity, keyed by the run's
 first committed record, with an outcome per event: a preparation failure, policy rejection or policy
-item error affects only its event. When the run's commit fails as a whole (a policy execution error,
-`mutation-conflict`, `asset-forbidden`, or a failed activity) it writes nothing, and every event
-without an outcome of its own commits again alone, each in its own activity under its own receipt, so
-each record gets the outcome it would have had alone. The run activity's recorded result decides
+item error affects only its event. A record's or run's commit records the `skipped` outcomes and
+warnings of the events its policies skip in its own transaction, under the run's projection lock,
+which it takes before its catalog lock. When the run's commit fails as a whole (a policy execution
+error, `mutation-conflict`, `asset-forbidden`, or a failed activity) it writes nothing, and every
+event without an outcome of its own commits again alone, each in its own activity under its own
+receipt, so each record gets the outcome it would have had alone. The run activity's recorded result decides
 this, so a replay takes the same path. An event naming managed assets commits alone after its
 ownership check. Cancellation is checked before each record or run.
 
