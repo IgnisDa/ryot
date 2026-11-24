@@ -8,8 +8,8 @@ The entity persistence operation builds change evidence in the source-write tran
 Matching hook plans, dispatch references, and batch evidence commit with the source. Result codecs do not contain universal before/after outcomes.
 Prepared policy inputs still retain the source snapshot needed to detect concurrent changes.
 
-Provider root-write activities retain the entity snapshot and dispatch references.
-Collection preparation projects the entity result to its identifier before journaling it.
+Provider population commits its entities through `commitPopulation`, and each collection write
+commits as one change set; neither journals an entity result.
 
 `EntitiesService` prepares and persists entity writes; every caller commits them through
 `ChangeSets` (see [change sets](../changes/README.md)). Each prepared token lists its policy items

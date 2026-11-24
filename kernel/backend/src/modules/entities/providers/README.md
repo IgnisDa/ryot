@@ -160,8 +160,8 @@ commit transaction, whether global upserts or a change set's entity saves (both 
 `persistPreparedSaves`), acquires locks in this order before it mutates rows:
 
 1. The schema catalog lock.
-2. Domain write authority checks with `lock=true`, once per distinct writer, kernel-collection
-   flag, definition owner, and scope.
+2. Domain write authority checks locked by the commit's `WriteTransaction`, once per distinct
+   writer, kernel-collection flag, definition owner, and scope.
 3. Provider entity identities, sorted by scope, user, entity schema, provider, and external ID
    (`hashtextextended(key, 0)`).
 4. User ensure scopes or global provenance scopes (`hashtext(key)`).
