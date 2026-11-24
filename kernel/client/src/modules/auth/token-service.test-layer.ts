@@ -6,6 +6,7 @@ import type { OAuthTokenService } from "#/modules/auth/token-service";
 export const makeOAuthTokenServiceStub = (
 	overrides: Partial<OAuthTokenService["Service"]> = {},
 ): OAuthTokenService["Service"] => ({
+	web: false,
 	clear: () => Effect.void,
 	logout: () => Effect.succeed(null),
 	access: () => Effect.die("not used"),

@@ -1435,6 +1435,7 @@
 	"client.route.settings.import-run.cancel-title": "¿Cancelar esta importación?",
 	"client.route.settings.import-run.cancelling": "Cancelando…",
 	"client.route.settings.import-run.delete-title": "¿Eliminar este registro de importación?",
+	"client.route.settings.import-run.integration-meta": "Integración · {timestamp}",
 	"client.route.settings.import-run.loading": "Cargando esta importación…",
 	"client.route.settings.import-run.meta": "Importación · {timestamp}",
 	"client.route.settings.import-run.not-found-detail": "Esta importación ya no está en tu servidor.",

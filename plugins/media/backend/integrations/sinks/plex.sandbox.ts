@@ -3,9 +3,8 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { catalogMessage } from "../../../shared/messages.generated";
 import { resolvedMediaRef } from "../../imports/source-helpers";
-import { mediaFailureMessage } from "../../lib/error-message";
-import { MediaSandboxError } from "../../lib/failures";
 import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
@@ -38,7 +37,7 @@ const multipartPayload = (rawBody: string, contentType: string) => {
 		.find(Boolean)
 		?.trim();
 	if (!boundary) {
-		throw new Error("invalid multipart");
+		return null;
 	}
 	for (const section of rawBody.split(`--${boundary}`)) {
 		const [headers, ...parts] = section.split(/\r?\n\r?\n/);
@@ -49,7 +48,7 @@ const multipartPayload = (rawBody: string, contentType: string) => {
 				.trim();
 		}
 	}
-	throw new Error("missing payload");
+	return null;
 };
 const showLookupCacheTtlSeconds = 24 * 60 * 60;
 
@@ -84,21 +83,35 @@ export default defineScript({
 			}
 			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
+			const body = multipartPayload(input.rawBody, input.contentType);
+			if (body === null) {
+				return failureResult(catalogMessage("integration.plex.invalid-multipart"));
+			}
+			const payload = yield* Effect.try({
+				try: () => jsonRecord(body),
+				catch: () => failureResult(catalogMessage("integration.plex.invalid-json")),
+			}).pipe(Effect.result);
+			if (payload._tag === "Failure") {
+				return payload.failure;
+			}
+			const metadata = asRecord(payload.success["Metadata"]);
+			if (!metadata) {
+				return failureResult(catalogMessage("integration.plex.missing-metadata"));
+			}
 			const parsed = yield* Effect.try({
-				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+				catch: () => failureResult(catalogMessage("integration.plex.invalid-fields")),
 				try: () => {
-					const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));
-					const metadata = asRecord(payload["Metadata"]);
-					if (!metadata) {
-						throw new Error("missing metadata");
-					}
 					const settings = asRecord(integration.providerSpecifics);
 					const username =
 						typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
-					if (username && asRecord(payload["Account"])?.["title"] !== username) {
+					if (username && asRecord(payload.success["Account"])?.["title"] !== username) {
 						return emptyResult();
 					}
-					const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
+					const eventName = textValue(payload.success["event"]);
+					if (!eventName) {
+						return failureResult(catalogMessage("integration.plex.missing-event"));
+					}
+					const event = eventName.toLowerCase().replace(/^media\./, "");
 					if (!["play", "stop", "pause", "resume", "scrobble"].includes(event)) {
 						return emptyResult();
 					}
@@ -113,7 +126,7 @@ export default defineScript({
 						lot = "movie";
 					}
 					if (!lot) {
-						return failureResult("Plex webhook payload has an unsupported media type");
+						return failureResult(catalogMessage("integration.plex.unsupported-media"));
 					}
 					let percent = progressPercent(
 						Number(metadata["viewOffset"]),
@@ -125,7 +138,7 @@ export default defineScript({
 						percent = 0;
 					}
 					if (percent === undefined) {
-						return failureResult("Plex webhook payload is missing playback timing data");
+						return failureResult(catalogMessage("integration.plex.missing-timing"));
 					}
 					const guids = Array.isArray(metadata["Guid"])
 						? metadata["Guid"].flatMap((value) => {
@@ -139,7 +152,7 @@ export default defineScript({
 							.find(Boolean);
 					const id = guidId("tmdb") ?? textValue(metadata["Provider_tmdb"]);
 					if (!id) {
-						return failureResult("Plex webhook payload is missing a TMDB identifier");
+						return failureResult(catalogMessage("integration.plex.missing-identifier"));
 					}
 					const label = textValue(metadata["title"]) ?? id;
 					if (lot === "movie") {
@@ -150,7 +163,7 @@ export default defineScript({
 						Number(metadata["index"]),
 					);
 					if (!locator) {
-						return failureResult("Plex webhook payload is missing show episode coordinates");
+						return failureResult(catalogMessage("integration.plex.missing-episode"));
 					}
 					const seriesName = textValue(metadata["grandparentTitle"]);
 					const externalIds = (
@@ -170,7 +183,7 @@ export default defineScript({
 						episode: { seriesName, externalIds, episodeId: id, seasonNumber: locator.seasonNumber },
 					};
 				},
-			}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Plex webhook payload")));
+			}).pipe(Effect.catch(Effect.succeed));
 			if ("entityGroups" in parsed) {
 				return parsed;
 			}
@@ -194,17 +207,12 @@ export default defineScript({
 								entityRef: resolvedMediaRef("show", "tmdb", showId, label),
 							})
 						: failureResult(
-								`No show found on TMDB for series "${episode.seriesName ?? ""}" and episode ${episode.episodeId}`,
+								catalogMessage("integration.plex.show-not-found"),
 								"provider_resolution",
 							),
 				),
-				Effect.catch((error) =>
-					Effect.succeed(
-						failureResult(
-							`Could not look up Plex episode ${episode.episodeId} on TMDB: ${error.message}`,
-							"provider_resolution",
-						),
-					),
+				Effect.orElseSucceed(() =>
+					failureResult(catalogMessage("integration.plex.lookup-failed"), "provider_resolution"),
 				),
 			);
 		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),

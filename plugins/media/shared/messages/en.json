@@ -1,4 +1,15 @@
 {
+	"integration.plex.invalid-json": "Plex sent a payload that could not be read as a JSON object.",
+	"integration.plex.invalid-fields": "The Plex payload contains fields in an unexpected format.",
+	"integration.plex.invalid-multipart": "The Plex webhook is missing a valid multipart payload field.",
+	"integration.plex.lookup-failed": "Ryot could not finish looking up the Plex episode on TMDB.",
+	"integration.plex.missing-episode": "The Plex payload is missing a usable season or episode number.",
+	"integration.plex.missing-event": "The Plex payload is missing a valid event name.",
+	"integration.plex.missing-identifier": "The Plex payload is missing a TMDB identifier.",
+	"integration.plex.missing-metadata": "The Plex payload is missing a valid Metadata object.",
+	"integration.plex.missing-timing": "The Plex payload is missing usable playback timing.",
+	"integration.plex.show-not-found": "Ryot could not match the Plex episode to a show on TMDB.",
+	"integration.plex.unsupported-media": "The Plex payload does not identify a movie or show episode.",
 	"activity.beat-backlog": "Added to backlog",
 	"activity.beat-on-hold": "Put on hold",
 	"activity.completions-label": {

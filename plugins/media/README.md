@@ -635,6 +635,8 @@ rejected at ingress, not retained as recoverable source work.
 - **Plex:** accepts JSON or the multipart `payload` field, ignoring thumbnail parts. Scrobble always
   reports 100%, even with an offset. Play without an offset reports zero; stop, pause, and resume
   without an offset are skipped before provider lookups. Shared admission filters zero progress.
+  Run issues name malformed fields and failed lookup stages using catalog messages. These messages
+  contain no webhook values, raw bodies, or provider error text.
 - **Komga:** requests authenticate with `X-API-Key`. A partly read manga chapter N writes position
   N-1 when N is an integer above 1 and nothing otherwise; a fully read chapter writes N. Manga never
   receive a chapter's own percent; other books keep whole-book percent. Metadata links can identify manga through AniList, MyAnimeList, and MangaUpdates, or books through

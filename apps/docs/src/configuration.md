@@ -53,11 +53,12 @@ provider keys; losing it prevents decryption and Ryot refuses to silently replac
 
 ## Notification destinations
 
-Ryot allows web notifications to public addresses by default. Test and automatic notifications
-use the same outbound address policy, including for previously saved channels.
+Ryot sends web notifications to public HTTPS endpoints by default. Use the destination's final
+URL. Test and automatic notifications use the same policy, including for previously saved channels.
 
 For a private Gotify, ntfy, or Apprise server, set `SERVER_EGRESS_ALLOWED_NETWORKS` to the
-destination's CIDR and restart Ryot. Use the smallest range that includes the destination. This
+destination's CIDR and restart Ryot. Approved local destinations can use HTTP or HTTPS. Use the
+smallest range that includes the destination. This
 setting also grants network access to other features that use Ryot's outbound HTTP client,
 including plugins and OAuth connections. Link-local and cloud metadata addresses are always blocked.
 

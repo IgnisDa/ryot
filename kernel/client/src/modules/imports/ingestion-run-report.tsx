@@ -1,11 +1,13 @@
 import { useFormatters, useT } from "@ryot-app/i18n/react";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 
 import {
 	importRunCountsLabel,
+	importRunFailureNotice,
 	ingestionActivityProgress,
 	ingestionActivityProgressValue,
 	ingestionBlockReasonMessage,
@@ -15,9 +17,19 @@ export function IngestionRunReport(props: { readonly run: ImportRunSummary }) {
 	const t = useT();
 	const formatters = useFormatters();
 	const run = props.run;
+	const notice = run.status === "failed" ? importRunFailureNotice(run.failureReason) : undefined;
 	const dateTime = formatters.dateTime({ timeStyle: "short", dateStyle: "medium" });
 	return (
 		<div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-4">
+			{notice === undefined ? null : (
+				<div className="flex gap-3">
+					<AppIcon size={18} name="circle-alert" className="shrink-0 text-danger" />
+					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span className="text-sm font-medium text-danger">{t(notice.label)}</span>
+						<span className="text-sm leading-5 text-text-muted">{t(notice.detail)}</span>
+					</div>
+				</div>
+			)}
 			{run.status === "blocked" ? (
 				<div role="status">
 					<p className="text-sm font-medium text-text">

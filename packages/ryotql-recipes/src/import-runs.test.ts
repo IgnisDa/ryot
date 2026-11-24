@@ -28,6 +28,7 @@ const runItem = {
 	failureReason: { code: "input-transformation-failed" },
 };
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
+const integrationRunItem = { ...runItem, integrationId: "integration-1" };
 const rows = (items: readonly unknown[], limit = 2, type = "rows") => ({
 	type,
 	items,
@@ -109,8 +110,10 @@ describe("import-run recipes", () => {
 
 	it("decodes detail and an absent run", () => {
 		const recipe = bindRecipe(importRunRecipe, { runId: "run-1" });
-		const decoded = Result.getOrThrow(recipe.decode({ data: { run: rows([runItem], 2) } }));
-		expect(decoded).toMatchObject({ run: { id: "run-1" } });
+		const decoded = Result.getOrThrow(
+			recipe.decode({ data: { run: rows([integrationRunItem], 2) } }),
+		);
+		expect(decoded).toMatchObject({ run: { id: "run-1", integrationId: "integration-1" } });
 		expect(Result.getOrThrow(recipe.decode({ data: { run: rows([], 2) } })).run).toBeUndefined();
 	});
 
@@ -129,7 +132,9 @@ describe("import-run recipes", () => {
 		const detailRecipe = bindRecipe(importRunRecipe, { runId: "run-1" });
 		expect(
 			Result.isFailure(
-				detailRecipe.decode({ data: { run: rows([{ ...runItem, createdAt: "not-a-date" }], 2) } }),
+				detailRecipe.decode({
+					data: { run: rows([{ ...integrationRunItem, createdAt: "not-a-date" }], 2) },
+				}),
 			),
 		).toBe(true);
 	});
@@ -138,7 +143,9 @@ describe("import-run recipes", () => {
 		const detailRecipe = bindRecipe(importRunRecipe, { runId: "run-1" });
 
 		expect(
-			Result.isFailure(detailRecipe.decode({ data: { run: rows([runItem, runItem], 2) } })),
+			Result.isFailure(
+				detailRecipe.decode({ data: { run: rows([integrationRunItem, integrationRunItem], 2) } }),
+			),
 		).toBe(true);
 		expect(
 			Result.isFailure(bindRecipe(manualImportRunsRecipe, { limit: 2 }).decode({ data: {} })),

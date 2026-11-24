@@ -4,10 +4,7 @@ import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 
-import {
-	importRunFailureNotice,
-	importRunProvenanceLabel,
-} from "#/modules/imports/run-presentation";
+import { importRunProvenanceLabel } from "#/modules/imports/run-presentation";
 import { StatusState } from "#/modules/ui/status-state";
 
 import { IngestionIssues } from "./ingestion-issues";
@@ -44,7 +41,6 @@ export function ImportRunView(props: ImportRunViewProps) {
 	}
 	const run = props.state.run;
 	const provenance = importRunProvenanceLabel(t, formatters, run.inputSummary);
-	const notice = run.status === "failed" ? importRunFailureNotice(run.failureReason) : undefined;
 	const wasCancelled = run.status === "cancelled";
 	return (
 		<div className="flex flex-col gap-6 pb-4">
@@ -96,15 +92,6 @@ export function ImportRunView(props: ImportRunViewProps) {
 					</div>
 				</div>
 			) : null}
-			{notice === undefined ? null : (
-				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">
-					<AppIcon size={18} name="circle-alert" className="shrink-0 text-danger" />
-					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span className="text-sm font-medium text-danger">{t(notice.label)}</span>
-						<span className="text-sm leading-5 text-text-muted">{t(notice.detail)}</span>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }

@@ -15,6 +15,7 @@ import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schema
 import {
 	type AccessClass,
 	type AuthorizationContext as AuthorizationContextValue,
+	BROWSER_SESSION_HEADER,
 	getOAuthEndpoint,
 	getOAuthIssuer,
 	getOAuthResource,
@@ -59,6 +60,7 @@ import { TransientValues } from "#platform/transient-values";
 import * as authSchema from "#schema/tables/auth";
 
 import { API_KEY_SCOPES_PERMISSION } from "./api-key-scopes";
+import { isBrowserSessionRequest, makeBrowserSessions } from "./browser-session";
 import { authAdvancedOptions } from "./client-address";
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
@@ -667,12 +669,24 @@ export const resolveCredential = <E>(
 	impersonationSessions?: ImpersonationSessions["Service"],
 ) =>
 	Effect.gen(function* () {
-		let verified: VerifiedCredential;
-		if (credential.kind === "oauth") {
-			verified = yield* resolveOAuthCredential(credential.token, verifyOAuth);
-		} else {
-			verified = yield* resolveApiKeyCredential(credential.key, verifyApiKey);
-		}
+		const verified = yield* credential.kind === "oauth"
+			? resolveOAuthCredential(credential.token, verifyOAuth)
+			: resolveApiKeyCredential(credential.key, verifyApiKey);
+		return yield* resolveVerifiedCredential(
+			verified,
+			findUserById,
+			demoAccountId,
+			impersonationSessions,
+		);
+	});
+
+const resolveVerifiedCredential = <E>(
+	verified: VerifiedCredential,
+	findUserById: (userId: string) => Effect.Effect<null | AuthUserRecord, E>,
+	demoAccountId: null | string,
+	impersonationSessions?: ImpersonationSessions["Service"],
+) =>
+	Effect.gen(function* () {
 		const user = yield* findUserById(verified.userId).pipe(Effect.mapError(authenticationRequired));
 		if (!user || user.disabledAt) {
 			return yield* authenticationRequired();
@@ -799,6 +813,52 @@ export class AuthService extends Context.Service<AuthService>()(
 					Option.getOrNull(config.users.demoAccountId),
 					impersonationSessions,
 				);
+			const browser = makeBrowserSessions({
+				values,
+				exchange: auth.handler,
+				origin: config.frontendUrl,
+				findSession: repository.findSession,
+				verify: (token) => authenticate({ token, kind: "oauth" }),
+				endSession: (headers, sessionId) =>
+					Effect.gen(function* () {
+						const hosted = yield* Effect.promise(() =>
+							auth.api.getSession({
+								headers,
+								query: { disableRefresh: true, disableCookieCache: true },
+							}),
+						);
+						if (hosted?.session.id !== sessionId) {
+							return [];
+						}
+						const response = yield* Effect.promise(() =>
+							auth.handler(
+								new Request(getOAuthEndpoint(config.frontendUrl, "/api/auth/sign-out"), {
+									body: "{}",
+									method: "POST",
+									headers: {
+										origin: config.frontendUrl,
+										"content-type": "application/json",
+										cookie: headers.get("cookie") ?? "",
+									},
+								}),
+							),
+						);
+						return response.headers.getSetCookie();
+					}),
+			});
+			const resolveBrowserAccount = (
+				grant: Effect.Success<ReturnType<typeof browser.read>>["grant"],
+			) =>
+				resolveVerifiedCredential(
+					{
+						userId: grant.userId,
+						writeAccess: grant.writeAccess,
+						credential: { kind: "oauth", clientId: grant.clientId, sessionId: grant.sessionId },
+					},
+					repository.findUserById,
+					Option.getOrNull(config.users.demoAccountId),
+					impersonationSessions,
+				);
 			const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 				Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
 					Effect.flatMap((context) =>
@@ -905,7 +965,6 @@ export class AuthService extends Context.Service<AuthService>()(
 				revokeUserApiKey,
 				createUserApiKey,
 				purgeApiKeyCaches,
-				handler: auth.handler,
 				revokeUserConnectedApp,
 				requestPasswordResetLink,
 				revokePasswordResetLinks,
@@ -922,6 +981,10 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.deleteUserSessions(userId),
 					).pipe(Effect.orDie),
+				browserUser: (headers: Headers, method: string) =>
+					browser
+						.read(headers, method)
+						.pipe(Effect.flatMap(({ grant }) => resolveBrowserAccount(grant))),
 				updateUserName: (userId: UserId, name: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { name }),
@@ -937,6 +1000,10 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { image }),
 					).pipe(Effect.asVoid),
+				handler: (request: Request) =>
+					isBrowserSessionRequest(request)
+						? Effect.runPromiseWith(runtime)(browser.handle(request, resolveBrowserAccount))
+						: auth.handler(request),
 				linkAuthAccount: (account: {
 					id: string;
 					userId: string;
@@ -972,6 +1039,7 @@ export class AuthService extends Context.Service<AuthService>()(
 export const makeAuthMiddleware = (
 	auth: Pick<AuthService["Service"], "oauthUser" | "apiKeyUser">,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+	browserUser?: AuthService["Service"]["browserUser"],
 ) => {
 	const authenticate = <E, R>(
 		httpEffect: Effect.Effect<
@@ -1025,7 +1093,18 @@ export const makeAuthMiddleware = (
 				endpoint,
 				credential,
 			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
-		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint),
+		) => {
+			const token = Redacted.value(credential);
+			const resolved = token
+				? auth.oauthUser(token)
+				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+						const headers = new Headers(request.headers);
+						return browserUser && headers.has(BROWSER_SESSION_HEADER)
+							? browserUser(headers, request.method)
+							: auth.oauthUser(token);
+					});
+			return authenticate(httpEffect, resolved, endpoint);
+		},
 		apiKey: (
 			httpEffect,
 			{
@@ -1037,9 +1116,13 @@ export const makeAuthMiddleware = (
 			const resolved = key
 				? auth.apiKeyUser(key)
 				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
-						const requestCredential = credentialFromHeaders(new Headers(request.headers));
-						return requestCredential?.kind === "oauth"
-							? auth.oauthUser(requestCredential.token)
+						const headers = new Headers(request.headers);
+						const requestCredential = credentialFromHeaders(headers);
+						if (requestCredential?.kind === "oauth") {
+							return auth.oauthUser(requestCredential.token);
+						}
+						return browserUser && headers.has(BROWSER_SESSION_HEADER)
+							? browserUser(headers, request.method)
 							: auth.apiKeyUser(key);
 					});
 			return authenticate(httpEffect, resolved, endpoint);
@@ -1052,7 +1135,7 @@ export const AuthMiddlewareLive = Layer.effect(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const lifecycle = yield* LifecycleWriteGuard;
-		return makeAuthMiddleware(auth, lifecycle);
+		return makeAuthMiddleware(auth, lifecycle, auth.browserUser);
 	}),
 );
 

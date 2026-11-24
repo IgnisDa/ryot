@@ -198,7 +198,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 				const now = () => Effect.runSyncWith(context)(Clock.currentTimeMillis);
 				const authorization = tokens.authorization.forServer(options.scope.serverUrl);
 				let login = authorization.current;
-				let loginSession = oauthTokenSessionKey(login.tokens);
+				let loginSession = login.browser?.session ?? oauthTokenSessionKey(login.tokens);
 				let disposed = false;
 				const records = new Map<string, SubmissionRecord>();
 				const timers = new Set<Fiber.Fiber<unknown, unknown>>();
@@ -347,7 +347,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 						return;
 					}
 					login = authorization.current;
-					const next = oauthTokenSessionKey(login.tokens);
+					const next = login.browser?.session ?? oauthTokenSessionKey(login.tokens);
 					if (next !== loginSession) {
 						loginSession = next;
 						clear();

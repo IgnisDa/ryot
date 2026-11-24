@@ -198,6 +198,22 @@ export const OAuthUserInfoResponse = strictStruct({
 });
 export type OAuthUserInfoResponse = typeof OAuthUserInfoResponse.Type;
 
+export const BROWSER_SESSION_PATH = "/api/auth/browser-session";
+export const BROWSER_SESSION_HEADER = "x-ryot-browser-session";
+export const BrowserSessionExchange = strictStruct({
+	clientId: WebOAuthClientId,
+	code: Schema.NonEmptyString,
+	nonce: Schema.NonEmptyString,
+	codeVerifier: Schema.NonEmptyString,
+});
+export type BrowserSessionExchange = typeof BrowserSessionExchange.Type;
+export const BrowserSessionProfile = Schema.Struct({
+	...OAuthUserInfoResponse.fields,
+	session: Schema.NonEmptyString,
+	accessClass: Schema.Literals(["standard", "demo"]),
+});
+export type BrowserSessionProfile = typeof BrowserSessionProfile.Type;
+
 export const PendingAuthorization = strictStruct({
 	state: Schema.String,
 	nonce: Schema.String,

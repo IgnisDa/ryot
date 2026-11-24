@@ -1,10 +1,8 @@
-import { OAUTH_IMPERSONATION_WEB_CLIENT_ID, StoredTokenSet } from "@ryot-app/contract/oauth";
-import { randomUuid } from "@ryot-app/testing/random";
-import { Effect, Schema } from "effect";
+import { BROWSER_SESSION_PATH } from "@ryot-app/contract/oauth";
+import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createTestUser, refreshImpersonationOAuthTokens } from "~/fixtures/kernel";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { createTestUser } from "~/fixtures/kernel";
 import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getAdminAccessToken, getFrontendUrl } from "~/support/harness-target";
@@ -96,67 +94,24 @@ for (const { label, viewport } of viewports) {
 			yield* openSettingsFromWorkspace(siblingPage, frontendUrl, isMobile);
 			yield* expectAccount(siblingPage, target.email);
 
-			const tokenStorageKey = `ryot:oauth:tokens:${new URL(frontendUrl).origin}`;
-			const serializedTokenSet = yield* page.evaluate(
-				(key) => localStorage.getItem(key),
-				tokenStorageKey,
-			);
-			const tokenSet = yield* Schema.decodeEffect(Schema.fromJsonString(StoredTokenSet))(
-				requirePresent(serializedTokenSet, "Impersonation tokens were not stored in this context"),
-			);
-			assertCondition(
-				tokenSet.clientId === OAUTH_IMPERSONATION_WEB_CLIENT_ID,
-				"The browser did not store the web impersonation client",
-			);
-			const refresh = yield* refreshImpersonationOAuthTokens(
-				new URL(frontendUrl).origin,
-				tokenSet.clientId,
-				tokenSet.refreshToken,
-			);
-			expect(refresh.response.status).toBe(200);
-			const refreshedTokens = requirePresent(refresh.tokens, "OAuth refresh returned no tokens");
-			const refreshedTokenSet = {
-				...tokenSet,
-				scope: refreshedTokens.scope,
-				tokenType: refreshedTokens.token_type,
-				accessToken: refreshedTokens.access_token,
-				idToken: refreshedTokens.id_token ?? tokenSet.idToken,
-				accessTokenExpiresAt: refreshedTokens.expires_at * 1000,
-				refreshToken: refreshedTokens.refresh_token ?? tokenSet.refreshToken,
-			};
-			const refreshedTokenSetValue = yield* Schema.encodeEffect(
-				Schema.fromJsonString(StoredTokenSet),
-			)(refreshedTokenSet);
-			const documentSentinel = `e2e-document-${yield* randomUuid}`;
-			yield* siblingPage.evaluate((id) => {
-				const sentinel = document.createElement("span");
-				sentinel.id = id;
-				document.body.append(sentinel);
-			}, documentSentinel);
-			yield* siblingPage.evaluate(
-				({ id, key }) =>
-					window.addEventListener("storage", (event) => {
-						if (event.key === key) {
-							document.getElementById(id)?.setAttribute("data-storage-event", "seen");
-						}
-					}),
-				{ id: documentSentinel, key: tokenStorageKey },
-			);
-			yield* page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
-				key: tokenStorageKey,
-				value: refreshedTokenSetValue,
+			const cookies = yield* page.use((browserPage) => browserPage.context().cookies());
+			expect(cookies.find(({ name }) => name.endsWith("ryot-session"))).toMatchObject({
+				httpOnly: true,
+				sameSite: "Lax",
 			});
-			yield* siblingPage
-				.locator(`#${documentSentinel}`)
-				.waitForFunction((element) => element.getAttribute("data-storage-event") === "seen");
 			expect(
-				yield* siblingPage.evaluate(
-					(id) => document.getElementById(id)?.isConnected ?? false,
-					documentSentinel,
+				yield* page.evaluate(() =>
+					Object.keys(localStorage).some((key) => key.startsWith("ryot:oauth:tokens:")),
 				),
-			).toBe(true);
-			yield* siblingPage.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-			yield* siblingPage.getByTestId("impersonation-banner").waitFor({ state: "visible" });
+			).toBe(false);
+
+			const rejected = yield* page.use((browserPage) =>
+				browserPage.request.delete(new URL(BROWSER_SESSION_PATH, frontendUrl).toString(), {
+					headers: { origin: "https://other.example.test" },
+				}),
+			);
+			expect(rejected.status()).toBe(403);
+			yield* expectAccount(page, target.email);
 
 			yield* page.getByRole("button", { name: "Stop impersonating" }).click();
 			yield* page.waitForURL((url) => url.pathname === "/instance-admin/users");

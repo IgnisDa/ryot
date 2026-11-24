@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/live-updates/messages";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { AuthenticatedApi, requestAuthorization } from "#/api/authenticated";
 import {
 	EventStreamClosed,
 	type EventStreamFactory,
@@ -42,11 +42,11 @@ const makeLiveUpdatesApi = (
 		};
 		const connect = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
-				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
-				if (token === null) {
+				const authorization = yield* requestAuthorization(tokens, scope, forceRefresh);
+				if (authorization === null) {
 					return yield* Effect.never;
 				}
-				return yield* openEventStream(open, url, token, onEvent);
+				return yield* openEventStream(open, url, authorization, onEvent);
 			});
 		return Effect.gen(function* () {
 			if (yield* connect(false)) {

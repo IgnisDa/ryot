@@ -115,7 +115,12 @@ describe("plugin catalog provider", () => {
 						Layer.provide(
 							Layer.succeed(
 								OAuthTokenService,
-								makeOAuthTokenServiceStub({ accessToken: () => Effect.succeed("token") }),
+								makeOAuthTokenServiceStub({
+									accessToken: () =>
+										Effect.succeed(
+											`header.${btoa(JSON.stringify({ sub: scope.userId }))}.signature`,
+										),
+								}),
 							),
 						),
 					),

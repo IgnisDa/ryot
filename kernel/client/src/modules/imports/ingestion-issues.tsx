@@ -98,7 +98,10 @@ export function IngestionIssues(props: {
 								}),
 							)}
 						</p>
-						<p>{t(ingestionIssueReasonMessage(issue))}</p>
+						{"detail" in issue.reason && issue.reason.detail !== undefined ? (
+							<p>{t(issue.reason.detail)}</p>
+						) : null}
+						<p className="text-xs">{t(ingestionIssueReasonMessage(issue))}</p>
 						{issue.operationId === null ? null : (
 							<p className="text-xs">
 								{t(kernelMessage("client.imports.issues.operation", { id: issue.operationId }))}

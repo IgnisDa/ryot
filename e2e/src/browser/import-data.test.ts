@@ -1,14 +1,19 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Effect, Fiber, FileSystem, Option, Schema, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	createAuthenticatedClient,
+	createIntegration,
 	createTestUser,
 	importIssuesExportSchema,
 	type InstalledTestPlugin,
 	installTestHarvestHandleImportPlugin,
 	installTestImportPinningPlugin,
+	postIntegrationWebhookAndWait,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { mediaFixtureInstallation } from "~/fixtures/plugins/media";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, assert, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -210,6 +215,34 @@ it.live("downloads failures beyond the first page from an import detail", () =>
 			);
 		}),
 	).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("shows a Plex parser error in the same run detail as imports", () =>
+	Effect.gen(function* () {
+		const fixture = yield* createAuthenticatedClient();
+		const { client } = fixture;
+		const integration = yield* createIntegration(client, {
+			name: "Plex",
+			providerSpecifics: { kind: "plex_sink" },
+			provider: {
+				slug: "plex_sink",
+				owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
+			},
+		});
+		const { runId } = yield* postIntegrationWebhookAndWait(client, integration, {
+			event: "media.scrobble",
+			Metadata: { type: "episode", title: "Private webhook title" },
+		});
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, fixture.email, fixture.password);
+		yield* page.goto(`${getFrontendUrl()}/settings/integrations/${integration.id}`);
+		yield* page.locator(`a[href="/settings/import-data/${runId}"]`).click();
+		yield* page.getByRole("heading", { level: 1, name: "Plex" }).waitFor();
+		yield* page.getByRole("heading", { name: "Record issues" }).waitFor();
+		yield* page.getByText("The Plex payload is missing a TMDB identifier.").waitFor();
+		expect(yield* page.getByText("Private webhook title").count).toBe(0);
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps the wizard in the URL so closing it returns to the list", () =>

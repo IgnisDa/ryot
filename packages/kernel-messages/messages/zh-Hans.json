@@ -1478,6 +1478,7 @@
 	"client.route.settings.import-run.cancel-title": "取消此次导入？",
 	"client.route.settings.import-run.cancelling": "正在取消…",
 	"client.route.settings.import-run.delete-title": "删除此次导入记录？",
+	"client.route.settings.import-run.integration-meta": "集成 · {timestamp}",
 	"client.route.settings.import-run.loading": "正在加载此次导入…",
 	"client.route.settings.import-run.meta": "导入 · {timestamp}",
 	"client.route.settings.import-run.not-found-detail": "此次导入已不在你的服务器上。",

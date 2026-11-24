@@ -102,9 +102,15 @@ export const importRunRecipe = (() => {
 		map: ({ run: item }) => Result.succeed({ run: item }),
 		queries: {
 			run: selectedOptionalRow(run, {
-				selection: runSelection(run),
 				orderBy: [ascending(column(run, "id"))],
 				where: eq(column(run, "id"), recipeParameters.value("runId")),
+				selection: {
+					...runSelection(run),
+					integrationId: selectedField(
+						column(run, "integrationId"),
+						IngestionRun.fields.integrationId,
+					),
+				},
 			}),
 		},
 	});

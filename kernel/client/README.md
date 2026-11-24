@@ -486,14 +486,16 @@ and platform fixups; never hand-edit emitted `mipmap-*`, `drawable-*`, or `Asset
 
 ## Secure Storage
 
-`OAuthStorage` owns OAuth tokens and PKCE transactions. Web uses `localStorage`. Native uses the iOS
-Keychain or Android Keystore-backed AES-GCM storage, disables Android backup, disables iCloud Keychain
-synchronization, and uses this-device-only access after first unlock. A missing native storage plugin
-fails rather than falling back to plaintext.
+`OAuthStorage` holds pending web PKCE transactions in tab-scoped `sessionStorage`. Web uses an
+`HttpOnly` application session cookie. A noncredential storage event tells sibling tabs to reload
+when the browser session changes. Native uses the iOS Keychain or Android Keystore-backed AES-GCM
+storage for tokens and pending transactions, disables Android backup, disables iCloud Keychain
+synchronization, and uses this-device-only access after first unlock. A missing native storage
+plugin fails rather than falling back to plaintext.
 
 Native storage sets `setKeyPrefix("ryot_")` before use. The plugin strips that prefix when listing
-keys, so both web and native adapters expose the same logical `ryot:oauth:*` names used by pending
-transaction cleanup. The native adapter is dynamically imported and does not enter the web bundle.
+keys, so pending transaction cleanup can use the same logical `ryot:oauth:*` keys in both runtimes.
+The native adapter is dynamically imported.
 
 Malformed records are removed. A Keychain or Keystore read failure reports no session but retains the
 record, because a temporarily locked store must not delete a refresh token. Writes fail explicitly.

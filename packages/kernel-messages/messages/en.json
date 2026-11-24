@@ -2051,6 +2051,10 @@
 	"client.route.settings.import-run.cancelling": "Cancelling…",
 	"client.route.settings.import-run.delete-title": "Delete this import record?",
 	"client.route.settings.import-run.loading": "Loading this import…",
+	"client.route.settings.import-run.integration-meta": {
+		"message": "Integration · {timestamp}",
+		"description": "{timestamp} is when the integration run was created."
+	},
 	"client.route.settings.import-run.meta": {
 		"message": "Import · {timestamp}",
 		"description": "{timestamp} is when the import was created."

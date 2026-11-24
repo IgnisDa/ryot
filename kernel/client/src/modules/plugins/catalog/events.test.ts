@@ -21,6 +21,8 @@ const serverOrigin = ServerOrigin.make("https://ryot.example");
 const scope: ApiScope = { userId: "user-1", serverUrl: serverOrigin };
 
 const encoder = new TextEncoder();
+const tokenForUser = (value: string) =>
+	`header.${btoa(JSON.stringify({ sub: scope.userId }))}.${value}`;
 const frame = (type: string) => `event: ${type}\ndata:\n\n`;
 
 class TestStream {
@@ -72,7 +74,8 @@ const makeRuntime = (
 			accessToken: (_origin, forceRefresh = false) =>
 				Effect.sync(() => {
 					tokenRequests.push(forceRefresh);
-					return forceRefresh ? (options.refreshedToken ?? token) : token;
+					const selected = forceRefresh ? (options.refreshedToken ?? token) : token;
+					return selected === null ? null : tokenForUser(selected);
 				}),
 		}),
 	);
@@ -126,7 +129,7 @@ describe("plugin catalog events service", () => {
 					waitUntil(() => streams.length === 1, "stream was never opened"),
 				);
 				expect(requests[0]?.url).toBe(`${serverOrigin}/api/plugins/events`);
-				expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
+				expect(requests[0]?.headers.authorization).toBe(`Bearer ${tokenForUser("token-1")}`);
 				expect(requests[0]?.headers.accept).toBe("text/event-stream");
 
 				streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
@@ -207,7 +210,7 @@ describe("plugin catalog events service", () => {
 				yield* Effect.promise(() =>
 					waitUntil(() => streams.length === 2, "stream was never reopened"),
 				);
-				expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+				expect(requests[1]?.headers.authorization).toBe(`Bearer ${tokenForUser("token-2")}`);
 				streams[1]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
 				yield* Effect.promise(() =>
 					waitUntil(() => refreshes === 1, "reconnected stream never reconciled"),
@@ -318,8 +321,8 @@ describe("plugin catalog events service", () => {
 					waitUntil(() => streams.length === 1, "refreshed stream was never opened"),
 				);
 				expect(requests).toHaveLength(2);
-				expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
-				expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+				expect(requests[0]?.headers.authorization).toBe(`Bearer ${tokenForUser("token-1")}`);
+				expect(requests[1]?.headers.authorization).toBe(`Bearer ${tokenForUser("token-2")}`);
 				expect(tokenRequests).toEqual([false, true]);
 			}).pipe(
 				Effect.ensuring(
