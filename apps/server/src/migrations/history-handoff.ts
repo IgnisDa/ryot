@@ -39,13 +39,21 @@ export type HistoryPart = { pluginId: string; fileName: string; bytes: Uint8Arra
 
 type StagedRow = typeof StagedRow.Type;
 
+export class LegacyHistoryAdmissionError extends Schema.TaggedError<
+	LegacyHistoryAdmissionError,
+	{ readonly brand: unique symbol }
+>()("LegacyHistoryAdmissionError", { reason: Schema.Defect() }) {}
+
 export class LegacyHistoryAdmission extends Context.Service<
 	LegacyHistoryAdmission,
 	{
 		readonly admit: (
 			user: CurrentUserValue,
 			part: HistoryPart,
-		) => Effect.Effect<"admitted" | "source-not-ready">;
+		) => Effect.Effect<
+			"admitted" | "source-not-ready" | "source-unavailable",
+			LegacyHistoryAdmissionError
+		>;
 	}
 >()("@ryot-app/server/migrations/history-handoff/LegacyHistoryAdmission") {}
 
@@ -184,6 +192,8 @@ export const handOffLegacyHistory = Effect.gen(function* () {
 	const users = yield* AuthRepository;
 	let runs = 0;
 	let skippedUsers = 0;
+	let unavailableUsers = 0;
+	let waitingUsers = 0;
 	for (const userId of userIds) {
 		const user = yield* users.findUserById(userId).pipe(Effect.orDie);
 		if (user?.disabledAt !== null) {
@@ -198,17 +208,37 @@ export const handOffLegacyHistory = Effect.gen(function* () {
 			preferences: user.preferences,
 		};
 		for (const part of yield* buildHistoryParts(yield* readStagedRows(userId))) {
-			runs++;
 			if (yield* isPartAdmitted(userId, part.fileName)) {
+				runs++;
 				continue;
 			}
-			if ((yield* admission.admit(currentUser, part)) === "source-not-ready") {
-				yield* Effect.logWarning(
-					"Handed-off legacy history waits for the Media history import to be ready; configure the Media plugin's providers, then restart the server",
+			const outcome = yield* admission
+				.admit(currentUser, part)
+				.pipe(
+					Effect.catch((error) =>
+						Effect.logError(
+							`history handoff -> import runs: a Media history import run could not be admitted, so the user's handed-off watches and reviews stay staged in "${historyHandoffTable}". Fix the cause and restart the server; admitted runs are not admitted again.`,
+							error.reason,
+						).pipe(Effect.annotateLogs({ userId }), Effect.as("failed" as const)),
+					),
 				);
-				return;
+			if (outcome === "admitted") {
+				runs++;
+				continue;
 			}
+			if (outcome === "source-unavailable") {
+				unavailableUsers++;
+			} else {
+				waitingUsers++;
+			}
+			break;
 		}
+	}
+	if (waitingUsers > 0) {
+		yield* Effect.logWarning(
+			`Handed-off legacy history of ${waitingUsers} user(s) waits for their Media history import to be admitted; resolve the logged cause or configure the Media plugin's providers, then restart the server`,
+		);
+		return;
 	}
 	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAtMs) / 1000;
 	yield* withReservedConnection((connection) =>
@@ -226,6 +256,15 @@ export const handOffLegacyHistory = Effect.gen(function* () {
 										count: String(skippedUsers),
 										message:
 											"user(s) disabled or deleted before admission keep their handed-off records unimported",
+									},
+								]
+							: []),
+						...(unavailableUsers > 0
+							? [
+									{
+										count: String(unavailableUsers),
+										message:
+											"user(s) without the Media history import keep their handed-off records unimported",
 									},
 								]
 							: []),
@@ -272,22 +311,22 @@ const LegacyHistoryAdmissionLive = Layer.effect(
 						})
 						.pipe(
 							Effect.as("admitted" as const),
-							Effect.catchTag("ImportRequestError", (error) =>
-								error.reason.code === "source-not-ready"
-									? Effect.succeed("source-not-ready" as const)
-									: Effect.fail(error),
-							),
+							Effect.catchTag("ImportRequestError", (error) => {
+								if (error.reason.code === "source-not-ready") {
+									return Effect.succeed("source-not-ready" as const);
+								}
+								if (
+									error.reason.code === "source-not-found" ||
+									error.reason.code === "workflow-unavailable"
+								) {
+									return Effect.succeed("source-unavailable" as const);
+								}
+								return Effect.fail(error);
+							}),
 						);
 					return admitted;
 				},
-				Effect.mapError(
-					(cause) =>
-						new Error(
-							`history handoff -> import runs: a Media history import run could not be admitted, so the handed-off watches and reviews stay staged in "${historyHandoffTable}". Fix the cause below and restart the server; admitted runs are not admitted again.`,
-							{ cause },
-						),
-				),
-				Effect.orDie,
+				Effect.mapError((reason) => new LegacyHistoryAdmissionError({ reason })),
 			),
 		};
 	}),

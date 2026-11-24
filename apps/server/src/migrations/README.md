@@ -225,16 +225,17 @@ ordered by parent, then watches before reviews, then legacy ID, and split at tit
 admission. The import populates each unpopulated parent at `base` level, which creates the
 provider's missing episodes without announcing them, resolves each event's episode, and writes the
 events through the normal import lifecycle. An episode the provider also lacks, or a provider
-failure, becomes an issue in that run's report. The phase `history handoff -> import runs` then
-reports the run count, and the users disabled or deleted before admission, and drops the table in
-the same statement. Migration-only mode leaves the table for the next normal start.
+failure, becomes an issue in that run's report. Once no user waits, the phase
+`history handoff -> import runs` reports the run count, the users disabled or deleted before
+admission, and the users whose Media history import source or workflow no longer resolves, and drops
+the table in the same statement. Migration-only mode leaves the table for the next normal start.
 
 The document is deterministic, so a part's file name, `media-history-<sha256 prefix>.json`,
 identifies it across restarts: a part whose run has a plan is never admitted again. A run without a
-plan never finished admission; recovery aborts it and the next start admits the part again. While
-the Media import is not ready (every Media import requires `tmdbAccessToken`), the handoff logs a
-warning, keeps the table, and retries at the next start. Any other admission failure stops startup
-with the table kept.
+plan never finished admission; recovery aborts it and the next start admits the part again. A user
+whose Media import is not ready (every Media import requires `tmdbAccessToken`) or whose admission
+fails for another reason, which is logged, waits: the other users are still admitted, the server
+keeps running, and the table stays for the next start.
 
 ## Reports And Failures
 

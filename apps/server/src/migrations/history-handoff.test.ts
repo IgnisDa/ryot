@@ -6,7 +6,12 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
-import { handOffLegacyHistory, type HistoryPart, LegacyHistoryAdmission } from "./history-handoff";
+import {
+	handOffLegacyHistory,
+	type HistoryPart,
+	LegacyHistoryAdmission,
+	LegacyHistoryAdmissionError,
+} from "./history-handoff";
 import {
 	migrateLegacyHistory,
 	seedLegacyHistory,
@@ -17,14 +22,17 @@ import { withReservedConnection } from "./shared";
 
 const handOff = (
 	calls: Array<{ userId: string; part: HistoryPart }>,
-	outcome: (userId: string) => "admitted" | "source-not-ready",
+	outcome: (userId: string) => "failed" | "admitted" | "source-not-ready" | "source-unavailable",
 ) =>
 	handOffLegacyHistory.pipe(
 		Effect.provideService(LegacyHistoryAdmission, {
 			admit: (user, part) =>
-				Effect.sync(() => {
+				Effect.suspend(() => {
 					calls.push({ part, userId: user.id });
-					return outcome(user.id);
+					const result = outcome(user.id);
+					return result === "failed"
+						? Effect.fail(new LegacyHistoryAdmissionError({ reason: "admission failed" }))
+						: Effect.succeed(result);
 				}),
 		}),
 	);
@@ -49,7 +57,7 @@ const decodeDocument = (part: undefined | HistoryPart) =>
 layer(Layer.provideMerge(AuthRepository.layer, legacyDatabaseLayer("legacy_history_handoff")))(
 	(test) => {
 		test.effect(
-			"admits each user's history once across deferrals and restarts, retrying runs that never finished admission",
+			"admits each user's history once across failures, deferrals and restarts, retrying runs that never finished admission",
 			() =>
 				withReservedConnection((connection) =>
 					Effect.gen(function* () {
@@ -74,9 +82,7 @@ layer(Layer.provideMerge(AuthRepository.layer, legacyDatabaseLayer("legacy_histo
 							);
 
 						const deferred: Array<{ userId: string; part: HistoryPart }> = [];
-						yield* handOff(deferred, (userId) =>
-							userId === "user-a" ? "admitted" : "source-not-ready",
-						);
+						yield* handOff(deferred, (userId) => (userId === "user-a" ? "admitted" : "failed"));
 						expect(deferred.map(({ userId }) => userId)).toEqual(["user-a", "user-b"]);
 						expect(yield* stagingPresent()).toEqual([{ present: true }]);
 						expect(yield* handoffReports()).toEqual([]);
@@ -109,23 +115,34 @@ layer(Layer.provideMerge(AuthRepository.layer, legacyDatabaseLayer("legacy_histo
 							fileName: userBPart?.fileName ?? "",
 						});
 
+						const waiting: Array<{ userId: string; part: HistoryPart }> = [];
+						yield* handOff(waiting, () => "source-not-ready");
+						expect(waiting).toEqual<unknown>([{ part: userBPart, userId: "user-b" }]);
+						expect(yield* stagingPresent()).toEqual([{ present: true }]);
+						expect(yield* handoffReports()).toEqual([]);
+
 						const resumed: Array<{ userId: string; part: HistoryPart }> = [];
-						yield* handOff(resumed, () => "admitted");
+						yield* handOff(resumed, () => "source-unavailable");
 						expect(resumed).toEqual<unknown>([{ part: userBPart, userId: "user-b" }]);
 						expect(yield* stagingPresent()).toEqual([{ present: false }]);
 						expect(yield* handoffReports()).toEqual([
-							{ count: 2, message: "Media history import run(s) hold handed-off records" },
+							{ count: 1, message: "Media history import run(s) hold handed-off records" },
 							{
 								count: 1,
 								message:
 									"user(s) disabled or deleted before admission keep their handed-off records unimported",
+							},
+							{
+								count: 1,
+								message:
+									"user(s) without the Media history import keep their handed-off records unimported",
 							},
 						]);
 
 						const restarted: Array<{ userId: string; part: HistoryPart }> = [];
 						yield* handOff(restarted, () => "admitted");
 						expect(restarted).toEqual([]);
-						expect(yield* handoffReports()).toHaveLength(2);
+						expect(yield* handoffReports()).toHaveLength(3);
 					}),
 				),
 		);
