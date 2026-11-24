@@ -1,16 +1,20 @@
+import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { mediaGenre, recognizedMediaGenres } from "@ryot-app/media-plugin/shared/media-genres";
 import { Clock, Effect, Exit, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
 import type { QualifiedSchema } from "./migration-resolution";
-import { insertReportRows } from "./shared";
+import { insertAnomalyReport, insertReportRows } from "./shared";
+
+const phase = "media genres -> relationships";
 
 const GenreInput = Schema.Struct({
 	id: Schema.String,
+	title: Schema.String,
 	source: Schema.String,
 	schema: Schema.String,
-	genres: Schema.Array(Schema.String),
 	userId: Schema.NullOr(Schema.String),
+	genres: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
 });
 const decodeInputs = Schema.decodeUnknownEffect(Schema.Array(GenreInput));
 const encodeLinks = Schema.encodeEffect(
@@ -60,12 +64,13 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 	);
 	let cursor: null | string = null;
 	let omitted = 0;
+	const blank: MigrationReportDetail[] = [];
 	for (;;) {
 		const rows: ReadonlyArray<typeof GenreInput.Type> = yield* connection
 			.execute(
 				`
 			WITH batch AS (
-				SELECT metadata.id, metadata.source, entity.user_id, entity.entity_schema_slug
+				SELECT metadata.id, metadata.title, metadata.source, entity.user_id, entity.entity_schema_slug
 				FROM "metadata" metadata
 				INNER JOIN "entity" entity ON entity.id = metadata.id
 				WHERE entity.entity_schema_plugin_id = $1
@@ -73,13 +78,14 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 					AND ($2::text IS NULL OR metadata.id::text > $2)
 				ORDER BY metadata.id::text LIMIT 250
 			)
-			SELECT batch.id::text AS id, batch.source::text AS source, batch.user_id AS "userId",
+			SELECT batch.id::text AS id, batch.title, batch.source::text AS source, batch.user_id AS "userId",
 				batch.entity_schema_slug AS schema,
-				COALESCE(jsonb_agg(genre.name ORDER BY genre.name) FILTER (WHERE genre.id IS NOT NULL), '[]'::jsonb) AS genres
+				COALESCE(jsonb_agg(jsonb_build_object('id', genre.id::text, 'name', genre.name) ORDER BY genre.name, genre.id::text)
+					FILTER (WHERE genre.id IS NOT NULL), '[]'::jsonb) AS genres
 			FROM batch
 			LEFT JOIN "metadata_to_genre" membership ON membership.metadata_id = batch.id
 			LEFT JOIN "genre" genre ON genre.id = membership.genre_id
-			GROUP BY batch.id, batch.source, batch.user_id, batch.entity_schema_slug ORDER BY batch.id::text`,
+			GROUP BY batch.id, batch.title, batch.source, batch.user_id, batch.entity_schema_slug ORDER BY batch.id::text`,
 				[input.pluginId, cursor],
 				undefined,
 			)
@@ -106,17 +112,26 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 				"google_books",
 				"manga_updates",
 			].includes(row.source);
-			const values = broadSource ? recognizedMediaGenres(row.genres) : row.genres;
-			omitted += row.genres.length - values.length;
-			for (const value of values) {
-				const genre = mediaGenre(value);
-				if (genre === null) {
-					return yield* Effect.die(
-						new Error(
-							`Legacy genres: blank genre on ${row.id}. Correct the legacy genre name in the dump, then restart.`,
-						),
-					);
+			const names = [];
+			for (const genre of row.genres) {
+				if (mediaGenre(genre.name) !== null) {
+					names.push(genre.name);
+					continue;
 				}
+				blank.push({
+					label: row.title,
+					key: `${row.id}:${genre.id}`,
+					sentence: `Legacy genre ${genre.id} has a blank name, so this item's link to it was not carried over.`,
+					provenance: [
+						{ key: "Media", value: row.id },
+						{ value: genre.id, key: "Legacy genre" },
+						{ key: "Stored name", value: `"${genre.name}"` },
+					],
+				});
+			}
+			const values = broadSource ? recognizedMediaGenres(names) : names;
+			omitted += names.length - values.length;
+			for (const genre of values.flatMap((value) => mediaGenre(value) ?? [])) {
 				links.push({ schema, sourceId: row.id, userId: row.userId, ...genre });
 			}
 			cursor = row.id;
@@ -226,23 +241,29 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 			),
 		);
 	}
+	if (blank.length > 0) {
+		yield* insertAnomalyReport(connection, {
+			phase,
+			details: blank,
+			count: blank.length,
+			elapsedSeconds: null,
+			code: "genre-name-blank",
+			message:
+				"Some genre links were not carried over because the legacy genre has a blank name, so there is no genre to link to. Each skipped link is listed below.",
+		});
+	}
 	yield* insertReportRows(connection, [
 		{
+			phase,
 			count: count.genres,
 			message: "shared genre(s) retained",
-			phase: "media genres -> relationships",
 			elapsedSeconds: ((yield* Clock.currentTimeMillis) - startedAt) / 1000,
 		},
+		{ phase, count: count.links, elapsedSeconds: null, message: "genre membership(s) retained" },
 		{
-			count: count.links,
-			elapsedSeconds: null,
-			phase: "media genres -> relationships",
-			message: "genre membership(s) retained",
-		},
-		{
+			phase,
 			count: omitted,
 			elapsedSeconds: null,
-			phase: "media genres -> relationships",
 			message: "unmapped broad classification(s) intentionally omitted",
 		},
 	]);

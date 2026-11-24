@@ -52,9 +52,10 @@ provider media links are global. Skeleton media still omit genres. Identity norm
 aliases use the Media plugin's shared genre rules, not SQL approximations. Legacy sources that
 mixed tags, themes, subjects, or category ladders into genres retain only recognized genres;
 unmapped classifications are intentionally omitted and counted in the report. Other genre fields,
-including custom media, retain unknown names. Blank retained genre names abort with a recovery
-message. Genre writes and reports commit atomically, reuse existing exact provider identities,
-and reject deterministic entity or relationship ID conflicts. No genre string property is copied.
+including custom media, retain unknown names. A genre whose name is blank is skipped with its links,
+and each skipped link is reported as `genre-name-blank`. Genre writes and reports commit atomically,
+reuse existing exact provider identities, and reject deterministic entity or relationship ID
+conflicts. No genre string property is copied.
 
 Copied `provider_rating` becomes `providerRating` on a 0-100 scale, multiplied by a factor keyed on
 the legacy lot and source and rounded to 2 decimals. Legacy sources stored provider-native scales,
@@ -229,6 +230,7 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 | `integration-cache-entity-unresolved`    | `application_cache -> integration progress persistent cache` | A debounce marker points at an unmigrated item.                                                                                  | yes               |
 | `exercise-ownerless-unreferenced`        | `exercise -> entity`                                         | A custom exercise without a creator or V1 references was omitted; detail preserves its taxonomy and asset data.                  | yes               |
 | `person-identity-duplicate-merged`       | `legacy person identities`                                   | Legacy people or companies differing only in `source_specifics` were merged into one row; detail names the merged and kept rows. | yes               |
+| `genre-name-blank`                       | `media genres -> relationships`                              | A legacy genre has a blank name, so its link was skipped.                                                                        | yes               |
 | `asset-locator-unresolved`               | `legacy S3 assets -> managed_asset`                          | An attachment could not be copied into managed storage; its original locator was retained.                                       | no                |
 | `asset-deletion-failed`                  | `legacy S3 assets -> managed_asset`                          | A copied attachment could not be deleted from the old bucket.                                                                    | no                |
 | `workout-set-completion-outside-session` | `workout sets -> event records`                              | A valid confirmed set time falls before the workout start or after its end; the time is preserved, not clamped.                  | yes               |
