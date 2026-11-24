@@ -12,11 +12,13 @@ export const CHANGE_SET_LIMITS = {
 	signals: 100,
 	baselines: 100,
 	notifications: 20,
+	eventChanges: 500,
 	entityDeletes: 100,
 	entityUpdates: 100,
 	entityEnsures: 500,
 	globalEntities: 500,
 	entityDataChanges: 20,
+	expectedEventIds: 500,
 	relationshipChanges: 500,
 	globalRelationshipGroups: 50,
 	globalRelationshipsTotal: 1_000,
@@ -104,9 +106,12 @@ export const ChangeSet = strictStruct({
 	),
 	events: Schema.optional(
 		strictStruct({
-			changes: Schema.Array(EventChange),
+			changes: atMost(EventChange, CHANGE_SET_LIMITS.eventChanges),
 			expected: Schema.optional(
-				strictStruct({ eventSchemaSlug: slug, eventIds: Schema.Array(EventId) }),
+				strictStruct({
+					eventSchemaSlug: slug,
+					eventIds: atMost(EventId, CHANGE_SET_LIMITS.expectedEventIds),
+				}),
 			),
 			baselines: Schema.optional(
 				Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
