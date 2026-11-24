@@ -31,6 +31,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -1633,20 +1634,14 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"reports an entity user-data refusal the plugin could rule out as invalid changes",
+		"rejects returned changes the entity user-data rules refuse, with the refusal's reason",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
-					_tag: "PluginInvocationError",
-					reason: {
-						code: "runtime-failed",
-						diagnostics: [
-							objectContaining({
-								message: "Changes were rejected (EntityUserDataBadRequest: operation-denied)",
-							}),
-						],
-					},
-				});
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginOperationRejected({
+						reason: kernelMessage("error.entity-user-data.operation-denied"),
+					}),
+				);
 			}),
 		testTimeout,
 	);
