@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { Effect, type Tracer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -15,7 +16,7 @@ import { AccountAdmission } from "./account-admission";
 
 layer(isolatedDatabaseLayer("account_admission_test"))((test) => {
 	test.effect(
-		"admits an account once per transaction and refuses a retiring or deleted account",
+		"admits an account once per write transaction and refuses a retiring or deleted account",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -29,7 +30,13 @@ layer(isolatedDatabaseLayer("account_admission_test"))((test) => {
 				const spans: Array<Tracer.Span> = [];
 				yield* session
 					.transaction(
-						Effect.andThen(admission.admitAccount(account), admission.admitAccount(account)),
+						Effect.suspend(() => {
+							const transaction = new WriteTransaction();
+							return Effect.andThen(
+								admission.admitAccount(account, transaction),
+								admission.admitAccount(account, transaction),
+							);
+						}),
 					)
 					.pipe(Effect.withTracer(makeRecordingTracer(spans)));
 				expect(

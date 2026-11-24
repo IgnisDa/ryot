@@ -450,7 +450,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					for (const account of [...accounts].sort((left, right) => left.localeCompare(right))) {
 						yield* admission.admitAccount(account, transaction);
 					}
-					yield* repository.lockSchemaCatalog([...userIds, ...accounts]);
+					yield* repository.lockSchemaCatalog([...userIds, ...accounts], transaction);
 					return yield* work;
 				});
 			const admittedTransaction = <A, E, R>(
@@ -854,6 +854,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				const entries = saves.map((saved) => saved[preparedEntitySave]);
 				yield* repository.lockSchemaCatalog(
 					entries.flatMap(({ lifecycle, scopeUserId }) => mutationUserIds(lifecycle, scopeUserId)),
+					transaction,
 				);
 				const decision = yield* planner.prepareBatch(transaction, {
 					...batch,
@@ -1001,6 +1002,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				);
 				yield* repository.lockSchemaCatalog(
 					items.flatMap(({ item, scopeUserId }) => mutationUserIds(item.lifecycle, scopeUserId)),
+					transaction,
 				);
 				const pins = yield* verifyWrites(
 					items.map(({ check }) => check),
