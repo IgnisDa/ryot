@@ -137,6 +137,10 @@ music:
     # @env MUSIC_SPOTIFY_CLIENT_SECRET
     client_secret: ""
 
+# Allow all users to send HTTP notifications to private networks.
+# @env NOTIFICATIONS_ALLOW_PRIVATE_NETWORKS
+notifications_allow_private_networks: false
+
 # Settings related to podcasts.
 podcasts:
   # Settings related to iTunes.

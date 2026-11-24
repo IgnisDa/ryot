@@ -5318,7 +5318,9 @@ dependencies = [
  "reqwest 0.12.25",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
+ "url",
  "user-models",
 ]
 
