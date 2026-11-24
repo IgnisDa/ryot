@@ -24,7 +24,6 @@ module is git-ignored.
 Every run verifies compiled SHA-256 and package identity across manifest, plugin row, and authority
 projection, and resolves persisted authority once, when it reserves admission; that outcome covers every host call
 of the run, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
-`ScriptCalls` admission resolves it even inside a change set's shared preparation authority.
 The run's host calls also share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use.
 Like the job reference, it is provided around each bound host call, because host calls reach the
 catalog through RyotQL, the plugin runtime resolver and message catalogs, which HTTP shares; writes
