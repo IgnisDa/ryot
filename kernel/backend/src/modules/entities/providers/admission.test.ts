@@ -9,10 +9,11 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assert } from "@ryot-app/testing/assert";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, type Tracer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -213,6 +214,31 @@ describe("provider import admission", () => {
 
 					yield* admission.cancel({ id: "a1", userId: alice });
 					expect((yield* importJobs).map(({ id }) => id)).toEqual(["a2"]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(admissionLayer)((test) => {
+		test.effect(
+			"takes the user's write lock after the ingestion fence and before the catalog locks",
+			() =>
+				Effect.gen(function* () {
+					const spans: Tracer.Span[] = [];
+					expect(
+						yield* submit("ordered", alice).pipe(Effect.withTracer(makeRecordingTracer(spans))),
+					).toEqual({ id: "ordered", status: "queued" });
+					expect(
+						recordedStatements(spans).flatMap((text) => {
+							if (text.includes("pg_advisory_xact_lock_shared")) {
+								return ["shared"];
+							}
+							if (text.includes("pg_advisory_xact_lock(")) {
+								return ["user-write"];
+							}
+							return text.includes('for share of "plugin_installation"') ? ["installation"] : [];
+						}),
+					).toEqual(["shared", "shared", "user-write", "shared", "installation"]);
 				}),
 			testTimeout,
 		);
