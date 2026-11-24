@@ -20,9 +20,10 @@ New entities use the schema's `content_generation = 1` default. Canonical name o
 
 Original-language conversion joins retained metadata IDs only, restricted to TMDB/TVDB movies and
 shows with nonblank V1 values. It writes canonical ISO codes, including known provider labels for
-Cantonese and No Language, and aborts on unknown or ambiguous names. This known source value can be
-retained on a skeleton without marking its other details populated. The value update, generation
-advance, and completion report commit atomically; a completed phase preserves subsequent edits.
+Cantonese, Oriya (Odia, `or`), and No Language. Unknown or ambiguous names leave the language unset
+and are reported as `original-language-unmapped`. This known source value can be retained on a
+skeleton without marking its other details populated. The value update, generation advance,
+warning, and completion report commit atomically; a completed phase preserves subsequent edits.
 Historical timestamps remain unchanged.
 
 ### Populated gate
@@ -233,6 +234,7 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 | `custom-media-copied`                    | `legacy custom media ownership`                              | A user's records on another user's custom media moved to a copy that user owns; detail counts the moved records.                 | yes               |
 | `genre-name-blank`                       | `media genres -> relationships`                              | A legacy genre has a blank name, so its link was skipped.                                                                        | yes               |
 | `collection-name-duplicate-renamed`      | `collection -> entity`                                       | A collection's trimmed name repeats another of the same user's collections, so it gained a numbered suffix.                      | yes               |
+| `original-language-unmapped`             | `metadata original language -> entity`                       | The stored original language has no unambiguous language code, so none was set.                                                  | yes               |
 | `asset-locator-unresolved`               | `legacy S3 assets -> managed_asset`                          | An attachment could not be copied into managed storage; its original locator was retained.                                       | no                |
 | `asset-deletion-failed`                  | `legacy S3 assets -> managed_asset`                          | A copied attachment could not be deleted from the old bucket.                                                                    | no                |
 | `workout-set-completion-outside-session` | `workout sets -> event records`                              | A valid confirmed set time falls before the workout start or after its end; the time is preserved, not clamped.                  | yes               |
@@ -282,8 +284,8 @@ preferences, plugin revision identities, and catalog contents.
 For original language, compare each retained TMDB/TVDB movie/show with its nonblank legacy value
 and canonical code, including skeletons. Other media and blank values must remain absent. Repeat an
 interrupted migration with legacy tables retained: codes, timestamps, generations, and report counts
-must stay unchanged. An unknown retained language must abort without a partial update or completion
-report; fixing its source value permits retry.
+must stay unchanged. An unknown retained language must stay absent and appear in the
+`original-language-unmapped` details.
 
 For enrichment, verify positive `entity.content_generation` values, empty `entity_translation` and `entity_enrichment_request` tables, and no `related_populated_at`, `related_population_generation`, or `related_population_started_at` values after import. Compare `populated_at` with the populated gate and retained credits/child relationships with the legacy rows; base success must not imply complete related coverage. Check show routing fields `seasonNumber`, `episodeNumber`, and `parentShowExternalId` remain present where mapped. In an interrupted migration with legacy tables retained, repeat unchanged content writes and verify generations do not advance; a real name/property change must advance once, while ownership or success-timestamp-only changes must not. Verify workout-set `exerciseKind` against its recorded V1 workout exercise `lot`, not the current exercise entity. After normal startup, a provider kind refresh must leave those historical set snapshots unchanged, and a full ensure must finish all related pages and sweeps before setting `related_populated_at`.
 

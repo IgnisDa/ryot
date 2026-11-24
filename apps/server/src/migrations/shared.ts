@@ -94,6 +94,7 @@ const AnomalyCode = Schema.Literals([
 	"custom-media-copied",
 	"genre-name-blank",
 	"collection-name-duplicate-renamed",
+	"original-language-unmapped",
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
 	"workout-set-completion-outside-session",
