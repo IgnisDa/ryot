@@ -8,6 +8,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
 
@@ -59,6 +60,7 @@ class FakeLifecycleDependencies extends Context.Service<
 >()("@ryot-app/kernel-backend/modules/accounts/lifecycle/service.test/FakeLifecycleDependencies") {}
 
 const lifecycleServiceLayer = (options: {
+	readonly failedSessionDeletions?: number;
 	readonly repository: (
 		record: (call: string) => Effect.Effect<void>,
 	) => Effect.Effect<RepositoryMock>;
@@ -67,32 +69,49 @@ const lifecycleServiceLayer = (options: {
 		Effect.gen(function* () {
 			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
 			const queuedKeys = yield* Ref.make<ReadonlyArray<string>>([]);
+			const sessionDeletions = yield* Ref.make(0);
 			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 			const repository = yield* options.repository(record);
 			return UserLifecycleService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
-						databaseLayer,
 						makeAppConfigLayer(),
 						mockRepository(repository),
 						Layer.mock(AuthService)({
-							deleteUserSessions: () => record("sessions"),
 							revokeUserOAuthTokens: () => record("oauth"),
 							updateAuthUserDisabled: () => record("disable"),
 							handler: () => Promise.reject(new Error("unused")),
 							revokePasswordResetLinks: () => record("reset-links"),
 							purgeApiKeyCaches: (_userId, apiKeys) =>
 								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
+							deleteUserSessions: () =>
+								Ref.updateAndGet(sessionDeletions, (count) => count + 1).pipe(
+									Effect.flatMap((count) =>
+										count <= (options.failedSessionDeletions ?? 0)
+											? Effect.die("session store unavailable")
+											: record("sessions"),
+									),
+								),
 						}),
-						Layer.succeed(
+						Layer.effect(
 							JobQueue,
-							JobQueue.of({
-								pruneFailed: () => Effect.void,
-								enqueue: (kind, _payload, enqueueOptions = {}) =>
-									Ref.update(queuedKeys, (all) => [
-										...all,
-										`${kind.name}:${enqueueOptions.key ?? ""}`,
-									]).pipe(Effect.as(true)),
+							Effect.gen(function* () {
+								const session = yield* DatabaseSession;
+								return JobQueue.of({
+									pruneFailed: () => Effect.void,
+									enqueue: (kind, _payload, enqueueOptions = {}) =>
+										session.isTransactionActive.pipe(
+											Effect.flatMap((active) =>
+												active
+													? Ref.update(queuedKeys, (all) => [
+															...all,
+															`${kind.name}:${enqueueOptions.key ?? ""}`,
+														])
+													: Effect.die("Lifecycle jobs are queued in the operation transaction"),
+											),
+											Effect.as(true),
+										),
+								});
 							}),
 						),
 						Layer.succeed(FakeLifecycleDependencies, {
@@ -101,6 +120,7 @@ const lifecycleServiceLayer = (options: {
 						}),
 					),
 				),
+				Layer.provideMerge(databaseLayer),
 			);
 		}),
 	);
@@ -199,7 +219,7 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"queues no job while another request holds a fresh revocation claim and reclaims it once stale",
+		"conflicts while another revocation claim is fresh, still queues the job, and reclaims it once stale",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* UserLifecycleService;
@@ -208,11 +228,42 @@ layer(
 					new InstanceAdminInternalFailure({ reason: { code: "lifecycle-state-conflict" } }),
 				);
 				expect(yield* fake.calls).toEqual([]);
-				expect(yield* fake.queuedKeys).toEqual([]);
+				expect(yield* fake.queuedKeys).toEqual(["user-lifecycle:operation-1"]);
 				yield* TestClock.adjust("60 seconds");
 				expect(yield* service.deleteUser(userId)).toEqual({ operationId: operation.id });
 				expect((yield* fake.calls).at(-1)).toBe("record");
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	lifecycleServiceLayer({
+		failedSessionDeletions: 1,
+		repository: revokingRepository(() => Effect.succeed(unrevoked)),
+	}),
+)((test) => {
+	test.effect(
+		"leaves the operation's job queued when revocation fails, and the job's revocation completes it",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				const fake = yield* FakeLifecycleDependencies;
+				expect(yield* Effect.flip(service.deleteUser(userId))).toEqual(
+					new InstanceAdminInternalFailure({ reason: { code: "access-revocation-failed" } }),
+				);
 				expect(yield* fake.queuedKeys).toEqual(["user-lifecycle:operation-1"]);
+				expect(yield* fake.calls).toEqual(["disable"]);
+				yield* service.revokeAccess(operation.id);
+				expect(yield* fake.calls).toEqual([
+					"disable",
+					"disable",
+					"sessions",
+					"oauth",
+					"keys:key-1",
+					"reset-links",
+					"record",
+				]);
 			}),
 		testTimeout,
 	);

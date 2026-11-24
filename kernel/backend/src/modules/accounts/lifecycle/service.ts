@@ -161,30 +161,34 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 										recreatedAccountId: yield* random.uuidV4(),
 									},
 								});
-							}),
+							}).pipe(
+								Effect.tap(({ operation }) =>
+									jobs.enqueue(
+										UserLifecycleJob,
+										{ operationId: operation.id },
+										{ key: operation.id },
+									),
+								),
+							),
 						)
 						.pipe(
-							Effect.catchTag(
-								"DatabaseSessionStateError",
-								() =>
+							Effect.catchTags({
+								SchemaError: Effect.die,
+								DatabaseSessionStateError: () =>
 									new InstanceAdminInternalFailure({
 										reason: { code: "lifecycle-state-conflict" },
 									}),
-							),
+							}),
 						),
 				);
 
 				const operationId = prepared.operation.id;
 				yield* revokeAccess(operationId);
-				yield* mapDatabaseErrors(
-					jobs
-						.enqueue(UserLifecycleJob, { operationId }, { key: operationId })
-						.pipe(Effect.catchTag("SchemaError", Effect.die)),
-				);
 				return { operationId };
 			});
 
 			return {
+				revokeAccess,
 				resetUser: (userId: UserId) => request(userId, "reset"),
 				deleteUser: (userId: UserId) => request(userId, "delete"),
 			};

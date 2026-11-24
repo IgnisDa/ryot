@@ -62,9 +62,11 @@ participates in that transaction; session revocation on disable still uses the a
 Reset and deletion lock the user row, mark it retiring, and delete the account's jobs and workflow
 executions in the transaction that holds the lock. Account writes take a shared lock on the same row,
 so a write either commits before retirement starts or fails once it has begun; a job whose row is gone
-cannot commit work for the account. The request revokes access before it queues the lifecycle job,
-so access is revoked when it returns; the job does not revoke. A concurrent request for the same
-operation fails with `lifecycle-state-conflict` while the revocation claim is fresh.
+cannot commit work for the account. The transaction that creates or reactivates the operation also
+queues its lifecycle job, and the request then revokes access before it returns. The job revokes
+access first when it is still unrevoked, so an operation whose request failed or stopped after
+committing still revokes and runs. A request or job that finds another's revocation claim fresh fails
+with `lifecycle-state-conflict`; the job retries.
 
 ## Impersonation
 

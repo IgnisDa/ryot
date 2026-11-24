@@ -22,9 +22,10 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { interruptExecutionAndWait } from "#platform/workflow/interruption";
 
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob } from "./service";
+import { UserLifecycleJob, UserLifecycleService } from "./service";
 
 type UserLifecycleJobOperationsValue = {
+	revokeAccess: (operationId: string) => Effect.Effect<void, InternalError>;
 	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
@@ -59,6 +60,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const bootstrap = yield* UserBootstrap;
 		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
+		const lifecycle = yield* UserLifecycleService;
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -66,6 +68,12 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 					(operation): operation is NonNullable<typeof operation> => operation !== null,
 					() => Effect.die("User lifecycle operation was not found"),
 				),
+			);
+
+		const revokeAccess = (operationId: string) =>
+			asUnexpected(
+				Effect.asVoid(lifecycle.revokeAccess(operationId)),
+				"User lifecycle access revocation failed",
 			);
 
 		const begin = (operationId: string) =>
@@ -210,6 +218,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			fail,
 			begin,
 			complete,
+			revokeAccess,
 			cleanupObjects,
 			finishResetUser,
 			recreateResetUser,
@@ -242,6 +251,13 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 		return Option.none<A>();
 	});
 
+	const revoked = yield* step(
+		operations.revokeAccess(payload.operationId),
+		"operation-start-failed",
+	);
+	if (Option.isNone(revoked)) {
+		return;
+	}
 	const started = yield* step(operations.begin(payload.operationId), "operation-start-failed");
 	if (Option.isNone(started) || started.value === null) {
 		return;

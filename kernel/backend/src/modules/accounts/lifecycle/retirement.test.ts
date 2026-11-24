@@ -21,6 +21,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { UserLifecycleJobOperations, UserLifecycleJobOperationsLive } from "./job";
 import { UserLifecycleRepository } from "./repository";
+import { UserLifecycleService } from "./service";
 
 const ownerWorkflow = Workflow.make("InjectedOwnerWorkflow", {
 	error: Schema.Never,
@@ -79,6 +80,7 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.mock(UserBootstrap)({}),
+					Layer.mock(UserLifecycleService)({}),
 					Layer.mock(PluginBootstrapEntities)({}),
 					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
