@@ -92,6 +92,7 @@ const AnomalyCode = Schema.Literals([
 	"exercise-ownerless-unreferenced",
 	"person-identity-duplicate-merged",
 	"genre-name-blank",
+	"collection-name-duplicate-renamed",
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
 	"workout-set-completion-outside-session",

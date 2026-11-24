@@ -10,6 +10,8 @@ import {
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildAbortOnRowsSql,
+	buildAnomalyReportSql,
+	buildReportDetailSql,
 	buildReportSql,
 	buildRequireLegacyTableSql,
 	quoteNullableSqlString,
@@ -384,8 +386,11 @@ DECLARE
 	rows_inserted int;
 	invalid_name_count int;
 	invalid_name_sample text;
-	duplicate_name_count int;
-	duplicate_name_sample text;
+	duplicate_rec record;
+	suffix_number int;
+	candidate_name text;
+	renamed_count int;
+	renamed_report_seq int;
 	unnamed_field_count int;
 	unnamed_field_sample text;
 	invalid_field_count int;
@@ -403,18 +408,6 @@ BEGIN
 			WHERE btrim(collection.name) = '' OR char_length(btrim(collection.name)) > ${maximumCollectionNameLength}
 		`,
 		message: `collection -> entity: % collection(s) have a name that is blank or longer than ${maximumCollectionNameLength} characters after trimming surrounding whitespace: %. V2 collection names must be non-empty and at most ${maximumCollectionNameLength} characters. Rename those collections in the V1 database, then start the server again.`,
-	})}
-	${buildAbortOnRowsSql({
-		countVariable: "duplicate_name_count",
-		sampleVariable: "duplicate_name_sample",
-		source: `
-			SELECT collection.user_id || ':' || string_agg(collection.id, ',' ORDER BY collection.id) AS label
-			FROM "collection" collection
-			GROUP BY collection.user_id, btrim(collection.name)
-			HAVING count(*) > 1
-		`,
-		message:
-			"collection -> entity: % group(s) of one user's collections have names that become identical once surrounding whitespace is trimmed: %. V2 collection names are unique per user. Rename one collection in each group in the V1 database, then start the server again.",
 	})}
 	${buildAbortOnRowsSql({
 		countVariable: "unnamed_field_count",
@@ -445,6 +438,58 @@ BEGIN
 		`,
 	})}
 
+	CREATE TEMP TABLE _legacy_collection_names ON COMMIT DROP AS
+	SELECT collection.id, collection.user_id, collection.name AS legacy_name,
+		btrim(collection.name) AS trimmed_name, btrim(collection.name) AS name,
+		first_value(collection.id) OVER same_name AS kept_id,
+		row_number() OVER same_name AS position
+	FROM "collection" collection
+	WINDOW same_name AS (
+		PARTITION BY collection.user_id, btrim(collection.name)
+		ORDER BY collection.created_on, collection.id
+	);
+
+	FOR duplicate_rec IN
+		SELECT id, user_id, trimmed_name FROM _legacy_collection_names
+		WHERE position > 1
+		ORDER BY user_id, trimmed_name, position
+	LOOP
+		suffix_number := 2;
+		LOOP
+			candidate_name := left(
+				duplicate_rec.trimmed_name,
+				${maximumCollectionNameLength} - char_length(' (' || suffix_number || ')')
+			) || ' (' || suffix_number || ')';
+			EXIT WHEN NOT EXISTS (
+				SELECT 1 FROM _legacy_collection_names taken
+				WHERE taken.user_id = duplicate_rec.user_id AND taken.name = candidate_name
+			);
+			suffix_number := suffix_number + 1;
+		END LOOP;
+		UPDATE _legacy_collection_names SET name = candidate_name WHERE id = duplicate_rec.id;
+	END LOOP;
+
+	${buildAnomalyReportSql({
+		phase: "collection -> entity",
+		countVariable: "renamed_count",
+		seqVariable: "renamed_report_seq",
+		code: "collection-name-duplicate-renamed",
+		source: "_legacy_collection_names renamed WHERE renamed.position > 1",
+		message:
+			"Some collections were renamed because another collection of the same user has the same name once surrounding whitespace is trimmed, and V2 collection names are unique per user. The earliest collection keeps the name; each renamed collection is listed below.",
+		detail: buildReportDetailSql({
+			key: "renamed.id",
+			label: "renamed.name",
+			sentence: `format('Another collection of this user is also named "%s", so this one is now named "%s".', renamed.trimmed_name, renamed.name)`,
+			provenance: [
+				["Collection", "renamed.id"],
+				["User", "renamed.user_id"],
+				["Legacy name", "to_jsonb(renamed.legacy_name)"],
+				["Name kept by", "renamed.kept_id"],
+			],
+		}),
+	})}
+
 	INSERT INTO "entity" (
 		"id",
 		"external_id",
@@ -461,7 +506,7 @@ BEGIN
 	SELECT
 		collection.id,
 		NULL,
-		btrim(collection.name),
+		names.name,
 		collection.created_on,
 		NULL,
 		collection.user_id,
@@ -480,6 +525,7 @@ BEGIN
 		NULL,
 		collection.last_updated_on
 	FROM "collection"
+	INNER JOIN _legacy_collection_names names ON names.id = collection.id
 	LEFT JOIN LATERAL (
 		SELECT jsonb_agg(${legacyTemplateFieldSql} ORDER BY field.position) AS fields
 		FROM (${legacyTemplateFieldsSql}) field
