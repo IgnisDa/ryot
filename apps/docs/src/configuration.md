@@ -19,6 +19,22 @@ Ryot serves the final configuration loaded at the `/backend/config` endpoint as 
 | `SERVER_IMPORTER_TRAKT_CLIENT_ID`    | The client ID issued by Trakt. **Required only** for Trakt username/public-list API imports, not ZIP exports. [More information](guides/trakt.md) |
 | `ANIME_AND_MANGA_MAL_CLIENT_ID`      | The client ID issued by MyAnimeList. **Required** to enable MyAnimeList import. [More information](guides/anime-and-manga.md)     |
 
+## Notification destinations
+
+Ryot sends web notifications to public HTTPS endpoints by default. The same rules apply to test
+notifications, automatic notifications, and destinations saved before an upgrade.
+
+If you run Gotify, ntfy, or Apprise on a private network, set
+`NOTIFICATIONS_ALLOW_PRIVATE_NETWORKS=true` in the Ryot backend's environment and restart Ryot.
+This enables HTTP and HTTPS delivery to private destinations, including services on a home
+network or a shared Docker network. For example, Ryot and Gotify on the same Docker network
+can use `http://gotify` as the Gotify server URL.
+
+Enable this setting only if you trust every account on the instance with access to your
+private network. Leave it disabled on instances with open registration. Loopback addresses
+such as `localhost` and link-local addresses stay blocked in both modes. Web notifications
+connect directly to the configured endpoint, so use its final URL and port.
+
 ## Health endpoint
 
 The `/health` endpoint can be used for checking service healthiness. More information

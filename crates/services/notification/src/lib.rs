@@ -1,6 +1,8 @@
+mod http;
+
 use std::{env, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use askama::Template;
 use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
 use config_definition::AppConfig;
@@ -10,10 +12,7 @@ use lettre::{
     message::{MultiPart, SinglePart, header},
     transport::smtp::authentication::Credentials,
 };
-use reqwest::{
-    Client,
-    header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue},
-};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 use serde::{Deserialize, Serialize};
 use user_models::NotificationPlatformSpecifics;
 
@@ -22,61 +21,44 @@ pub async fn send_notification(
     config: &AppConfig,
     specifics: NotificationPlatformSpecifics,
 ) -> Result<()> {
-    let project_name = PROJECT_NAME.to_case(Case::Title);
-    let client = Client::new();
     if env::var("DISABLE_NOTIFICATIONS").is_ok() {
         ryot_log!(warn, "Notification not sent. Body was: {:#?}", msg);
         return Ok(());
     }
-    match specifics {
+
+    let project_name = PROJECT_NAME.to_case(Case::Title);
+    let post = |url: &str| http::post(url, config.notifications_allow_private_networks);
+    let request = match specifics {
         NotificationPlatformSpecifics::Apprise { url, key } => {
-            client
-                .post(format!("{url}/notify/{key}"))
+            post(&format!("{url}/notify/{key}"))?
                 .header(CONTENT_TYPE, APPLICATION_JSON_HEADER.clone())
                 .json(&serde_json::json!({ "body": msg, "title": project_name }))
-                .send()
-                .await?;
         }
-        NotificationPlatformSpecifics::Discord { url } => {
-            client
-                .post(url)
-                .json(&serde_json::json!({
-                    "content": msg,
-                    "username": project_name,
-                    "avatar_url": AVATAR_URL
-                }))
-                .send()
-                .await?;
-        }
+        NotificationPlatformSpecifics::Discord { url } => post(&url)?.json(&serde_json::json!({
+            "content": msg,
+            "username": project_name,
+            "avatar_url": AVATAR_URL
+        })),
         NotificationPlatformSpecifics::Gotify {
             url,
             token,
             priority,
-        } => {
-            client
-                .post(format!("{url}/message"))
-                .header("X-Gotify-Key", HeaderValue::from_str(&token).unwrap())
-                .json(&serde_json::json!({
-                    "message": msg,
-                    "title": project_name,
-                    "priority": priority.unwrap_or(5),
-                    "extras": { "client::notification": { "bigImageUrl": AVATAR_URL } }
-                }))
-                .send()
-                .await?;
-        }
+        } => post(&format!("{url}/message"))?
+            .header("X-Gotify-Key", HeaderValue::from_str(&token)?)
+            .json(&serde_json::json!({
+                "message": msg,
+                "title": project_name,
+                "priority": priority.unwrap_or(5),
+                "extras": { "client::notification": { "bigImageUrl": AVATAR_URL } }
+            })),
         NotificationPlatformSpecifics::Ntfy {
             url,
             topic,
             priority,
             auth_header,
         } => {
-            let mut request = client
-                .post(format!(
-                    "{}/{}",
-                    url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
-                    topic
-                ))
+            let url = url.as_deref().unwrap_or("https://ntfy.sh");
+            let mut request = post(&format!("{url}/{topic}"))?
                 .header("Attach", AVATAR_URL)
                 .header("Title", project_name)
                 .header(
@@ -88,22 +70,19 @@ pub async fn send_notification(
             if let Some(token) = auth_header {
                 request = request.header(
                     AUTHORIZATION,
-                    HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+                    HeaderValue::from_str(&format!("Bearer {token}"))?,
                 );
             }
-            request.body(msg.to_owned()).send().await?;
+            request.body(msg.to_owned())
         }
         NotificationPlatformSpecifics::PushBullet { api_token } => {
-            client
-                .post("https://api.pushbullet.com/v2/pushes")
+            post("https://api.pushbullet.com/v2/pushes")?
                 .header("Access-Token", api_token)
                 .json(&serde_json::json!({
                     "body": msg,
                     "type": "note",
                     "title": project_name,
                 }))
-                .send()
-                .await?;
         }
         NotificationPlatformSpecifics::PushOver {
             key,
@@ -122,32 +101,18 @@ pub async fn send_notification(
             if let Some(device) = device {
                 params.push(("device".to_owned(), device));
             }
-            client
-                .post("https://api.pushover.net/1/messages.json")
-                .query(&params)
-                .send()
-                .await?;
+            post("https://api.pushover.net/1/messages.json")?.query(&params)
         }
-        NotificationPlatformSpecifics::PushSafer { key } => {
-            client
-                .post("https://www.pushsafer.com/api")
-                .query(&[("k", &key), ("m", &msg.to_string()), ("t", &project_name)])
-                .send()
-                .await?;
-        }
-        NotificationPlatformSpecifics::Telegram { bot_token, chat_id } => {
-            client
-                .post(format!(
-                    "https://api.telegram.org/bot{bot_token}/sendMessage"
-                ))
-                .json(&serde_json::json!({
-                    "text": msg,
-                    "chat_id": chat_id,
-                    "parse_mode": "Markdown"
-                }))
-                .send()
-                .await?;
-        }
+        NotificationPlatformSpecifics::PushSafer { key } => post("https://www.pushsafer.com/api")?
+            .query(&[("k", &key), ("m", &msg.to_string()), ("t", &project_name)]),
+        NotificationPlatformSpecifics::Telegram { bot_token, chat_id } => post(&format!(
+            "https://api.telegram.org/bot{bot_token}/sendMessage"
+        ))?
+        .json(&serde_json::json!({
+            "text": msg,
+            "chat_id": chat_id,
+            "parse_mode": "Markdown"
+        })),
         NotificationPlatformSpecifics::Email { email } => {
             #[derive(Template, Serialize, Deserialize, Debug, Clone)]
             #[template(path = "generic.html")]
@@ -183,7 +148,19 @@ pub async fn send_notification(
                     ),
                 )?;
             mailer.send(email_msg).await?;
+            return Ok(());
         }
-    }
+    };
+
+    let status = request
+        .send()
+        .await
+        .map_err(reqwest::Error::without_url)?
+        .status();
+    ensure!(
+        status.is_success(),
+        "Notification endpoint returned HTTP {}",
+        status.as_u16()
+    );
     Ok(())
 }
