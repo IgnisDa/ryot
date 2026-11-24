@@ -2490,6 +2490,11 @@
 		"message": "A save can include at most {limit, number} linked items.",
 		"description": "{limit} is the maximum number of linked items in one save."
 	},
+	"error.entity-user-data.identity-mismatch": "These items do not match. Choose a destination with the same identity.",
+	"error.entity-user-data.operation-denied": "Your data cannot be changed for this item.",
+	"error.entity-user-data.required-field": "Required item details are missing.",
+	"error.entity-user-data.same-entity-merge": "Choose a different item to merge into.",
+	"error.entity-user-data.schema-mismatch": "Choose two items of the same kind.",
 	"error.integrations.identifier-required": "An integration ID or webhook token is required.",
 	"error.integrations.not-found": "This integration was not found.",
 	"error.internal.unexpected": {

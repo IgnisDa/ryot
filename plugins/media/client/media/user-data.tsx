@@ -58,12 +58,12 @@ const mediaUserDataMutation = createRyotMutation<
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
 	mediaLibraryMemberEntitySchemaSlugs.some((candidate) => candidate === slug);
 
-const submissionErrorFallback = (text: MediaText, error: Error) => {
-	if (!(error instanceof RyotClientError)) {
-		return text("user-data.error-retry");
-	}
-	if (error.reason === "transport") {
-		return text("user-data.error-transport");
+/** A retained submission's outcome is unknown, so only it asks for a retry. */
+const submissionErrorFallback = (text: MediaText, error: Error, retained: boolean) => {
+	if (retained) {
+		return error instanceof RyotClientError && error.reason === "transport"
+			? text("user-data.error-transport")
+			: text("user-data.error-retry");
 	}
 	return (
 		formatConflict(
@@ -73,8 +73,8 @@ const submissionErrorFallback = (text: MediaText, error: Error) => {
 				"entity-not-found": text("user-data.error-entity-not-found"),
 				"child-mapping-conflict": text("user-data.error-child-mapping-conflict"),
 			},
-			text("user-data.error-retry"),
-		) ?? text("user-data.error-retry")
+			text("user-data.error-failed"),
+		) ?? text("user-data.error-failed")
 	);
 };
 
@@ -201,12 +201,12 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.reset();
 		submission.submit(confirmation.intent);
 	};
+	const retained = submission.status === "retained";
 	const errorMessage =
 		submission.error === null
 			? undefined
-			: formatError(t, submission.error, submissionErrorFallback(text, submission.error));
+			: formatError(t, submission.error, submissionErrorFallback(text, submission.error, retained));
 	const activeConfirmation = submission.data === undefined ? confirmation : undefined;
-	const retained = submission.status === "retained";
 
 	return (
 		<>

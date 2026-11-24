@@ -1,4 +1,4 @@
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, SandboxFailureKind } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
 	AutomationHookIdentity,
@@ -31,13 +31,23 @@ import type { WriteTransaction } from "#platform/db/write-transaction";
 import { lifecycleTrigger } from "./command";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
 
+/** A policy that did not decide its items, with the sandbox failure kind that stopped it. */
 export class AutomationPolicyExecutionError extends Schema.TaggedError<
 	AutomationPolicyExecutionError,
 	{ readonly brand: unique symbol }
 >()("AutomationPolicyExecutionError", {
 	runId: AutomationRunId,
+	kind: SandboxFailureKind,
 	code: Schema.Literal("policy-execution-failed"),
 }) {}
+
+const isTransientKind = Schema.is(
+	Schema.Literals(["resource-unavailable", "timeout", "infrastructure"]),
+);
+
+/** Whether the policy failed for want of capacity or infrastructure, so a later attempt may succeed. */
+export const isTransientPolicyFailure = (error: AutomationPolicyExecutionError) =>
+	isTransientKind(error.kind);
 
 /** A policy matched to one request trigger. `runId` is the deterministic identity of that call. */
 export const LifecyclePolicy = Schema.Struct({

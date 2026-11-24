@@ -3,11 +3,17 @@ import { AppContract } from "@ryot-app/contract/contract";
 import {
 	EntityUserDataBadRequest,
 	type EntityUserDataNotFound,
+	EntityUserDataUnavailable,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
+import type { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
+import {
+	type AutomationPolicyExecutionError,
+	isTransientPolicyFailure,
+} from "#modules/automations/lifecycle/policies";
 import type { Changes } from "#modules/changes/changes";
 import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
@@ -15,13 +21,36 @@ import { ChangeSets } from "#modules/changes/service";
 const stateConflict = () =>
 	Effect.fail(new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
 
+const policyFailure = (error: AutomationPolicyExecutionError) =>
+	Effect.fail(
+		isTransientPolicyFailure(error)
+			? new EntityUserDataUnavailable({ reason: { code: "resource-unavailable" } })
+			: new EntityUserDataBadRequest({
+					reason: { runId: error.runId, code: "policy-execution-failed" },
+				}),
+	);
+
+const eventRejection = (error: EventBadRequest) =>
+	error.reason.code === "policy-rejected"
+		? Effect.fail(
+				new EntityUserDataBadRequest({
+					reason: { code: "policy-rejected", message: error.reason.message },
+				}),
+			)
+		: stateConflict();
+
 const relationshipMergeFailed = () =>
 	Effect.fail(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
 
 const unexpected = <E extends { readonly _tag: string }>(
 	error: E,
-): error is Exclude<E, EntityUserDataNotFound | EntityUserDataBadRequest> =>
-	error._tag !== "EntityUserDataBadRequest" && error._tag !== "EntityUserDataNotFound";
+): error is Exclude<
+	E,
+	EntityUserDataNotFound | EntityUserDataBadRequest | EntityUserDataUnavailable
+> =>
+	error._tag !== "EntityUserDataBadRequest" &&
+	error._tag !== "EntityUserDataNotFound" &&
+	error._tag !== "EntityUserDataUnavailable";
 
 const commitUserData = <A>(
 	operation: "clear" | "merge",
@@ -44,9 +73,9 @@ const commitUserData = <A>(
 		Effect.catchTags({
 			EventStale: stateConflict,
 			EventNotFound: stateConflict,
-			EventBadRequest: stateConflict,
+			EventBadRequest: eventRejection,
 			EventCreateItemError: stateConflict,
-			AutomationPolicyExecutionError: stateConflict,
+			AutomationPolicyExecutionError: policyFailure,
 			RelationshipBadRequest: relationshipMergeFailed,
 		}),
 		Effect.catchIf(unexpected, Effect.die),

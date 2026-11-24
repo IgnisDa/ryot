@@ -89,10 +89,11 @@ pinned plugin revision does not declare. A violation fails with `ChangeSetReject
 
 Every existing entity and event a user change set names (`changeSetReferences`) must belong to the
 writing plugin, and a user entity or event to the execution user. Preparation resolves their owners
-in one lookup each and rejects another plugin's reference, or an entity a delete, clear, merge or
-update names under another schema, with `ChangeSetRejected`. Another user's entity or event fails as
-`entity-not-found` or `event-not-found`, like a reference that does not exist, which preparation
-fails as a conflict.
+in one lookup each and rejects a reference owned by another plugin or the kernel, or an entity a
+delete or update names under another schema, with `ChangeSetRejected`; a clear or merge naming one
+fails as `EntityUserDataBadRequest` `entity-schema-mismatch`, since its entities are the user's
+choice. Another user's entity or event fails as `entity-not-found` or `event-not-found`, like a
+reference that does not exist, which preparation fails as a conflict.
 
 Agent and projection executions and before-stage automation runs write nothing. Ownership,
 provenance, global scope and `populatedAt` are not expressible in a script change set. Services keep their
@@ -239,15 +240,20 @@ the command with `scriptChangesCommand`: an automation run's changes descend fro
 root causation (`bootstrap`, `integration` or `api` for user subjects, `provider-refresh` for system
 ones). The caller passes the durable identity of the script's execution as `executionId`; every
 trigger, entity and event ID the commit derives comes from it. Failures are normalized to
-`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`), and every caller reports one
-through `scriptChangesFailure`: a conflict is `resource-unavailable` with its conflict code, a policy
-rejection a `script-failure` carrying the policy's reason, and anything else `invalid-output`. A
-failure whose reason code is a `CommitConflictCode` is a `conflict`: stale baselines, and the
-`EntityUserDataService` refusals a user causes by acting on changed data (`state-conflict` when the
-captured user data changed, `child-mapping-conflict` when merged child data has no unique match). A
-clear's or merge's event changes fail like any event change (`event-stale`, `policy-rejected`).
-Refusals the writing plugin can rule out from its own reads (same-entity merges, schema or identity
-property mismatches, denied operations) stay `invalid`.
+`ScriptChangesRejected` (`conflict`, `policy-unavailable`, `policy-rejected`, `refused` or
+`invalid`), and every caller reports one through `scriptChangesFailure`: a conflict is
+`resource-unavailable` with its conflict code, a policy that could not run is
+`resource-unavailable` with `policy-unavailable`, a policy rejection or a refusal a `script-failure`
+carrying its reason, and anything else `invalid-output`. A failure whose reason code is a
+`CommitConflictCode` is a `conflict`: stale baselines, and the `EntityUserDataService` refusals a user
+causes by acting on changed data (`state-conflict` when the captured user data changed,
+`child-mapping-conflict` when merged child data has no unique match). A policy run that failed with
+`resource-unavailable`, `timeout` or `infrastructure` (`isTransientPolicyFailure`) is
+`policy-unavailable`, so after hooks and workflow steps retry it; a policy's script failure or
+invalid output stays `invalid`. The `EntityUserDataService` refusals of the entities a user chose
+(same-entity merges, schema or identity property mismatches, missing fields, denied operations) are
+`refused` with a kernel message for each. A clear's or merge's event changes fail like any event
+change (`event-stale`, `policy-rejected`).
 
 `commitOnce` and `commitScript` make a commit exactly-once against the caller's durable state through
 a `CommitReceipt` (`receipts.ts`). `receipt.load` returns a result an earlier commit recorded: it is

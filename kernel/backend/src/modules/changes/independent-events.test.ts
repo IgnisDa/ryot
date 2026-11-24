@@ -873,7 +873,11 @@ layer(
 			{ position: 2, slug: "later" },
 		],
 		execute: ({ runId }) =>
-			new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
+			new AutomationPolicyExecutionError({
+				runId,
+				kind: "script-failure",
+				code: "policy-execution-failed",
+			}),
 	}),
 )("independent events", (test) => {
 	test.effect(
@@ -1102,7 +1106,11 @@ layer(
 		policies: [{ position: 1, slug: "policy" }],
 		execute: ({ runId, payload: request }) =>
 			request.draft.properties["rating"] === 2
-				? new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" })
+				? new AutomationPolicyExecutionError({
+						runId,
+						kind: "script-failure",
+						code: "policy-execution-failed",
+					})
 				: Effect.succeed({ action: "allow" as const }),
 	}),
 )("independent events", (test) => {
@@ -1718,7 +1726,11 @@ layer(
 	harnessLayer({
 		policies: [{ position: 1, slug: "fail" }],
 		execute: ({ runId }) =>
-			new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
+			new AutomationPolicyExecutionError({
+				runId,
+				kind: "script-failure",
+				code: "policy-execution-failed",
+			}),
 	}),
 )("independent event receipts", (test) => {
 	test.effect(

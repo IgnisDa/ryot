@@ -346,6 +346,15 @@ const settledByReceipt = <A>(receipt: CommitReceipt<A>, precondition?: CommitPre
 		return precondition && !(yield* precondition.check) ? yield* receipt.record(emptyResult) : null;
 	});
 
+/**
+ * A script's reference to an entity or event it may not name. A clear or merge of one names entities
+ * the user chose, so it is refused like a merge of entities of different schemas.
+ */
+const referenceRejected = (part: string, message: string) =>
+	part === "entities.clears" || part === "entities.merges"
+		? new EntityUserDataBadRequest({ reason: { code: "entity-schema-mismatch" } })
+		: new ChangeSetRejected({ part, message });
+
 // A create whose match appeared since preparation prepares again, so its match keeps that entity.
 const rematchOnce = <A, E, R>(work: Effect.Effect<A, E | EntityMatchAppeared, R>) =>
 	work.pipe(
@@ -393,17 +402,17 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					referenced.events.map(([, eventId]) => eventId),
 				);
 				const foreign =
-					referenced.entities.find(
-						([, entityId]) =>
-							(entityOwners.get(entityId)?.entitySchemaPluginId ?? pluginId) !== pluginId,
-					) ??
-					referenced.events.find(
-						([, eventId]) =>
-							(eventOwners.get(eventId)?.eventSchemaPluginId ?? pluginId) !== pluginId,
-					);
+					referenced.entities.find(([, entityId]) => {
+						const found = entityOwners.get(entityId);
+						return found !== undefined && found.entitySchemaPluginId !== pluginId;
+					}) ??
+					referenced.events.find(([, eventId]) => {
+						const found = eventOwners.get(eventId);
+						return found !== undefined && found.eventSchemaPluginId !== pluginId;
+					});
 				if (foreign) {
 					const [part, id] = foreign;
-					return yield* new ChangeSetRejected({ part, message: `${id} belongs to another plugin` });
+					return yield* referenceRejected(part, `${id} belongs to another plugin`);
 				}
 				const otherUserEntity = referenced.entities.find(([, entityId]) => {
 					const owner = entityOwners.get(entityId)?.entityUserId ?? null;
@@ -433,10 +442,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				});
 				if (mismatched) {
 					const [part, id, entitySchemaSlug] = mismatched;
-					return yield* new ChangeSetRejected({
-						part,
-						message: `${id} is not a ${entitySchemaSlug} entity`,
-					});
+					return yield* referenceRejected(part, `${id} is not a ${entitySchemaSlug} entity`);
 				}
 				return yield* Effect.void;
 			});

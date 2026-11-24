@@ -64,6 +64,13 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				const result = yield* (yield* ChangeSets).commit(changes, command);
 				return { entity: yield* savedEntity(result) };
 			}).pipe(
+				Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+					Effect.fail(
+						new EntityBadRequest({
+							reason: { runId: error.runId, code: "policy-execution-failed" },
+						}),
+					),
+				),
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
 				dieOnDbError,
 			),

@@ -480,7 +480,9 @@ the destination. The operation returns an
 [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md) runs it
 atomically under the operation's idempotency key with stale-state checks. The menu explains the
 `changes-conflict` codes `state-conflict` (the data changed), `child-mapping-conflict` (missing or
-ambiguous child matches) and `entity-not-found`; any other failure offers a safe retry.
+ambiguous child matches) and `entity-not-found`, and shows the kernel's reason for a refused merge or
+clear (same item, another type, mismatched identity). Only a failure whose outcome is unknown offers
+a safe retry; any other failure says the change could not be finished.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.

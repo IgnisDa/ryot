@@ -1260,6 +1260,7 @@
 	"timeline.span-range": "{start} – {end}",
 	"user-data.error-child-mapping-conflict": "Certaines données enfants n’ont pas de correspondance unique. Actualisez les médias et réessayez.",
 	"user-data.error-entity-not-found": "L’un de ces médias n’existe plus. Actualisez et réessayez.",
+	"user-data.error-failed": "Impossible de terminer cette modification.",
 	"user-data.error-retry": "Impossible de terminer cette modification. Réessayez pour confirmer le résultat en toute sécurité.",
 	"user-data.error-state-conflict": "Vos données ont changé. Actualisez cette page et réessayez.",
 	"user-data.error-transport": "Impossible de joindre le serveur. Réessayez pour terminer cette modification en toute sécurité.",

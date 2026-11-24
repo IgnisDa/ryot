@@ -584,6 +584,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale }),
+						AutomationPolicyExecutionError: (error) =>
+							Effect.fail(
+								new EntityBadRequest({
+									reason: { runId: error.runId, code: "policy-execution-failed" },
+								}),
+							),
 						RelationshipNotFound: (error: RelationshipNotFound) =>
 							error.reason.code === "entity-not-found"
 								? Effect.succeed({

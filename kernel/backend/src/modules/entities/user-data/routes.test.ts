@@ -2,11 +2,14 @@ import { expect } from "bun:test";
 
 import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
-import { EventStale } from "@ryot-app/contract/modules/events/schemas";
+import {
+	EntityUserDataBadRequest,
+	EntityUserDataUnavailable,
+} from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { EventBadRequest, EventStale } from "@ryot-app/contract/modules/events/schemas";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
+import { AutomationRunId, EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -16,6 +19,7 @@ import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
+import { AutomationPolicyExecutionError } from "#modules/automations/lifecycle/policies";
 import type { Changes } from "#modules/changes/changes";
 import { ChangeSets } from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -25,6 +29,8 @@ import { EntityUserDataRoutesLive } from "./routes";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
+const policyRun = AutomationRunId.make("policy-run");
+const rejection = { namespace: "kernel", key: "policy.locked" };
 const client = HttpApiTest.groups(AppContract, ["entityUserData"]);
 type RecordedCommand = { changes: Changes; command: DomainLifecycleCommand };
 
@@ -73,6 +79,20 @@ const routesLayer = Layer.unwrap(
 				if (clearedId === "edited") {
 					return Effect.fail(
 						new EventStale({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
+					);
+				}
+				if (clearedId === "unavailable" || clearedId === "failing") {
+					return Effect.fail(
+						new AutomationPolicyExecutionError({
+							runId: policyRun,
+							code: "policy-execution-failed",
+							kind: clearedId === "failing" ? "script-failure" : "resource-unavailable",
+						}),
+					);
+				}
+				if (clearedId === "refused") {
+					return Effect.fail(
+						new EventBadRequest({ reason: { message: rejection, code: "policy-rejected" } }),
 					);
 				}
 				if (clearedId === "related") {
@@ -241,6 +261,33 @@ layer(routesLayer)((test) => {
 						}),
 					),
 				).toEqual(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a policy that could not run as unavailable and keeps a policy's failure and rejection",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				yield* (yield* RouteCaller).sendAs(owner, "standard");
+				const failure = (entityId: string) =>
+					Effect.flip(
+						api.entityUserData.clearEntityUserData({
+							params: { entityId: EntityId.make(entityId) },
+						}),
+					);
+				expect(yield* failure("unavailable")).toEqual(
+					new EntityUserDataUnavailable({ reason: { code: "resource-unavailable" } }),
+				);
+				expect(yield* failure("failing")).toEqual(
+					new EntityUserDataBadRequest({
+						reason: { runId: policyRun, code: "policy-execution-failed" },
+					}),
+				);
+				expect(yield* failure("refused")).toEqual(
+					new EntityUserDataBadRequest({ reason: { message: rejection, code: "policy-rejected" } }),
+				);
 			}),
 		testTimeout,
 	);

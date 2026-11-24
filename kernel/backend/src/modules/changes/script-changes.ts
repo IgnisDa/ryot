@@ -3,11 +3,17 @@ import {
 	CommitConflictCode,
 	CommittedChanges,
 } from "@ryot-app/contract/modules/changes/change-set";
+import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect, Layer, Schema } from "effect";
 
+import {
+	AutomationPolicyExecutionError,
+	isTransientPolicyFailure,
+} from "#modules/automations/lifecycle/policies";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
 import {
@@ -36,9 +42,28 @@ const hasReasonCode = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Sc
 const invalid = (message: string) =>
 	new ScriptChangesRejected({ reason: { message, code: "invalid" } });
 
+/** The messages of user data refusals the user's choice of entities causes, which no retry changes. */
+const userDataRefusals: Partial<Record<EntityUserDataBadRequest["reason"]["code"], Message>> = {
+	"required-field": kernelMessage("error.entity-user-data.required-field"),
+	"operation-denied": kernelMessage("error.entity-user-data.operation-denied"),
+	"same-entity-merge": kernelMessage("error.entity-user-data.same-entity-merge"),
+	"entity-schema-mismatch": kernelMessage("error.entity-user-data.schema-mismatch"),
+	"identity-property-mismatch": kernelMessage("error.entity-user-data.identity-mismatch"),
+};
+
 const rejection = (error: typeof ChangeSetFailure.Type) => {
 	if (error instanceof DbError) {
 		return error;
+	}
+	if (error instanceof AutomationPolicyExecutionError && isTransientPolicyFailure(error)) {
+		return new ScriptChangesRejected({
+			reason: { code: "policy-unavailable", message: `${error.runId} failed with ${error.kind}` },
+		});
+	}
+	const refusal =
+		error instanceof EntityUserDataBadRequest ? userDataRefusals[error.reason.code] : undefined;
+	if (refusal !== undefined) {
+		return new ScriptChangesRejected({ reason: { code: "refused", message: refusal } });
 	}
 	if (isPolicyRejection(error)) {
 		return new ScriptChangesRejected({

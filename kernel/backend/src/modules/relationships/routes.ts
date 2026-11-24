@@ -57,6 +57,13 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 				const result = yield* (yield* ChangeSets).commit(changes, command);
 				return { relationship: result.relationships[0]?.relationship ?? null };
 			}).pipe(
+				Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+					Effect.fail(
+						new RelationshipBadRequest({
+							reason: { runId: error.runId, code: "policy-execution-failed" },
+						}),
+					),
+				),
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
 				dieOnDbError,
 			),

@@ -240,25 +240,49 @@ it.live.each([
 	testTimeout,
 );
 
-for (const [conflict, message] of [
-	["state-conflict", "Your data changed. Refresh this page and try again."],
+const conflictError = (conflict: NonNullable<RyotClientError["conflict"]>) =>
+	new RyotClientError({ conflict, reason: "changes-conflict" });
+
+for (const [failure, error, message] of [
 	[
-		"child-mapping-conflict",
+		"a state-conflict conflict",
+		conflictError("state-conflict"),
+		"Your data changed. Refresh this page and try again.",
+	],
+	[
+		"a child-mapping-conflict conflict",
+		conflictError("child-mapping-conflict"),
 		"Some child data has no unique match. Refresh the media items and try again.",
 	],
-	["entity-not-found", "One of these media items no longer exists. Refresh and try again."],
-	["entity-stale", "Couldn't finish this change. Retry to confirm the result safely."],
+	[
+		"an entity-not-found conflict",
+		conflictError("entity-not-found"),
+		"One of these media items no longer exists. Refresh and try again.",
+	],
+	["an entity-stale conflict", conflictError("entity-stale"), "Couldn't finish this change."],
+	[
+		"a refusal with its reason",
+		new RyotClientError({
+			reason: "operation-rejected",
+			rejection: { namespace: "kernel", key: "error.entity-user-data.identity-mismatch" },
+		}),
+		"These items do not match. Choose a destination with the same identity.",
+	],
+	[
+		"a definite failure without asking for a retry",
+		new RyotClientError({ reason: "operation-failed" }),
+		"Couldn't finish this change.",
+	],
 ] as const) {
 	it.live(
-		`keeps the confirmation open and explains a ${conflict} conflict while merging`,
+		`keeps the confirmation open and explains ${failure} while merging`,
 		() =>
 			Effect.gen(function* () {
 				const mounted = mountRyotClient(
 					{
 						query: () => entityQuery(),
+						invokeOperation: () => Effect.fail(error),
 						pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
-						invokeOperation: () =>
-							Effect.fail(new RyotClientError({ conflict, reason: "changes-conflict" })),
 					},
 					<MediaUserDataControl media={summary()} />,
 				);

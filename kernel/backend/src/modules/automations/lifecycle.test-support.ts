@@ -208,6 +208,7 @@ export const decidingPolicies = <E>(
 					onFailure: () =>
 						new AutomationPolicyExecutionError({
 							runId: policy.runId,
+							kind: "script-failure",
 							code: "policy-execution-failed",
 						}),
 				}),

@@ -1260,6 +1260,7 @@
 	"timeline.span-range": "{start} – {end}",
 	"user-data.error-child-mapping-conflict": "Für einige untergeordnete Daten gibt es keine eindeutige Zuordnung. Aktualisiere die Titel und versuche es erneut.",
 	"user-data.error-entity-not-found": "Einer dieser Titel existiert nicht mehr. Aktualisiere und versuche es erneut.",
+	"user-data.error-failed": "Die Änderung konnte nicht abgeschlossen werden.",
 	"user-data.error-retry": "Die Änderung konnte nicht abgeschlossen werden. Versuche es erneut, um das Ergebnis sicher zu bestätigen.",
 	"user-data.error-state-conflict": "Deine Daten haben sich geändert. Lade diese Seite neu und versuche es erneut.",
 	"user-data.error-transport": "Der Server ist nicht erreichbar. Versuche es erneut, um die Änderung sicher abzuschließen.",

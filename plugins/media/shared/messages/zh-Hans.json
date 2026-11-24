@@ -1262,6 +1262,7 @@
 	"timeline.span-range": "{start} – {end}",
 	"user-data.error-child-mapping-conflict": "部分子数据无法唯一匹配。请刷新媒体条目后重试。",
 	"user-data.error-entity-not-found": "其中一个媒体条目已不存在。请刷新后重试。",
+	"user-data.error-failed": "无法完成此更改。",
 	"user-data.error-retry": "无法完成此更改。请重试以安全确认结果。",
 	"user-data.error-state-conflict": "你的数据已更改。请刷新此页面后重试。",
 	"user-data.error-transport": "无法连接服务器。请重试以安全完成此更改。",

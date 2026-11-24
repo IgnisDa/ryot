@@ -14,6 +14,7 @@ import { Effect, Schema } from "effect";
 import {
 	applyPolicyChunks,
 	invalidPolicyItemReason,
+	isTransientPolicyFailure,
 	matchPolicyChunks,
 	type PolicyBatchResult,
 	subjectChunks,
@@ -132,9 +133,11 @@ export const applyRelationshipPolicies = (
 	applyPolicyChunks(chunks).pipe(
 		Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 			Effect.fail(
-				new RelationshipBadRequest({
-					reason: { runId: error.runId, code: "policy-execution-failed" },
-				}),
+				isTransientPolicyFailure(error)
+					? error
+					: new RelationshipBadRequest({
+							reason: { runId: error.runId, code: "policy-execution-failed" },
+						}),
 			),
 		),
 	);

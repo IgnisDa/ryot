@@ -27,6 +27,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -38,6 +39,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema, type Tracer } from "effect";
 
 import {
+	AutomationPolicyExecutionError,
 	LifecyclePolicies,
 	type LifecyclePolicyItem,
 } from "#modules/automations/lifecycle/policies";
@@ -65,7 +67,7 @@ import {
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
-import { ScriptChanges } from "#modules/scripts/executions/script-changes";
+import { ScriptChanges, scriptChangesFailure } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { WriteTransaction } from "#platform/db/write-transaction";
@@ -2709,6 +2711,12 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 	);
 });
 
+/** A clear or merge naming an entity of another plugin or schema is refused; other parts are invalid. */
+const rejectedReference = (part: string, message: string) =>
+	part === "entities.clears" || part === "entities.merges"
+		? { code: "refused", message: kernelMessage("error.entity-user-data.schema-mismatch") }
+		: { code: "invalid", message: `${part}: ${message}` };
+
 layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 	test.effect(
 		"rejects references to another plugin's entities and events as invalid changes and treats another user's entities as missing",
@@ -2748,11 +2756,41 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 				]);
 				assert(otherUserRow);
 				const otherUserEntity = otherUserRow.id;
+				const collectionEntity = EntityId.make(yield* randomUuid);
+				const collectionEvent = EventId.make(yield* randomUuid);
+				yield* own.session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							userId,
+							name: "Collection",
+							id: collectionEntity,
+							entitySchemaPluginId: null,
+							entitySchemaSlug: "collection",
+						}),
+				);
+				yield* own.session.run((db) =>
+					db
+						.insert(tables.event)
+						.values({
+							userId,
+							id: collectionEvent,
+							occurredAt: new Date(),
+							eventSchemaPluginId: null,
+							entityId: collectionEntity,
+							eventSchemaSlug: "collection-entry",
+						}),
+				);
 				const attacks: Record<string, readonly [string, string, typeof ChangeSet.Encoded]> = {
 					"event entity": [
 						"events",
 						foreignEntity,
 						{ events: eventCreate({ kind: "existing", entityId: foreignEntity }) },
+					],
+					"kernel-owned entity": [
+						"events",
+						collectionEntity,
+						{ events: eventCreate({ kind: "existing", entityId: collectionEntity }) },
 					],
 					"another user's entity": [
 						"events",
@@ -2773,6 +2811,17 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						"entities.deletes",
 						otherUserEntity,
 						{ entities: { deletes: [{ entityId: otherUserEntity, entitySchemaSlug: "record" }] } },
+					],
+					"kernel-owned event": [
+						"events",
+						collectionEvent,
+						{
+							events: {
+								changes: [
+									{ kind: "delete", eventId: collectionEvent, itemIdentity: "collection-event" },
+								],
+							},
+						},
 					],
 					"event delete": [
 						"events",
@@ -2933,10 +2982,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						),
 					);
 					outcomes[name] = error._tag === "ScriptChangesRejected" ? error.reason : error;
-					expected[name] ??= {
-						code: "invalid",
-						message: `${part}: ${id} belongs to another plugin`,
-					};
+					expected[name] ??= rejectedReference(part, `${id} belongs to another plugin`);
 				}
 				expect(outcomes).toEqual(expected);
 			}),
@@ -3017,11 +3063,122 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						),
 					);
 					outcomes[name] = error._tag === "ScriptChangesRejected" ? error.reason : error;
-					expected[name] = { code: "invalid", message: `${part}: ${note} is not a record entity` };
+					expected[name] = rejectedReference(part, `${note} is not a record entity`);
 				}
 				expect(outcomes).toEqual(expected);
 				expect(yield* entityBaseline(own, note)).toEqual(target.expected);
 			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"refuses a merge the user data rules forbid with its reason",
+		() =>
+			Effect.gen(function* () {
+				const own = yield* fixture();
+				const ownEntity = targetOf(own);
+				const error = yield* Effect.flip(
+					Effect.flatMap(ScriptChanges, (scripts) =>
+						Effect.flatMap(
+							Schema.decodeEffect(ChangeSet)({
+								entities: {
+									merges: [
+										{ mergeFrom: ownEntity, mergeInto: ownEntity, entitySchemaSlug: "record" },
+									],
+								},
+							}),
+							(changes) =>
+								scripts.commitKeyed({
+									changes,
+									lane: "interactive",
+									executionId: "same-entity-merge",
+									occurredAt: own.command.occurredAt,
+									principal: own.command.writeContext,
+								}),
+						),
+					),
+				);
+				assert(error._tag === "ScriptChangesRejected");
+				expect(scriptChangesFailure(error)).toEqual({
+					kind: "script-failure",
+					code: "changes-refused",
+					message: "The changes were refused",
+					reason: kernelMessage("error.entity-user-data.same-entity-merge"),
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a policy that could not run as retryable and a failed policy script as invalid changes",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const own = yield* fixture(
+						policyPackage({ event: { properties: ["value"] } }, [
+							{
+								resource: "event",
+								operation: "create",
+								eventSchemaSlug: "changed",
+								entitySchemaSlug: "record",
+							},
+						]),
+					);
+					const { match } = yield* LifecyclePolicies;
+					const outcomes: Record<string, unknown> = {};
+					for (const kind of [
+						"resource-unavailable",
+						"timeout",
+						"infrastructure",
+						"script-failure",
+						"invalid-output",
+					] as const) {
+						const changeSets = yield* ChangeSets.make.pipe(
+							Effect.provideService(
+								LifecyclePolicies,
+								LifecyclePolicies.of({
+									match,
+									run: ({ policy }) =>
+										Effect.fail(
+											new AutomationPolicyExecutionError({
+												kind,
+												runId: policy.runId,
+												code: "policy-execution-failed",
+											}),
+										),
+								}),
+							),
+						);
+						const scripts = Context.get(
+							yield* Layer.build(Layer.fresh(ScriptChangesLayer)).pipe(
+								Effect.provideService(ChangeSets, changeSets),
+							),
+							ScriptChanges,
+						);
+						const error = yield* Effect.flip(
+							scripts.commitKeyed({
+								lane: "interactive",
+								executionId: `policy-${kind}`,
+								occurredAt: own.command.occurredAt,
+								principal: own.command.writeContext,
+								changes: { ...own.input, relationships: {} },
+							}),
+						);
+						assert(error._tag === "ScriptChangesRejected");
+						const { code, kind: failureKind } = scriptChangesFailure(error);
+						outcomes[kind] = { code, kind: failureKind };
+					}
+					const unavailable = { code: "policy-unavailable", kind: "resource-unavailable" };
+					const invalid = { kind: "invalid-output", code: "changes-rejected" };
+					expect(outcomes).toEqual({
+						timeout: unavailable,
+						"script-failure": invalid,
+						"invalid-output": invalid,
+						infrastructure: unavailable,
+						"resource-unavailable": unavailable,
+					});
+				}),
+			),
 		testTimeout,
 	);
 

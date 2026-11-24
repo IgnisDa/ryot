@@ -1,6 +1,7 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
-import { EntityId } from "../../schema/brands";
+import { AutomationRunId, EntityId } from "../../schema/brands";
 
 const EntityUserDataBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
@@ -20,6 +21,8 @@ const EntityUserDataBadRequestReason = Schema.Union([
 		code: Schema.Literal("operation-denied"),
 		operation: Schema.Literals(["clear", "merge"]),
 	}),
+	Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
+	Schema.Struct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
 ]);
 
 const EntityUserDataNotFoundReason = Schema.Union([
@@ -38,6 +41,14 @@ export class EntityUserDataBadRequest extends Schema.TaggedError<
 	EntityUserDataBadRequest,
 	{ readonly brand: unique symbol }
 >()("EntityUserDataBadRequest", { reason: EntityUserDataBadRequestReason }) {}
+
+/** A policy the change needs could not run for now; the same request may succeed later. */
+export class EntityUserDataUnavailable extends Schema.TaggedError<
+	EntityUserDataUnavailable,
+	{ readonly brand: unique symbol }
+>()("EntityUserDataUnavailable", {
+	reason: Schema.Struct({ code: Schema.Literal("resource-unavailable") }),
+}) {}
 
 export const ClearEntityUserDataResponse = Schema.Struct({
 	entityId: EntityId,

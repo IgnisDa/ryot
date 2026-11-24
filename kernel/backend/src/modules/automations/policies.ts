@@ -1,4 +1,4 @@
-import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
+import { DbError, SandboxFailureKind, unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
 	AutomationPolicyBatchInput,
@@ -45,7 +45,7 @@ import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 class PolicyCallFailed extends Schema.TaggedError<
 	PolicyCallFailed,
 	{ readonly brand: unique symbol }
->()("PolicyCallFailed", { message: Schema.String }) {}
+>()("PolicyCallFailed", { message: Schema.String, kind: SandboxFailureKind }) {}
 
 const comparePolicies = (left: LifecyclePolicy, right: LifecyclePolicy) =>
 	left.position - right.position ||
@@ -112,8 +112,9 @@ export const LifecyclePoliciesLive = Layer.effect(
 			readonly references: Readonly<Record<string, AutomationEntityDraft>>;
 		}) {
 			const { policy, trigger } = input;
-			const fail = (message: string) =>
+			const fail = (message: string, kind: SandboxFailureKind = "invalid-input") =>
 				new PolicyCallFailed({
+					kind,
 					message: `Policy '${policy.hook.slug}' of plugin '${policy.pluginId}' ${message}`,
 				});
 			const pin = yield* scripts
@@ -122,9 +123,13 @@ export const LifecyclePoliciesLive = Layer.effect(
 					revisionId: policy.plugin.revisionId,
 					configRevisionId: policy.plugin.configRevisionId,
 				})
-				.pipe(Effect.catchTag("SandboxRunError", (error) => Effect.fail(fail(error.message))));
+				.pipe(
+					Effect.catchTag("SandboxRunError", (error) =>
+						Effect.fail(fail(error.message, error.kind)),
+					),
+				);
 			if (!pin || pin.contentHash !== policy.script.contentHash) {
-				return yield* fail("has no pinned script");
+				return yield* fail("has no pinned script", "missing-artifact");
 			}
 			const manifest = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(pin.metadata).pipe(
 				Effect.mapError(() => fail("has an invalid script declaration")),
@@ -279,11 +284,14 @@ export const LifecyclePoliciesLive = Layer.effect(
 				if (result.error) {
 					return yield* fail(
 						`failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
+						result.error.kind,
 					);
 				}
 				const output = yield* Schema.decodeUnknownEffect(AutomationPolicyBatchOutput)(
 					result.value,
-				).pipe(Effect.mapError((error) => fail(`returned ${unknownToMessage(error)}`)));
+				).pipe(
+					Effect.mapError((error) => fail(`returned ${unknownToMessage(error)}`, "invalid-output")),
+				);
 				const expected = new Set(invocation.items.map((item) => item.itemIdentity));
 				const actual = new Set(output.items.map((item) => item.itemIdentity));
 				if (
@@ -291,7 +299,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 					actual.size !== expected.size ||
 					[...actual].some((identity) => !expected.has(identity))
 				) {
-					return yield* fail("must decide each item exactly once");
+					return yield* fail("must decide each item exactly once", "invalid-output");
 				}
 				return output;
 			}).pipe(
@@ -299,6 +307,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 					Effect.logWarning("Policy call failed", error).pipe(
 						Effect.andThen(
 							new AutomationPolicyExecutionError({
+								kind: error.kind,
 								runId: policy.runId,
 								code: "policy-execution-failed",
 							}),

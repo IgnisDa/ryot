@@ -91,14 +91,12 @@ const commitFailure = (error: DbError | ScriptChangesRejected) => {
 		return error;
 	}
 	const failure = scriptChangesFailure(error);
-	if (failure.kind === "resource-unavailable") {
-		return new PluginConflictError({
-			reason: { conflict: failure.code, code: "changes-conflict" },
-		});
+	if (failure.code === "changes-rejected" || failure.code === "policy-unavailable") {
+		return invalidOutput(failure.message);
 	}
 	return failure.kind === "script-failure"
 		? new PluginOperationRejected({ reason: failure.reason })
-		: invalidOutput(failure.message);
+		: new PluginConflictError({ reason: { conflict: failure.code, code: "changes-conflict" } });
 };
 
 export class IntegrationOperationScopeResolver extends Context.Service<

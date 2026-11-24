@@ -42,29 +42,37 @@ export type ScriptChangesFailure =
 	  }
 	| {
 			readonly message: string;
-			readonly code: CommitConflictCode;
+			readonly code: CommitConflictCode | "policy-unavailable";
 			readonly kind: Extract<SandboxFailureKind, "resource-unavailable">;
 	  }
 	| {
 			readonly reason: Message;
 			readonly message: string;
-			readonly code: "policy-rejected";
+			readonly code: "policy-rejected" | "changes-refused";
 			readonly kind: Extract<SandboxFailureKind, "script-failure">;
 	  };
 
-/** A script's changes did not commit: a stale baseline, a policy rejection, or invalid changes. */
+/**
+ * A script's changes did not commit: a stale baseline, a policy that could not run, a policy
+ * rejection, a refusal of what the changes ask for, or invalid changes.
+ */
 export class ScriptChangesRejected extends Schema.TaggedError<
 	ScriptChangesRejected,
 	{ readonly brand: unique symbol }
 >()("ScriptChangesRejected", {
 	reason: Schema.Union([
 		Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("conflict") }),
+		Schema.Struct({ message: Schema.String, code: Schema.Literal("policy-unavailable") }),
 		Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
+		Schema.Struct({ message: Message, code: Schema.Literal("refused") }),
 		Schema.Struct({ message: Schema.String, code: Schema.Literal("invalid") }),
 	]),
 }) {}
 
-/** A conflict is retryable, a policy rejection is the script's failure, anything else is invalid output. */
+/**
+ * A conflict or an unavailable policy is retryable, a policy rejection or refusal is the script's
+ * failure, anything else is invalid output.
+ */
 export const scriptChangesFailure = ({ reason }: ScriptChangesRejected): ScriptChangesFailure => {
 	if (reason.code === "conflict") {
 		return {
@@ -73,12 +81,27 @@ export const scriptChangesFailure = ({ reason }: ScriptChangesRejected): ScriptC
 			message: `Changes conflicted with a newer write (${reason.conflict})`,
 		};
 	}
+	if (reason.code === "policy-unavailable") {
+		return {
+			code: reason.code,
+			kind: "resource-unavailable",
+			message: `A policy could not run (${reason.message})`,
+		};
+	}
 	if (reason.code === "policy-rejected") {
 		return {
 			code: reason.code,
 			kind: "script-failure",
 			reason: reason.message,
 			message: "A policy rejected the changes",
+		};
+	}
+	if (reason.code === "refused") {
+		return {
+			kind: "script-failure",
+			reason: reason.message,
+			code: "changes-refused",
+			message: "The changes were refused",
 		};
 	}
 	return {

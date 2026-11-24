@@ -7,6 +7,7 @@ import {
 	ClearEntityUserDataResponse,
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
+	EntityUserDataUnavailable,
 	MergeEntityUserDataBody,
 	MergeEntityUserDataResponse,
 } from "./schemas";
@@ -23,6 +24,7 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
+					EntityUserDataUnavailable.pipe(HttpApiSchema.status(503)),
 				],
 			},
 		).annotate(OpenApi.Description, "Clear the user's state for an entity."),
@@ -34,6 +36,7 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 			error: [
 				EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 				EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
+				EntityUserDataUnavailable.pipe(HttpApiSchema.status(503)),
 			],
 		}).annotate(OpenApi.Description, "Merge changes into the user's entity state."),
 	)
