@@ -218,7 +218,7 @@ export const makePersistMutation = <E, R, Result>({
 			item.input.operation === "delete" ? [item.input.entityId] : [],
 		);
 		if (firstDelete) {
-			yield* repository.deleteByIds(transaction, [firstDelete, ...otherDeletes]);
+			yield* repository.deleteByIds([firstDelete, ...otherDeletes]);
 		}
 		const creates = writes.flatMap(({ item, before }) =>
 			item.input.operation === "create" && before === null ? [item.input] : [],

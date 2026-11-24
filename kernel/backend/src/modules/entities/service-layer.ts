@@ -7,7 +7,9 @@ import { EntitiesRepositoryLive } from "./repository";
 import { EntitiesService } from "./service";
 import { DomainWriteChecksLive } from "./write-context";
 
-export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
+// Runtime and migration share one layer graph, so each builds its own service over its own
+// lifecycle services instead of the first one memoized.
+export const EntitiesServiceRuntimeLive = Layer.fresh(EntitiesService.layer).pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EntitiesRepositoryLive,
@@ -18,7 +20,7 @@ export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
 	),
 );
 
-export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
+export const EntitiesServiceMigrationLive = Layer.fresh(EntitiesService.layer).pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EntitiesRepositoryLive,

@@ -16,7 +16,7 @@ import { chunksOf } from "effect/Array";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { FoldMarks, foldValuesSql, readFoldEvents } from "#modules/derived-values/marks";
+import { FoldMarks } from "#modules/derived-values/marks";
 import {
 	PluginRuntimeResolver,
 	PluginRuntimeResolverLive,
@@ -967,7 +967,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
-				transaction: WriteTransaction,
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
 				yield* session.run((db) =>
@@ -982,21 +981,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						)
 						.orderBy(sql`${schema.entity.id} collate "C"`)
 						.for("no key update"),
-				);
-				const deleted = sql`(${foldValuesSql(ids)})`;
-				const orphaned = yield* readFoldEvents(
-					session,
-					sql`(v.entity_id in ${deleted} and v.session_entity_id is not null and v.session_entity_id not in ${deleted})
-						or (v.session_entity_id in ${deleted} and v.entity_id not in ${deleted})`,
-				);
-				yield* folds.mark(
-					transaction,
-					orphaned.map((before) => ({
-						before,
-						after: null,
-						eventId: before.id,
-						userId: before.userId,
-					})),
 				);
 				const rows = yield* Effect.forEach(chunksOf(ids, STATEMENT_CHUNK_SIZE), (chunk) =>
 					session.run((db) =>

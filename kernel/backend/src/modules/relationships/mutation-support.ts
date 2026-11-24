@@ -54,7 +54,6 @@ import {
 
 export type UserRelationshipIdentity = Omit<CreateRelationshipBody, "properties">;
 export type UserRelationshipWrite = UserRelationshipInput & { readonly properties: unknown };
-export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
 export type UserRelationshipInput = UserRelationshipIdentity & {
 	readonly scope: "user";
 	readonly userId: UserId;
@@ -352,7 +351,7 @@ export const relationshipSchemaReference = (
 });
 
 export const relationshipIdentity = (
-	input: DeleteRelationshipInput,
+	input: UserRelationshipIdentity & RelationshipReconciliationScope,
 ): RelationshipIdentityInput => ({
 	...input,
 	relationshipSchemaSlug: input.relationshipSchema.slug,

@@ -1616,6 +1616,4 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make);
-	static readonly layerRuntime = Layer.effect(this, this.make);
-	static readonly layerMigration = Layer.effect(this, this.make);
 }
