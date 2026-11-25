@@ -24,7 +24,8 @@ hold a transaction across lifecycle policies or network calls.
 The database advances `entity.collection_order_revision` for committed membership insertion, deletion,
 or rank changes, including cascading deletion. Metadata-only changes do not advance it. Its statement
 triggers advance each affected collection once per statement, so a bulk membership write updates the
-collection row once. Readers only compare revisions. The triggers do not alter the collection's
+collection row once; an upsert that both adds members and changes ranks fires the insert and update
+triggers, so it advances twice. Readers only compare revisions. The triggers do not alter the collection's
 content, timestamps, or content generation. A partial rank index serves
 the RyotQL `relationship.collectionRank` field, ordered with the member's stable identity, not its title.
 
