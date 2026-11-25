@@ -3,6 +3,7 @@ import {
 	and,
 	ascending,
 	castBoolean,
+	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -15,6 +16,7 @@ import {
 	eq,
 	eventOrderDescending,
 	exists,
+	first,
 	groupAscending,
 	groupDescending,
 	gt,
@@ -55,6 +57,7 @@ import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
+	libraryLinkExists,
 	propertyBoolean,
 	propertyJson,
 	propertyNumber,
@@ -62,12 +65,15 @@ import {
 	type Table,
 } from "./entity-selections";
 import { historyCategory, mediaEventHistoryRecipe } from "./history-recipes";
+import { currentLibrarySummaryValue, libraryProgressSummaryValue } from "./library-summary";
 import {
 	entitySchemaIs,
 	episodeDisplayStateExpression,
 	episodeHasAired,
 	episodeIsUpcoming,
 	EpisodeLifecycleStateSchema,
+	type EpisodicEpisodeCounts,
+	episodicEpisodeCounts,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
@@ -240,59 +246,17 @@ export const episodicEpisodeMembership = (
 	});
 };
 
-/**
- * Counts one parent row's regular episodes: the upcoming ones, or the aired (required) ones,
- * optionally narrowed to a display state.
- */
-const episodicEpisodeCount = (
-	config: EpisodicKindConfig,
-	parent: Table,
-	alias: string,
-	filter?: "upcoming" | "complete" | "in_progress",
-) => {
-	const episode = table("entity", `${alias}Episode`);
-	const { joins, where } = episodicEpisodeQuery(
-		config,
-		parent,
-		episode,
-		alias,
-		filter === "upcoming" ? "upcoming" : "aired",
-	);
-	return count(episode, {
-		joins,
-		where:
-			filter === undefined || filter === "upcoming"
-				? where
-				: and(
-						where,
-						eq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal(filter)),
-					),
-	});
-};
-
 const ownedEpisodeCount = (config: EpisodicKindConfig, parent: Table, alias: string) => {
 	const episode = table("entity", `${alias}Episode`);
 	const { joins, where } = episodicEpisodeQuery(config, parent, episode, alias, "any", "all");
 	return count(episode, { joins, where: and(where, mediaHasCopies(episode)) });
 };
 
-const episodicCountSelection = (config: EpisodicKindConfig, parent: Table, alias: string) => ({
-	airedEpisodes: selectedField(
-		episodicEpisodeCount(config, parent, `${alias}Aired`),
-		Schema.Finite,
-	),
-	watchedEpisodes: selectedField(
-		episodicEpisodeCount(config, parent, `${alias}Watched`, "complete"),
-		Schema.Finite,
-	),
-	upcomingEpisodes: selectedField(
-		episodicEpisodeCount(config, parent, `${alias}Upcoming`, "upcoming"),
-		Schema.Finite,
-	),
-	inProgressEpisodes: selectedField(
-		episodicEpisodeCount(config, parent, `${alias}Progress`, "in_progress"),
-		Schema.Finite,
-	),
+const episodicCountSelection = (counts: EpisodicEpisodeCounts) => ({
+	airedEpisodes: selectedField(counts.airedEpisodes, Schema.Finite),
+	watchedEpisodes: selectedField(counts.watchedEpisodes, Schema.Finite),
+	upcomingEpisodes: selectedField(counts.upcomingEpisodes, Schema.Finite),
+	inProgressEpisodes: selectedField(counts.inProgressEpisodes, Schema.Finite),
 });
 
 export const episodicActivityEpisodeSelection = (episode: Table) => ({
@@ -857,7 +821,9 @@ export const mediaEpisodicRecipes = <
 							propertyNumber(entity, "totalEpisodes"),
 							Schema.NullOr(Schema.Finite),
 						),
-						...episodicCountSelection(config.config, entity, `${config.alias}Summary`),
+						...episodicCountSelection(
+							episodicEpisodeCounts(config.config, entity, `${config.alias}Summary`),
+						),
 						ownedEpisodes: selectedField(
 							ownedEpisodeCount(config.config, entity, `${config.alias}Owned`),
 							Schema.Finite,
@@ -1099,15 +1065,58 @@ export const mediaEpisodicRecipes = <
 		});
 	};
 	const presentationEntity = table("entity", "entity");
-	const presentationLifecycle = episodicLifecycleExpressions(
-		config.config,
+	// The kernel joins a row's correlated aggregates laterally, computing them for every row, so each
+	// live fallback is a scalar subquery over its own alias of the row, run only where it is read.
+	const presentationLive = (
+		name: string,
+		expression: (row: Table) => ScalarExpression,
+	): ScalarExpression => {
+		const row = table("entity", `${config.alias}Presentation${name}`);
+		return first(row, {
+			select: expression(row),
+			orderBy: [ascending(column(row, "id"))],
+			where: eq(column(row, "id"), column(presentationEntity, "id")),
+		});
+	};
+	const presentationCount = (name: keyof EpisodicEpisodeCounts) =>
+		presentationLive(
+			name,
+			(row) => episodicEpisodeCounts(config.config, row, `${config.alias}Presentation`)[name],
+		);
+	const presentationInLibrary = libraryLinkExists(
 		presentationEntity,
-		`${config.alias}PresentationLifecycle`,
+		`${config.alias}PresentationLibrary`,
+		"in-media-library",
 	);
+	const storedPresentationCount = (name: keyof EpisodicEpisodeCounts) =>
+		castNumber(currentLibrarySummaryValue(presentationEntity, name));
+	const ownPresentationCount = (name: "watchedEpisodes" | "inProgressEpisodes") =>
+		coalesce(
+			castNumber(libraryProgressSummaryValue(presentationEntity, name)),
+			conditional(presentationInLibrary, presentationCount(name), literal(0)),
+		);
 	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
 			...entityIdentitySelection(presentationEntity),
-			state: selectedField(presentationLifecycle.state, EpisodicLifecycleStateSchema),
+			state: selectedField(
+				coalesce(
+					castText(libraryProgressSummaryValue(presentationEntity, "lifecycleState")),
+					conditional(
+						presentationInLibrary,
+						presentationLive(
+							"State",
+							(row) =>
+								episodicLifecycleExpressions(
+									config.config,
+									row,
+									`${config.alias}PresentationLifecycle`,
+								).state,
+						),
+						literal("untracked"),
+					),
+				),
+				EpisodicLifecycleStateSchema,
+			),
 			...mediaPresentationImageSelection(presentationEntity),
 			publishDate: selectedField(
 				propertyText(presentationEntity, "publishDate"),
@@ -1121,7 +1130,18 @@ export const mediaEpisodicRecipes = <
 				propertyText(presentationEntity, "productionStatus"),
 				Schema.NullOr(Schema.String),
 			),
-			...episodicCountSelection(config.config, presentationEntity, `${config.alias}Presentation`),
+			...episodicCountSelection({
+				watchedEpisodes: ownPresentationCount("watchedEpisodes"),
+				inProgressEpisodes: ownPresentationCount("inProgressEpisodes"),
+				airedEpisodes: coalesce(
+					storedPresentationCount("airedEpisodes"),
+					presentationCount("airedEpisodes"),
+				),
+				upcomingEpisodes: coalesce(
+					storedPresentationCount("upcomingEpisodes"),
+					presentationCount("upcomingEpisodes"),
+				),
+			}),
 			...config.presentationFields(presentationEntity),
 		},
 	});

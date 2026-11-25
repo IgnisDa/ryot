@@ -12,6 +12,7 @@ import {
 	currentDate,
 	defineRecipe,
 	eq,
+	exists,
 	first,
 	gt,
 	inArray,
@@ -39,10 +40,14 @@ import {
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 import {
+	type EpisodicEpisodeCounts,
+	episodicEpisodeCounts,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
+	eventSlugIsOneOf,
+	lifecycleEventSlugs,
 	mediaLifecycleExpressions,
 	podcastEpisodicKindConfig,
 	publishDate,
@@ -58,15 +63,30 @@ import { averageUserRating } from "./user-rating";
 export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
+		airedEpisodes: {
+			type: "number" as const,
+			description: "Aired regular episodes",
+			label: catalogMessage("property.aired-episodes"),
+		},
 		lifecycleState: {
 			type: "string" as const,
 			label: catalogMessage("property.status"),
 			description: "Lifecycle state computed from the user's history",
 		},
+		upcomingEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.upcoming-episodes"),
+			description: "Regular episodes that have not aired",
+		},
 		releaseDate: {
 			type: "datetime" as const,
 			label: catalogMessage("property.release-date"),
 			description: "Publish date, else the start of the publish year",
+		},
+		watchedEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.completed-episodes"),
+			description: "Aired regular episodes the user completed",
 		},
 		nextAiringAt: {
 			type: "datetime" as const,
@@ -78,6 +98,16 @@ export const librarySummaryPropertiesSchema = {
 			label: catalogMessage("property.recent-activity"),
 			description: "When the user's latest lifecycle activity occurred",
 		},
+		inProgressEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.in-progress-episodes"),
+			description: "Aired regular episodes the user is partway through",
+		},
+		nextTrackedAiringAt: {
+			type: "datetime" as const,
+			label: catalogMessage("property.next-tracked-airing"),
+			description: "Earliest publish date of an unaired regular episode the user has progress on",
+		},
 	},
 };
 
@@ -86,7 +116,9 @@ const SummaryRowSchema = {
 	state: EpisodicLifecycleStateSchema,
 	releaseDate: Schema.NullOr(IsoDateString),
 	nextAiringAt: Schema.NullOr(IsoDateString),
+	episodeCount: Schema.NullOr(Schema.Finite),
 	lastActivityAt: Schema.NullOr(IsoDateString),
+	nextTrackedAiringAt: Schema.NullOr(IsoDateString),
 };
 
 const property = (entity: Table, name: string) => jsonPath(column(entity, "properties"), name);
@@ -110,6 +142,25 @@ const nextAiringAt = (config: EpisodicKindConfig, parent: Table) => {
 	return minimum(episode, publishDate(episode), { joins: upcoming.joins, where: upcoming.where });
 };
 
+const nextTrackedAiringAt = (config: EpisodicKindConfig, parent: Table) => {
+	const episode = table("entity", "summaryTracked");
+	const event = table("event", "summaryTrackedEvent");
+	const upcoming = episodicEpisodeQuery(config, parent, episode, "summaryTracked", "upcoming");
+	return minimum(episode, publishDate(episode), {
+		joins: upcoming.joins,
+		where: and(
+			upcoming.where,
+			exists(event, {
+				where: and(
+					eq(column(event, "entityId"), column(episode, "id")),
+					sameSchemaOwner(event, "eventSchemaPluginId", episode),
+					eventSlugIsOneOf(event, lifecycleEventSlugs),
+				),
+			}),
+		),
+	});
+};
+
 export type LibrarySummaryKind = "flat" | "other" | EpisodicKindConfig;
 
 const flatSlugs = new Set<string>(flatMediaSchemaSlugs);
@@ -119,15 +170,30 @@ export const librarySummaryKind = (entitySchemaSlug: string): LibrarySummaryKind
 		({ parentSchemaSlug }) => parentSchemaSlug === entitySchemaSlug,
 	) ?? (flatSlugs.has(entitySchemaSlug) ? "flat" : "other");
 
+const noEpisodeCounts: EpisodicEpisodeCounts = {
+	airedEpisodes: literal(null),
+	watchedEpisodes: literal(null),
+	upcomingEpisodes: literal(null),
+	inProgressEpisodes: literal(null),
+};
+
 const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "other") {
-		return { activity: literal(null), state: literal("untracked"), nextAiringAt: literal(null) };
+		return {
+			activity: literal(null),
+			counts: noEpisodeCounts,
+			state: literal("untracked"),
+			nextAiringAt: literal(null),
+			nextTrackedAiringAt: literal(null),
+		};
 	}
 	if (kind === "flat") {
 		const lifecycle = mediaLifecycleExpressions(entity, "summaryLifecycle");
 		return {
 			state: lifecycle.state,
+			counts: noEpisodeCounts,
 			nextAiringAt: literal(null),
+			nextTrackedAiringAt: literal(null),
 			activity: lifecycle.latestSignal.occurredAt,
 		};
 	}
@@ -136,6 +202,8 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 		state: lifecycle.state,
 		nextAiringAt: nextAiringAt(kind, entity),
 		activity: lifecycle.latestSignal.occurredAt,
+		nextTrackedAiringAt: nextTrackedAiringAt(kind, entity),
+		counts: episodicEpisodeCounts(kind, entity, "summaryCount"),
 	};
 };
 export const librarySummaryEntitiesRecipe = (() => {
@@ -206,6 +274,26 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 					state: selectedField(lifecycle.state, SummaryRowSchema.state),
 					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
 					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
+					airedEpisodes: selectedField(
+						lifecycle.counts.airedEpisodes,
+						SummaryRowSchema.episodeCount,
+					),
+					watchedEpisodes: selectedField(
+						lifecycle.counts.watchedEpisodes,
+						SummaryRowSchema.episodeCount,
+					),
+					upcomingEpisodes: selectedField(
+						lifecycle.counts.upcomingEpisodes,
+						SummaryRowSchema.episodeCount,
+					),
+					inProgressEpisodes: selectedField(
+						lifecycle.counts.inProgressEpisodes,
+						SummaryRowSchema.episodeCount,
+					),
+					nextTrackedAiringAt: selectedField(
+						lifecycle.nextTrackedAiringAt,
+						SummaryRowSchema.nextTrackedAiringAt,
+					),
 				},
 			}),
 		},
@@ -220,7 +308,12 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 			lifecycleState: row.state,
 			releaseDate: row.releaseDate,
 			nextAiringAt: row.nextAiringAt,
+			airedEpisodes: row.airedEpisodes,
 			lastActivityAt: row.lastActivityAt,
+			watchedEpisodes: row.watchedEpisodes,
+			upcomingEpisodes: row.upcomingEpisodes,
+			inProgressEpisodes: row.inProgressEpisodes,
+			nextTrackedAiringAt: row.nextTrackedAiringAt,
 		}).filter(([, value]) => value !== null),
 	);
 
@@ -240,12 +333,23 @@ export const libraryMembershipJoin = (entity: Table, alias: string) => {
 	};
 };
 
+const summaryRead = (membership: Table, name: string) =>
+	jsonPath(column(membership, "projection"), name);
+
+/** The episode the summary stored as the next to air has aired since the summary was folded. */
+const summaryNextAiringPassed = (membership: Table) =>
+	lte(castDate(summaryRead(membership, "nextAiringAt")), currentDate());
+
+/** An unaired episode the user has progress on has aired since the fold, so that progress counts. */
+const summaryTrackedAiringPassed = (membership: Table) =>
+	lte(castDate(summaryRead(membership, "nextTrackedAiringAt")), currentDate());
+
 /**
  * Library summary values read from a `in-media-library` relationship's projection. A pending
  * projection reads as null. A caught-up title whose next episode has aired reads as in progress.
  */
 export const librarySummary = (membership: Table) => {
-	const read = (name: string) => jsonPath(column(membership, "projection"), name);
+	const read = (name: string) => summaryRead(membership, name);
 	const stored = castText(read("lifecycleState"));
 	const event = table("event", "libraryConsumption");
 	const own = and(
@@ -264,7 +368,7 @@ export const librarySummary = (membership: Table) => {
 			column(membership, "relationshipSchemaPluginId"),
 		),
 		lifecycleState: conditional(
-			and(eq(stored, literal("caught_up")), lte(castDate(read("nextAiringAt")), currentDate())),
+			and(eq(stored, literal("caught_up")), summaryNextAiringPassed(membership)),
 			literal("in_progress"),
 			stored,
 		),
@@ -306,3 +410,33 @@ export const libraryMembershipValue = (
 		),
 	});
 };
+
+/**
+ * The user's own stored progress on `entity`, through its `in-media-library` link: the lifecycle
+ * state, corrected like `librarySummary`, and the completed and in-progress episode counts. An airing
+ * changes them only when the user has progress on the episode, so they hold until such an episode
+ * airs; null outside the library, while the summary is pending, and after that.
+ */
+export const libraryProgressSummaryValue = (
+	entity: Table,
+	name: "lifecycleState" | "watchedEpisodes" | "inProgressEpisodes",
+) =>
+	libraryMembershipValue(entity, (membership) =>
+		conditional(
+			summaryTrackedAiringPassed(membership),
+			literal(null),
+			name === "lifecycleState"
+				? librarySummary(membership).lifecycleState
+				: summaryRead(membership, name),
+		),
+	);
+
+/**
+ * A stored summary value of `entity`'s own `in-media-library` link while it still holds: null
+ * outside the library, while the summary is pending, and once an episode it counted as upcoming has
+ * aired, since airing changes the state and counts without a fold.
+ */
+export const currentLibrarySummaryValue = (entity: Table, name: string) =>
+	libraryMembershipValue(entity, (membership) =>
+		conditional(summaryNextAiringPassed(membership), literal(null), summaryRead(membership, name)),
+	);

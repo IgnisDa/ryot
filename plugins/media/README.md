@@ -747,6 +747,15 @@ completions, and `backend/fold/consumption.ts` allocates consumption contributio
 the completions to change, one contribution per consumption event, the library summary for each
 `in-media-library` link, and the fold's value.
 
+The library summary holds the lifecycle state, release date and latest activity, and for a Show or
+Podcast its next airing and its aired, upcoming, completed and in-progress regular-episode counts.
+Show and Podcast card presentations read the state and counts from it while its next airing is still
+ahead. An airing changes them without a fold, so once it passes the aired and upcoming counts are
+computed live. The state and the completed and in-progress counts change only if the user has
+progress on the episode that airs, so they stay stored until the summary's next tracked airing passes.
+While the summary is pending, all are computed live. Titles outside the library present as untracked with no completed or
+in-progress episodes; their aired and upcoming counts are live.
+
 The fold replays history in order, resetting coverage at each explicit or automatic cycle boundary. A
 new Show or Podcast completion requires a terminal production status (`Ended`, `Canceled`, or
 `Cancelled`, case-insensitive) and either an episode the fold has not counted before or the title newly
@@ -976,7 +985,7 @@ and lifecycle status remain separate. Episodic activity never replaces missing f
 provider runtime. Library rating and completion columns read live source/canonical rows; browse
 `userRating` (a `rating` browse field), library summaries, card presentations, and analytics share
 `plugins/media/shared/user-rating.ts` for the review rating value and its per-entity average; relationship
-projections cache only lifecycle fields. Pending folds yield null completion totals/dates. The last
+projections cache only lifecycle fields and episode counts. Pending folds yield null completion totals/dates. The last
 completion timestamp uses only timed evidence; date-only completions do not invent an instant.
 
 Domain recipes author static documents. Factories configure schema references and plugin identity;

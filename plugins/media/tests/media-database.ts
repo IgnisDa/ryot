@@ -203,6 +203,58 @@ export const insertRelationships = (
 		);
 	});
 
+/**
+ * A show or podcast with its episodes, numbered in order within each season (season 1 unless
+ * given); an episode without `days` has no publish date.
+ */
+export const insertEpisodicTitle = (
+	parent: string,
+	kind: "show" | "podcast",
+	items: ReadonlyArray<{ readonly id: string; readonly days?: number; readonly season?: number }>,
+) =>
+	Effect.gen(function* () {
+		const seasons = [...new Set(items.map(({ season }) => season ?? 1))];
+		yield* insertEntities([
+			{ id: parent, slug: kind },
+			...(kind === "show"
+				? seasons.map((season) => ({
+						slug: "show-season",
+						id: `${parent}-s${season}`,
+						properties: { seasonNumber: season },
+					}))
+				: []),
+			...items.map(({ id, days, season }, index) => ({
+				id,
+				slug: `${kind}-episode`,
+				...(days === undefined ? {} : { publishDate: utcDay(days) }),
+				properties: {
+					episodeNumber:
+						items.slice(0, index).filter((item) => (item.season ?? 1) === (season ?? 1)).length + 1,
+				},
+			})),
+		]);
+		yield* insertRelationships(
+			kind === "show"
+				? [
+						...seasons.map((season) => ({
+							source: parent,
+							slug: "show-to-show-season",
+							target: `${parent}-s${season}`,
+						})),
+						...items.map(({ id, season }) => ({
+							target: id,
+							slug: "show-season-to-show-episode",
+							source: `${parent}-s${season ?? 1}`,
+						})),
+					]
+				: items.map(({ id }) => ({
+						target: id,
+						source: parent,
+						slug: "podcast-to-podcast-episode",
+					})),
+		);
+	});
+
 /** Links titles to the user's Media library through `slug`. */
 export const linkToLibrary = (user: MediaUser, slug: string, entityIds: readonly string[]) =>
 	insertRelationships(
@@ -311,13 +363,14 @@ export const foldLibrarySummary = (user: MediaUser, entityId: string, slug: stri
 /**
  * Moves the earliest upcoming episode of `parentId` to `days` from today without folding, which is
  * how time passing looks to a reader: the summary's stored `nextAiringAt`, which the fold took from
- * that episode, moves with it.
+ * that episode, moves with it, as does `nextTrackedAiringAt` when the user has progress on it.
  */
 export const moveAiring = (input: {
 	readonly days: number;
 	readonly user: MediaUser;
 	readonly parentId: string;
 	readonly entityId: string;
+	readonly tracked?: boolean;
 }) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
@@ -329,7 +382,7 @@ export const moveAiring = (input: {
 					`update entity set properties = jsonb_set(properties, '{publishDate}', to_jsonb(${at}::text)) where id = '${input.entityId}'`,
 				),
 				db.execute(
-					`update derived_value set value = jsonb_set(value, '{nextAiringAt}', to_jsonb(${at}::text)) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
+					`update derived_value set value = value || jsonb_build_object(${input.tracked ? `'nextTrackedAiringAt', ${at}::text, ` : ""}'nextAiringAt', ${at}::text) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
 				),
 			]),
 		);

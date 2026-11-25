@@ -14,7 +14,7 @@ import { Effect, Result } from "effect";
 import { libraryLinkExists, libraryLinkSource } from "../shared/entity-selections";
 import {
 	insertEntities,
-	insertRelationships,
+	insertEpisodicTitle,
 	linkToLibrary,
 	mediaDatabaseLayer,
 	mediaPluginId,
@@ -162,62 +162,17 @@ const evaluate = (slug: string, user: MediaUser) =>
 		return { next: signalScheduleNext, due: signalScheduleDue.items };
 	});
 
-const episodes = (
-	parent: string,
-	kind: "show" | "podcast",
-	items: ReadonlyArray<{ readonly id: string; readonly days: number; readonly season?: number }>,
-) =>
-	Effect.gen(function* () {
-		const seasons = [...new Set(items.map(({ season }) => season ?? 1))];
-		yield* insertEntities([
-			{ id: parent, slug: kind },
-			...(kind === "show"
-				? seasons.map((season) => ({
-						slug: "show-season",
-						id: `${parent}-s${season}`,
-						properties: { seasonNumber: season },
-					}))
-				: []),
-			...items.map(({ id, days }, index) => ({
-				id,
-				slug: `${kind}-episode`,
-				publishDate: utcDay(days),
-				properties: { episodeNumber: index + 1 },
-			})),
-		]);
-		yield* insertRelationships(
-			kind === "show"
-				? [
-						...seasons.map((season) => ({
-							source: parent,
-							slug: "show-to-show-season",
-							target: `${parent}-s${season}`,
-						})),
-						...items.map(({ id, season }) => ({
-							target: id,
-							slug: "show-season-to-show-episode",
-							source: `${parent}-s${season ?? 1}`,
-						})),
-					]
-				: items.map(({ id }) => ({
-						target: id,
-						source: parent,
-						slug: "podcast-to-podcast-episode",
-					})),
-		);
-	});
-
 const name = (entityName: string) => ({ entityName });
 
 const seedSchedules = Effect.gen(function* () {
-	yield* episodes("watched-show", "show", [
+	yield* insertEpisodicTitle("watched-show", "show", [
 		{ days: -1, id: "watched-show-e1" },
 		{ days: 5, id: "watched-show-e2" },
 		{ days: 1, season: 0, id: "watched-show-special" },
 	]);
-	yield* episodes("quiet-show", "show", [{ days: 1, id: "quiet-show-e1" }]);
-	yield* episodes("foreign-show", "show", [{ days: 1, id: "foreign-show-e1" }]);
-	yield* episodes("watched-podcast", "podcast", [{ days: 2, id: "watched-podcast-e1" }]);
+	yield* insertEpisodicTitle("quiet-show", "show", [{ days: 1, id: "quiet-show-e1" }]);
+	yield* insertEpisodicTitle("foreign-show", "show", [{ days: 1, id: "foreign-show-e1" }]);
+	yield* insertEpisodicTitle("watched-podcast", "podcast", [{ days: 2, id: "watched-podcast-e1" }]);
 	yield* insertEntities([
 		{
 			slug: "anime",

@@ -673,6 +673,55 @@ export const episodeDisplayStateExpression = (
 	);
 };
 
+/**
+ * Counts one parent row's regular episodes: the upcoming ones, or the aired (required) ones,
+ * optionally narrowed to a display state.
+ */
+const episodicEpisodeCount = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+	filter?: "upcoming" | "complete" | "in_progress",
+) => {
+	const episode = table("entity", `${alias}Episode`);
+	const { joins, where } = episodicEpisodeQuery(
+		config,
+		parent,
+		episode,
+		alias,
+		filter === "upcoming" ? "upcoming" : "aired",
+	);
+	return count(episode, {
+		joins,
+		where:
+			filter === undefined || filter === "upcoming"
+				? where
+				: and(
+						where,
+						eq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal(filter)),
+					),
+	});
+};
+
+export type EpisodicEpisodeCounts = Readonly<
+	Record<
+		"airedEpisodes" | "watchedEpisodes" | "upcomingEpisodes" | "inProgressEpisodes",
+		ScalarExpression
+	>
+>;
+
+/** A parent's aired and upcoming regular episodes, and the aired ones watched or in progress. */
+export const episodicEpisodeCounts = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+): EpisodicEpisodeCounts => ({
+	airedEpisodes: episodicEpisodeCount(config, parent, `${alias}Aired`),
+	watchedEpisodes: episodicEpisodeCount(config, parent, `${alias}Watched`, "complete"),
+	upcomingEpisodes: episodicEpisodeCount(config, parent, `${alias}Upcoming`, "upcoming"),
+	inProgressEpisodes: episodicEpisodeCount(config, parent, `${alias}Progress`, "in_progress"),
+});
+
 const showPositionIsAfterAnchor = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
