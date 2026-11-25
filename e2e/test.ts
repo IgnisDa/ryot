@@ -26,7 +26,7 @@ BunRuntime.runMain(
 			if (!expandedArgs.some((argument) => argument.endsWith(".test.ts"))) {
 				return yield* Effect.die(new Error("Select specific e2e .test.ts files"));
 			}
-			const env = yield* setup;
+			const env = yield* setup(expandedArgs);
 			const groups = [true, false]
 				.map((pages) =>
 					expandedArgs.filter(

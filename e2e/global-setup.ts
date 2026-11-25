@@ -20,7 +20,7 @@ const S3_BUCKET_NAME = "ryot-test";
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 
-export default Effect.gen(function* () {
+export default Effect.fn(function* (args: readonly string[]) {
 	const resources = yield* Effect.acquireRelease(
 		Effect.sync(makeTestResourceScope),
 		(acquired) => acquired.close,
@@ -53,9 +53,7 @@ export default Effect.gen(function* () {
 						"--filter=@ryot-app/fitness-plugin",
 						"--filter=@ryot-app/fixture-plugin",
 						"--filter=@ryot-app/sandbox",
-						...(process.argv
-							.slice(2)
-							.some((file) => /(?:^|\/)api\/website\/.+\.test\.ts$/.test(file))
+						...(args.some((file) => /(?:^|\/)api\/website\/.+\.test\.ts$/.test(file))
 							? ["--filter=@ryot-app/website"]
 							: []),
 					],
