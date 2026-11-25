@@ -393,22 +393,49 @@ layer(mediaDatabaseLayer("media_library_summary"))((test) => {
 	);
 
 	test.effect(
-		"presents titles outside the user's library as untracked with live airing counts",
+		"presents titles outside the user's library live when the user has history on them, and untracked otherwise",
 		() =>
 			Effect.gen(function* () {
-				yield* insertEpisodicTitle("elsewhere", "show", [
-					{ days: -5, id: "elsewhere-e1" },
-					{ days: 5, id: "elsewhere-e2" },
-				]);
-				yield* linkToLibrary("other", "in-media-library", ["elsewhere"]);
+				for (const title of ["elsewhere", "sessionless", "unwatched"]) {
+					yield* insertEpisodicTitle(title, "show", [
+						{ days: -5, id: `${title}-e1` },
+						{ days: 5, id: `${title}-e2` },
+					]);
+				}
+				yield* linkToLibrary("other", "in-media-library", ["elsewhere", "unwatched"]);
 				yield* insertEvents([
 					...watch("complete", "elsewhere", ["elsewhere-e1"], -4, "other"),
 					...watch("complete", "elsewhere", ["elsewhere-e1"], -4),
+					...watch("complete", "unwatched", ["unwatched-e1"], -4, "other"),
+					{
+						slug: "complete",
+						occurredAt: utcDay(-4),
+						entityId: "sessionless-e1",
+						id: "complete:owner:sessionless-e1",
+					},
 				]);
 				yield* foldLibrarySummary("other", "elsewhere", "show");
-				expect(yield* presented("owner", "show", ["elsewhere"])).toEqual([
+				expect(
+					yield* expectLive("owner", "show", ["elsewhere", "sessionless", "unwatched"]),
+				).toEqual([
 					{
 						id: "elsewhere",
+						airedEpisodes: 1,
+						state: "caught_up",
+						watchedEpisodes: 1,
+						upcomingEpisodes: 1,
+						inProgressEpisodes: 0,
+					},
+					{
+						airedEpisodes: 1,
+						id: "sessionless",
+						state: "untracked",
+						watchedEpisodes: 1,
+						upcomingEpisodes: 1,
+						inProgressEpisodes: 0,
+					},
+					{
+						id: "unwatched",
 						airedEpisodes: 1,
 						state: "untracked",
 						watchedEpisodes: 0,

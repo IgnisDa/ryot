@@ -56,7 +56,6 @@ import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
-	libraryLinkExists,
 	propertyBoolean,
 	propertyJson,
 	propertyNumber,
@@ -74,6 +73,7 @@ import {
 	type EpisodicEpisodeCounts,
 	episodicEpisodeCounts,
 	episodicEpisodeQuery,
+	episodicHistoryExists,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
@@ -1082,17 +1082,17 @@ export const mediaEpisodicRecipes = <
 			name,
 			(row) => episodicEpisodeCounts(config.config, row, `${config.alias}Presentation`)[name],
 		);
-	const presentationInLibrary = libraryLinkExists(
+	const presentationHistory = episodicHistoryExists(
+		config.config,
 		presentationEntity,
-		`${config.alias}PresentationLibrary`,
-		"in-media-library",
+		`${config.alias}PresentationHistory`,
 	);
 	const storedPresentationCount = (name: "airedEpisodes" | "upcomingEpisodes") =>
 		currentLibrarySummaryValue(presentationEntity, name);
 	const ownPresentationCount = (name: "watchedEpisodes" | "inProgressEpisodes") =>
 		coalesce(
 			libraryProgressSummaryValue(presentationEntity, name),
-			conditional(presentationInLibrary, presentationCount(name), literal(0)),
+			conditional(presentationHistory, presentationCount(name), literal(0)),
 		);
 	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
@@ -1101,7 +1101,7 @@ export const mediaEpisodicRecipes = <
 				coalesce(
 					libraryProgressSummaryValue(presentationEntity, "lifecycleState"),
 					conditional(
-						presentationInLibrary,
+						presentationHistory,
 						presentationLive(
 							"State",
 							(row) =>

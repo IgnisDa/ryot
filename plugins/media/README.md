@@ -757,8 +757,10 @@ computed live. An airing changes them without a fold, so once the summary's next
 aired and upcoming counts and the next-up episode are computed live. The state and the completed and
 in-progress counts change only if the user has progress on the episode that airs, so they stay
 stored until the summary's next tracked airing passes.
-Titles outside the library present as untracked with no completed or in-progress episodes; their
-aired and upcoming counts are live.
+Titles outside the library, and library titles whose stored state and counts do not apply, compute
+those live only when the user has an event the live computation reads: one in the title's session,
+or a progress or completion of one of its aired regular episodes. Otherwise they present as untracked
+with no completed or in-progress episodes. Outside the library, aired and upcoming counts are live.
 
 The fold replays history in order, resetting coverage at each explicit or automatic cycle boundary. A
 new Show or Podcast completion requires a terminal production status (`Ended`, `Canceled`, or

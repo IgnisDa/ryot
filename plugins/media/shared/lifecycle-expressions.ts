@@ -14,6 +14,7 @@ import {
 	descending,
 	divide,
 	eq,
+	exists,
 	first,
 	gt,
 	inArray,
@@ -721,6 +722,43 @@ export const episodicEpisodeCounts = (
 	upcomingEpisodes: episodicEpisodeCount(config, parent, `${alias}Upcoming`, "upcoming"),
 	inProgressEpisodes: episodicEpisodeCount(config, parent, `${alias}Progress`, "in_progress"),
 });
+
+/**
+ * Whether the user has an event `episodicLifecycleExpressions` or the watched and in-progress
+ * `episodicEpisodeCounts` read for `parent`: one in its session, or a progress or completion of one
+ * of its aired regular episodes. Without one, its state is untracked and both counts are zero.
+ */
+export const episodicHistoryExists = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+) => {
+	const sessionEvent = table("event", `${alias}Session`);
+	const episode = table("entity", `${alias}Episode`);
+	const episodeEvent = table("event", `${alias}EpisodeEvent`);
+	const aired = episodicEpisodeQuery(config, parent, episode, `${alias}Episode`);
+	return or(
+		exists(sessionEvent, {
+			where: and(
+				eq(column(sessionEvent, "sessionEntityId"), column(parent, "id")),
+				sameSchemaOwner(sessionEvent, "eventSchemaPluginId", parent),
+			),
+		}),
+		exists(episode, {
+			joins: aired.joins,
+			where: and(
+				aired.where,
+				exists(episodeEvent, {
+					where: and(
+						eq(column(episodeEvent, "entityId"), column(episode, "id")),
+						sameSchemaOwner(episodeEvent, "eventSchemaPluginId", episode),
+						eventSlugIsOneOf(episodeEvent, lifecycleEventSlugs),
+					),
+				}),
+			),
+		}),
+	);
+};
 
 const showPositionIsAfterAnchor = (
 	config: EpisodicKindConfig,
