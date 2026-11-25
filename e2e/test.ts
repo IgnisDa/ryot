@@ -10,13 +10,26 @@ BunRuntime.runMain(
 	Effect.scoped(
 		Effect.gen(function* () {
 			const args = process.argv.slice(2);
-			if (!args.some((argument) => argument.endsWith(".test.ts"))) {
+			const expandedArgs = args.includes("ALL")
+				? [
+						...Array.from(
+							new Bun.Glob("**/*.test.ts").scanSync({
+								cwd: "src",
+								onlyFiles: true,
+								followSymlinks: false,
+							}),
+							(argument) => `src/${argument}`,
+						),
+						...args.filter((argument) => argument !== "ALL"),
+					]
+				: args;
+			if (!expandedArgs.some((argument) => argument.endsWith(".test.ts"))) {
 				return yield* Effect.die(new Error("Select specific e2e .test.ts files"));
 			}
 			const env = yield* setup;
 			const groups = [true, false]
 				.map((pages) =>
-					args.filter(
+					expandedArgs.filter(
 						(argument) =>
 							!argument.endsWith(".test.ts") ||
 							/(?:^|\/)(?:browser|api\/kernel\/pages)\//.test(argument) === pages,
