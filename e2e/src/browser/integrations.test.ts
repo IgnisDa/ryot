@@ -96,7 +96,7 @@ it.live("connects, edits and deletes an integration from settings", () =>
 
 			yield* page.getByRole("button", { name: "Integration actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete integration" }).click();
-			const confirmation = page.getByRole("dialog");
+			const confirmation = page.getByRole("alertdialog", { name: "Delete this integration?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByRole("button", { name: "Delete integration" }).click();
 

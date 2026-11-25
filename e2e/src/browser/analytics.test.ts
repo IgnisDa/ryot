@@ -10,6 +10,7 @@ import {
 } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { listInstalledPlugins, updatePluginState } from "~/fixtures/kernel/plugins";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -28,13 +29,28 @@ const hasAnalyticsLocation = (
 	);
 };
 
+const decodeReportingSelection = Schema.decodeUnknownEffect(
+	Schema.fromJsonString(ReportingSelection),
+);
+const equivalentReportingSelections = Schema.toEquivalence(ReportingSelection);
+
 const expectReportingSelection = Effect.fn(function* (
 	frame: Playwright.FrameLocator,
 	selection: ReportingSelection,
 ) {
 	expect(
-		yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ReportingSelection))(
-			yield* frame.getByTestId("analytics-selection").textContent(),
+		yield* pollUntil(
+			"contributor reporting selection",
+			frame
+				.getByTestId("analytics-selection")
+				.textContent()
+				.pipe(
+					Effect.flatMap(decodeReportingSelection),
+					Effect.map((current) =>
+						equivalentReportingSelections(current, selection) ? current : null,
+					),
+				),
+			30_000,
 		),
 	).toEqual(selection);
 });

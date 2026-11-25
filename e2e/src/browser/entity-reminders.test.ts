@@ -23,6 +23,13 @@ import { getFrontendUrl } from "~/support/harness-target";
 
 const visible = (locator: Playwright.Locator) => locator.waitFor({ state: "visible" });
 
+const chooseUtc = (page: Playwright.Page, editor: Playwright.Locator) =>
+	Effect.gen(function* () {
+		yield* editor.getByRole("combobox", { name: /^Timezone:/ }).click();
+		yield* page.getByRole("combobox", { exact: true, name: "Search Timezone" }).fill("UTC");
+		yield* page.getByRole("option", { exact: true, name: "UTC" }).click();
+	});
+
 /** A UTC wall time in whole minutes, the form a `datetime-local` input keeps as entered. */
 const scheduleAfter = (now: DateTime.Utc, offsetMillis: number) => {
 	const wallTime = DateTime.formatIso(DateTime.addDuration(now, offsetMillis)).slice(0, 16);
@@ -92,10 +99,7 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		yield* visible(editor);
 		yield* editor.getByLabel("Message", { exact: true }).fill(message);
 		yield* editor.getByLabel("Date and time", { exact: true }).fill(wallTime);
-		yield* editor.getByRole("button", { name: /^Timezone:/ }).click();
-		const timezones = page.getByRole("dialog", { exact: true, name: "Timezone" });
-		yield* timezones.getByLabel("Search Timezone", { exact: true }).fill("UTC");
-		yield* timezones.getByRole("radio", { exact: true, name: "UTC" }).click();
+		yield* chooseUtc(page, editor);
 		yield* editor.getByRole("button", { exact: true, name: "Schedule reminder" }).click();
 		yield* editor.waitFor({ state: "hidden" });
 		yield* visible(host.getByText(message, { exact: true }));
@@ -140,7 +144,7 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		const travelEditor = travelPage.getByRole("dialog", { exact: true, name: "Edit reminder" });
 		yield* visible(travelEditor);
 		expect(
-			yield* travelEditor.getByRole("button", { exact: true, name: "Timezone: UTC" }).isVisible(),
+			yield* travelEditor.getByRole("combobox", { exact: true, name: "Timezone: UTC" }).isVisible(),
 		).toBe(true);
 		yield* travelEditor.getByRole("button", { exact: true, name: "Save reminder" }).click();
 		yield* travelEditor.waitFor({ state: "hidden" });
@@ -249,10 +253,7 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		expect(yield* dateTimeField.inputValue()).toBe("");
 
 		const { dueAt, wallTime } = scheduleAfter(yield* DateTime.now, 172_800_000);
-		yield* editor.getByRole("button", { name: /^Timezone:/ }).click();
-		const timezones = page.getByRole("dialog", { exact: true, name: "Timezone" });
-		yield* timezones.getByLabel("Search Timezone", { exact: true }).fill("UTC");
-		yield* timezones.getByRole("radio", { exact: true, name: "UTC" }).click();
+		yield* chooseUtc(page, editor);
 		yield* dateTimeField.fill(wallTime);
 		yield* editor.getByRole("button", { exact: true, name: "Schedule reminder" }).click();
 		yield* editor.waitFor({ state: "hidden" });

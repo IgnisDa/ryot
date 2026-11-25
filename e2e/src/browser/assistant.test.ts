@@ -128,8 +128,8 @@ it.live(
 			).toEqual([{ writeAccess: false, publishedRevision: 2 }]);
 			yield* dialog.getByRole("button", { exact: true, name: "Share" }).click();
 			yield* dialog.getByRole("textbox", { exact: true, name: "Title" }).fill("Snapshot recap");
-			yield* dialog.getByRole("button", { name: /^Mode:/ }).click();
-			yield* owner.getByRole("radio", { exact: true, name: "Snapshot" }).click();
+			yield* dialog.getByRole("combobox", { name: /^Mode:/ }).click();
+			yield* owner.getByRole("option", { exact: true, name: "Snapshot" }).click();
 			yield* dialog.getByRole("button", { exact: true, name: "Publish" }).click();
 			const publication = yield* pollUntil(
 				"snapshot publication",

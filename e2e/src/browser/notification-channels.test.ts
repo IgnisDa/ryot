@@ -93,7 +93,7 @@ it.live("adds, pauses, tests and deletes a notification channel", () =>
 			expect(yield* row.innerText()).toContain("Paused");
 
 			yield* page.getByRole("button", { name: "Delete the Discord channel" }).click();
-			const confirmation = page.getByRole("dialog");
+			const confirmation = page.getByRole("alertdialog", { name: "Delete the Discord channel?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByRole("button", { name: "Delete channel" }).click();
 
