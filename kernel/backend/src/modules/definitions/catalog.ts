@@ -2,6 +2,10 @@ import {
 	dataJsonImportInputSchema,
 	dataJsonIntegrationSettingsSchema,
 } from "@ryot-app/contract/modules/imports/data-json";
+import {
+	type AuthoredAppSchema,
+	stampAppSchema,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
 import { resolvePluginDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
@@ -139,7 +143,7 @@ type ProviderOperationRow = typeof schema.definitionProviderOperation.$inferSele
 		readonly kind: null | string;
 		readonly providerId: null | string;
 		readonly providerOperation: null | string;
-		readonly searchOptionsSchema: null | AppSchema;
+		readonly searchOptionsSchema: null | AuthoredAppSchema;
 	};
 };
 
@@ -654,7 +658,7 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 									scriptId: schema.sandboxScript.id,
 									scriptProviderId: schema.sandboxScript.providerId,
 									scriptKind: sql<null | string>`${schema.sandboxScript.metadata} ->> 'kind'`,
-									scriptSearchOptionsSchema: sql<null | AppSchema>`${schema.sandboxScript.metadata} -> 'searchOptionsSchema'`,
+									scriptSearchOptionsSchema: sql<null | AuthoredAppSchema>`${schema.sandboxScript.metadata} -> 'searchOptionsSchema'`,
 									scriptProviderOperation: sql<
 										null | string
 									>`${schema.sandboxScript.metadata} ->> 'providerOperation'`,
@@ -886,7 +890,10 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 								pluginId: row.pluginId,
 								packageId: plugin.packageId,
 								operation: declared.operation,
-								optionsSchema: declared.operation === "search" ? script.searchOptionsSchema : null,
+								optionsSchema:
+									declared.operation === "search" && script.searchOptionsSchema !== null
+										? stampAppSchema(row.pluginId, script.searchOptionsSchema)
+										: null,
 							});
 						}
 					}
