@@ -4,8 +4,7 @@ export const FRONTEND_AUTH_COOKIE_NAME = "Auth";
 export const redirectToQueryParam = "redirectTo";
 export const CURRENT_WORKOUT_KEY = "CurrentWorkout";
 export const PRO_REQUIRED_MESSAGE = "Ryot pro is required to use this feature";
-export const LOGO_IMAGE_URL =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
+export const LOGO_IMAGE_URL = "https://ryot.io/icon.png";
 
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh", "3xl": "65vh", "4xl": "75vh" };
 

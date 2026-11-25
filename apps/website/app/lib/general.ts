@@ -7,9 +7,7 @@ import { configDataSchema } from "./config";
 
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
-// TODO: Use a URL like https://ryot.op/icon.png and update upstream including paddle and polar
-export const logoUrl =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
+export const logoUrl = "/icon.png";
 
 export const initializePaddleForApplication = (
 	clientToken: string,

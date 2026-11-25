@@ -10,8 +10,7 @@ import { EgressDenied, RequirePublicHttps } from "#platform/egress/http-client";
 const PROJECT_NAME = "Ryot";
 const HTTP_TIMEOUT_MS = 10_000;
 const PUSHOVER_DEFAULT_APP_TOKEN = "abd1semr21hv1i5j5kfkm23wf1kd4u";
-const AVATAR_URL =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
+const AVATAR_URL = "https://ryot.io/icon.png";
 
 const NotificationDeliveryOutcome = Schema.Literals(["failed", "unknown", "skipped"]);
 

@@ -43,7 +43,7 @@ export default defineConfig({
 		siteTitle: "Ryot",
 		search: { provider: "local" },
 		socialLinks: [{ icon: "github", link: "https://github.com/ignisda/ryot" }],
-		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png",
+		logo: "https://ryot.io/icon.png",
 		sidebar: [
 			{ link: "/", text: "Installation" },
 			{ text: "Configuration", link: "/configuration" },
