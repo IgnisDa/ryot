@@ -23,7 +23,6 @@ import {
 	literal,
 	lte,
 	maximum,
-	minimum,
 	not,
 	or,
 	parameters,
@@ -44,10 +43,11 @@ import type { Table } from "./entity-selections";
 import {
 	type EpisodicEpisodeCounts,
 	episodicEpisodeCounts,
-	episodicEpisodeQuery,
+	episodicEpisodeWalk,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
+	episodicNewCycleJoin,
 	episodicNextUpId,
 	eventSlugIsOneOf,
 	lifecycleEventSlugs,
@@ -145,31 +145,6 @@ const sharedSummarySelection = (entity: Table) => {
 	};
 };
 
-const nextAiringAt = (config: EpisodicKindConfig, parent: Table) => {
-	const episode = table("entity", "summaryUpcoming");
-	const upcoming = episodicEpisodeQuery(config, parent, episode, "summaryUpcoming", "upcoming");
-	return minimum(episode, publishDate(episode), { joins: upcoming.joins, where: upcoming.where });
-};
-
-const nextTrackedAiringAt = (config: EpisodicKindConfig, parent: Table) => {
-	const episode = table("entity", "summaryTracked");
-	const event = table("event", "summaryTrackedEvent");
-	const upcoming = episodicEpisodeQuery(config, parent, episode, "summaryTracked", "upcoming");
-	return minimum(episode, publishDate(episode), {
-		joins: upcoming.joins,
-		where: and(
-			upcoming.where,
-			exists(event, {
-				where: and(
-					eq(column(event, "entityId"), column(episode, "id")),
-					sameSchemaOwner(event, "eventSchemaPluginId", episode),
-					eventSlugIsOneOf(event, lifecycleEventSlugs),
-				),
-			}),
-		),
-	});
-};
-
 export type LibrarySummaryKind = "flat" | "other" | EpisodicKindConfig;
 
 const flatSlugs = new Set<string>(flatMediaSchemaSlugs);
@@ -189,6 +164,7 @@ const noEpisodeCounts: EpisodicEpisodeCounts = {
 const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "other") {
 		return {
+			joins: [],
 			nextUp: literal(null),
 			activity: literal(null),
 			counts: noEpisodeCounts,
@@ -200,6 +176,7 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "flat") {
 		const lifecycle = mediaLifecycleExpressions(entity, "summaryLifecycle");
 		return {
+			joins: [],
 			nextUp: literal(null),
 			state: lifecycle.state,
 			counts: noEpisodeCounts,
@@ -208,14 +185,27 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 			activity: lifecycle.latestSignal.occurredAt,
 		};
 	}
-	const lifecycle = episodicLifecycleExpressions(kind, entity, "summaryLifecycle");
+	const lifecycle = episodicLifecycleExpressions(kind, entity, "summary");
+	const cycle = episodicNewCycleJoin(entity, "summaryCycle");
+	const upcoming = episodicEpisodeWalk(kind, entity, "summaryUpcoming", "upcoming");
+	const event = table("event", "summaryTrackedEvent");
+	const tracked = exists(event, {
+		where: and(
+			eq(column(event, "entityId"), column(upcoming.episode, "id")),
+			sameSchemaOwner(event, "eventSchemaPluginId", upcoming.episode),
+			eventSlugIsOneOf(event, lifecycleEventSlugs),
+		),
+	});
 	return {
+		joins: [cycle.join],
 		state: lifecycle.state,
-		nextAiringAt: nextAiringAt(kind, entity),
 		activity: lifecycle.latestSignal.occurredAt,
-		nextTrackedAiringAt: nextTrackedAiringAt(kind, entity),
-		nextUp: episodicNextUpId(kind, entity, "summaryNextUp"),
-		counts: episodicEpisodeCounts(kind, entity, "summaryCount"),
+		nextAiringAt: upcoming.minimum(publishDate(upcoming.episode)),
+		counts: episodicEpisodeCounts(kind, entity, "summary", cycle.newCycle),
+		nextUp: episodicNextUpId(kind, entity, "summaryNextUp", cycle.newCycle),
+		nextTrackedAiringAt: upcoming.minimum(
+			conditional(tracked, publishDate(upcoming.episode), literal(null)),
+		),
 	};
 };
 export const librarySummaryEntitiesRecipe = (() => {
@@ -279,6 +269,7 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 		queries: {
 			items: selectedRows(entity, {
 				limit: 100,
+				joins: lifecycle.joins,
 				orderBy: [ascending(column(entity, "id"))],
 				where: inArray(column(entity, "id"), summaryParameters.list("entityIds")),
 				selection: {

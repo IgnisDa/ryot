@@ -273,15 +273,32 @@ describe("episodic media recipes", () => {
 	});
 
 	it("resolves next up forward past an anchor for a show and newest first for a podcast", () => {
-		const show = nextUpOf(nestedRecipes);
-		const podcast = nextUpOf(fixtureRecipes);
+		const candidates = (recipes: typeof nestedRecipes | typeof fixtureRecipes) => {
+			const nextUp = nextUpOf(recipes);
+			expect(nextUp.limit).toBe(1);
+			if (nextUp.where?.type !== "comparison" || nextUp.where.right.type !== "coalesce") {
+				throw new Error("Expected next up by its in-progress or following episode ID");
+			}
+			return nextUp.where.right.values.map((value) => {
+				if (value.type !== "first") {
+					throw new Error("Expected a first episode ID");
+				}
+				return value;
+			});
+		};
+		const show = candidates(nestedRecipes);
+		const podcast = candidates(fixtureRecipes);
 
-		expect(show.limit).toBe(1);
-		expect(podcast.limit).toBe(1);
-		expect(show.orderBy.map((order) => order.direction)).toEqual(["asc", "asc", "asc", "asc"]);
-		expect(podcast.orderBy.map((order) => order.direction)).toEqual(["asc", "desc", "desc"]);
-		expect(JSON.stringify(show.where)).toContain('"alias":"nextUpAnchor"');
-		expect(JSON.stringify(podcast.where)).not.toContain('"alias":"nextUpAnchor"');
+		expect(show.map(({ orderBy }) => orderBy.map((order) => order.direction))).toEqual([
+			["asc", "asc", "asc"],
+			["asc", "asc", "asc"],
+		]);
+		expect(podcast.map(({ orderBy }) => orderBy.map((order) => order.direction))).toEqual([
+			["desc", "desc"],
+			["desc", "desc"],
+		]);
+		expect(JSON.stringify(show[1])).toContain('"alias":"nextUpAnchor"');
+		expect(JSON.stringify(podcast[1])).not.toContain('"alias":"nextUpAnchor"');
 	});
 
 	it("counts only aired regular episodes and reports the unaired ones as upcoming", () => {
