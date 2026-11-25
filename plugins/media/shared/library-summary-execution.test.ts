@@ -21,6 +21,7 @@ import {
 	insertEvents,
 	insertRelationships,
 	linkToLibrary,
+	markLibrarySummary,
 	mediaDatabaseLayer,
 	type MediaEvent,
 	mediaReference,
@@ -355,6 +356,40 @@ layer(mediaDatabaseLayer("media_library_summary"))((test) => {
 				},
 			]);
 		}),
+	);
+
+	test.effect(
+		"presents live state, counts and next episodes while a stale summary is pending or failed",
+		() =>
+			Effect.gen(function* () {
+				yield* insertEpisodicTitle("queued", "show", [
+					{ days: -9, id: "queued-e1" },
+					{ days: -6, id: "queued-e2" },
+					{ days: -3, id: "queued-e3" },
+				]);
+				yield* linkToLibrary("owner", "in-media-library", ["queued"]);
+				yield* insertEvents(watch("complete", "queued", ["queued-e1"], -8));
+				yield* foldLibrarySummary("owner", "queued", "show");
+				yield* insertEvents(watch("complete", "queued", ["queued-e2"], -5));
+				expect((yield* presented("owner", "show", ["queued"]))[0]).toMatchObject({
+					watchedEpisodes: 1,
+				});
+				expect(yield* listedNextUp("owner", "show", "queued")).toBe("queued-e2");
+				for (const status of ["pending", "failed"] as const) {
+					yield* markLibrarySummary("owner", "queued", status);
+					expect(yield* expectLive("owner", "show", ["queued"])).toEqual([
+						{
+							id: "queued",
+							airedEpisodes: 3,
+							watchedEpisodes: 2,
+							upcomingEpisodes: 0,
+							state: "in_progress",
+							inProgressEpisodes: 0,
+						},
+					]);
+					expect(yield* expectNextUpLive("owner", "show", "queued")).toBe("queued-e3");
+				}
+			}),
 	);
 
 	test.effect(

@@ -3,6 +3,7 @@ import {
 	and,
 	ascending,
 	castDate,
+	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -24,6 +25,7 @@ import {
 	maximum,
 	minimum,
 	not,
+	or,
 	parameters,
 	type Recipe,
 	selectedField,
@@ -356,6 +358,10 @@ const summaryNextAiringPassed = (membership: Table) =>
 const summaryTrackedAiringPassed = (membership: Table) =>
 	lte(castDate(summaryRead(membership, "nextTrackedAiringAt")), currentDate());
 
+/** The summary is folded; a pending or failed one keeps its last output until a fold writes. */
+const summaryReady = (membership: Table) =>
+	eq(column(membership, "projectionStatus"), literal("ready"));
+
 /**
  * Library summary values read from a `in-media-library` relationship's projection. A pending
  * projection reads as null. A caught-up title whose next episode has aired reads as in progress.
@@ -424,38 +430,62 @@ export const libraryMembershipValue = (
 };
 
 /**
+ * A value read from `entity`'s own `in-media-library` link while its summary is ready: null outside
+ * the library and while the summary is pending or failed, which keeps the output of its last fold.
+ * An aggregate, not `first`, so a row's values fuse into one read of the link and its status.
+ */
+const readyLibrarySummaryValue = (entity: Table, read: (membership: Table) => ScalarExpression) => {
+	const membership = table("relationship", "readySummaryMembership");
+	return maximum(membership, read(membership), {
+		where: and(
+			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+			sameSchemaOwner(membership, "relationshipSchemaPluginId", entity),
+			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+			summaryReady(membership),
+		),
+	});
+};
+
+/**
  * The user's own stored progress on `entity`, through its `in-media-library` link: the lifecycle
  * state, corrected like `librarySummary`, and the completed and in-progress episode counts. An airing
  * changes them only when the user has progress on the episode, so they hold until such an episode
- * airs; null outside the library, while the summary is pending, and after that.
+ * airs; null outside the library, while the summary is pending or failed, and after that.
  */
 export const libraryProgressSummaryValue = (
 	entity: Table,
 	name: "lifecycleState" | "watchedEpisodes" | "inProgressEpisodes",
 ) =>
-	libraryMembershipValue(entity, (membership) =>
+	readyLibrarySummaryValue(entity, (membership) =>
 		conditional(
 			summaryTrackedAiringPassed(membership),
 			literal(null),
 			name === "lifecycleState"
 				? librarySummary(membership).lifecycleState
-				: summaryRead(membership, name),
+				: castNumber(summaryRead(membership, name)),
 		),
 	);
 
 /**
- * A stored summary value of `entity`'s own `in-media-library` link while it still holds: null
- * outside the library, while the summary is pending, and once an episode it counted as upcoming has
- * aired, since airing changes the state and counts without a fold.
+ * A stored episode count of `entity`'s own `in-media-library` link while it still holds: null
+ * outside the library, while the summary is pending or failed, and once an episode it counted as
+ * upcoming has aired, since airing changes the counts without a fold.
  */
-export const currentLibrarySummaryValue = (entity: Table, name: string) =>
-	libraryMembershipValue(entity, (membership) =>
-		conditional(summaryNextAiringPassed(membership), literal(null), summaryRead(membership, name)),
+export const currentLibrarySummaryValue = (
+	entity: Table,
+	name: "airedEpisodes" | "upcomingEpisodes",
+) =>
+	readyLibrarySummaryValue(entity, (membership) =>
+		conditional(
+			summaryNextAiringPassed(membership),
+			literal(null),
+			castNumber(summaryRead(membership, name)),
+		),
 	);
 
 /**
- * The ID of the episode the user watches next in the title `membership` links: the stored one
- * until an episode the summary counted as upcoming airs, then resolved live.
+ * The ID of the episode the user watches next in the title `membership` links: the stored one while
+ * the summary is ready and no episode it counted as upcoming has aired, otherwise resolved live.
  */
 export const libraryNextUpEpisodeId = (
 	config: EpisodicKindConfig,
@@ -464,7 +494,7 @@ export const libraryNextUpEpisodeId = (
 	alias: string,
 ) =>
 	conditional(
-		summaryNextAiringPassed(membership),
+		or(not(summaryReady(membership)), summaryNextAiringPassed(membership)),
 		episodicNextUpId(config, parent, alias),
 		castText(summaryRead(membership, "nextUpEpisodeId")),
 	);

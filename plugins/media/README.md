@@ -750,11 +750,13 @@ the completions to change, one contribution per consumption event, the library s
 The library summary holds the lifecycle state, release date and latest activity, and for a Show or
 Podcast its next airing, its aired, upcoming, completed and in-progress regular-episode counts, and
 its next-up episode. Show and Podcast card presentations read the state and counts from it, and
-lifecycle lists read the next-up episode, while its next airing is still ahead. An airing changes
-them without a fold, so once it passes the aired and upcoming counts and the next-up episode are
-computed live. The state and the completed and in-progress counts change only if the user has
-progress on the episode that airs, so they stay stored until the summary's next tracked airing passes.
-While the summary is pending, all are computed live.
+lifecycle lists read the next-up episode, only while the link's projection status is `ready`. A
+background-lane write leaves the summary `pending` with its last output until its fold job writes,
+and a failed job leaves it `failed`, so while the summary is pending, failed or missing they are
+computed live. An airing changes them without a fold, so once the summary's next airing passes, the
+aired and upcoming counts and the next-up episode are computed live. The state and the completed and
+in-progress counts change only if the user has progress on the episode that airs, so they stay
+stored until the summary's next tracked airing passes.
 Titles outside the library present as untracked with no completed or in-progress episodes; their
 aired and upcoming counts are live.
 

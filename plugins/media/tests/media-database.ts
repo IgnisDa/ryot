@@ -107,6 +107,16 @@ const seed = Effect.gen(function* () {
 						name: { key: slug, namespace: "media" },
 					})),
 				);
+			yield* db
+				.insert(tables.definitionRelationshipSchema)
+				.values({
+					position: 0,
+					slug: "in-media-library",
+					propertiesSchema: { fields: {} },
+					pluginRevisionId: "media-revision",
+					projection: { propertiesSchema: { fields: {} } },
+					name: { namespace: "media", key: "in-media-library" },
+				});
 			yield* db.execute(
 				`update plugin set status = 'active', active_revision_id = 'media-revision' where id = '${mediaPluginId}'`,
 			);
@@ -313,7 +323,13 @@ export const executeRecipe = <Success, Parameters extends AuthoredAppSchema>(
 		return Result.getOrThrow(recipe.decode(response));
 	});
 
-/** Stores `value` as the user's `in-media-library` summary for `entityId`. */
+const derivedValueKey = [
+	tables.derivedValue.userId,
+	tables.derivedValue.kind,
+	tables.derivedValue.targetId,
+];
+
+/** Stores `value` as the user's `in-media-library` summary for `entityId`, folded and ready. */
 export const storeLibrarySummary = (
 	user: MediaUser,
 	entityId: string,
@@ -321,26 +337,46 @@ export const storeLibrarySummary = (
 ) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const row = {
+			userId: user,
+			pluginId: mediaPluginId,
+			subjectEntityId: entityId,
+			pluginRevisionId: "media-revision",
+		};
 		yield* session.run((db) =>
-			db
-				.insert(tables.derivedValue)
-				.values({
-					value,
-					userId: user,
-					kind: "relationship",
-					pluginId: mediaPluginId,
-					subjectEntityId: entityId,
-					pluginRevisionId: "media-revision",
-					targetId: linkId(user, entityId, "in-media-library"),
-				})
-				.onConflictDoUpdate({
-					set: { value },
-					target: [
-						tables.derivedValue.userId,
-						tables.derivedValue.kind,
-						tables.derivedValue.targetId,
-					],
-				}),
+			Effect.all([
+				db
+					.insert(tables.derivedValue)
+					.values({ ...row, value: {}, kind: "subject", status: "ready", targetId: entityId })
+					.onConflictDoUpdate({ target: derivedValueKey, set: { status: "ready" } }),
+				db
+					.insert(tables.derivedValue)
+					.values({
+						...row,
+						value,
+						kind: "relationship",
+						targetId: linkId(user, entityId, "in-media-library"),
+					})
+					.onConflictDoUpdate({ set: { value }, target: derivedValueKey }),
+			]),
+		);
+	});
+
+/**
+ * Marks the fold subject `entityId` as a background-lane write leaves it while its fold job is queued,
+ * or as a failed job leaves it, keeping its stored summary.
+ */
+export const markLibrarySummary = (
+	user: MediaUser,
+	entityId: string,
+	status: "failed" | "pending",
+) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db.execute(
+				`update derived_value set status = '${status}' where user_id = '${user}' and kind = 'subject' and target_id = '${entityId}'`,
+			),
 		);
 	});
 

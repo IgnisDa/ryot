@@ -3,7 +3,6 @@ import {
 	and,
 	ascending,
 	castBoolean,
-	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -1088,11 +1087,11 @@ export const mediaEpisodicRecipes = <
 		`${config.alias}PresentationLibrary`,
 		"in-media-library",
 	);
-	const storedPresentationCount = (name: keyof EpisodicEpisodeCounts) =>
-		castNumber(currentLibrarySummaryValue(presentationEntity, name));
+	const storedPresentationCount = (name: "airedEpisodes" | "upcomingEpisodes") =>
+		currentLibrarySummaryValue(presentationEntity, name);
 	const ownPresentationCount = (name: "watchedEpisodes" | "inProgressEpisodes") =>
 		coalesce(
-			castNumber(libraryProgressSummaryValue(presentationEntity, name)),
+			libraryProgressSummaryValue(presentationEntity, name),
 			conditional(presentationInLibrary, presentationCount(name), literal(0)),
 		);
 	const presentationSource = selectedRowsSource(presentationEntity, {
@@ -1100,7 +1099,7 @@ export const mediaEpisodicRecipes = <
 			...entityIdentitySelection(presentationEntity),
 			state: selectedField(
 				coalesce(
-					castText(libraryProgressSummaryValue(presentationEntity, "lifecycleState")),
+					libraryProgressSummaryValue(presentationEntity, "lifecycleState"),
 					conditional(
 						presentationInLibrary,
 						presentationLive(
