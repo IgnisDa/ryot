@@ -205,7 +205,10 @@ library through the subject's `in-media-library` link:
 
 ### Signal Schedules
 
-`manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary:
+`manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary.
+Each schedule starts at the user's Media library and follows its `media-monitoring` links (releases)
+or `in-media-library` links (stale progress, availability) to the titles, so an evaluation reads only
+the user's linked titles and their episodes:
 
 - `show-episode-releases`, `podcast-episode-releases`, `anime-airing-releases`, and `flat-releases`
   emit `media.released` for monitored library media on the release day. Season-0 specials are

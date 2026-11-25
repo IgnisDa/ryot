@@ -73,6 +73,7 @@ export const episodeSource = (
 		episode,
 		seasonNumber,
 		episodeNumber,
+		parentJoins: scope.parentJoins,
 		state: episodeDisplayStateExpression(episode, parent, "calendarEpisodeState"),
 		query: {
 			from: episode,

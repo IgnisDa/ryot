@@ -442,6 +442,7 @@ const airingFilters = {
  * The aired set is the required set that coverage, counts, and next-up are judged over. `position`
  * orders the episodes: `(seasonNumber, episodeNumber)` for a show, `episodeNumber` for a podcast.
  * `seasons: "all"` also selects season-zero specials; `parentId` links each episode to its parent.
+ * `joins` start from the episode; `parentJoins` start from `parent` and end at the episode.
  */
 export const episodicEpisodeQuery = (
 	config: EpisodicKindConfig,
@@ -473,6 +474,14 @@ export const episodicEpisodeQuery = (
 				relationshipConnects(relationship, parent, episode, config.parentEpisodeRelationshipSlug),
 				...airingPredicates,
 			),
+			parentJoins: [
+				join(
+					"inner",
+					relationship,
+					eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+				),
+				join("inner", episode, eq(column(relationship, "targetEntityId"), column(episode, "id"))),
+			],
 		};
 	}
 
@@ -502,6 +511,16 @@ export const episodicEpisodeQuery = (
 			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
 			...airingPredicates,
 		),
+		parentJoins: [
+			join("inner", showSeason, eq(column(showSeason, "sourceEntityId"), column(parent, "id"))),
+			join("inner", season, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
+			join(
+				"inner",
+				seasonEpisode,
+				eq(column(seasonEpisode, "sourceEntityId"), column(season, "id")),
+			),
+			join("inner", episode, eq(column(seasonEpisode, "targetEntityId"), column(episode, "id"))),
+		],
 	};
 };
 

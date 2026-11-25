@@ -25,8 +25,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 
-import { libraryLinkExists } from "../shared/entity-selections";
-import { libraryMembershipJoin } from "../shared/library-summary";
+import { libraryLinkExists, libraryLinkSource } from "../shared/entity-selections";
 import {
 	occursAt,
 	podcastEpisodicKindConfig,
@@ -51,15 +50,19 @@ const releaseSchedule = (input: {
 	readonly slug: string;
 	readonly where: Predicate;
 	readonly root: TableReference;
-	readonly from: TableReference;
 	readonly dueAt: ScalarExpression;
+	readonly joins?: readonly Join[];
 	readonly occurrence: ScalarExpression;
 	readonly precision: "date" | "instant";
-	readonly joins?: readonly [Join, ...Join[]];
 	readonly subject: ReturnType<typeof subjectOf>;
 	readonly positions?: Readonly<Record<string, ScalarExpression>>;
 }) => {
 	const positions = Object.entries(input.positions ?? {});
+	const monitored = libraryLinkSource(
+		input.root,
+		`${input.root.alias}Monitoring`,
+		"media-monitoring",
+	);
 	return {
 		dueAt: "dueAt",
 		slug: input.slug,
@@ -73,12 +76,9 @@ const releaseSchedule = (input: {
 			...Object.fromEntries(positions.map(([property]) => [property, property])),
 		},
 		query: {
-			from: input.from,
-			...(input.joins ? { joins: input.joins } : {}),
-			where: and(
-				input.where,
-				libraryLinkExists(input.root, `${input.root.alias}Monitoring`, "media-monitoring"),
-			),
+			from: monitored.from,
+			where: and(monitored.where, input.where),
+			joins: [...monitored.joins, ...(input.joins ?? [])],
 			output: {
 				type: "rows",
 				fields: [
@@ -106,8 +106,7 @@ const episodeReleases = (
 	return releaseSchedule({
 		precision: "date",
 		root: source.parent,
-		from: source.query.from,
-		joins: source.query.joins,
+		joins: source.parentJoins,
 		dueAt: occursAt(source.episode),
 		slug: `${config.kind}-episode-releases`,
 		occurrence: column(source.episode, "id"),
@@ -125,7 +124,6 @@ const episodeReleases = (
 const animeReleases = () => {
 	const source = animeAiringSource();
 	return releaseSchedule({
-		from: source.anime,
 		root: source.anime,
 		where: source.where,
 		precision: "instant",
@@ -142,7 +140,6 @@ const flatReleases = () => {
 	const source = flatReleaseSource();
 	return releaseSchedule({
 		precision: "date",
-		from: source.entity,
 		root: source.entity,
 		where: source.where,
 		slug: "flat-releases",
@@ -157,8 +154,8 @@ const summaryValue = (membership: TableReference, name: string) =>
 
 const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	const entity = table("entity", "entity");
-	const library = libraryMembershipJoin(entity, "staleLibrary");
-	const lastActivityAt = summaryValue(library.membership, "lastActivityAt");
+	const library = libraryLinkSource(entity, "staleLibrary", "in-media-library");
+	const lastActivityAt = summaryValue(library.link, "lastActivityAt");
 	return {
 		dueAt: "dueAt",
 		delayDays: days,
@@ -170,15 +167,16 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 		subject: subjectOf("entity", builtinMediaEntitySchemaSlugs),
 		properties: { days: "days", entityName: "entityName", lifecycleState: "lifecycleState" },
 		query: {
-			from: entity,
-			joins: [library.join],
+			from: library.from,
+			joins: library.joins,
 			where: and(
+				library.where,
 				schemaOwnerPredicate(entity, "entitySchemaPluginId", self),
 				inArray(
 					column(entity, "entitySchemaSlug"),
 					builtinMediaEntitySchemaSlugs.map((slug) => literal(slug)),
 				),
-				eq(castText(summaryValue(library.membership, "lifecycleState")), literal(state)),
+				eq(castText(summaryValue(library.link, "lifecycleState")), literal(state)),
 			),
 			output: {
 				type: "rows",
@@ -201,8 +199,8 @@ const episodesAvailable = (
 	config: typeof showEpisodicKindConfig | typeof podcastEpisodicKindConfig,
 ) => {
 	const parent = table("entity", config.parentSchemaSlug);
-	const library = libraryMembershipJoin(parent, "availableLibrary");
-	const nextAiringAt = summaryValue(library.membership, "nextAiringAt");
+	const library = libraryLinkSource(parent, "availableLibrary", "in-media-library");
+	const nextAiringAt = summaryValue(library.link, "nextAiringAt");
 	return {
 		dueAt: "dueAt",
 		precision: "date",
@@ -212,8 +210,8 @@ const episodesAvailable = (
 		slug: `${config.kind}-episodes-available`,
 		subject: subjectOf(config.parentSchemaSlug, [config.parentSchemaSlug]),
 		query: {
-			from: parent,
-			joins: [library.join],
+			from: library.from,
+			joins: library.joins,
 			output: {
 				type: "rows",
 				fields: [
@@ -223,8 +221,9 @@ const episodesAvailable = (
 				],
 			},
 			where: and(
+				library.where,
 				entitySchemaPredicate(parent, config.parentSchemaSlug, self),
-				eq(castText(summaryValue(library.membership, "lifecycleState")), literal("caught_up")),
+				eq(castText(summaryValue(library.link, "lifecycleState")), literal("caught_up")),
 				not(libraryLinkExists(parent, "availableMonitoring", "media-monitoring")),
 			),
 		},
