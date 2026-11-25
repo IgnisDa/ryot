@@ -34,9 +34,22 @@ const isList = (property: AppPropertyDefinition) =>
 	property.type === "array" || property.type === "enum-array";
 const isSet = (value: unknown) => value !== undefined && !isMissingAppSchemaRequiredValue(value);
 
+const validatedDocuments = new WeakMap<Authored.RyotQLDocument, Result.Result<void, Error>>();
+
+/** Validates each document object once; documents are immutable, so a repeated check reuses it. */
 export const validateAuthoredDocument = (
 	document: Authored.RyotQLDocument,
 ): Result.Result<void, Error> => {
+	const known = validatedDocuments.get(document);
+	if (known !== undefined) {
+		return known;
+	}
+	const validated = validateDocument(document);
+	validatedDocuments.set(document, validated);
+	return validated;
+};
+
+const validateDocument = (document: Authored.RyotQLDocument): Result.Result<void, Error> => {
 	const decoded = Schema.decodeResult(Authored.RyotQLDocument)(document);
 	if (Result.isFailure(decoded)) {
 		return fail("Invalid authored document shape");

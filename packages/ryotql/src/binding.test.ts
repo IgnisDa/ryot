@@ -361,6 +361,23 @@ it("pages grouped aggregates and rejects ungrouped pages and invalid stored maxi
 	).toBe(true);
 });
 
+it("validates a document object once and validates an equal copy again", () => {
+	expect(
+		Result.isSuccess(
+			validateAuthoredDocument(
+				document({ items: rows(entity, { fields: [field("name", column(entity, "name"))] }) }),
+			),
+		),
+	).toBe(true);
+	const invalid = document({ items: rows(entity, { limit: 10, fields: [], maxLimit: 5 }) });
+	const validated = validateAuthoredDocument(invalid);
+	expect(Result.isFailure(validated)).toBe(true);
+	expect(validateAuthoredDocument(invalid)).toBe(validated);
+	const copy = validateAuthoredDocument(structuredClone(invalid));
+	expect(copy).not.toBe(validated);
+	expect(copy).toEqual(validated);
+});
+
 it("keeps false boolean arguments set and validates parameter kinds at placeholder positions", () => {
 	const input = parameters({
 		fields: {

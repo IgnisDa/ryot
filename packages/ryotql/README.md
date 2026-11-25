@@ -64,6 +64,7 @@ runs only for full recipes. `Recipe.Queries<typeof recipe>` preserves per-query 
 
 - `validateAuthoredDocument(document)` checks grammar, parameter declarations, guarded uses, exhaustive
   choices, control declarations, and default/maximum limits. It is not catalog or authority validation.
+  Documents are immutable, so it remembers the result per document object and checks each once.
 - `bindDocument(document, values, context)` validates arguments, applies defaults and request controls,
   binds placeholders and pages, then strictly decodes an executable `language.RyotQLDocument`. It
   returns `{ document, arguments }`; the latter contains the normalized, defaulted arguments.
