@@ -281,7 +281,6 @@ const ListeningLive = Layer.effectDiscard(
 		yield* Effect.logInfo("app backend listening").pipe(
 			Effect.annotateLogs({ url: HttpServer.formatAddress(server.address) }),
 		);
-		return yield* Effect.never;
 	}),
 );
 
