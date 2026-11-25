@@ -169,6 +169,7 @@ const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
+	integrationId: null,
 	source: "alpha-service",
 	summary: outcomeSummary(12),
 	id: ImportRunId.make("run_1"),
@@ -552,7 +553,7 @@ describe("import data list", () => {
 					screen.findByRole("link", { name: "Open the Alpha Service import in progress" }),
 				);
 				expect(card.textContent).toContain("3 of 12 records");
-				expect(card.textContent).toContain("3 created");
+				expect(card.textContent).toContain("3 added");
 				expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe(
 					"3 of 12 records",
 				);
@@ -1003,8 +1004,13 @@ describe("import run detail", () => {
 					screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
 				);
 				expect(screen.getByText("From a.csv")).not.toBeNull();
-				expect(screen.getByText(/records: 11 created/)).not.toBeNull();
+				expect(screen.getByRole("heading", { name: "Completed with issues" })).not.toBeNull();
+				expect(screen.getByText("11 added")).not.toBeNull();
 				yield* Effect.promise(() => screen.findByText("Bench Press · error"));
+				expect(screen.getByText("Could not read this record.")).not.toBeNull();
+				expect(screen.getByText("Technical details").closest("details")?.hasAttribute("open")).toBe(
+					false,
+				);
 				expect(screen.getByText("session · input-transformation-failed")).not.toBeNull();
 				expect(screen.getByText("Record: record-5 · Source: row-5")).not.toBeNull();
 			}),
@@ -1125,7 +1131,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				expect(
 					within(dialog).getByText(/All committed changes remain in your library/),
 				).not.toBeNull();
@@ -1165,7 +1171,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				const confirm = within(dialog).getByRole<HTMLButtonElement>("button", {
 					name: "Cancel import",
 				});
@@ -1215,7 +1221,7 @@ describe("import run detail", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				expect(
 					within(dialog).getByRole("textbox", { name: 'Type "Cancel this import" to confirm' }),
 				).not.toBeNull();
@@ -1245,7 +1251,7 @@ describe("import run detail", () => {
 					}),
 				);
 				yield* Effect.promise(() => screen.findByText(/Fix setup, then send a new delivery/));
-				expect(screen.getByText("No outcomes recorded")).not.toBeNull();
+				expect(screen.getByText("Nothing was added or updated.")).not.toBeNull();
 				fireEvent.click(screen.getByRole("button", { name: "Import actions" }));
 				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" }));
 				expect(screen.queryByRole("menuitem", { name: "Cancel import" })).toBeNull();

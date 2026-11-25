@@ -14,10 +14,10 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ChartCard,
-	MenuSelect,
 	type MetricFormat,
 	type MetricUnit,
 	QueryStatus,
+	Select,
 	useMetricFormat,
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
@@ -389,7 +389,8 @@ function TrendRegion(props: {
 			title={text("analytics.charts.trend-title")}
 			actions={
 				<>
-					<MenuSelect
+					<Select
+						variant="compact"
 						value={props.metric}
 						onChange={props.onMetricChange}
 						label={text("analytics.charts.metric-select")}
@@ -397,7 +398,8 @@ function TrendRegion(props: {
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 						choices={analyticsMetrics.map((value) => ({ value, label: metricLabel(text, value) }))}
 					/>
-					<MenuSelect
+					<Select
+						variant="compact"
 						value={props.selectedType}
 						onChange={props.onTypeChange}
 						label={text("property.type")}

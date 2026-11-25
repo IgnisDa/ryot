@@ -26,7 +26,6 @@ import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { pluginUserPreferences } from "#/modules/pages/bridge/user-settings";
-import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
 import { navigatePageSearch } from "#/modules/pages/runtime/page-search";
 import { useIsDesktop } from "#/modules/shell/breakpoint";
@@ -288,6 +287,7 @@ function PublicationFrame(props: {
 			navigation={navigation}
 			freshnessCheckRevision={0}
 			onHeader={() => undefined}
+			serverUrl={session.origin}
 			icon={page.publication.icon}
 			onOpenDrawer={() => undefined}
 			onFlushReady={() => undefined}
@@ -329,6 +329,11 @@ function PublicationFrame(props: {
 			onCalendarSourceVisibility={() =>
 				refused({ outcome: "failure", reason: "invalid-request" } as const)
 			}
+			onLoadDocument={() =>
+				session.run((scope) =>
+					api.document(scope, { payload: { compositionHash: page.composition.hash } }),
+				)
+			}
 			onNavigate={({ mode, target }) => {
 				if (target.kind === "entity") {
 					navigateSearch({ [ITEM_SEARCH_KEY]: target.entityId }, mode === "replace");
@@ -347,13 +352,6 @@ function PublicationFrame(props: {
 				}
 				navigateSearch({ [ITEM_SEARCH_KEY]: null }, true);
 			}}
-			onLoadDocument={() =>
-				session
-					.run((scope) =>
-						api.document(scope, { payload: { compositionHash: page.composition.hash } }),
-					)
-					.pipe(Effect.map((document) => renderClientDocument(document, session.origin)))
-			}
 			onAssets={(request) =>
 				session
 					.run((scope) => api.assets(scope, { payload: { assets: [...request.assets] } }))

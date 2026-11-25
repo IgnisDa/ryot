@@ -90,6 +90,11 @@ const bridgeLocale = {
 };
 
 describe("plugin client artifact contract", () => {
+	const fileMetadata = {
+		name: "plugin.js",
+		staticImports: ["react"],
+		contentType: "text/javascript",
+	};
 	const packageFields = {
 		imports: [],
 		packageId: "test/client",
@@ -105,10 +110,7 @@ describe("plugin client artifact contract", () => {
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		};
-		const decoded = decode({
-			...artifact,
-			files: [{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" }],
-		});
+		const decoded = decode({ ...artifact, files: [{ ...fileMetadata, contents: "/wA=" }] });
 		expect(Result.isSuccess(decoded)).toBe(true);
 		if (Result.isSuccess(decoded)) {
 			expect(decoded.success.files[0]?.contents).toEqual(new Uint8Array([0xff, 0x00]));
@@ -118,8 +120,8 @@ describe("plugin client artifact contract", () => {
 				decode({
 					...artifact,
 					files: [
-						{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" },
-						{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" },
+						{ ...fileMetadata, contents: "/wA=" },
+						{ ...fileMetadata, contents: "/wA=" },
 					],
 				}),
 			),
@@ -128,7 +130,7 @@ describe("plugin client artifact contract", () => {
 
 	it("rejects duplicate emitted file names", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
-		const file = { name: "plugin.js", contents: new Uint8Array(), contentType: "text/javascript" };
+		const file = { ...fileMetadata, contents: new Uint8Array() };
 
 		expect(
 			Result.isFailure(
@@ -158,21 +160,11 @@ describe("plugin client artifact contract", () => {
 
 		expect(
 			Result.isSuccess(
-				decode({
-					...artifact,
-					files: [
-						{ name: "plugin.js", contentType: "text/javascript", contents: new Uint8Array([0xff]) },
-					],
-				}),
+				decode({ ...artifact, files: [{ ...fileMetadata, contents: new Uint8Array([0xff]) }] }),
 			),
 		).toBe(true);
 		expect(
-			Result.isFailure(
-				decode({
-					...artifact,
-					files: [{ contents: "", name: "plugin.js", contentType: "text/javascript" }],
-				}),
-			),
+			Result.isFailure(decode({ ...artifact, files: [{ ...fileMetadata, contents: "" }] })),
 		).toBe(true);
 	});
 });
@@ -225,7 +217,6 @@ describe("plugin client bridge contract", () => {
 			type: "dismiss-overlay",
 		} satisfies PluginBridgeDismissOverlay;
 		const result = {
-			dismissed: true,
 			requestId: "overlay-1",
 			type: "dismiss-overlay-result",
 		} satisfies PluginBridgeDismissOverlayResult;

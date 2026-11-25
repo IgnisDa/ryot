@@ -5,6 +5,8 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	AssetArtWell,
+	collectManagedAssetLocators,
 	createRyotQuery,
 	ManagedAssetProvider,
 	nextPageCursor,
@@ -42,11 +44,8 @@ import {
 } from "../../shared/discovery-recipes";
 import { declaredQuerySource, PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaArtworkClass, mediaAspectClass } from "../media/entity-presentation";
-import { collectManagedAssetLocators } from "../media/image";
 import { MediaLibraryTitle } from "../media/library-title";
-import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
-import { mediaPosterAsset } from "../media/summary-state";
 import { useMediaMessageBuilder, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 
@@ -138,10 +137,10 @@ function RecommendationCard(props: {
 	const text = useMediaMessages();
 	const schemaName = useEntitySchemaName();
 	const { pluginId } = usePluginIdentity(PLUGIN_PACKAGE_ID);
-	const art = mediaPosterAsset(item);
+	const art = item.image ?? undefined;
 	const aspect = mediaAspectOf(item.schemaSlug);
 	const image = (
-		<ManagedAssetImage
+		<AssetArtWell
 			asset={art}
 			monogram={item.name}
 			state={fieldSyncState(art, item)}
@@ -358,7 +357,7 @@ function RecommendationResults(props: {
 		<>
 			{result.errorOperation === "refresh" ? <MediaRefreshStatus result={result} /> : null}
 			<ManagedAssetProvider
-				assets={collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item)))}
+				assets={collectManagedAssetLocators(items.map((item) => item.image ?? undefined))}
 			>
 				<ul
 					className={resultsLayoutClasses.grid}

@@ -56,7 +56,7 @@ it("retains drafts after a failed submission and confirms deletion separately", 
 	expect(screen.getByText("Save failed")).toBeTruthy();
 	fireEvent.click(screen.getByRole("button", { name: "Delete review" }));
 	expect(events).toEqual(["save"]);
-	const confirmation = screen.getByRole("dialog", { name: "Delete this review?" });
+	const confirmation = screen.getByRole("alertdialog", { name: "Delete this review?" });
 	expect(within(confirmation).queryByText("Save failed")).toBeNull();
 	fireEvent.click(within(confirmation).getByRole("button", { name: "Delete review" }));
 	expect(events).toEqual(["save", "delete"]);

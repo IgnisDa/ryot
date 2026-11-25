@@ -683,7 +683,7 @@ layer(services)((test) => {
 				const messages = yield* MessageRegistry;
 				const deliver = Effect.fnUntraced(function* (
 					submission: NotificationAdmission,
-					interfaceLocale: "en" | null | "en-XA",
+					interfaceLocale: null | string,
 				) {
 					yield* session.run((db) =>
 						db
@@ -704,7 +704,7 @@ layer(services)((test) => {
 					return (yield* (yield* DeliveryEvidence).texts).at(-1);
 				});
 				const disabled = kernelMessage("notification.integration-disabled", { provider: "kodi" });
-				const pseudo = yield* messages.renderer("en-XA", []);
+				const { render: pseudo } = yield* messages.renderer("en-XA", []);
 				expect(
 					yield* deliver(
 						{ ...(yield* freshInput("pseudo")), request: { kind: "message", message: disabled } },
@@ -724,7 +724,27 @@ layer(services)((test) => {
 				expect(pseudo(disabled)).not.toBe(
 					"Integration kodi has been disabled due to too many errors",
 				);
-				const english = yield* messages.renderer("en", []);
+				const reminder = yield* deliver(
+					{
+						...(yield* freshInput("australian")),
+						request: {
+							kind: "message",
+							message: kernelMessage("notification.reminder-due", {
+								message: "Read",
+								timeZone: "UTC",
+								entityTitle: "Dune",
+								dueAt: {
+									timeZone: "UTC",
+									date: DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-15T12:00:00.000Z")),
+								},
+							}),
+						},
+					},
+					"en-AU",
+				);
+				expect(reminder?.locale).toBe("en");
+				expect(reminder?.body).toContain("Scheduled for 15 Nov 2026");
+				const { render: english } = yield* messages.renderer("en", []);
 				const uninstalled = { namespace: "uninstalled", key: "notification.removed" };
 				expect(
 					(yield* deliver(

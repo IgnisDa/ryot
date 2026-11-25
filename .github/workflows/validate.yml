@@ -1,0 +1,123 @@
+name: Build and Validate
+
+on:
+  workflow_call:
+    inputs:
+      full-validation:
+        type: boolean
+        default: false
+    outputs:
+      relevant:
+        value: ${{ jobs.plan.outputs.relevant }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      relevant: ${{ steps.plan.outputs.relevant }}
+      build-version: ${{ steps.plan.outputs.build-version }}
+      run-tests: ${{ steps.plan.outputs.run-tests }}
+      run-website: ${{ steps.plan.outputs.run-website }}
+      run-kubernetes: ${{ steps.plan.outputs.run-kubernetes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Plan image validation
+        id: plan
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          FULL_VALIDATION: ${{ inputs.full-validation }}
+        with:
+          script: |
+            const { execFileSync } = require("node:child_process");
+            let relevant = true;
+            let runTests = true;
+            let runWebsite = true;
+            let runKubernetes = true;
+            if (context.eventName === "workflow_dispatch") {
+              runWebsite = runTests = runKubernetes = process.env.FULL_VALIDATION === "true";
+            } else if (!context.ref.startsWith("refs/tags/")) {
+              try {
+                const pullRequest = context.eventName === "pull_request";
+                const before = pullRequest ? "HEAD^1" : context.payload.before;
+                if (!pullRequest && (!/^[a-f0-9]{40}$/.test(before ?? "") || /^0+$/.test(before) || context.payload.forced)) {
+                  throw new Error("Push has no reliable comparison base");
+                }
+                const paths = execFileSync("git", ["diff", "--name-only", "--no-renames", "-z", before, "HEAD"], {
+                  encoding: "utf8",
+                }).split("\0");
+                const buildChanged = paths.some((path) => /^(Dockerfile|\.dockerignore|bun\.lock|bunfig\.toml|package\.json|tsconfig[^/]*\.json|turbo\.json|\.oxlintrc\.json)$|^(patches|ci\/(images|oxlint))\/|^\.github\/workflows\/(main|pr-ci|validate|sandboxd|image-candidate)\.yml$/.test(path));
+                runTests = buildChanged || paths.some((path) => /^(kernel\/(backend|sandbox)|apps\/server|packages|plugins)\//.test(path));
+                runWebsite = buildChanged || paths.some((path) => /^(apps\/website|packages\/(testing|instance-contract|email-templates|ts-utils))\//.test(path));
+                runKubernetes = buildChanged || paths.some((path) => /^ci\/helm\/|^\.github\/workflows\/helm-(ci|release)\.yml$/.test(path));
+                relevant = runTests || runKubernetes || paths.some((path) => /^kernel\/|^\.github\/workflows\/preview\.yml$/.test(path));
+              } catch (error) {
+                core.warning(`Running full validation: ${error.message}`);
+              }
+            }
+            core.setOutput("relevant", relevant);
+            core.setOutput("run-tests", runTests);
+            core.setOutput("run-website", runWebsite);
+            core.setOutput("run-kubernetes", runKubernetes);
+            if (relevant) {
+              core.setOutput("build-version", execFileSync("git", ["describe", "--tags", "--always"], {
+                encoding: "utf8",
+              }).trim());
+            }
+
+  validate-chart:
+    needs: plan
+    if: needs.plan.outputs.relevant == 'true'
+    uses: ./.github/workflows/helm-ci.yml
+
+  validate-catalog-references:
+    needs: plan
+    if: needs.plan.outputs.relevant == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun turbo check:references --filter=@ryot-app/kernel-messages
+
+  validate-website:
+    needs: plan
+    if: needs.plan.outputs.run-website == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun x playwright install --with-deps chromium
+        working-directory: apps/website
+      - run: bun turbo --filter=@ryot-app/website check
+      - run: bun turbo --filter=@ryot-app/website test test:e2e
+
+  image-candidates:
+    needs: [plan, validate-chart, validate-catalog-references]
+    uses: ./.github/workflows/image-candidate.yml
+    with:
+      build-version: ${{ needs.plan.outputs.build-version }}
+
+  validate-images:
+    needs: [plan, image-candidates]
+    if: needs.plan.outputs.run-tests == 'true' || needs.plan.outputs.run-kubernetes == 'true'
+    uses: ./.github/workflows/sandboxd.yml
+    with:
+      build-version: ${{ needs.plan.outputs.build-version }}
+      run-tests: ${{ needs.plan.outputs.run-tests == 'true' }}
+      run-kubernetes: ${{ needs.plan.outputs.run-kubernetes == 'true' }}

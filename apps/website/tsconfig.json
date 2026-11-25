@@ -13,10 +13,10 @@
 		"esModuleInterop": true,
 		"resolveJsonModule": true,
 		"moduleResolution": "bundler",
-		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"lib": ["DOM", "DOM.Iterable", "ESNext"],
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
-		"types": ["@react-router/node", "vite/client"],
+		"types": ["@react-router/node", "vite/client", "bun-types"],
 		"paths": {
 			"~/*": ["./app/*"],
 			"@ryot-app/ts-utils/*": ["../../packages/ts-utils/src/*"],

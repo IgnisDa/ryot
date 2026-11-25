@@ -57,7 +57,7 @@ export const runtimeStylesheet = `${layerOrder}
 @layer base {
 	html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
 	body { background: var(--bg); font-family: var(--font-family-ui); }
-	#app { height: 100%; isolation: isolate; overflow: hidden; position: relative; }
+	#app { height: 100%; overflow: hidden; position: relative; }
 }`;
 
 export const compilerStylesheet = (

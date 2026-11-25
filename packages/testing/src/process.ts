@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { type Duration, Effect } from "effect";
 
 export const captureTestProcess = Effect.fn(function* (options: {
 	readonly cwd?: string;
@@ -37,3 +37,22 @@ export const captureTestProcess = Effect.fn(function* (options: {
 		}),
 	);
 });
+
+export const stopTestProcess = (
+	process: undefined | Pick<Bun.Subprocess, "kill" | "exited" | "exitCode">,
+	gracePeriod: Duration.Input = "20 seconds",
+) =>
+	Effect.gen(function* () {
+		if (process?.exitCode !== null) {
+			return;
+		}
+		process.kill("SIGINT");
+		const exited = yield* Effect.promise(() => process.exited).pipe(
+			Effect.timeoutOption(gracePeriod),
+		);
+		if (exited._tag === "Some") {
+			return;
+		}
+		process.kill("SIGKILL");
+		yield* Effect.promise(() => process.exited);
+	});

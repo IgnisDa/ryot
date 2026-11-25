@@ -36,14 +36,14 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		});
 
 		yield* page.goto(`${target.frontendUrl}/settings/preferences`);
-		yield* page.getByRole("button", { name: "Content language: Provider default" }).waitFor();
+		yield* page.getByRole("combobox", { name: "Content language: Provider default" }).waitFor();
 		expect(yield* page.getByRole("switch", { name: "Show NSFW content" }).count).toBe(0);
-		yield* page.getByRole("button", { name: "Content language: Provider default" }).click();
-		yield* page.getByRole("radio", { exact: true, name: "Spanish" }).click();
+		yield* page.getByRole("combobox", { name: "Content language: Provider default" }).click();
+		yield* page.getByRole("option", { exact: true, name: "Spanish" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Preferences saved.").waitFor({ state: "visible" });
 		yield* page.reload;
-		yield* page.getByRole("button", { name: "Content language: Spanish" }).waitFor();
+		yield* page.getByRole("combobox", { name: "Content language: Spanish" }).waitFor();
 
 		yield* openPluginPreferences(page, target.frontendUrl);
 		const mediaLink = page.getByRole("link", { name: "Media" });
@@ -57,15 +57,15 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 			.waitFor({ state: "visible" });
 		yield* nsfw.click();
 		yield* page
-			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.getByRole("combobox", { exact: true, name: "Viewing country: Automatic (browser region)" })
 			.click();
-		yield* page.getByRole("textbox", { name: "Search Viewing country" }).fill("India");
-		yield* page.getByRole("radio", { exact: true, name: "India" }).click();
+		yield* page.getByRole("combobox", { name: "Search Viewing country" }).fill("India");
+		yield* page.getByRole("option", { exact: true, name: "India" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
 		yield* page.reload;
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("true");
-		yield* page.getByRole("button", { exact: true, name: "Viewing country: India" }).waitFor();
+		yield* page.getByRole("combobox", { exact: true, name: "Viewing country: India" }).waitFor();
 		const mediaSetting = yield* findMediaPluginUserSettings(owner.client);
 		expect(mediaSetting.settings).toMatchObject({
 			allowNsfw: true,
@@ -78,7 +78,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* page.reload;
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("false");
 		yield* page
-			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.getByRole("combobox", { exact: true, name: "Viewing country: Automatic (browser region)" })
 			.waitFor();
 		expect((yield* findMediaPluginUserSettings(owner.client)).settings).toEqual({});
 
@@ -103,7 +103,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		expect(yield* page.getByText("Plugin settings saved.").count).toBe(0);
 
 		yield* settingsSidebar(page).getByRole("link", { name: "Account" }).click();
-		const confirmation = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+		const confirmation = page.getByRole("alertdialog", { name: "Discard unsaved changes?" });
 		yield* confirmation.waitFor({ state: "visible" });
 		yield* confirmation.getByRole("button", { name: "Cancel" }).click();
 		yield* confirmation.waitFor({ state: "hidden" });

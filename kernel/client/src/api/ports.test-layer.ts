@@ -221,6 +221,7 @@ export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =
 		refreshAvatar: unused,
 		updatePreferences: unused,
 		revokeConnectedApp: unused,
+		initializeInterfaceLocale: unused,
 		...overrides,
 	});
 

@@ -10,6 +10,7 @@ export interface CollectedViteFile {
 	readonly path: string;
 	readonly bytes: Uint8Array;
 	readonly contentType: string;
+	readonly staticImports: readonly string[];
 }
 
 const contentTypes: Readonly<Record<string, string>> = {
@@ -68,9 +69,17 @@ export const collectViteOutputs = (
 			}
 			seen.add(path);
 			let bytes: Uint8Array;
+			let staticImports: readonly string[] = [];
 			try {
 				if (item["type"] === "chunk" && typeof item["code"] === "string") {
 					bytes = encodeExecutableText(item["code"]);
+					const imports: unknown = item["imports"];
+					if (!Array.isArray(imports) || !imports.every((value) => typeof value === "string")) {
+						return Result.fail(
+							viteCompilerError("invalid-output", `Vite emitted invalid imports: ${path}`),
+						);
+					}
+					staticImports = [...new Set(imports)].sort();
 				} else if (item["type"] === "asset" && typeof item["source"] === "string") {
 					bytes = /\.(?:m?js|css)$/i.test(path)
 						? encodeExecutableText(item["source"])
@@ -90,6 +99,7 @@ export const collectViteOutputs = (
 			files.push({
 				path,
 				bytes,
+				staticImports,
 				contentType:
 					contentTypes[posixPath.extname(path).toLowerCase()] ?? "application/octet-stream",
 			});

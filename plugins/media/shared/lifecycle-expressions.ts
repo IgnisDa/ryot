@@ -10,7 +10,6 @@ import {
 	column,
 	conditional,
 	count,
-	currentDate,
 	descending,
 	divide,
 	eq,
@@ -24,11 +23,14 @@ import {
 	join,
 	jsonPath,
 	literal,
+	localDate,
 	lte,
 	minimum,
 	multiply,
 	neq,
+	now,
 	or,
+	reportingTimeZone,
 	round,
 	selectedInclude,
 	type SelectedSelection,
@@ -449,12 +451,55 @@ export const publishDate = (episode: TableReference) =>
 /** `publishDate` as an indexed column. Date windows filter on this, not on the property. */
 export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
-/** A null or malformed `publishDate` casts to null and counts as aired. */
-export const episodeHasAired = (episode: TableReference) =>
-	or(isNull(occursAt(episode)), lte(occursAt(episode), currentDate()));
+/** An episode's release: its known `airingAt` instant, otherwise its `occursAt` date. */
+export const episodeReleaseTime = (episode: TableReference) => ({
+	date: occursAt(episode),
+	instant: castDate(jsonPath(column(episode, "properties"), "airingAt")),
+});
 
-export const episodeIsUpcoming = (episode: TableReference) =>
-	and(isNotNull(occursAt(episode)), gt(occursAt(episode), currentDate()));
+export const reportingToday = castDate(localDate(now(), { timeZone: reportingTimeZone }));
+
+export const episodeReleaseDay = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return coalesce(castDate(localDate(instant, { timeZone: reportingTimeZone })), date);
+};
+
+/** Release order is arrival order: by reporting day, a date-only release before timed ones. */
+export const episodeReleaseOrder = (episode: TableReference) => {
+	const { instant } = episodeReleaseTime(episode);
+	return [
+		ascending(episodeReleaseDay(episode)),
+		ascending(conditional(isNull(instant), literal(0), literal(1))),
+		ascending(instant),
+	] as const;
+};
+
+type Release = { readonly date: ScalarExpression; readonly instant: ScalarExpression };
+
+const instantHasArrived = (instant: ScalarExpression) => lte(instant, now());
+
+const dateHasArrived = (date: ScalarExpression) => lte(date, reportingToday);
+
+/**
+ * Whether a release in a set has arrived, given the set's earliest instant and the earliest date
+ * among its releases without an instant.
+ */
+export const releaseHasArrived = (release: Release) =>
+	or(instantHasArrived(release.instant), dateHasArrived(release.date));
+
+/** An episode with neither a date nor an instant counts as aired. */
+export const episodeHasAired = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return or(
+		instantHasArrived(instant),
+		and(isNull(instant), or(isNull(date), dateHasArrived(date))),
+	);
+};
+
+export const episodeIsUpcoming = (episode: TableReference) => {
+	const { date, instant } = episodeReleaseTime(episode);
+	return or(gt(instant, now()), and(isNull(instant), gt(date, reportingToday)));
+};
 
 type EpisodeAiring = "any" | "aired" | "upcoming";
 

@@ -18,9 +18,9 @@ export const mediaIdentity = (id: string, name: string, schemaSlug: string) => (
 	name,
 	schemaSlug,
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: `https://images.test/${id}.jpg` },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: `https://images.test/${id}.jpg` }],
 });
 
 export const flatRow = (
@@ -46,9 +46,11 @@ export const nextUpRow = (seasonNumber: null | number, episodeNumber: number, na
 	seasonNumber,
 	runtime: null,
 	episodeNumber,
+	airingAt: null,
 	description: null,
 	publishDate: null,
 	state: "untracked",
+	airingSourceUrl: null,
 });
 
 export const episodicRow = (

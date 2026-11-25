@@ -1,6 +1,7 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Option } from "effect";
 
 import {
@@ -26,7 +27,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { webRequest } from "~/support/web-request";
 
 const plexMultipartBody = (boundary: string, payload: unknown) =>
 	new Blob([

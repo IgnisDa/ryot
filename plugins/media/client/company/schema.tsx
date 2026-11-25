@@ -26,5 +26,5 @@ export const companySchema = defineCreatorMediaSchema({
 	recipes: companyRecipes,
 	facts: companySummaryFacts,
 	creditSections: creatorCreditSections,
-	artwork: { fit: "contain", purpose: "logo", aspect: "square" },
+	artwork: { fit: "contain", aspect: "square" },
 });

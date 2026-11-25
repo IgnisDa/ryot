@@ -215,12 +215,17 @@ export const insertRelationships = (
 
 /**
  * A show or podcast with its episodes, numbered in order within each season (season 1 unless
- * given); an episode without `days` has no publish date.
+ * given); an episode without `days` has no publish date, and one with `airingAt` a known airtime.
  */
 export const insertEpisodicTitle = (
 	parent: string,
 	kind: "show" | "podcast",
-	items: ReadonlyArray<{ readonly id: string; readonly days?: number; readonly season?: number }>,
+	items: ReadonlyArray<{
+		readonly id: string;
+		readonly days?: number;
+		readonly season?: number;
+		readonly airingAt?: Date;
+	}>,
 ) =>
 	Effect.gen(function* () {
 		const seasons = [...new Set(items.map(({ season }) => season ?? 1))];
@@ -233,11 +238,12 @@ export const insertEpisodicTitle = (
 						properties: { seasonNumber: season },
 					}))
 				: []),
-			...items.map(({ id, days, season }, index) => ({
+			...items.map(({ id, days, season, airingAt }, index) => ({
 				id,
 				slug: `${kind}-episode`,
 				...(days === undefined ? {} : { publishDate: utcDay(days) }),
 				properties: {
+					...(airingAt === undefined ? {} : { airingAt: airingAt.toISOString() }),
 					episodeNumber:
 						items.slice(0, index).filter((item) => (item.season ?? 1) === (season ?? 1)).length + 1,
 				},
@@ -397,28 +403,34 @@ export const foldLibrarySummary = (user: MediaUser, entityId: string, slug: stri
 	});
 
 /**
- * Moves the earliest upcoming episode of `parentId` to `days` from today without folding, which is
- * how time passing looks to a reader: the summary's stored `nextAiringAt`, which the fold took from
- * that episode, moves with it, as does `nextTrackedAiringAt` when the user has progress on it.
+ * Moves the earliest upcoming date-only episode of `parentId` to `days` from today, or the earliest
+ * timed one to `airingAt`, without folding, which is how time passing looks to a reader: the
+ * summary's stored next airing date or instant, which the fold took from that episode, moves with it,
+ * as does its next tracked airing when the user has progress on it.
  */
-export const moveAiring = (input: {
-	readonly days: number;
-	readonly user: MediaUser;
-	readonly parentId: string;
-	readonly entityId: string;
-	readonly tracked?: boolean;
-}) =>
+export const moveAiring = (
+	input: ({ readonly days: number } | { readonly airingAt: Date }) & {
+		readonly user: MediaUser;
+		readonly parentId: string;
+		readonly entityId: string;
+		readonly tracked?: boolean;
+	},
+) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const at = `'${utcDay(input.days).toISOString()}'`;
+		const timed = "airingAt" in input;
+		const at = `'${(timed ? input.airingAt : utcDay(input.days)).toISOString()}'`;
+		const stored = (input.tracked ? ["nextAiring", "nextTrackedAiring"] : ["nextAiring"])
+			.map((name) => `'${name}${timed ? "At" : "Date"}', ${at}::text`)
+			.join(", ");
 		const target = linkId(input.user, input.parentId, "in-media-library");
 		yield* session.run((db) =>
 			Effect.all([
 				db.execute(
-					`update entity set properties = jsonb_set(properties, '{publishDate}', to_jsonb(${at}::text)) where id = '${input.entityId}'`,
+					`update entity set properties = jsonb_set(properties, '{${timed ? "airingAt" : "publishDate"}}', to_jsonb(${at}::text)) where id = '${input.entityId}'`,
 				),
 				db.execute(
-					`update derived_value set value = value || jsonb_build_object(${input.tracked ? `'nextTrackedAiringAt', ${at}::text, ` : ""}'nextAiringAt', ${at}::text) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
+					`update derived_value set value = value || jsonb_build_object(${stored}) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
 				),
 			]),
 		);

@@ -9,7 +9,7 @@ import {
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { InterfaceLocale } from "@ryot-app/contract/schema/user-preferences";
+import { LocaleTag } from "@ryot-app/i18n/locale";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
@@ -82,7 +82,7 @@ const parseExpanded = (value: null | string | undefined) => {
 	return value === "false" ? false : null;
 };
 const isPluginId = Schema.is(PluginId);
-const isInterfaceLocale = Schema.is(InterfaceLocale);
+const isLocaleTag = Schema.is(LocaleTag);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
 const decodeDeviceState = Schema.decodeUnknownEffect(Schema.fromJsonString(DeviceState));
@@ -113,13 +113,13 @@ const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Servic
 		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
 	setRememberedProvider: (scope, schemaKey, providerId) =>
 		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, schemaKey), providerId)),
+	getInterfaceLocale: bestEffort(null, () => {
+		const value = storage?.getItem(INTERFACE_LOCALE_KEY);
+		return isLocaleTag(value) ? value : null;
+	}),
 	getThemePreference: Effect.sync(() => {
 		const value = storage?.getItem(THEME_PREFERENCE_KEY);
 		return isThemePreference(value) ? value : "system";
-	}),
-	getInterfaceLocale: bestEffort(null, () => {
-		const value = storage?.getItem(INTERFACE_LOCALE_KEY);
-		return isInterfaceLocale(value) ? value : null;
 	}),
 	getLastWorkspace: (scope) =>
 		Effect.sync(() => {
@@ -240,16 +240,16 @@ export class ClientStorage extends Context.Service<
 	ClientStorage,
 	{
 		readonly clearServerSelection: Effect.Effect<void>;
+		/** The last interface locale preference the server returned, to paint in it before it loads again. */
+		readonly getInterfaceLocale: Effect.Effect<null | string>;
 		readonly getThemePreference: Effect.Effect<ThemePreference>;
 		readonly getServerSelection: Effect.Effect<null | ServerOrigin>;
 		readonly remove: (keys: readonly string[]) => Effect.Effect<void>;
-		/** The last interface locale preference the server returned, to paint in it before it loads again. */
-		readonly getInterfaceLocale: Effect.Effect<null | InterfaceLocale>;
 		readonly setServerSelection: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly getDeviceState: Effect.Effect<DeviceState, DeviceStateAccessError>;
+		readonly setInterfaceLocale: (locale: null | string) => Effect.Effect<void>;
 		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<null | PluginId>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
-		readonly setInterfaceLocale: (locale: null | InterfaceLocale) => Effect.Effect<void>;
 		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;
 		readonly setDeviceState: (state: DeviceState) => Effect.Effect<void, DeviceStateAccessError>;
 		readonly getSavedViewLayout: (scope: ApiScope, slug: string) => Effect.Effect<SavedViewLayout>;

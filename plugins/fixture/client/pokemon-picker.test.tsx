@@ -41,11 +41,6 @@ const replyChoices = Effect.fn("replyChoices")(function* (
 			});
 		}
 	}
-	yield* Effect.promise(() =>
-		waitFor(() =>
-			expect(screen.getByRole("button", { name: "Add Charmander to collection" })).toBeTruthy(),
-		),
-	);
 });
 
 const collectionRequests = (page: ReturnType<typeof mountPluginPage>) =>
@@ -65,7 +60,11 @@ describe("PokemonPicker", () => {
 				});
 				yield* replyChoices(page);
 
-				fireEvent.click(screen.getByRole("button", { name: "Add Charmander to collection" }));
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("button", { name: "Add Charmander to collection" }),
+					),
+				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual({

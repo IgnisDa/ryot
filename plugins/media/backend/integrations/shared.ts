@@ -1,6 +1,7 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 
 import type { UnresolvedEpisodeRef } from "../../shared/media-history";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../imports/schemas";
@@ -22,12 +23,18 @@ export const emptyResult = (): MediaIntegrationAdapterResult => ({
 });
 
 export const failureResult = (
-	message: string,
+	message: string | LocalMessage,
 	stage: MediaIntegrationAdapterResult["failures"][number]["stage"] = "input_transformation",
 ): MediaIntegrationAdapterResult => ({
 	entityGroups: [],
-	failures: [{ stage, message, itemIndex: 0 }],
 	sourceFailure: stage === "source_fetch" ? "source-fetch-failed" : "input-transformation-failed",
+	failures: [
+		{
+			stage,
+			itemIndex: 0,
+			...(typeof message === "string" ? { message } : { detail: message, message: message.key }),
+		},
+	],
 });
 
 export const progressResult = (input: {

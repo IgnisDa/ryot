@@ -52,7 +52,7 @@ const emittedLayer = (javascript: string, css = "") =>
 				build: () =>
 					Effect.succeed({
 						output: [
-							{ type: "chunk", code: javascript, fileName: "module.js" },
+							{ imports: [], type: "chunk", code: javascript, fileName: "module.js" },
 							{ source: css, type: "asset", fileName: "module.css" },
 						],
 					}),

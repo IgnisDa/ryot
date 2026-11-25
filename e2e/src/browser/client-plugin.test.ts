@@ -1,5 +1,5 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
+import { CLIENT_API_VERSION, CLIENT_BRIDGE_BOOTSTRAP } from "@ryot-app/plugin-client-contract";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Option, Schema } from "effect";
@@ -24,7 +24,11 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: null | string };
+type BridgeObservation = {
+	readonly serialized: string;
+	readonly windowOffer: boolean;
+	readonly bridgeSessionId: null | string;
+};
 
 const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 const privateAccessKey = /\/api\/page-bundles\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
@@ -38,6 +42,8 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 					if (
 						typeof value === "object" &&
 						value !== null &&
+						"windowOffer" in value &&
+						typeof value.windowOffer === "boolean" &&
 						"serialized" in value &&
 						typeof value.serialized === "string" &&
 						"bridgeSessionId" in value &&
@@ -45,6 +51,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 					) {
 						observations.push({
 							serialized: value.serialized,
+							windowOffer: value.windowOffer,
 							bridgeSessionId: value.bridgeSessionId,
 						});
 					}
@@ -52,7 +59,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 		);
 		yield* page.addInitScript(() => {
 			const reporter: unknown = Reflect.get(globalThis, "recordE2ePluginBridgeMessage");
-			const report = (message: unknown, bridgeInit: boolean) => {
+			const report = (message: unknown, transport: "port" | "window" | "window-offer") => {
 				let serialized = "[unserializable]";
 				try {
 					serialized = JSON.stringify({ message });
@@ -60,22 +67,25 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 					// Only the presence of a credential is inspected by the test.
 				}
 				const bridgeSessionId =
-					bridgeInit &&
+					transport === "port" &&
 					typeof message === "object" &&
 					message !== null &&
 					"sessionId" in message &&
+					"documentKey" in message &&
 					typeof message.sessionId === "string"
 						? message.sessionId
 						: null;
 				if (typeof reporter === "function") {
 					const reported: unknown = Reflect.apply(reporter, undefined, [
-						{ serialized, bridgeSessionId },
+						{ serialized, bridgeSessionId, windowOffer: transport === "window-offer" },
 					]);
 					void Promise.allSettled([reported]);
 				}
 			};
 
-			window.addEventListener("message", (event) => report(event.data, event.ports.length === 1));
+			window.addEventListener("message", (event) =>
+				report(event.data, event.ports.length === 1 ? "window-offer" : "window"),
+			);
 			const originalPostMessage: unknown = Object.getOwnPropertyDescriptor(
 				MessagePort.prototype,
 				"postMessage",
@@ -88,7 +98,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 				message: unknown,
 				transferOrOptions?: Transferable[] | StructuredSerializeOptions,
 			) {
-				report(message, false);
+				report(message, "port");
 				Reflect.apply(
 					originalPostMessage,
 					this,
@@ -252,7 +262,7 @@ it.live("shows the minimal interstitial while loading a plugin on desktop and mo
 			if (compact) {
 				yield* page.getByRole("button", { name: "Open navigation" }).click();
 				yield* page.getByRole("dialog", { name: "Navigation" }).waitFor({ state: "visible" });
-				yield* page.getByTestId("drawer-scrim").click({ position: { x: 380, y: 400 } });
+				yield* page.use((raw) => raw.mouse.click(380, 400));
 				yield* page.getByRole("dialog", { name: "Navigation" }).waitFor({ state: "hidden" });
 			}
 
@@ -379,7 +389,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const drawer = page.getByRole("dialog", { name: "Navigation" });
 		yield* menuTrigger.click();
 		yield* drawer.waitFor({ state: "visible" });
-		yield* page.getByTestId("drawer-scrim").click({ position: { x: 380, y: 400 } });
+		yield* page.use((raw) => raw.mouse.click(380, 400));
 		yield* drawer.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
 		expect(yield* frame.evaluate((element) => element === document.activeElement)).toBe(true);
@@ -547,6 +557,13 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(page.url()).toBe(outerUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 
+		const windowOffers = bridgeObservations
+			.filter(({ windowOffer }) => windowOffer)
+			.map(({ serialized }) => serialized);
+		const marker = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+			message: CLIENT_BRIDGE_BOOTSTRAP,
+		});
+		expect(new Set(windowOffers)).toEqual(new Set([marker]));
 		expectNoPrivateAccessKeysInBridgeMessages(bridgeObservations, observedSrcDocs);
 
 		yield* page.goto(`${frontendUrl}/e/${pokemon.id}`);

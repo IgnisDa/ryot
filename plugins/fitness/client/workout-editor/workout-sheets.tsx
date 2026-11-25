@@ -14,7 +14,7 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import type {
 	WorkoutEditorDraft,
@@ -29,6 +29,7 @@ import { activeDurationSeconds } from "./timers";
 
 export function ConfirmDialog(props: {
 	readonly title: Text;
+	readonly open?: boolean;
 	readonly description: Text;
 	readonly cancelLabel: Text;
 	readonly disabled?: boolean;
@@ -39,9 +40,11 @@ export function ConfirmDialog(props: {
 	return (
 		<Dialog
 			size="sm"
+			kind="alert"
 			closeIcon={null}
 			title={props.title}
 			onClose={props.onClose}
+			open={props.open ?? true}
 			closeLabel={props.cancelLabel}
 			description={props.description}
 			footer={
@@ -145,10 +148,12 @@ export function WorkoutPreferencesSheet(props: {
 }
 
 export function WorkoutDetailsSheet(props: {
+	readonly open: boolean;
 	readonly disabled: boolean;
 	readonly onClose: () => void;
 	readonly onChange: DraftChange;
 	readonly draft: WorkoutEditorDraft;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const text = useFitnessMessages();
 	const { draft, onChange } = props;
@@ -156,7 +161,9 @@ export function WorkoutDetailsSheet(props: {
 	return (
 		<EditorSheet
 			wide="side"
+			open={props.open}
 			onClose={props.onClose}
+			triggerRef={props.triggerRef}
 			closeLabel={text("client.wsheets.close-details")}
 			footer={<Button onClick={props.onClose}>{text("common.action.done")}</Button>}
 			title={
@@ -237,9 +244,11 @@ export function WorkoutDetailsSheet(props: {
 
 export function FinishReview(props: {
 	readonly now: number;
+	readonly open: boolean;
 	readonly saving: boolean;
 	readonly onSave: () => void;
 	readonly onClose: () => void;
+	readonly onClosed: () => void;
 	readonly draft: WorkoutEditorDraft;
 	readonly names: ReadonlyMap<string, string>;
 }) {
@@ -266,7 +275,9 @@ export function FinishReview(props: {
 	return (
 		<EditorSheet
 			title={title}
+			open={props.open}
 			onClose={props.onClose}
+			onClosed={props.onClosed}
 			dismissible={!props.saving}
 			closeLabel={text("client.wsheets.close-review")}
 			footer={

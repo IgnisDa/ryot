@@ -1,6 +1,5 @@
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
-
-import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 

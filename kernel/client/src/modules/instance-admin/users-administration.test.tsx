@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
+import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -91,19 +92,26 @@ const renderUsers = (
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
 	const view = render(
-		<UsersAdministration
-			backInterceptors={backInterceptors}
-			onUnauthorized={() => calls.push("unauthorized")}
-			operations={{ ...makeOperations(users, calls), ...overrides }}
-			shareAction={shareActionWith(
-				(work, onExit) => Effect.runCallback(work, { onExit }),
-				transfer,
-			)}
-		/>,
+		<OverlayBackProvider adapter={backInterceptors}>
+			<UsersAdministration
+				onUnauthorized={() => calls.push("unauthorized")}
+				operations={{ ...makeOperations(users, calls), ...overrides }}
+				shareAction={shareActionWith(
+					(work, onExit) => Effect.runCallback(work, { onExit }),
+					transfer,
+				)}
+			/>
+		</OverlayBackProvider>,
 		{ wrapper: testI18nWrapper() },
 	);
 	return { ...view, calls, backInterceptors };
 };
+
+const chooseUserAction = (user: ReturnType<typeof userEvent.setup>, name: string) =>
+	Effect.gen(function* () {
+		const action = yield* Effect.promise(() => screen.findByRole("menuitem", { name }));
+		yield* Effect.promise(() => user.click(action));
+	});
 
 describe("Instance Admin users administration", () => {
 	for (const outcome of ["failure", "defect", "interruption", "throw"] as const) {
@@ -135,10 +143,8 @@ describe("Instance Admin users administration", () => {
 						screen.findByRole("button", { name: "Actions for reader-0@example.com" }),
 					);
 					yield* Effect.promise(() => user.click(trigger));
-					yield* Effect.promise(() =>
-						user.click(screen.getByRole("menuitem", { name: "Reset account" })),
-					);
-					const dialog = screen.getByRole("dialog");
+					yield* chooseUserAction(user, "Reset account");
+					const dialog = screen.getByRole("alertdialog");
 					fireEvent.click(within(dialog).getByRole("button", { name: "Reset account" }));
 					yield* Effect.promise(() =>
 						waitFor(() => {
@@ -158,7 +164,7 @@ describe("Instance Admin users administration", () => {
 					fireEvent.click(within(dialog).getByRole("button", { name: "Reset account" }));
 					yield* Effect.promise(() => screen.findByLabelText("Password reset link"));
 					expect(attempts).toBe(2);
-					expect(screen.queryByRole("dialog")).toBeNull();
+					expect(screen.queryByRole("alertdialog")).toBeNull();
 					expect(screen.queryByRole("alert")).toBeNull();
 				}),
 			testTimeout,
@@ -183,10 +189,8 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Reset account" })),
-				);
-				const confirm = within(screen.getByRole("dialog")).getByRole("button", {
+				yield* chooseUserAction(user, "Reset account");
+				const confirm = within(screen.getByRole("alertdialog")).getByRole("button", {
 					name: "Reset account",
 				});
 				act(() => {
@@ -222,9 +226,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
-				);
+				yield* chooseUserAction(user, "Generate reset link");
 				yield* Effect.promise(() => waitFor(() => expect(view.calls).toContain("unauthorized")));
 				expect(screen.queryByRole("alert")).toBeNull();
 				expect(screen.queryByLabelText("Password reset link")).toBeNull();
@@ -255,9 +257,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
-				);
+				yield* chooseUserAction(user, "Generate reset link");
 				yield* Effect.promise(() => waitFor(() => expect(settle).toBeDefined()));
 				view.unmount();
 				yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
@@ -357,18 +357,17 @@ describe("Instance Admin users administration", () => {
 			Effect.gen(function* () {
 				const user = userEvent.setup();
 				const transferred: ShareContent[] = [];
-				renderUsers([makeUser(0)], (content) => {
-					transferred.push(content);
-					return Effect.void;
-				});
+				renderUsers([makeUser(0)], (content) =>
+					Effect.sync(() => {
+						transferred.push(content);
+					}),
+				);
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
-				);
+				yield* chooseUserAction(user, "Generate reset link");
 				const resetLink = yield* Effect.promise(() =>
 					screen.findByLabelText<HTMLInputElement>("Password reset link"),
 				);
@@ -394,38 +393,49 @@ describe("Instance Admin users administration", () => {
 				const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
 				expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
 				expect(trigger.getAttribute("aria-expanded")).toBe("false");
-				yield* Effect.promise(() => user.click(trigger));
+				trigger.focus();
+				yield* Effect.promise(() => user.keyboard("{ArrowDown}"));
 				const menu = yield* Effect.promise(() =>
 					screen.findByRole("menu", { name: "User actions" }),
 				);
 				const generate = within(menu).getByRole("menuitem", { name: "Generate reset link" });
 				expect(trigger.getAttribute("aria-expanded")).toBe("true");
 				expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
-				expect(document.activeElement).toBe(generate);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === generate).toBe(true)),
+				);
 
 				yield* Effect.promise(() => user.keyboard("{ArrowDown}"));
-				expect(document.activeElement).toBe(
-					within(menu).getByRole("menuitem", { name: "Disable user" }),
-				);
+				expect(
+					document.activeElement === within(menu).getByRole("menuitem", { name: "Disable user" }),
+				).toBe(true);
 				yield* Effect.promise(() => user.keyboard("{End}"));
-				expect(document.activeElement).toBe(
-					within(menu).getByRole("menuitem", { name: "Delete user" }),
-				);
+				expect(
+					document.activeElement === within(menu).getByRole("menuitem", { name: "Delete user" }),
+				).toBe(true);
 				yield* Effect.promise(() => user.keyboard("{Home}"));
-				expect(document.activeElement).toBe(generate);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === generate).toBe(true)),
+				);
 
 				fireEvent.keyDown(menu, { key: "Escape" });
 				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 
 				yield* Effect.promise(() => user.click(trigger));
+				yield* Effect.promise(() => screen.findByRole("menu", { name: "User actions" }));
 				yield* Effect.promise(() => user.click(document.body));
 				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
 
 				yield* Effect.promise(() => user.click(trigger));
+				yield* Effect.promise(() => screen.findByRole("menu", { name: "User actions" }));
 				expect(view.backInterceptors.run()).toBe(true);
 				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 			}),
 		testTimeout,
 	);
@@ -436,18 +446,17 @@ describe("Instance Admin users administration", () => {
 			Effect.gen(function* () {
 				const user = userEvent.setup();
 				const transferred: ShareContent[] = [];
-				const view = renderUsers([makeUser(0)], (content) => {
-					transferred.push(content);
-					return Effect.void;
-				});
+				const view = renderUsers([makeUser(0)], (content) =>
+					Effect.sync(() => {
+						transferred.push(content);
+					}),
+				);
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Impersonate user" })),
-				);
+				yield* chooseUserAction(user, "Impersonate user");
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(view.calls).toContainEqual({ userId: "user-0", kind: "impersonate" }),
@@ -476,31 +485,36 @@ describe("Instance Admin users administration", () => {
 				const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
 
 				yield* Effect.promise(() => user.click(trigger));
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Reset account" })),
-				);
+				yield* chooseUserAction(user, "Reset account");
 				const dialog = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Reset this user?" }),
+					screen.findByRole("alertdialog", { name: "Reset this user?" }),
 				);
 				expect(screen.queryByRole("menu")).toBeNull();
-				expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+				const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === cancel).toBe(true)),
+				);
 
 				yield* Effect.promise(() =>
 					user.click(within(dialog).getByRole("button", { name: "Cancel" })),
 				);
-				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull()),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 
 				yield* Effect.promise(() => user.click(trigger));
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Delete user" })),
-				);
+				yield* chooseUserAction(user, "Delete user");
 				const deleteDialog = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Delete this user?" }),
+					screen.findByRole("alertdialog", { name: "Delete this user?" }),
 				);
 				expect(view.backInterceptors.run()).toBe(true);
 				yield* Effect.promise(() => waitFor(() => expect(deleteDialog.isConnected).toBe(false)));
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 			}),
 		testTimeout,
 	);
@@ -516,23 +530,29 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Reset account" })),
-				);
+				yield* chooseUserAction(user, "Reset account");
 				const dialog = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Reset this user?" }),
+					screen.findByRole("alertdialog", { name: "Reset this user?" }),
 				);
 				const cancel = within(dialog).getByRole("button", { name: "Cancel" });
 				const confirm = within(dialog).getByRole("button", { name: "Reset account" });
-				expect(document.activeElement).toBe(cancel);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === cancel).toBe(true)),
+				);
 
-				fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-				expect(document.activeElement).toBe(confirm);
-				fireEvent.keyDown(dialog, { key: "Tab" });
-				expect(document.activeElement).toBe(cancel);
+				yield* Effect.promise(() => user.tab({ shift: true }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === confirm).toBe(true)),
+				);
+				yield* Effect.promise(() => user.tab());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === cancel).toBe(true)),
+				);
 
-				fireEvent.keyDown(document, { key: "Escape" });
-				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+				fireEvent.keyDown(dialog, { key: "Escape" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull()),
+				);
 			}),
 		testTimeout,
 	);
@@ -567,17 +587,15 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Delete user" })),
-				);
+				yield* chooseUserAction(user, "Delete user");
 				const dialog = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Delete this user?" }),
+					screen.findByRole("alertdialog", { name: "Delete this user?" }),
 				);
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Deleting…" }));
 
-				fireEvent.keyDown(document, { key: "Escape" });
-				fireEvent.click(screen.getByRole("button", { name: "Close" }));
+				fireEvent.keyDown(dialog, { key: "Escape" });
+				fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
 				expect(view.backInterceptors.run()).toBe(true);
 				expect(dialog.isConnected).toBe(true);
 				expect(
@@ -615,9 +633,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Disable user" })),
-				);
+				yield* chooseUserAction(user, "Disable user");
 
 				yield* Effect.promise(() => screen.findByText("Disabled"));
 				expect(view.calls.slice(-2)).toEqual([
@@ -640,12 +656,10 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Delete user" })),
-				);
+				yield* chooseUserAction(user, "Delete user");
 				yield* Effect.promise(() =>
 					user.click(
-						within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" }),
+						within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete user" }),
 					),
 				);
 
@@ -678,9 +692,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Disable user" })),
-				);
+				yield* chooseUserAction(user, "Disable user");
 
 				yield* Effect.promise(() => screen.findByRole("alert"));
 				expect(screen.getByText("reader-0@example.com")).toBeTruthy();
@@ -718,12 +730,10 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
 				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Delete user" })),
-				);
+				yield* chooseUserAction(user, "Delete user");
 				yield* Effect.promise(() =>
 					user.click(
-						within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" }),
+						within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete user" }),
 					),
 				);
 
@@ -744,11 +754,11 @@ describe("Instance Admin users administration", () => {
 				const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
 
 				yield* Effect.promise(() => user.click(trigger));
-				const menu = screen.getByRole("menu", { name: "User actions" });
-				const resetLink = within(menu).getByRole<HTMLButtonElement>("menuitem", {
-					name: "Generate reset link",
-				});
-				expect(resetLink.disabled).toBe(true);
+				const menu = yield* Effect.promise(() =>
+					screen.findByRole("menu", { name: "User actions" }),
+				);
+				const resetLink = within(menu).getByRole("menuitem", { name: "Generate reset link" });
+				expect(resetLink.getAttribute("aria-disabled")).toBe("true");
 				expect(
 					within(menu).getByText("OIDC-only user: password reset links are unavailable."),
 				).toBeTruthy();

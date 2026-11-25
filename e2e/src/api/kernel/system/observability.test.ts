@@ -1,3 +1,4 @@
+import { type FakeHttpServer, startFakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, pollUntil } from "~/fixtures/kernel";
@@ -13,7 +14,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const JOB_SPAN_NAME = "NotificationDeliveryJob";

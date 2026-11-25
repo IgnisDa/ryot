@@ -1,4 +1,5 @@
-import { Effect } from "effect";
+import { BROWSER_SESSION_PATH } from "@ryot-app/contract/oauth";
+import { Effect, Option, Stream } from "effect";
 import type { Playwright } from "effect-playwright";
 
 import { getFrontendUrl } from "~/support/harness-target";
@@ -8,6 +9,18 @@ type BrowserSignInOptions = {
 	readonly frontendUrl?: string;
 	readonly captureHistory?: boolean;
 };
+
+export const watchBrowserSessionExchange = (page: Playwright.Page) =>
+	page.eventStream("response").pipe(
+		Stream.filter(
+			(response) =>
+				response.request().method() === "POST" &&
+				new URL(response.url()).pathname === BROWSER_SESSION_PATH,
+		),
+		Stream.runHead,
+		Effect.map(Option.getOrThrow),
+		Effect.forkChild({ startImmediately: true }),
+	);
 
 export const signInThroughHostedOAuth = (
 	page: Playwright.Page,

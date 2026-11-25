@@ -160,12 +160,9 @@ it.live("creates and edits a custom show without losing nested fields or image m
 			name: "Providers item 1",
 		});
 		yield* watchProviderItem.getByLabel("Name", { exact: true }).fill("Offline streaming");
-		yield* watchProviderItem.getByRole("button", { exact: true, name: "Offers" }).click();
-		yield* editor.getByRole("checkbox", { exact: true, name: "stream" }).click();
-		yield* editor
-			.getByRole("dialog", { exact: true, name: "Offers" })
-			.getByRole("button", { exact: true, name: "Close options" })
-			.click();
+		yield* watchProviderItem.getByRole("combobox", { exact: true, name: "Offers" }).click();
+		yield* editor.getByRole("option", { exact: true, name: "stream" }).click();
+		yield* page.keyboard.press("Escape");
 
 		yield* form.getByRole("button", { exact: true, name: "Add Episode orders item" }).click();
 		const episodeOrder = form.getByRole("group", { exact: true, name: "Episode orders item 1" });
@@ -340,7 +337,7 @@ it.live("authors, tracks, and protects custom seasons and episodes from the Epis
 
 		const editForm = media().getByRole("form", { exact: true, name: "Edit Show Episode" });
 		yield* editForm.getByRole("button", { exact: true, name: "Delete" }).click();
-		const confirmation = media().getByRole("dialog", { name: "Delete this item?" });
+		const confirmation = media().getByRole("alertdialog", { name: "Delete this item?" });
 		yield* confirmation.getByRole("button", { exact: true, name: "Delete" }).click();
 		yield* confirmation.getByRole("alert").waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),

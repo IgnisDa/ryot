@@ -10,7 +10,7 @@ import { UsersAdministration } from "#/modules/instance-admin/users-administrati
 export const Route = createFileRoute("/instance-admin/users")({ component: InstanceAdminUsers });
 
 function InstanceAdminUsers() {
-	const { server, runtime, backInterceptors } = Route.useRouteContext();
+	const { server, runtime } = Route.useRouteContext();
 	const { sessionId, unauthorized } = useInstanceAdmin();
 	const service = runtime.runSync(InstanceAdminService);
 	const impersonation = runtime.runSync(InstanceAdminImpersonationService);
@@ -30,7 +30,6 @@ function InstanceAdminUsers() {
 		<UsersAdministration
 			operations={operations}
 			onUnauthorized={unauthorized}
-			backInterceptors={backInterceptors}
 			shareAction={shareActionWith((work, onExit) => runtime.runCallback(work, { onExit }))}
 		/>
 	);

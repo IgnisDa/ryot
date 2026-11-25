@@ -35,7 +35,9 @@ export const clientArtifactMatches = (
 			(stored) =>
 				stored.name === file.name &&
 				bytesEqual(stored.contents, file.contents) &&
-				stored.contentType === file.contentType,
+				stored.contentType === file.contentType &&
+				stored.staticImports.length === file.staticImports.length &&
+				stored.staticImports.every((value, index) => value === file.staticImports[index]),
 		),
 	);
 
@@ -77,6 +79,7 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 							.select({
 								name: clientArtifactFile.name,
 								contentType: clientArtifactFile.contentType,
+								staticImports: clientArtifactFile.staticImports,
 							})
 							.from(clientArtifactFile)
 							.where(eq(clientArtifactFile.artifactHash, hash))
@@ -106,9 +109,8 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 						...versions,
 						...(pageDeclarationHash === null ? {} : { kind: "page", pageDeclarationHash }),
 						...(packageId === null ? {} : { packageId, clientDeclarationHash }),
-						files: files.map(({ name, contents, contentType }) => ({
-							name,
-							contentType,
+						files: files.map(({ contents, artifactHash: _hash, ...file }) => ({
+							...file,
 							contents: new Uint8Array(contents),
 						})),
 					}).pipe(

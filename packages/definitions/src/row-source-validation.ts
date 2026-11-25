@@ -88,9 +88,19 @@ const rowSourceIssue = (
 	return undefined;
 };
 
+const timeBindingIssue = (source: {
+	readonly precision: string;
+	readonly instantAt?: string | undefined;
+}) =>
+	source.instantAt !== undefined && source.precision !== "date"
+		? "instantAt requires a date-precision source"
+		: undefined;
+
 export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
+	timeBindingIssue(source) ??
 	rowSourceIssue(source, [
 		["startAt", source.startAt, "date"],
+		["instantAt", source.instantAt ?? null, "date"],
 		["art", source.art, "json"],
 		["done", source.done, "boolean"],
 		...Object.entries(source.caption?.params ?? {}).map(
@@ -104,6 +114,10 @@ const signalScheduleTables = new Set(["event", "entity", "relationship"]);
 export const signalScheduleIssue = (
 	schedule: Omit<SignalScheduleDefinition, "readSchemaSlugs">,
 ) => {
+	const timeIssue = timeBindingIssue(schedule);
+	if (timeIssue !== undefined) {
+		return timeIssue;
+	}
 	const document = rowSourceDocument(schedule.query);
 	if (documentReadsClock(document)) {
 		return "query must not read the clock; the kernel owns the due window";
@@ -114,6 +128,7 @@ export const signalScheduleIssue = (
 	}
 	return rowSourceIssue(schedule, [
 		["dueAt", schedule.dueAt, "date"],
+		["instantAt", schedule.instantAt ?? null, "date"],
 		["occurrence", schedule.occurrence, "text"],
 		["confirmedAt", schedule.freshness?.confirmedAt ?? null, "date"],
 		...Object.entries(schedule.properties).map(

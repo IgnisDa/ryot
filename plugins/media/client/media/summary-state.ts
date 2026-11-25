@@ -1,4 +1,5 @@
 import type { DisplayText, Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { assetKey } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 import { formatDuration } from "@ryot-app/plugin-ui-sdk";
 
@@ -14,14 +15,6 @@ import type {
 import type { CountKind, MediaCopy, MediaText } from "../messages";
 import type { MediaActivityLogger } from "./activity-log/state";
 import type { MediaArtworkAspect } from "./entity-presentation";
-import {
-	collectManagedAssetLocators,
-	mediaImageAsset,
-	mediaImageAssets,
-	type MediaImagePurposes,
-	type MediaImages,
-	preferredMediaImageAsset,
-} from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
 export type MediaSummaryFields = SelectedRow<MediaSummarySelection>;
@@ -34,6 +27,11 @@ export type MediaSummaryLink = { readonly href: string; readonly label: string }
 
 export type MediaEntitySummaryValue = MediaEntitySummaryFields & {
 	readonly collections: MediaCollectionList;
+};
+
+export type MediaSummaryArtwork = {
+	readonly aspect: MediaArtworkAspect;
+	readonly fit?: "cover" | "contain" | undefined;
 };
 
 export type MediaCollectionList = {
@@ -49,12 +47,6 @@ export type MediaSummaryFailure = Pick<
 export type MediaSummaryValue = MediaSummaryFields & {
 	readonly genres: MediaGenresList;
 	readonly collections: MediaCollectionList;
-};
-
-export type MediaSummaryArtwork = {
-	readonly aspect: MediaArtworkAspect;
-	readonly purpose: MediaImagePurposes[number];
-	readonly fit?: "cover" | "contain" | undefined;
 };
 
 export type MediaSummaryFact = {
@@ -114,24 +106,40 @@ export type MediaStatusRailConfig = {
 		  };
 };
 
-const MEDIA_GALLERY_LIMIT = 10;
-
 const RATING_SUFFIX = " / 100";
 
-type MediaImaged = { readonly images: MediaImages };
+export const awaitsLocalizedArtwork = (
+	media: Pick<MediaEntitySummaryFields, "translationStatus">,
+) =>
+	media.translationStatus.availability === "missing" &&
+	media.translationStatus.state !== "failed" &&
+	media.translationStatus.state !== "cancelled";
 
-export const mediaPosterAsset = (
-	media: MediaImaged,
-	purpose: MediaImagePurposes[number] = "cover",
-) => preferredMediaImageAsset(media.images, purpose);
+export const mediaSummaryArtworkAsset = (
+	media: Pick<MediaEntitySummaryFields, "image" | "translationStatus">,
+) => (awaitsLocalizedArtwork(media) ? undefined : (media.image ?? undefined));
 
-export const mediaBackdropAsset = (media: MediaImaged) => mediaImageAsset(media.images, "backdrop");
+type PreviewArtwork = Pick<
+	MediaEntitySummaryFields,
+	| "image"
+	| "firstPreviewImage"
+	| "translationStatus"
+	| "secondPreviewImage"
+	| "backdropPreviewImage"
+>;
 
-export const mediaGalleryAssets = (media: MediaImaged) =>
-	mediaImageAssets(media.images).slice(0, MEDIA_GALLERY_LIMIT);
-
-export const mediaManagedAssets = (media: MediaImaged) =>
-	collectManagedAssetLocators(mediaImageAssets(media.images));
+export const mediaGalleryPreview = (media: PreviewArtwork) => {
+	const primary = mediaSummaryArtworkAsset(media) ?? null;
+	const images = [media.backdropPreviewImage, media.firstPreviewImage, media.secondPreviewImage];
+	return [
+		...new Map(
+			images.flatMap((image) => {
+				const art = image?.purpose === media.image?.purpose ? primary : image;
+				return art === null ? [] : [[assetKey(art), art]];
+			}),
+		).values(),
+	];
+};
 
 export const mediaReleaseLabel = (media: {
 	readonly publishDate: null | string;

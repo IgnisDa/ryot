@@ -1,6 +1,7 @@
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, createEntity, createEntitySchema } from "~/fixtures/kernel";
@@ -8,7 +9,6 @@ import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getSharedHarnessTarget } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
-import { webRequest } from "~/support/web-request";
 
 let fallbackHarness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let fallbackTarget: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];

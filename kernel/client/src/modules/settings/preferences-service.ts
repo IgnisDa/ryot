@@ -15,6 +15,19 @@ export const preferencesQuery = createRyotQuery<void, UserPreferences>(({ client
 	Effect.map(client.data.query(userSettingsRecipe, {}), (settings) => settings.preferences),
 );
 
+export const initializeInterfaceLocaleMutation = createRyotHostMutation<
+	string,
+	void,
+	KernelHostServices,
+	AuthenticatedApiError
+>(
+	({ hostServices, input: locale }) =>
+		hostServices.runtime
+			.runSync(AccountApi)
+			.initializeInterfaceLocale(hostServices.scope, { payload: { locale } }),
+	{ hostServices: KernelHostServices },
+);
+
 export const updatePreferencesMutation = createRyotHostMutation<
 	UserPreferencesPatch,
 	void,

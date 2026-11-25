@@ -28,7 +28,6 @@ import {
 	mediaUnlinkedCredits,
 	mediaUnlinkedRoleLabel,
 } from "./overview-state";
-import { mediaPosterAsset } from "./summary-state";
 
 describe("media overview state", () => {
 	it("maps a pending query to the loading state", () => {
@@ -70,10 +69,10 @@ describe("media overview state", () => {
 		expect(mediaRelationsAreEmpty(decodeShowOverview({ people: [], companies: [] }))).toBe(false);
 	});
 
-	it("prefers the purpose that suits each relationship and falls back to provider order", () => {
+	it("uses the projected relationship artwork", () => {
 		const overview = decodeShowOverview({
-			people: [{ ...showPersonRow, images: [{ type: "s3", key: "still", purpose: "still" }] }],
-			companies: [{ ...showCompanyRow, images: [{ key: "logo", type: "local", purpose: "logo" }] }],
+			people: [{ ...showPersonRow, image: { type: "s3", key: "still", purpose: "still" } }],
+			companies: [{ ...showCompanyRow, image: { key: "logo", type: "local", purpose: "logo" } }],
 		});
 		const [person] = overview.people.items;
 		const [company] = overview.companies.items;
@@ -82,7 +81,7 @@ describe("media overview state", () => {
 
 		expect(mediaPersonAsset(person)).toEqual({ type: "s3", key: "still" });
 		expect(mediaCompanyAsset(company)).toEqual({ key: "logo", type: "local" });
-		expect(mediaPosterAsset(recommendation)).toEqual({
+		expect(recommendation.image).toEqual({
 			type: "remote",
 			url: "https://images.test/bad-girls.jpg",
 		});
@@ -90,9 +89,9 @@ describe("media overview state", () => {
 
 	it("falls back to no asset when a relationship records no images", () => {
 		const overview = decodeShowOverview({
-			people: [{ ...showPersonRow, images: null }],
-			companies: [{ ...showCompanyRow, images: [] }],
-			recommendations: [{ ...showRecommendationRow, images: null }],
+			people: [{ ...showPersonRow, image: null }],
+			companies: [{ ...showCompanyRow, image: null }],
+			recommendations: [{ ...showRecommendationRow, image: null }],
 		});
 		const [person] = overview.people.items;
 		const [company] = overview.companies.items;
@@ -101,29 +100,16 @@ describe("media overview state", () => {
 
 		expect(mediaPersonAsset(person)).toBeUndefined();
 		expect(mediaCompanyAsset(company)).toBeUndefined();
-		expect(mediaPosterAsset(recommendation)).toBeUndefined();
+		expect(recommendation.image).toBeNull();
 		expect(mediaOverviewManagedAssets(overview)).toEqual([]);
 	});
 
 	it("collects only the managed locators the overview renders", () => {
 		const overview = decodeShowOverview({
-			companies: [
-				{ ...showCompanyRow, images: [{ type: "local", purpose: "logo", key: "company-logo" }] },
-			],
+			people: [{ ...showPersonRow, image: { type: "s3", key: "person-profile" } }],
+			companies: [{ ...showCompanyRow, image: { type: "local", key: "company-logo" } }],
 			recommendations: [
-				{
-					...showRecommendationRow,
-					images: [{ type: "s3", purpose: "cover", key: "suggested-cover" }],
-				},
-			],
-			people: [
-				{
-					...showPersonRow,
-					images: [
-						{ type: "s3", purpose: "profile", key: "person-profile" },
-						{ type: "s3", purpose: "still", key: "person-still" },
-					],
-				},
+				{ ...showRecommendationRow, image: { type: "s3", key: "suggested-cover" } },
 			],
 		});
 

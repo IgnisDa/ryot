@@ -28,6 +28,7 @@
 		"@ryot-app/server": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/website": "workspace:*",
 		"@testcontainers/postgresql": "12.2.1",
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"better-auth": "1.7.21",

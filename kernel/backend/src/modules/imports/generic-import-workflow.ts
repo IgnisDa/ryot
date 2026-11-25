@@ -41,6 +41,7 @@ import { keyedReceipt } from "#modules/changes/receipts";
 import { ChangeSets, type CommitOptions } from "#modules/changes/service";
 import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { definitionText } from "#modules/definitions/text";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -852,6 +853,9 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 			yield* record(genericIngestionFailureOperation(failure, scope.runId), "unsuccessful", {
 				key: null,
 				code: failureReasonByStage[stage].code,
+				...(failure.detail === undefined
+					? {}
+					: { detail: definitionText(sourceState.pluginId, failure.detail) }),
 			});
 		}
 		for (const [index, item] of chunk.items.entries()) {

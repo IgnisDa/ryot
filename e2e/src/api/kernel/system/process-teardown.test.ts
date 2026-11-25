@@ -1,8 +1,8 @@
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { stopTestProcess } from "@ryot-app/testing/process";
 import { Effect } from "effect";
 
 import { describe, expect, it } from "~/support/effect-test";
-import { stopApiProcess } from "~/support/provisioning";
 
 const startChild = (signalHandler: string) =>
 	Effect.gen(function* () {
@@ -37,7 +37,7 @@ describe("tracked API child teardown", () => {
 	it.live("allows a child to exit through its SIGINT handler", () =>
 		Effect.gen(function* () {
 			const child = yield* startChild("() => process.exit(23)");
-			yield* stopApiProcess(child);
+			yield* stopTestProcess(child);
 
 			expect(child.exitCode).toBe(23);
 			expect(yield* Effect.promise(() => child.exited)).toBe(23);
@@ -49,7 +49,7 @@ describe("tracked API child teardown", () => {
 			const child = yield* startChild("() => {}");
 			const otherChild = yield* startChild("() => {}");
 			child.kill("SIGINT");
-			yield* stopApiProcess(child);
+			yield* stopTestProcess(child);
 
 			expect(child.signalCode).toBe("SIGKILL");
 			expect(() => process.kill(child.pid, 0)).toThrow(objectContaining({ code: "ESRCH" }));

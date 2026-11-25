@@ -51,7 +51,7 @@ const rows = (items: RowsResult["items"], nextCursor: null | string = null): Row
 
 const recommendation = (id: string, overrides: RowsResult["items"][number] = {}) => ({
 	id,
-	images: null,
+	image: null,
 	suggestedBy: 1,
 	name: `Title ${id}`,
 	schemaSlug: "movie",

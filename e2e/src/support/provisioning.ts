@@ -7,12 +7,13 @@ import {
 	startPostgresContainer,
 	stopPostgresContainer,
 } from "@ryot-app/testing/postgres-container";
+import { stopTestProcess } from "@ryot-app/testing/process";
+import { waitForHttpProcess } from "@ryot-app/testing/process-readiness";
+import { acquireInChildScope } from "@ryot-app/testing/resource-scope";
 import { Effect } from "effect";
 import { GenericContainer, Wait } from "testcontainers";
 
 import { apiProcessTarget } from "./harness-target";
-import { acquireInChildScope } from "./resource-scope";
-import { webRequest } from "./web-request";
 
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
@@ -147,40 +148,12 @@ const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd: string) =>
 				stderr: logFile ? Bun.file(`${logFile}.stderr`) : "ignore",
 			});
 		}),
-		stopApiProcess,
+		(process) => stopTestProcess(process),
 	).pipe(
 		Effect.map((process) =>
 			Object.assign(process, { target: { ...apiProcessTarget(env), serverPid: process.pid } }),
 		),
 	);
-
-const waitForHealthCheck = (
-	url: string,
-	label: string,
-	process: Pick<Bun.Subprocess, "exitCode">,
-	maxRetries = 90,
-	retryDelay = 1000,
-) =>
-	Effect.gen(function* () {
-		for (let attempt = 0; attempt < maxRetries; attempt += 1) {
-			if (process.exitCode !== null) {
-				throw new Error(
-					`[${label}] API process exited with code ${process.exitCode} before ${url} became healthy`,
-				);
-			}
-			const healthy = yield* webRequest(url).pipe(
-				Effect.map((response) => response.ok),
-				Effect.orElseSucceed(() => false),
-			);
-			if (healthy) {
-				return;
-			}
-			if (attempt < maxRetries - 1) {
-				yield* Effect.sleep(retryDelay);
-			}
-		}
-		throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
-	});
 
 // Under memory pressure the kernel kills a server one file owns before the backend every file shares.
 const preferForOutOfMemoryKill = (pid: number) =>
@@ -200,28 +173,11 @@ export const startApiProcess = Effect.fn("startApiProcess")(function* (
 	if (options.shared !== true) {
 		yield* preferForOutOfMemoryKill(apiProcess.pid);
 	}
-	yield* waitForHealthCheck(`http://127.0.0.1:${env.PORT}/api/system/health`, label, apiProcess);
+	yield* waitForHttpProcess(`http://127.0.0.1:${env.PORT}/api/system/health`, label, apiProcess);
 	return apiProcess;
 });
 
 export const waitForFrontend = (
 	apiProcess: Pick<Bun.Subprocess, "exitCode">,
 	frontendUrl: string,
-) => waitForHealthCheck(frontendUrl, "E2E SPA", apiProcess);
-
-export const stopApiProcess = (proc?: Pick<Bun.Subprocess, "kill" | "exited" | "exitCode">) =>
-	Effect.gen(function* () {
-		if (proc?.exitCode !== null) {
-			return;
-		}
-		proc.kill("SIGINT");
-		const exited = yield* Effect.promise(() => proc.exited).pipe(
-			Effect.timeoutOption("20 seconds"),
-		);
-		if (exited._tag === "Some") {
-			return;
-		}
-		// A sent signal does not prove that the tracked child has exited.
-		proc.kill("SIGKILL");
-		yield* Effect.promise(() => proc.exited);
-	});
+) => waitForHttpProcess(frontendUrl, "E2E SPA", apiProcess);

@@ -1,4 +1,4 @@
-import { StoredTokenSet } from "@ryot-app/contract/oauth";
+import { type BrowserSessionProfile, StoredTokenSet } from "@ryot-app/contract/oauth";
 import { Schema, Semaphore } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
@@ -7,8 +7,12 @@ import { makeSingleFlight } from "#/modules/auth/single-flight";
 import type { OAuthTokenError } from "#/modules/auth/token-service";
 
 const equivalentTokens = Schema.toEquivalence(Schema.NullOr(StoredTokenSet));
-const makeAuthorization = (tokens: null | StoredTokenSet) => ({
+const makeAuthorization = (
+	tokens: null | StoredTokenSet,
+	browser: null | BrowserSessionProfile = null,
+) => ({
 	tokens,
+	browser,
 	resolution: makeSingleFlight<SettledAuthSession, OAuthTokenError>(),
 	refresh: makeSingleFlight<null | StoredTokenSet, OAuthTokenError>(),
 });
@@ -31,9 +35,9 @@ const makeServerAuthorization = () => {
 		snapshot = next;
 		listeners.forEach((listener) => listener());
 	};
-	const adopt = (tokens: null | StoredTokenSet) => {
-		current = makeAuthorization(tokens);
-		publish(current, { status: tokens === null ? "missing" : "pending" });
+	const adopt = (tokens: null | StoredTokenSet, browser: null | BrowserSessionProfile = null) => {
+		current = makeAuthorization(tokens, browser);
+		publish(current, { status: tokens === null && browser === null ? "missing" : "pending" });
 		return current;
 	};
 	return {
@@ -47,6 +51,10 @@ const makeServerAuthorization = () => {
 			restoreAllowed = tokens !== null;
 			return adopt(tokens);
 		},
+		replaceBrowser: (profile: BrowserSessionProfile) => {
+			restoreAllowed = true;
+			return adopt(null, profile);
+		},
 		observe: (tokens: null | StoredTokenSet) =>
 			!restoreAllowed || equivalentTokens(tokens, current.tokens) ? current : adopt(tokens),
 		store: {
@@ -57,6 +65,16 @@ const makeServerAuthorization = () => {
 					listeners.delete(listener);
 				};
 			},
+		},
+		observeBrowser: (profile: null | BrowserSessionProfile) => {
+			if (!restoreAllowed) {
+				return current;
+			}
+			if (profile?.session !== current.browser?.session) {
+				return adopt(null, profile);
+			}
+			current.browser = profile;
+			return current;
 		},
 	};
 };

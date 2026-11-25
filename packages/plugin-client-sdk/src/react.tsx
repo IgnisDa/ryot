@@ -1,4 +1,5 @@
 export { localDay } from "./local-day";
+export { AssetArtWell } from "./assets/art";
 export type { Text } from "@ryot-app/i18n/text";
 export { ActiveScreenContext } from "./active-screen";
 export { useHostScreen } from "./queries/host-screen";
@@ -9,6 +10,7 @@ export { PreferencesGate } from "./queries/preferences-gate";
 export { useRyotSubmission } from "./queries/submission-hook";
 export { usePluginUserSettings } from "./queries/user-settings";
 export { useEntitySchemaName } from "./presentations/schema-names";
+export { assetKey, collectManagedAssetLocators } from "./assets/keys";
 export { useEntitlement, useUserPreferences } from "./queries/account";
 export { useRequestEntityEnrichment } from "./queries/entity-enrichment";
 export { useEntitySettle, useEntityRefresh } from "./refresh/entity-hooks";

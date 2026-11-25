@@ -170,7 +170,7 @@ describe("customize sidebar route", () => {
 				);
 
 				expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
-				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 			}).pipe(Effect.ensuring(Effect.sync(restore)));
 		},
 		testTimeout,

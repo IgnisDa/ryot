@@ -369,7 +369,6 @@ export const defineEpisodicMediaSchema = <
 					kind="people"
 					aspect="square"
 					compact={compact}
-					purpose="profile"
 					query={peopleQuery}
 					input={{ entityId }}
 					safeAreaTop={safeAreaTop}
@@ -380,7 +379,6 @@ export const defineEpisodicMediaSchema = <
 			companiesAction={
 				<MediaCreditsButton
 					fit="contain"
-					purpose="logo"
 					aspect="square"
 					kind="companies"
 					compact={compact}
@@ -424,6 +422,7 @@ export const defineEpisodicMediaSchema = <
 				overviewIsEmpty={overviewIsEmpty}
 				overviewRelations={overviewRelations}
 				refreshOverview={props.refreshOverview}
+				artwork={{ aspect: descriptor.aspect }}
 				summaryError={summaryState.summaryError}
 				overviewTrailing={descriptor.overviewTrailing}
 				summaryRefreshStatus={props.summaryRefreshStatus}
@@ -431,7 +430,6 @@ export const defineEpisodicMediaSchema = <
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
 				overviewLoadingDetail={descriptor.overviewLoadingDetail}
-				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
 				tabContent={{ episodes: props.episodes, activity: props.activity }}
 			/>
 		);

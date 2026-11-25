@@ -477,6 +477,7 @@ describe("Media analytics records drill", () => {
 					const trigger = yield* Effect.promise(() =>
 						waitFor(() => screen.getByRole("button", { name: "Open records" })),
 					);
+					const change = screen.getByRole("button", { name: "Change drill filters" });
 					trigger.focus();
 					act(() => {
 						fireEvent.click(trigger);
@@ -484,7 +485,7 @@ describe("Media analytics records drill", () => {
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
 					const originalRequest = itemAt(recordsRequests(page), 0);
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Change drill filters" }));
+						fireEvent.click(change);
 					});
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(2)));
 					const changedRequest = itemAt(recordsRequests(page), 1);

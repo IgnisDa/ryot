@@ -38,26 +38,35 @@ it.live(
 				const trigger = getByRole(mounted.container, "button", { name: "Your data" });
 				clickRyotElement(trigger);
 				clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(queryByRole(document.body, "menu", { name: "Your data" })).toBeNull(),
+					),
+				);
 				clickRyotElement(trigger);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
-							getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-						).toBe(true),
+							getByRole(document.body, "menuitem", { name: "Reminders" }).getAttribute(
+								"aria-disabled",
+							),
+						).toBe("true"),
 					),
 				);
 				expect(
-					getByRole(document.body, "menuitem", { name: "Remove from library" }).hasAttribute(
-						"disabled",
+					getByRole(document.body, "menuitem", { name: "Remove from library" }).getAttribute(
+						"aria-disabled",
 					),
-				).toBe(false);
+				).toBeNull();
 				expect(requests).toEqual([{ entityId: "media-1" }]);
 				yield* Deferred.succeed(release, undefined);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
-							getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-						).toBe(false),
+							getByRole(document.body, "menuitem", { name: "Reminders" }).getAttribute(
+								"aria-disabled",
+							),
+						).toBeNull(),
 					),
 				);
 			} finally {
@@ -99,8 +108,8 @@ it.live(
 				expect(requests).toEqual([{ entityId: "media-1" }]);
 				clickRyotElement(trigger);
 				expect(
-					getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
-				).toBe(false);
+					getByRole(document.body, "menuitem", { name: "Reminders" }).getAttribute("aria-disabled"),
+				).toBeNull();
 			} finally {
 				mounted.unmount();
 			}

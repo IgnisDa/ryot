@@ -14,6 +14,7 @@ import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { LegacyHistoryHandoffLive } from "./migrations/history-handoff";
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
+import { MediaArtworkCutoverLive } from "./migrations/media-artwork-cutover";
 import {
 	MediaCopyCutoverLive,
 	MoveMediaInventorySettingsLive,
@@ -29,6 +30,7 @@ const MigrationSequenceLive = InternalOAuthProvisioningLive.pipe(
 	Layer.flatMap(() => SystemPluginIngestionLive),
 	Layer.flatMap(() => LegacyDataMigrationLive),
 	Layer.flatMap(() => MediaCopyCutoverLive),
+	Layer.flatMap(() => MediaArtworkCutoverLive),
 );
 
 // Handed-off legacy history is admitted once the runtime has registered the import workflows.

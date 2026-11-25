@@ -7,11 +7,12 @@ import { createRef } from "react";
 import type { MediaImage } from "../../shared/media-image";
 import type { MediaOverviewRows } from "../../shared/media-recipes";
 import { catalogMessage } from "../../shared/messages.generated";
+import { rowsResult } from "../../tests/client/query-result-fixture";
 import { emptyShowOverview } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
+import { artworkSummaryFixture } from "../../tests/client/summary-fixture";
 import { clickRyotElement, mountRyotClient, pressRyotKey } from "../../tests/client/test-support";
 import { MediaImageGallery } from "./image-gallery";
-import { galleryImages } from "./image-gallery-state";
 import {
 	MediaOverview,
 	MediaOverviewRelations,
@@ -96,9 +97,9 @@ const mountGallery = (compact: boolean) =>
 			name="Dark"
 			safeAreaTop={59}
 			compact={compact}
+			images={twelveImages}
 			triggerRef={createRef()}
 			onClose={() => undefined}
-			images={galleryImages(twelveImages)}
 		/>,
 	);
 
@@ -107,36 +108,60 @@ afterEach(() => {
 });
 
 describe("MediaImageGallery", () => {
-	it("opens from the overview button and shows every image, not the rail's ten", () => {
-		const { unmount, container } = mountRyotClient(
-			noopAdapter,
-			<MediaOverview
-				compact
-				safeAreaTop={0}
-				relations={relationsRender}
-				isEmpty={mediaRelationsAreEmpty}
-				refreshOverview={() => undefined}
-				noticeTitle={catalogMessage("credits.cast-crew")}
-				loadingDetail={catalogMessage("overview.loading.show")}
-				overview={{ status: "ready", overview: emptyShowOverview() }}
-				media={decodeShowSummary({ name: "Dark", images: twelveImages })}
-			/>,
-		);
+	it("requests the gallery only after opening and mounts thumbnails in batches", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const images = [
+					...twelveImages,
+					...Array.from({ length: 100 }, (_, index) => remote(index + 12, "cover")),
+				];
+				const galleryRequests: unknown[] = [];
+				const { unmount, container } = mountRyotClient(
+					{
+						query: (request) =>
+							Effect.sync(() => {
+								galleryRequests.push(request);
+								return {
+									data: {
+										artwork: rowsResult([{ images }], {
+											limit: 1,
+											hasMore: false,
+											nextCursor: null,
+										}),
+									},
+								};
+							}),
+					},
+					<MediaOverview
+						compact
+						safeAreaTop={0}
+						relations={relationsRender}
+						isEmpty={mediaRelationsAreEmpty}
+						refreshOverview={() => undefined}
+						noticeTitle={catalogMessage("credits.cast-crew")}
+						loadingDetail={catalogMessage("overview.loading.show")}
+						overview={{ status: "ready", overview: emptyShowOverview() }}
+						media={decodeShowSummary({ name: "Dark", ...artworkSummaryFixture(images) })}
+					/>,
+				);
 
-		expect(railImages(container)).toHaveLength(10);
+				expect(railImages(container)).toHaveLength(2);
+				expect(galleryRequests).toHaveLength(0);
 
-		const trigger = Array.from(container.querySelectorAll("button")).find(
-			(element) => element.textContent === "View all images",
-		);
-		if (trigger === undefined) {
-			throw new Error("Expected the View all images button");
-		}
-		clickRyotElement(trigger);
+				const trigger = Array.from(container.querySelectorAll("button")).find(
+					(element) => element.textContent === "View all images",
+				);
+				if (trigger === undefined) {
+					throw new Error("Expected the View all images button");
+				}
+				clickRyotElement(trigger);
 
-		expect(tiles()).toHaveLength(12);
-		expect(dialog("Dark images").textContent).toContain("12 images");
-		unmount();
-	});
+				yield* Effect.promise(() => waitFor(() => expect(tiles()).toHaveLength(12)));
+				expect(galleryRequests).toHaveLength(1);
+				expect(dialog("Dark images").textContent).toContain("112 images");
+				unmount();
+			}),
+		));
 
 	it("narrows the grid to the selected purpose", () => {
 		const { unmount } = mountGallery(true);

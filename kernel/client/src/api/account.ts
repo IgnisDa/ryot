@@ -26,6 +26,10 @@ export class AccountApi extends Context.Service<AccountApi>()(
 					scope: ApiScope,
 					request: ContractRequest<"account", "revokeConnectedApp">,
 				) => api.run(scope, (client) => client.account.revokeConnectedApp(request)),
+				initializeInterfaceLocale: (
+					scope: ApiScope,
+					request: ContractRequest<"account", "initializeInterfaceLocale">,
+				) => api.run(scope, (client) => client.account.initializeInterfaceLocale(request)),
 			};
 		}),
 	},

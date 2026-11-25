@@ -1,10 +1,12 @@
 import {
-	CLIENT_BRIDGE_BOOTSTRAP_READY,
+	CLIENT_BRIDGE_BOOTSTRAP,
+	CLIENT_BRIDGE_NONCE_ELEMENT_ID,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	ClientCompositionMetadata,
 	type ClientPageContext,
 	KERNEL_SHORTCUTS,
+	type PluginBridgeBootstrapProof,
 	PluginBridgeInit,
 } from "@ryot-app/plugin-client-contract";
 import { useShortcut } from "@ryot-app/plugin-ui-sdk";
@@ -41,6 +43,12 @@ type ClientPluginDefinition = PluginRouterDefinition;
 const decodeCompositionMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(ClientCompositionMetadata),
 );
+const decodeNonce = Schema.decodeUnknownResult(Schema.fromJsonString(Schema.String));
+const decodeInit = Schema.decodeUnknownResult(PluginBridgeInit);
+
+const offerParentPort = (port: MessagePort) => {
+	window.parent.postMessage(CLIENT_BRIDGE_BOOTSTRAP, "*", [port]);
+};
 
 const KernelShortcutForwarder = ({
 	runtime,
@@ -69,9 +77,11 @@ const bootstrapClientApplication = (
 	registrations: readonly EntityPresentationRegistration[],
 	analyticsSections: readonly AnalyticsSectionRegistration[],
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
+	offerPort: (port: MessagePort) => void,
 ) => {
 	let root: Root | undefined;
-	const listener = new window.AbortController();
+	const listener = new AbortController();
+	let bootstrapPort: undefined | MessagePort;
 	let sdkRuntime: undefined | RyotPluginRuntime;
 	let sessionListener: undefined | AbortController;
 	let runtime: undefined | ReturnType<typeof createPluginRuntime>;
@@ -130,6 +140,8 @@ const bootstrapClientApplication = (
 	};
 	const dispose = () => {
 		listener.abort();
+		bootstrapPort?.close();
+		bootstrapPort = undefined;
 		sessionListener?.abort();
 		sessionListener = undefined;
 		const activeRuntime = runtime;
@@ -142,31 +154,36 @@ const bootstrapClientApplication = (
 	};
 	const metadataElement = document.getElementById(CLIENT_COMPOSITION_METADATA_ELEMENT_ID);
 	const metadata = decodeCompositionMetadata(metadataElement?.textContent ?? "");
-	if (Result.isFailure(metadata)) {
+	const nonce = decodeNonce(
+		document.getElementById(CLIENT_BRIDGE_NONCE_ELEMENT_ID)?.textContent ?? "",
+	);
+	if (
+		Result.isFailure(metadata) ||
+		Result.isFailure(nonce) ||
+		!document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID)
+	) {
 		return { dispose };
 	}
 
 	const compositionMetadata = metadata.success;
-	window.addEventListener(
+	const { port1: port, port2: parentPort } = new MessageChannel();
+	bootstrapPort = port;
+	port.addEventListener(
 		"message",
-		(event) => {
-			if (runtime || event.source !== window.parent || event.ports.length !== 1) {
-				return;
-			}
-			const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
+		({ data }: MessageEvent<unknown>) => {
+			const decoded = decodeInit(data);
 			if (
 				Result.isFailure(decoded) ||
 				decoded.success.compositionHash !== compositionMetadata.hash
 			) {
-				return;
-			}
-			const port = event.ports[0];
-			if (!document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID) || !port) {
+				dispose();
 				return;
 			}
 
 			listener.abort();
+			bootstrapPort = undefined;
 			sessionListener = new window.AbortController();
+			window.addEventListener("pagehide", dispose, { signal: sessionListener.signal });
 			window.addEventListener("error", handleFatalEvent, { signal: sessionListener.signal });
 			window.addEventListener("unhandledrejection", handleFatalEvent, {
 				signal: sessionListener.signal,
@@ -210,7 +227,18 @@ const bootstrapClientApplication = (
 		},
 		{ signal: listener.signal },
 	);
-	window.parent.postMessage({ type: CLIENT_BRIDGE_BOOTSTRAP_READY }, "*");
+	port.addEventListener("messageerror", dispose, { signal: listener.signal });
+	port.start();
+	try {
+		offerPort(parentPort);
+		port.postMessage({
+			nonce: nonce.success,
+			composition: compositionMetadata,
+		} satisfies PluginBridgeBootstrapProof);
+	} catch {
+		parentPort.close();
+		dispose();
+	}
 	return { dispose };
 };
 
@@ -224,15 +252,24 @@ type ClientPageOptions = ClientPluginOptions & {
 export const createClientBootstrap = (
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => ({
-	bootstrapClientPlugin: (definition: ClientPluginDefinition, options: ClientPluginOptions = {}) =>
+	bootstrapClientPlugin: (
+		definition: ClientPluginDefinition,
+		options: ClientPluginOptions,
+		offerPort: (port: MessagePort) => void,
+	) =>
 		bootstrapClientApplication(
 			() => createPluginRouteResolver(definition),
 			options.entityPresentations ?? [],
 			[],
 			createRuntime,
+			offerPort,
 		),
 
-	bootstrapClientPage: (component: ComponentType, options: ClientPageOptions = {}) =>
+	bootstrapClientPage: (
+		component: ComponentType,
+		options: ClientPageOptions,
+		offerPort: (port: MessagePort) => void,
+	) =>
 		bootstrapClientApplication(
 			(page) =>
 				page === undefined
@@ -241,8 +278,16 @@ export const createClientBootstrap = (
 			options.entityPresentations ?? [],
 			options.analyticsSections ?? [],
 			createRuntime,
+			offerPort,
 		),
 });
 
-export const { bootstrapClientPage, bootstrapClientPlugin } =
-	createClientBootstrap(makeRyotPluginRuntime);
+const browser = createClientBootstrap(makeRyotPluginRuntime);
+
+export const bootstrapClientPlugin = (
+	definition: ClientPluginDefinition,
+	options: ClientPluginOptions = {},
+) => browser.bootstrapClientPlugin(definition, options, offerParentPort);
+
+export const bootstrapClientPage = (component: ComponentType, options: ClientPageOptions = {}) =>
+	browser.bootstrapClientPage(component, options, offerParentPort);

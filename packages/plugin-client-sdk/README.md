@@ -5,8 +5,9 @@ The client SDK provides environment-neutral application APIs for kernel and plug
 
 ## Bridge Bootstrap
 
-Bootstrap accepts one port from `window.parent` only after validating embedded metadata, and checks
-init/ready identity against that metadata rather than echoed input. Wire details belong to the
+Bootstrap validates the embedded composition metadata and frame nonce, creates a channel, and
+offers one port to the parent. It sends proof on the channel before receiving init and checks
+init/ready identity against the embedded metadata. Wire details belong to the
 [bridge contract](../plugin-client-contract/README.md).
 Production bootstraps construct a live SDK runtime per page. Tests use `createTestRyotClock().bootstrap`
 when mounting a page against that harness's clock; each page owns and disposes its SDK runtime,
@@ -23,8 +24,8 @@ nonsecret contributor package, local plugin, revision, and installation identiti
 the exact `{ kind: "local", pluginId }` binding from that same contributor set. Missing or ambiguous
 membership fails; neither accessor supplies an ambient page-wide `self` owner.
 Reserved `Mod+J`, `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
-not raw keyboard events or public `RyotClient` capabilities. An active plugin `OverlayScope`
-suppresses forwarding.
+using the active document’s overlay shortcut scope. While a plugin overlay owns that scope,
+reserved shortcuts stay in the document.
 
 `usePageShortcut` binds a modifier-free key in this document and registers it with the kernel, which
 binds the same key in its own realm and sends a press message back. Key events never cross the
@@ -33,7 +34,7 @@ registrations.
 
 ## Messages And Locale
 
-Init and every later `locale` message carry the host's locale, text direction and the catalogs in
+Init and every later `locale` message carry the host's full formatting locale, text direction and the catalogs in
 that locale's fallback chain: the kernel catalog plus the document's plugin contributors' catalogs
 (every catalog for kernel renderer documents). A plugin therefore renders only its own messages,
 kernel messages and served messages of those namespaces. The session sets the document's `lang`
@@ -213,9 +214,10 @@ staleness date/message. Content is limited to 3072 UTF-8 bytes; the native host 
 combined attributes and content remain below 4096 bytes.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
-Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
-most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
-renderers are callers of this SDK behavior. Disposing a bridge session aborts pending resolution, but
+Remote images do not use it. `AssetArtWell` resolves a locator through the nearest provider and
+renders it with the shared artwork component. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
+most 64, retained URLs during refresh, and renewal before the earliest expiry. Nested providers
+reuse the locators registered by their ancestors. Disposing a bridge session aborts pending resolution, but
 an issued URL remains valid until expiry.
 
 Browser uploads to S3 require bucket CORS rules that allow `PUT` with `Content-Type` and enabled tracing

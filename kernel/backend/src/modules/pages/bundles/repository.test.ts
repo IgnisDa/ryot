@@ -57,6 +57,7 @@ describe("client artifact persistence identity", () => {
 					name: file.name,
 					artifactHash: artifact.hash,
 					contentType: file.contentType,
+					staticImports: file.staticImports,
 					contents: Buffer.from("export default 2;"),
 				},
 			]),

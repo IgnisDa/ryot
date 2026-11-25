@@ -124,7 +124,7 @@ describe("activity row menu", () => {
 				}
 				expect(menuItems(menu)).toEqual(["Edit", "Delete"]);
 				choose(menu, "Delete");
-				const dialog = getByRole(document.body, "dialog", { name: "Delete 3 records?" });
+				const dialog = getByRole(document.body, "alertdialog", { name: "Delete 3 records?" });
 				clickRyotElement(getByRole(dialog, "button", { name: "Delete 3 records" }));
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
 				const [request] = background.requests;
@@ -137,7 +137,9 @@ describe("activity row menu", () => {
 				expect(request?.input).not.toHaveProperty("expected");
 				expect(request?.input).toMatchObject({ submissionId: request?.idempotencyKey });
 				yield* eventually(() =>
-					expect(queryByRole(document.body, "dialog", { name: "Delete 3 records?" })).toBeNull(),
+					expect(
+						queryByRole(document.body, "alertdialog", { name: "Delete 3 records?" }),
+					).toBeNull(),
 				);
 				background.settle("submission-1", { status: "failed", reason: "transport" });
 				expect(queryByRole(document.body, "dialog")).toBeNull();
@@ -157,9 +159,11 @@ describe("activity row menu", () => {
 				expect(menuItems(menu)).toEqual(["Delete"]);
 				choose(menu, "Delete");
 				clickRyotElement(
-					getByRole(getByRole(document.body, "dialog", { name: "Delete this record?" }), "button", {
-						name: "Delete record",
-					}),
+					getByRole(
+						getByRole(document.body, "alertdialog", { name: "Delete this record?" }),
+						"button",
+						{ name: "Delete record" },
+					),
 				);
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
 				expect(background.requests[0]?.input).toMatchObject({
@@ -388,9 +392,11 @@ describe("activity row menu", () => {
 				}
 				choose(menu, "Delete");
 				clickRyotElement(
-					getByRole(getByRole(document.body, "dialog", { name: "Delete this review?" }), "button", {
-						name: "Delete review",
-					}),
+					getByRole(
+						getByRole(document.body, "alertdialog", { name: "Delete this review?" }),
+						"button",
+						{ name: "Delete review" },
+					),
 				);
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
 				expect(background.requests[0]).toMatchObject({

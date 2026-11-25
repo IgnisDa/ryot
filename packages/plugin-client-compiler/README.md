@@ -50,8 +50,8 @@ with those names do not change it. Compiler-generated declarations are not autho
 `@ryot-app/plugin-ui-sdk/markdown` is an exact trusted registry entry. Its Markdown and directive
 dependencies are private implementation details; plugin sources cannot import them directly.
 
-Motion is a private UI SDK dependency, included in the shared runtime. Plugin authors use the SDK's
-motion primitives; direct `motion/react` imports are not in the dependency registry.
+Base UI and Motion are private UI SDK dependencies included in the shared runtime. The SDK
+exports the styled controls and motion primitives through its existing approved entry points.
 
 `@ryot-app/i18n` is likewise private to the SDK. Plugins render messages through the client SDK's
 `useMessages` and `useT`, and build them with the neutral `@ryot-app/plugin-kit/messages` entry. The
@@ -113,9 +113,11 @@ database IDs are not embedded in the plugin module.
 
 Vite may also emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored
 CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted path, MIME type,
-local reference, file count, per-asset size, and total size is validated. The hash covers every
-output byte and content type plus the package identity (the name of kernel and page inputs), and compiler/protocol identity. Final files are
-sorted by name. Compiler version 1 identifies minified module artifacts.
+local reference, file count, per-asset size, and total size is validated. Each module records its
+static imports using emitted filenames for local chunks and bare specifiers for external modules.
+The hash covers output bytes, content types, static imports, package identity (the name of kernel
+and page inputs), and compiler and protocol identity. Final files are sorted by name.
+Compiler version 1 identifies minified module artifacts.
 Hashes also cover the canonically sorted import targets and, for authored plugins, the client
 declaration hash. Archives require that declaration hash to match the manifest.
 The pure executable-text codec in `@ryot-app/ts-utils/executable-text` retains valid UTF-8 bytes,

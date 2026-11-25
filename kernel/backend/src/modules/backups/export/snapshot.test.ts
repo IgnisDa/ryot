@@ -473,6 +473,7 @@ const privateCompiledFiles = [
 	...fixtureClientArtifact(privateManifest.metadata.packageId, privateManifest.client).files,
 	{
 		name: "asset.png",
+		staticImports: [],
 		contentType: "image/png",
 		contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
 	},

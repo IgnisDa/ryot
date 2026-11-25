@@ -562,7 +562,7 @@ describe("exercise details view", () => {
 					);
 					openMenu();
 					const item = screen.getByRole("menuitem", { name: `Merge into… (${reason})` });
-					expect(item.hasAttribute("disabled")).toBe(true);
+					expect(item.getAttribute("aria-disabled")).toBe("true");
 					disposePluginBridges();
 				}
 
@@ -571,9 +571,9 @@ describe("exercise details view", () => {
 					waitFor(() => screen.getByRole("button", { name: "Add to current workout" })),
 				);
 				openMenu();
-				expect(screen.getByRole("menuitem", { name: "Merge into…" }).hasAttribute("disabled")).toBe(
-					false,
-				);
+				expect(
+					screen.getByRole("menuitem", { name: "Merge into…" }).getAttribute("aria-disabled"),
+				).toBeNull();
 			}),
 		testTimeout,
 	);
@@ -671,7 +671,7 @@ const confirmMerge = (setup: ReturnType<typeof mountCustomExercise>) =>
 		click(screen.getByRole("radio", { name: "Bench press" }));
 		click(screen.getByRole("button", { name: "Merge into" }));
 		const dialog = yield* Effect.promise(() =>
-			waitFor(() => screen.getByRole("dialog", { name: "Merge exercise?" })),
+			waitFor(() => screen.getByRole("alertdialog", { name: "Merge exercise?" })),
 		);
 		expect(dialog.textContent).toContain(
 			"Merge My press into Bench press? Its history, notes and collection memberships move to Bench press. My press is removed from your library.",
@@ -739,7 +739,7 @@ describe("exercise merge", () => {
 						).toBeTruthy(),
 					),
 				);
-				expect(screen.queryByRole("dialog", { name: "Merge exercise?" })).toBeNull();
+				expect(screen.queryByRole("alertdialog", { name: "Merge exercise?" })).toBeNull();
 				expect(setup.page.clientMessages().some(({ type }) => type === "navigate")).toBe(false);
 			}),
 		testTimeout,

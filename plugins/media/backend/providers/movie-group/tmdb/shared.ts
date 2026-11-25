@@ -4,17 +4,20 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
+import { mediaTranslationResult } from "../../../lib/translation-result";
 import {
 	collectImages,
 	firstTranslationValue,
-	getImageUrl,
-	getLocalizedImageUrl,
+	getLocalizedTmdbArtwork,
 	getTmdbAccessToken,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
+	tmdbArtworkInventory,
 	tmdbGet,
+	tmdbLocalizedImages,
 } from "../../../lib/vendors/tmdb";
+import { getImageUrl } from "../../../lib/vendors/tmdb-artwork";
 
 export const manifest = defineManifest({
 	name: "TMDB",
@@ -78,7 +81,9 @@ export const details = defineProvider({
 			const [collectionData, imagesData] = yield* Effect.all(
 				[
 					tmdbGet(host, `/collection/${input.externalId}`, { language: "en" }, token),
-					tmdbGet(host, `/collection/${input.externalId}/images`, {}, token),
+					input.level === "base"
+						? Effect.succeed<UnknownRecord>({})
+						: tmdbArtworkInventory(host, `/collection/${input.externalId}`, "en", token),
 				],
 				{ concurrency: "unbounded" },
 			);
@@ -145,12 +150,9 @@ export const translate = defineProvider({
 			const [translationsData, imagesData] = yield* Effect.all(
 				[
 					tmdbGet(host, `/collection/${input.externalId}/translations`, {}, token),
-					tmdbGet(
-						host,
-						`/collection/${input.externalId}/images`,
-						{ include_image_language: langCode },
-						token,
-					).pipe(Effect.orElseSucceed(() => ({}))),
+					tmdbLocalizedImages(host, `/collection/${input.externalId}/images`, langCode, token).pipe(
+						Effect.orElseSucceed(() => ({})),
+					),
 				],
 				{ concurrency: "unbounded" },
 			);
@@ -163,20 +165,7 @@ export const translate = defineProvider({
 			const description = normalizePlainDescription(
 				firstTranslationValue(candidates, (data) => data["overview"]),
 			);
-			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
-			const properties: Record<
-				string,
-				string | Array<{ url: string; type: "remote"; purpose: "cover" }>
-			> = {};
-			if (description) {
-				properties["description"] = description;
-			}
-			if (imageUrl) {
-				properties["images"] = [{ url: imageUrl, type: "remote", purpose: "cover" }];
-			}
-			return {
-				...(name ? { name } : {}),
-				...(Object.keys(properties).length > 0 ? { properties } : {}),
-			};
+			const image = getLocalizedTmdbArtwork(imagesData, "posters", langCode, "cover");
+			return mediaTranslationResult(name, description, image);
 		}),
 });

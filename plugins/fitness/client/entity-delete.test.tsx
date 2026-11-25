@@ -57,7 +57,9 @@ it.live(
 				closed += 1;
 			});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("dialog", { name: "Delete workout?" })).toBeTruthy()),
+				waitFor(() =>
+					expect(screen.getByRole("alertdialog", { name: "Delete workout?" })).toBeTruthy(),
+				),
 			);
 
 			act(() => {
@@ -87,7 +89,7 @@ for (const { kind, operationSlug, savedViewSlug } of [
 				const page = mountDeleteEntity(kind, () => {});
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("dialog", { name: `Delete ${kind}?` })).toBeTruthy(),
+						expect(screen.getByRole("alertdialog", { name: `Delete ${kind}?` })).toBeTruthy(),
 					),
 				);
 				act(() => {

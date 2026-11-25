@@ -96,9 +96,11 @@ const chooseOverviewPage = Effect.gen(function* () {
 	fireEvent.click(
 		yield* Effect.promise(() => screen.findByRole("button", { name: "New publication" })),
 	);
-	fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: /^Page:/ })));
-	expect(screen.queryByRole("radio", { name: "Draft" })).toBeNull();
-	fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: "Overview" })));
+	fireEvent.click(yield* Effect.promise(() => screen.findByRole("combobox", { name: /^Page:/ })));
+	expect(screen.queryByRole("option", { name: "Draft" })).toBeNull();
+	const overview = yield* Effect.promise(() => screen.findByRole("option", { name: "Overview" }));
+	fireEvent.pointerDown(overview, { pointerType: "mouse" });
+	fireEvent.click(overview);
 	fireEvent.change(yield* Effect.promise(() => screen.findByRole("textbox", { name: "Title" })), {
 		target: { value: "My page" },
 	});
@@ -115,10 +117,12 @@ it.live(
 				fireEvent.change(screen.getByRole("textbox", { name: "Heading" }), {
 					target: { value: "Shared overview" },
 				});
-				fireEvent.click(screen.getByRole("button", { name: /^Mode:/ }));
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("radio", { name: "Snapshot" })),
+				fireEvent.click(screen.getByRole("combobox", { name: /^Mode:/ }));
+				const snapshot = yield* Effect.promise(() =>
+					screen.findByRole("option", { name: "Snapshot" }),
 				);
+				fireEvent.pointerDown(snapshot, { pointerType: "mouse" });
+				fireEvent.click(snapshot);
 				expect(screen.getByText(/Captures the first page of every query/)).toBeDefined();
 				expect(screen.getByRole("switch", { name: "Visitors can change Heading" })).toHaveProperty(
 					"disabled",

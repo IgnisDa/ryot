@@ -1,5 +1,10 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
-import { type Formatters, type RyotQuery, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import {
+	collectManagedAssetLocators,
+	type Formatters,
+	type RyotQuery,
+	useFormatters,
+} from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
 import { type MediaText, useMediaMessages } from "../messages";
@@ -7,9 +12,7 @@ import { MediaCreditsButton } from "./credits";
 import type { MediaCursorPage } from "./cursor-page-state";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
-import { collectManagedAssetLocators } from "./image";
 import { mediaCharacterLabel, mediaCreditRolesLabel, mediaListLabel } from "./overview-state";
-import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditSection<Slug extends string> = {
 	readonly slug: Slug;
@@ -33,7 +36,7 @@ export const mediaCreditRailsAreEmpty = <Slug extends string>(
 
 export const mediaCreditRailsManagedAssets = <Slug extends string>(
 	overview: MediaCreditRailsOverview<Slug>,
-) => collectManagedAssetLocators(mediaCreditItems(overview).map((item) => mediaPosterAsset(item)));
+) => collectManagedAssetLocators(mediaCreditItems(overview).map((item) => item.image ?? undefined));
 
 const creditLines = (text: MediaText, formatters: Formatters) => (credit: MediaCreatorCredit) => [
 	mediaCreditRolesLabel({ text, formatters }, credit),
@@ -68,7 +71,6 @@ export function MediaCreditRails<Slug extends string>(props: {
 					credits.pageInfo.hasMore ? (
 						<MediaCreditsButton<{ readonly target: Slug }>
 							kind="all"
-							purpose="cover"
 							title={section.title}
 							compact={props.compact}
 							aspect={section.aspect}

@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
-import { Effect, FileSystem, Schema } from "effect";
+import { Effect } from "effect";
 
-import { getDb, getServerVariables, TEMP_DIRECTORY } from "~/lib/config.server";
-import { fromPromise } from "~/lib/effect.server";
-import { runMigrations } from "~/lib/migrations.server";
-import { runPromise } from "~/lib/runtime.server";
+import { getDb } from "~/server/config.server";
+import { fromPromise } from "~/server/effect.server";
+import { runMigrations } from "~/server/migrations.server";
+import { runPromise } from "~/server/runtime.server";
 
 let hasRunStartup = false;
 
@@ -13,21 +13,15 @@ export const loader = () =>
 		Effect.gen(function* () {
 			if (!hasRunStartup) {
 				yield* runMigrations();
-				const fs = yield* FileSystem.FileSystem;
-				yield* fs.writeFileString(
-					`${TEMP_DIRECTORY}/website-config.json`,
-					yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(getServerVariables()),
-				);
 				hasRunStartup = true;
 			}
 			yield* fromPromise(() => getDb().execute(sql`SELECT 1`));
-			return new Response("OK", { status: 200 });
+			return new Response("OK");
 		}).pipe(
 			Effect.catchCause((cause) =>
-				Effect.gen(function* () {
-					yield* Effect.logError("Health check failed:", cause);
-					return new Response("Database connection failed", { status: 503 });
-				}),
+				Effect.logError("Health check failed:", cause).pipe(
+					Effect.as(new Response("Database connection failed", { status: 503 })),
+				),
 			),
 		),
 	);

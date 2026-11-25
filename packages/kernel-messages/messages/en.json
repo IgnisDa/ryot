@@ -753,8 +753,6 @@
 		"message": "This stops future work. Items already added stay in your library. Type \"{phrase}\" to continue.",
 		"description": "{phrase} is the phrase the person must type to confirm."
 	},
-	"client.imports.cancelled.detail": "Future work stopped. Items already added remain in your library.",
-	"client.imports.cancelled.title": "Import cancelled",
 	"client.imports.check-setup-again": "Check setup again",
 	"client.imports.checking-setup": "Checking setup…",
 	"client.imports.choose-source": {
@@ -794,19 +792,22 @@
 	"client.imports.integrations-link-label": "Syncing on a schedule? Integrations",
 	"client.imports.integrations-prompt": "Syncing on a schedule?",
 	"client.imports.intro": "Bring your history over from another service. Files are uploaded to your own server, read once, and deleted when the import finishes.",
+	"client.imports.issues.explanation.database-commit-failed": "Could not save this record.",
+	"client.imports.issues.explanation.error": "An error occurred while processing this record.",
+	"client.imports.issues.explanation.event-policy-failed": "This record did not pass validation.",
+	"client.imports.issues.explanation.input-transformation-failed": "Could not read this record.",
+	"client.imports.issues.explanation.provider-details-failed": "Could not load details for this record.",
+	"client.imports.issues.explanation.provider-resolution-failed": "Could not find a match for this record.",
+	"client.imports.issues.explanation.source-fetch-failed": "Could not read the source.",
+	"client.imports.issues.explanation.warning": "A warning was recorded for this item.",
 	"client.imports.issues.heading": {
 		"message": "{subject} · {severity, select, warning {warning} error {error} other {error}}",
 		"description": "{subject} names the record or run the issue belongs to and {severity} is the issue's severity."
 	},
 	"client.imports.issues.load-failed": "Could not load record issues.",
-	"client.imports.issues.note": "Warnings and record errors are separate from a run failure. Expected skips appear in the outcome summary.",
 	"client.imports.issues.operation": {
 		"message": "Operation: {id}",
 		"description": "{id} is the operation's identifier."
-	},
-	"client.imports.issues.policy-reason": {
-		"message": "{kind} · {reason}",
-		"description": "{kind} is the kind of record and {reason} is the explanation a plugin's policy gave for skipping it."
 	},
 	"client.imports.issues.reason": {
 		"message": "{kind} · {code}",
@@ -862,6 +863,11 @@
 		"message": "{kind, select, reading {Reading} preparing {Preparing} resolving {Resolving} writing {Writing} finishing {Finishing} other {Working}} · {state, select, pending {Pending} running {Running} waiting {Waiting} completed {Completed} failed {Failed} cancelled {Cancelled} other {Running}}",
 		"description": "{kind} is what the import is doing and {state} is how far along that step is."
 	},
+	"client.imports.report.completed-with-issues": "Completed with issues",
+	"client.imports.report.current-step": {
+		"message": "{kind, select, reading {Reading input} preparing {Preparing records} resolving {Finding matches} writing {Adding records} finishing {Finishing up} other {Working}}",
+		"description": "{kind} is the current activity."
+	},
 	"client.imports.report.deadline": {
 		"message": "Setup deadline: {deadline}. The deadline does not extend.",
 		"description": "{deadline} is the formatted date and time."
@@ -871,7 +877,13 @@
 		"message": "Last advancement: {time}",
 		"description": "{time} is the formatted date and time."
 	},
+	"client.imports.report.nothing-saved": "Nothing was added or updated.",
+	"client.imports.report.outcome": {
+		"message": "{count, number} {outcome, select, created {added} updated {updated} unchanged {unchanged} skipped {skipped} unsuccessful {failed} other {failed}}",
+		"description": "{count} is the number of records and {outcome} is what happened to them."
+	},
 	"client.imports.report.resumes": "This delivery resumes automatically after setup is fixed.",
+	"client.imports.report.technical-details": "Technical details",
 	"client.imports.report.waiting": {
 		"message": "Waiting: {code}",
 		"description": "{code} is why the step is waiting."
@@ -1188,6 +1200,7 @@
 	"client.notifications.channel.telegram.bot-token-help": "The token BotFather gave you when you created the bot.",
 	"client.notifications.channel.telegram.chat-id-help": "The chat the bot posts to. Your bot must already be in it.",
 	"client.notifications.channel.telegram.description": "Send messages to a Telegram chat from your own bot.",
+	"client.notifications.channel.telegram.topic-id-help": "Use the number at the end of the Telegram topic link. Leave this blank for General or chats without topics.",
 	"client.notifications.channels": "Channels",
 	"client.notifications.choose-channel": {
 		"message": "Add {name}",
@@ -1228,6 +1241,7 @@
 	"client.notifications.field.recipient": "Recipient",
 	"client.notifications.field.server-url": "Server URL",
 	"client.notifications.field.topic": "Topic",
+	"client.notifications.field.topic-id": "Topic ID",
 	"client.notifications.field.user-key": "User key",
 	"client.notifications.field.webhook-url": "Webhook URL",
 	"client.notifications.group.chat": "Chat",
@@ -2049,6 +2063,10 @@
 	"client.route.settings.import-run.cancelling": "Cancelling…",
 	"client.route.settings.import-run.delete-title": "Delete this import record?",
 	"client.route.settings.import-run.loading": "Loading this import…",
+	"client.route.settings.import-run.integration-meta": {
+		"message": "Integration · {timestamp}",
+		"description": "{timestamp} is when the integration run was created."
+	},
 	"client.route.settings.import-run.meta": {
 		"message": "Import · {timestamp}",
 		"description": "{timestamp} is when the import was created."
@@ -2226,7 +2244,6 @@
 	"client.shell.customize.title": "Customize sidebar",
 	"client.shell.discard.confirm": "Discard",
 	"client.shell.discard.detail": "Your unsaved sidebar changes will be lost.",
-	"client.shell.discard.dismiss": "Dismiss discard prompt",
 	"client.shell.discard.keep": "Keep editing",
 	"client.shell.discard.title": "Discard sidebar changes?",
 	"client.shell.empty-saved-views": "No saved views yet.",
@@ -3079,10 +3096,6 @@
 		"message": "{field} values",
 		"description": "{field} is the filtered field's label."
 	},
-	"sdk.filters.values-summary": {
-		"message": "{field} values: {summary}",
-		"description": "{field} is the filtered field's label; {summary} lists the chosen values."
-	},
 	"sdk.presentation.display-failed": "This entity could not be displayed.",
 	"sdk.presentation.load-failed": "This entity could not be loaded.",
 	"sdk.presentation.loading": "Loading entity presentation…",
@@ -3130,8 +3143,8 @@
 		"description": "Keeps each provider's canonical content regardless of the interface language."
 	},
 	"settings.preferences.interface-locale.device": {
-		"message": "Device language",
-		"description": "Interface language choice that follows the device or browser language."
+		"message": "Use device locale",
+		"description": "Copies the current device locale into the account preference."
 	},
 	"settings.preferences.interface-locale.hint": "Sets the language of menus, messages and dates.",
 	"settings.preferences.interface-locale.label": "Interface language",
@@ -3486,7 +3499,6 @@
 		"description": "{label} is the form field's label."
 	},
 	"ui.search-field.clear": "Clear search",
-	"ui.select.close-options": "Close options",
 	"ui.select.no-matches": "No matching options.",
 	"ui.select.placeholder": "Select an option",
 	"ui.select.search-field": {

@@ -1,9 +1,9 @@
 import { ProKeyVerification } from "@ryot-app/instance-contract/pro-key";
 import { Effect, Schema } from "effect";
 
-import { getProKeyVerifier } from "~/lib/config.server";
-import { fromPromise, WebsiteFailure } from "~/lib/effect.server";
-import { runPromise } from "~/lib/runtime.server";
+import { getProKeyVerifier } from "~/server/config.server";
+import { fromPromise, WebsiteFailure } from "~/server/effect.server";
+import { runPromise } from "~/server/runtime.server";
 
 import type { Route } from "./+types/api.pro-key.verify";
 

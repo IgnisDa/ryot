@@ -37,10 +37,13 @@ const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetReso
 	{ cancelOnUnmount: true },
 );
 
-const ManagedAssetUrlsContext = createContext<ReadonlyMap<string, string>>(new Map());
+const ManagedAssetContext = createContext<{
+	readonly keys: ReadonlySet<string>;
+	readonly urls: ReadonlyMap<string, string>;
+}>({ keys: new Set(), urls: new Map() });
 
 export function useManagedAssetUrl(asset: undefined | ManagedAssetLocator) {
-	const urls = useContext(ManagedAssetUrlsContext);
+	const { urls } = useContext(ManagedAssetContext);
 	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
 }
 
@@ -53,9 +56,17 @@ export function ManagedAssetProvider(props: {
 	readonly children: ReactNode;
 	readonly assets: readonly ManagedAssetLocator[];
 }) {
-	const parentUrls = useContext(ManagedAssetUrlsContext);
+	const { keys: parentKeys, urls: parentUrls } = useContext(ManagedAssetContext);
 	const stableAssets = useStableManagedAssetLocators(props.assets);
-	const batches = useMemo(() => managedAssetBatches(stableAssets), [stableAssets]);
+	const keys = useMemo(
+		() => new Set([...parentKeys, ...stableAssets.map(managedAssetKey)]),
+		[parentKeys, stableAssets],
+	);
+	const batches = useMemo(
+		() =>
+			managedAssetBatches(stableAssets.filter((asset) => !parentKeys.has(managedAssetKey(asset)))),
+		[parentKeys, stableAssets],
+	);
 	const [resolvedBatches, setResolvedBatches] = useState<
 		ReadonlyMap<string, ReadonlyMap<string, string>>
 	>(new Map());
@@ -64,23 +75,23 @@ export function ManagedAssetProvider(props: {
 		setResolvedBatches((previous) => new Map(previous).set(batchKey, urls));
 	}, []);
 
-	const urls = useMemo(() => {
+	const value = useMemo(() => {
 		const merged = new Map(parentUrls);
 		for (const batch of batches) {
 			for (const [key, url] of resolvedBatches.get(batch.key) ?? []) {
 				merged.set(key, url);
 			}
 		}
-		return merged;
-	}, [parentUrls, batches, resolvedBatches]);
+		return { keys, urls: merged };
+	}, [keys, parentUrls, batches, resolvedBatches]);
 
 	return (
-		<ManagedAssetUrlsContext.Provider value={urls}>
+		<ManagedAssetContext.Provider value={value}>
 			{batches.map((batch) => (
 				<ManagedAssetBatchResolver key={batch.key} batchKey={batch.key} onResolved={onResolved} />
 			))}
 			{props.children}
-		</ManagedAssetUrlsContext.Provider>
+		</ManagedAssetContext.Provider>
 	);
 }
 

@@ -6,14 +6,14 @@ import type { MediaEntityRecipe as ImportedMediaEntityRecipe } from "../../../cl
 import { creatorActivityData } from "../creator/activity-fixture";
 import { rowsResult } from "../query-result-fixture";
 import { servedProviderName } from "../served-names";
-import { decodeMediaSummaryResult } from "../summary-fixture";
+import { artworkSummaryFixture, decodeMediaSummaryResult } from "../summary-fixture";
 import { creditGroupFixtureRecipes, groupFixtureRecipes } from "./recipes";
 
 export const GROUP_MEMBER_PAGE_LIMIT = 20;
 
 export const groupSummaryRow = {
 	parts: 5,
-	images: [],
+	...artworkSummaryFixture([]),
 	id: "group-1",
 	memberCount: 5,
 	isCustom: false,
@@ -30,7 +30,7 @@ export const groupSummaryRow = {
 	populationStatus: { state: "succeeded", availability: "complete" },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	memberImages: [{ type: "remote", purpose: "cover", url: "https://images.test/matrix.jpg" }],
+	memberImage: { type: "remote", purpose: "cover", url: "https://images.test/matrix.jpg" },
 };
 
 export const decodeGroupSummaryOf = <Summary>(
@@ -93,7 +93,7 @@ export const groupArtistCreditRow = {
 	name: "Nina Simone",
 	roleCodes: ["artist"],
 	isInMediaLibrary: false,
-	images: [{ type: "s3", key: "nina", purpose: "profile" }],
+	image: { type: "s3", key: "nina", purpose: "profile" },
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -106,7 +106,7 @@ export const groupLabelCreditRow = {
 	roleCodes: null,
 	roles: ["Label"],
 	isInMediaLibrary: false,
-	images: [{ type: "s3", key: "verve", purpose: "logo" }],
+	image: { type: "s3", key: "verve", purpose: "logo" },
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

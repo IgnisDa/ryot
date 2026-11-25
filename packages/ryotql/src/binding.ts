@@ -319,6 +319,9 @@ const materialize = (
 	);
 };
 
+export const materializeValidationSample = (value: unknown) =>
+	materialize(value, "sample", {}, storedValidationContext(), undefined, undefined, {});
+
 export const bindDocument = (
 	document: Authored.RyotQLDocument,
 	values: RequestValues,

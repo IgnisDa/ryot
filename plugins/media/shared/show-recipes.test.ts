@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
+import { artworkSummaryFixture } from "../tests/client/summary-fixture";
+import { mediaGalleryRecipe } from "./artwork-recipes";
 import { mediaImagePurposes } from "./media-image";
 import {
 	showOrderEpisodesRecipe,
@@ -183,10 +185,10 @@ const SHOW_SUMMARY_ROW = {
 			{ name: "Drama", id: "genre-drama" },
 		],
 	},
-	images: [
+	...artworkSummaryFixture([
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-	],
+	]),
 	watchProviders: [
 		{
 			link: null,
@@ -301,7 +303,7 @@ describe("media show query recipes", () => {
 			"translationStatus",
 			"relatedPopulationStatus",
 			"seasonNumber",
-			"images",
+			"image",
 			"releaseDate",
 			"description",
 			"episodeTotal",
@@ -387,7 +389,8 @@ describe("media show query recipes", () => {
 		});
 		const episode = {
 			runtime: 88,
-			images: null,
+			image: null,
+			airingAt: null,
 			seasonNumber: 1,
 			id: "episode-11",
 			name: "Serenity",
@@ -395,6 +398,7 @@ describe("media show query recipes", () => {
 			description: null,
 			state: "complete",
 			externalId: "1048593",
+			airingSourceUrl: null,
 			publishDate: "2002-12-20",
 			schemaSlug: "show-episode",
 			translationStatus: { state: "idle", availability: "none" },
@@ -515,12 +519,14 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
-			"images",
+			"image",
 			"episodeNumber",
 			"runtime",
+			"airingAt",
 			"publishDate",
 			"description",
 			"state",
+			"airingSourceUrl",
 			"seasonNumber",
 		]);
 	});
@@ -562,7 +568,11 @@ describe("media show query recipes", () => {
 			"relatedPopulationStatus",
 			"providerName",
 			"description",
-			"images",
+			"imageCount",
+			"firstPreviewImage",
+			"image",
+			"secondPreviewImage",
+			"backdropPreviewImage",
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
@@ -631,10 +641,10 @@ describe("media show query recipes", () => {
 							{ name: "Drama", id: "genre-drama" },
 						],
 					},
-					images: [
+					...artworkSummaryFixture([
 						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 						{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-					],
+					]),
 				},
 			},
 		});
@@ -646,13 +656,15 @@ describe("media show query recipes", () => {
 		});
 		const nextUp = {
 			runtime: 58,
-			images: null,
+			image: null,
+			airingAt: null,
 			id: "episode-5",
 			seasonNumber: 2,
 			episodeNumber: 5,
 			description: null,
 			state: "untracked",
 			name: "The Return",
+			airingSourceUrl: null,
 			publishDate: "2025-04-01",
 			schemaSlug: "show-episode",
 			translationStatus: { state: "idle", availability: "none" },
@@ -709,7 +721,7 @@ describe("media show query recipes", () => {
 					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
-							images: null,
+							...artworkSummaryFixture([]),
 							publishYear: null,
 							description: null,
 							publishDate: null,
@@ -729,7 +741,7 @@ describe("media show query recipes", () => {
 		).toMatchObject({
 			success: {
 				summary: {
-					images: null,
+					image: null,
 					publishYear: null,
 					providerName: null,
 					watchProviders: null,
@@ -825,7 +837,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					summary: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ url: 12, type: "ftp" }] }]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, image: { url: 12, type: "ftp" } }]),
 				},
 			})._tag,
 		).toBe("Failure");
@@ -843,7 +855,7 @@ describe("media show query recipes", () => {
 					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
-							images: [{ type: "remote", purpose: "poster", url: "https://images.test/a.jpg" }],
+							image: { type: "remote", purpose: "poster", url: "https://images.test/a.jpg" },
 						},
 					]),
 				},
@@ -864,14 +876,14 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					summary: showRows([{ ...SHOW_SUMMARY_ROW, images: [image] }]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, image }]),
 				},
 			})._tag,
 		).toBe("Failure");
 	});
 
 	it("decodes all seven image purposes for each locator type", () => {
-		const recipe = bindRecipe(showRecipes.summaryRecipe({ reference: { kind: "self" } }), {
+		const recipe = bindRecipe(mediaGalleryRecipe({ reference: { kind: "self" } }), {
 			entityId: "show-1",
 		});
 		const images = mediaImagePurposes.flatMap((purpose) => [
@@ -880,14 +892,9 @@ describe("media show query recipes", () => {
 			{ purpose, type: "remote", url: `https://images.test/${purpose}.jpg` },
 		]);
 
-		expect(
-			recipe.decode({
-				data: {
-					requested: showRows([{ schemaSlug: "show" }]),
-					summary: showRows([{ ...SHOW_SUMMARY_ROW, images }]),
-				},
-			}),
-		).toMatchObject({ success: { summary: { images } } });
+		expect(recipe.decode({ data: { artwork: showRows([{ images }]) } })).toMatchObject({
+			success: images,
+		});
 	});
 
 	it("reads show credits from the relationship side that points at the show", () => {
@@ -968,7 +975,7 @@ describe("media show query recipes", () => {
 		expect(people.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
-			"images",
+			"image",
 			"order",
 			"roles",
 			"roleCodes",
@@ -985,7 +992,7 @@ describe("media show query recipes", () => {
 		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
-			"images",
+			"image",
 			"order",
 			"roles",
 			"roleCodes",
@@ -1059,7 +1066,7 @@ describe("media show query recipes", () => {
 		).toEqual([
 			"id",
 			"name",
-			"images",
+			"image",
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
@@ -1076,9 +1083,9 @@ describe("media show query recipes", () => {
 							id: "show-2",
 							name: "Bad Girls",
 							isInMediaLibrary: false,
+							image: { type: "local", key: "bad-girls-cover" },
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
-							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 						},
 					]),
@@ -1090,8 +1097,8 @@ describe("media show query recipes", () => {
 							name: "Warp Films",
 							isInMediaLibrary: false,
 							roleCodes: ["production_company"],
+							image: { type: "s3", key: "warp-logo" },
 							translationStatus: { state: "idle", availability: "none" },
-							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 						},
@@ -1110,9 +1117,9 @@ describe("media show query recipes", () => {
 							isInMediaLibrary: false,
 							departments: ["Writing"],
 							translationStatus: { state: "idle", availability: "none" },
+							image: { type: "remote", url: "https://images.test/jack.jpg" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
 						},
 					]),
 				},
@@ -1121,11 +1128,7 @@ describe("media show query recipes", () => {
 			success: {
 				recommendations: {
 					items: [
-						{
-							id: "show-2",
-							name: "Bad Girls",
-							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
-						},
+						{ id: "show-2", name: "Bad Girls", image: { type: "local", key: "bad-girls-cover" } },
 					],
 				},
 				companies: {
@@ -1136,7 +1139,7 @@ describe("media show query recipes", () => {
 							id: "company-1",
 							name: "Warp Films",
 							roleCodes: ["production_company"],
-							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
+							image: { type: "s3", key: "warp-logo" },
 						},
 					],
 				},
@@ -1149,7 +1152,7 @@ describe("media show query recipes", () => {
 							name: "Jack Thorne",
 							character: "Narrator",
 							roleCodes: ["creator"],
-							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
+							image: { type: "remote", url: "https://images.test/jack.jpg" },
 						},
 					],
 				},
@@ -1164,7 +1167,7 @@ describe("media show query recipes", () => {
 					companies: showRows([]),
 					recommendations: showRows([
 						{
-							images: null,
+							image: null,
 							id: "show-2",
 							name: "Bad Girls",
 							isInMediaLibrary: false,
@@ -1177,7 +1180,7 @@ describe("media show query recipes", () => {
 						{
 							order: null,
 							roles: null,
-							images: null,
+							image: null,
 							isGuest: null,
 							id: "person-1",
 							roleCodes: null,
@@ -1196,13 +1199,13 @@ describe("media show query recipes", () => {
 			}),
 		).toMatchObject({
 			success: {
-				recommendations: { items: [{ images: null }] },
+				recommendations: { items: [{ image: null }] },
 				people: {
 					items: [
 						{
 							order: null,
 							roles: null,
-							images: null,
+							image: null,
 							roleCodes: null,
 							character: null,
 							name: "Jo Johnson",
@@ -1237,7 +1240,7 @@ describe("media show query recipes", () => {
 							roleCodes: null,
 							character: null,
 							name: "Jack Thorne",
-							images: [{ url: 12, type: "ftp" }],
+							image: { url: 12, type: "ftp" },
 						},
 					]),
 				},

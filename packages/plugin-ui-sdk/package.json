@@ -47,6 +47,7 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
+		"@base-ui/react": "1.9.0",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/kernel-messages": "workspace:*",

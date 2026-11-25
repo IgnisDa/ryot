@@ -17,6 +17,13 @@ import { type ArtifactDescription, composeClientPage } from "./composition";
 import type { GraphPlugin } from "./graph";
 import { resolveClientPageGraph } from "./graph";
 
+const moduleArtifact = {
+	files: [{ staticImports: [], name: "module.js", contentType: "text/javascript" }],
+};
+const runtimeArtifact = {
+	files: [{ staticImports: [], name: "bootstrap.js", contentType: "text/javascript" }],
+};
+
 const packageIds = new Map<string, PluginPackageId>();
 const packageIdFor = (name: string) => {
 	const existing = packageIds.get(name);
@@ -152,7 +159,7 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map<string, ArtifactDescription>([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
 					...[
 						"renderer",
 						"analytics-owner-hash",
@@ -164,8 +171,8 @@ it.effect(
 								hash,
 								{
 									files: [
-										{ name: "module.js", contentType: "text/javascript" },
-										{ name: "module.css", contentType: "text/css" },
+										{ name: "module.js", staticImports: [], contentType: "text/javascript" },
+										{ staticImports: [], name: "module.css", contentType: "text/css" },
 									],
 								},
 							] as const,
@@ -332,8 +339,8 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-					["rootless-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
+					["rootless-hash", moduleArtifact],
 				]),
 			});
 			expect(manifest.descriptor).toEqual({
@@ -446,8 +453,8 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-					["routes-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
+					["routes-hash", moduleArtifact],
 				]),
 			});
 			const expectedRoutes = {
@@ -561,8 +568,8 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map([
-					["page-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
+					["page-hash", moduleArtifact],
 				]),
 			});
 			expect(manifest.descriptor.application).toBe("page");
@@ -646,17 +653,14 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map<string, ArtifactDescription>([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
 					...[
 						"root-hash",
 						"left-hash",
 						"right-hash",
 						"left-dependency-hash",
 						"right-dependency-hash",
-					].map(
-						(hash) =>
-							[hash, { files: [{ name: "module.js", contentType: "text/javascript" }] }] as const,
-					),
+					].map((hash) => [hash, moduleArtifact] as const),
 				]),
 			});
 			for (const [contributor, name] of [
@@ -756,11 +760,8 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-					[
-						"shared-source-hash",
-						{ files: [{ name: "module.js", contentType: "text/javascript" }] },
-					],
+					["runtime", runtimeArtifact],
+					["shared-source-hash", moduleArtifact],
 				]),
 			});
 			expect(manifest.descriptor).toEqual({
@@ -801,8 +802,8 @@ it.effect(
 				identity: graph.identity,
 				runtimeEntries: { bootstrap: "bootstrap.js" },
 				artifacts: new Map([
-					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-					["renderer-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+					["runtime", runtimeArtifact],
+					["renderer-hash", moduleArtifact],
 				]),
 			});
 			expect(manifest.descriptor).toEqual({
@@ -945,12 +946,9 @@ it.effect(
 				"runtime",
 			]);
 			const files = new Map([
-				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-				["page-artifact", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
-				[
-					"page-dependency-hash",
-					{ files: [{ name: "module.js", contentType: "text/javascript" }] },
-				],
+				["runtime", runtimeArtifact],
+				["page-artifact", moduleArtifact],
+				["page-dependency-hash", moduleArtifact],
 			]);
 			const composition = composeClientPage({
 				artifacts: files,

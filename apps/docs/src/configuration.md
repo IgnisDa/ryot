@@ -51,6 +51,17 @@ API base URL such as `http://127.0.0.1:11434/v1`. All provider traffic follows t
 address policy. Keep the database's configuration encryption key when retaining encrypted user
 provider keys; losing it prevents decryption and Ryot refuses to silently replace it.
 
+## Notification destinations
+
+Ryot sends web notifications to public HTTPS endpoints by default. Use the destination's final
+URL. Test and automatic notifications use the same policy, including for previously saved channels.
+
+For a private Gotify, ntfy, or Apprise server, set `SERVER_EGRESS_ALLOWED_NETWORKS` to the
+destination's CIDR and restart Ryot. Approved local destinations can use HTTP or HTTPS. Use the
+smallest range that includes the destination. This
+setting also grants network access to other features that use Ryot's outbound HTTP client,
+including plugins and OAuth connections. Link-local and cloud metadata addresses are always blocked.
+
 ## Health endpoint
 
 Use `/api/system/health` for service health checks.

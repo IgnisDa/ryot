@@ -1,4 +1,5 @@
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -12,7 +13,6 @@ import {
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { runFileOnIsolatedServer } from "~/support/isolated-harness";
 
 runFileOnIsolatedServer("Sandbox Short Wait Replay");

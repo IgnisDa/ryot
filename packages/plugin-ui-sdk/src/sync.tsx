@@ -113,6 +113,10 @@ export function EntityArtWell(props: {
 	readonly url: string | undefined;
 	readonly fit?: ArtFit | undefined;
 	readonly shape?: ArtShape | undefined;
+	readonly sizes?: ImgHTMLAttributes<HTMLImageElement>["sizes"];
+	readonly srcSet?: ImgHTMLAttributes<HTMLImageElement>["srcSet"];
+	readonly onLoad?: ImgHTMLAttributes<HTMLImageElement>["onLoad"];
+	readonly loading?: ImgHTMLAttributes<HTMLImageElement>["loading"];
 	readonly referrerPolicy?: ImgHTMLAttributes<HTMLImageElement>["referrerPolicy"];
 }) {
 	const [failedUrl, setFailedUrl] = useState<string>();
@@ -120,9 +124,12 @@ export function EntityArtWell(props: {
 		return (
 			<img
 				alt=""
-				loading="lazy"
 				key={props.url}
 				src={props.url}
+				sizes={props.sizes}
+				srcSet={props.srcSet}
+				onLoad={props.onLoad}
+				loading={props.loading ?? "lazy"}
 				referrerPolicy={props.referrerPolicy}
 				onError={() => setFailedUrl(props.url)}
 				className={clsx(

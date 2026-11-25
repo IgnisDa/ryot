@@ -4,6 +4,8 @@
 	"type": "module",
 	"sideEffects": false,
 	"scripts": {
+		"test": "bun test --isolate app",
+		"test:e2e": "bun ./tests/e2e/run.ts",
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host",
 		"check": "bun run typecheck && bun fmt . --write && oxlint . --fix",
@@ -51,7 +53,6 @@
 		"safe-routes": "2.0.2",
 		"sonner": "2.0.8",
 		"tailwind-merge": "3.7.0",
-		"tiny-invariant": "1.3.3",
 		"ts-pattern": "5.9.2",
 		"ufo": "1.6.4",
 		"zod": "4.6.7"
@@ -59,17 +60,31 @@
 	"devDependencies": {
 		"@mdx-js/rollup": "3.1.1",
 		"@react-router/dev": "8.5.1",
+		"@ryot-app/testing": "workspace:*",
+		"@types/mailparser": "3.9.0",
 		"@types/react": "19.3.0",
 		"@types/react-dom": "19.3.0",
+		"@types/smtp-server": "3.5.13",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"drizzle-kit": "0.31.11",
+		"get-port": "7.2.0",
+		"mailparser": "3.15.0",
+		"playwright": "1.64.1",
 		"rehype-slug": "6.0.0",
 		"remark-frontmatter": "5.0.0",
 		"remark-mdx-frontmatter": "6.0.0",
 		"rollup": "4.67.5",
+		"smtp-server": "3.21.7",
 		"tailwindcss": "4.3.4",
-		"vite": "8.3.5"
+		"testcontainers": "12.2.1",
+		"vite": "8.3.5",
+		"bun-types": "1.4.4"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
+	},
+	"exports": {
+		"./test-harness": "./tests/e2e/support/harness.ts",
+		"./test-payments": "./tests/e2e/support/payments.ts"
 	}
 }

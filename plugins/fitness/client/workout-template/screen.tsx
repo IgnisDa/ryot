@@ -1,5 +1,7 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	AssetArtWell,
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	useDisplayText,
 	useFormatters,
@@ -16,7 +18,6 @@ import { supersetColor } from "../../shared/superset-colors";
 import type { TemplateOccurrenceProperties } from "../../shared/workout-editor-properties";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { durationDisplayUnit } from "../../shared/workout-units";
-import { AssetArtWell, managedAssetBatch } from "../asset-urls";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
@@ -55,7 +56,7 @@ function PlannedExercise(props: {
 		>
 			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
 				<AssetArtWell
-					name={name}
+					monogram={name}
 					asset={exercise?.images?.[0]}
 					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
 				/>
@@ -196,7 +197,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	return (
 		<PluginScreenFrame hideTitle title={entity.name}>
 			<ManagedAssetProvider
-				assets={managedAssetBatch(exercises.map((exercise) => exercise.images?.[0]))}
+				assets={collectManagedAssetLocators(exercises.map((exercise) => exercise.images?.[0]))}
 			>
 				<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 font-ui">
 					<header

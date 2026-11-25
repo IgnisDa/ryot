@@ -3,7 +3,7 @@ import { describe, expect } from "bun:test";
 import type { Text } from "@ryot-app/i18n/text";
 import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
@@ -95,15 +95,25 @@ describe("DestructiveConfirmation", () => {
 		expect(events).toEqual(["confirm"]);
 	});
 
-	it("focuses the confirmation field when a phrase is required", () => {
-		const { adapter } = createBackAdapter();
-		render(<ConfirmationPage events={[]} adapter={adapter} confirmationPhrase="DELETE" />);
-		openConfirmation();
+	it.live(
+		"focuses the confirmation field when a phrase is required",
+		() =>
+			Effect.gen(function* () {
+				const { adapter } = createBackAdapter();
+				render(<ConfirmationPage events={[]} adapter={adapter} confirmationPhrase="DELETE" />);
+				openConfirmation();
 
-		expect(document.activeElement).toBe(
-			screen.getByRole("textbox", { name: 'Type "DELETE" to confirm' }),
-		);
-	});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							document.activeElement ===
+								screen.getByRole("textbox", { name: 'Type "DELETE" to confirm' }),
+						).toBe(true),
+					),
+				);
+			}),
+		testTimeout,
+	);
 
 	it("locks dismissal and controls while pending", () => {
 		const events: Event[] = [];
@@ -117,12 +127,11 @@ describe("DestructiveConfirmation", () => {
 		expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.getByRole("button", { name: "Deleting..." }).hasAttribute("disabled")).toBe(true);
 
-		fireEvent.click(screen.getByRole("button", { name: "Close" }));
-		fireEvent.keyDown(document, { key: "Escape" });
-		act(() => expect(handlers.at(-1)?.()).toBe(false));
+		fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+		act(() => expect(handlers.at(-1)?.()).toBe(true));
 
 		expect(events).toEqual([]);
-		expect(screen.getByRole("dialog", { name: "Delete item?" })).toBeTruthy();
+		expect(screen.getByRole("alertdialog", { name: "Delete item?" })).toBeTruthy();
 	});
 
 	it("announces errors", () => {
@@ -145,7 +154,7 @@ describe("DestructiveConfirmation", () => {
 		render(<ConfirmationPage events={events} adapter={adapter} />);
 		openConfirmation();
 
-		fireEvent.keyDown(document, { key: "Escape" });
+		fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
 		expect(events).toEqual(["close"]);
 
 		openConfirmation();
@@ -174,17 +183,28 @@ describe("DestructiveConfirmation", () => {
 		testTimeout,
 	);
 
-	it("needs no phrase and initially focuses Cancel when none is provided", () => {
-		const events: Event[] = [];
-		const { adapter } = createBackAdapter();
-		render(<ConfirmationPage events={events} adapter={adapter} />);
-		openConfirmation();
+	it.live(
+		"needs no phrase and initially focuses Cancel when none is provided",
+		() =>
+			Effect.gen(function* () {
+				const events: Event[] = [];
+				const { adapter } = createBackAdapter();
+				render(<ConfirmationPage events={events} adapter={adapter} />);
+				openConfirmation();
 
-		expect(screen.queryByRole("textbox")).toBeNull();
-		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
-		const confirm = screen.getByRole("button", { name: "Delete item" });
-		expect(confirm.hasAttribute("disabled")).toBe(false);
-		fireEvent.click(confirm);
-		expect(events).toEqual(["confirm"]);
-	});
+				expect(screen.queryByRole("textbox")).toBeNull();
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.activeElement === screen.getByRole("button", { name: "Cancel" })).toBe(
+							true,
+						),
+					),
+				);
+				const confirm = screen.getByRole("button", { name: "Delete item" });
+				expect(confirm.hasAttribute("disabled")).toBe(false);
+				fireEvent.click(confirm);
+				expect(events).toEqual(["confirm"]);
+			}),
+		testTimeout,
+	);
 });

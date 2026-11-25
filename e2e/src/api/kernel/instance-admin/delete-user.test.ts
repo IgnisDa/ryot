@@ -5,6 +5,7 @@ import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admi
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -48,7 +49,6 @@ import {
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
-import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
 

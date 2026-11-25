@@ -37,7 +37,13 @@ const attemptStorage = <A>(reason: OAuthStorageError["reason"], evaluate: () => 
 	Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ cause, reason }) });
 
 const browserOAuthStorage = (): OAuthStorageAdapter => {
-	const storage = typeof localStorage === "undefined" ? undefined : localStorage;
+	const storage = typeof sessionStorage === "undefined" ? undefined : sessionStorage;
+	if (typeof localStorage !== "undefined") {
+		const oldTokens = Object.keys(localStorage).filter((key) => key.startsWith(OAUTH_TOKEN_PREFIX));
+		for (const key of oldTokens) {
+			localStorage.removeItem(key);
+		}
+	}
 	return {
 		removeItem: (key) => attemptStorage("write-failed", () => storage?.removeItem(key)),
 		getItem: (key) => attemptStorage("read-failed", () => storage?.getItem(key) ?? null),

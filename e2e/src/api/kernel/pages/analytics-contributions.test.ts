@@ -1,5 +1,6 @@
 import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
@@ -18,7 +19,6 @@ import {
 import { uploadTemporaryArchive } from "~/fixtures/kernel/temporary-archive";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { webRequest } from "~/support/web-request";
 
 const analyticsSections = ({ descriptor }: ClientCompositionDocument) => {
 	if (descriptor.application !== "page") {

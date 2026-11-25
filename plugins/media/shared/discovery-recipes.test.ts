@@ -14,7 +14,7 @@ import {
 
 const mediaRow = (id: string) => ({
 	id,
-	images: null,
+	image: null,
 	name: `Media ${id}`,
 	schemaSlug: "movie",
 	translationStatus: { state: "idle", availability: "none" },

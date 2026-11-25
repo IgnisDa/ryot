@@ -2,7 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
@@ -10,369 +10,123 @@ import { useRef, useState } from "react";
 
 import { render } from "./i18n.test-support";
 import { Menu } from "./menu";
-import { Modal, shouldDismissSheet } from "./modal";
+import { Modal } from "./modal";
 import { type OverlayBackAdapter, OverlayBackProvider } from "./shortcut";
 
-function TriggeredModal(props: {
-	readonly open?: boolean;
-	readonly onClose: () => void;
-	readonly onInterceptBack?: () => boolean;
+function backHarness() {
+	const handlers: Array<() => boolean> = [];
+	const adapter: OverlayBackAdapter = {
+		register: (handler) => {
+			handlers.push(handler);
+			return () => {
+				handlers.splice(handlers.lastIndexOf(handler), 1);
+			};
+		},
+	};
+	return { adapter, back: () => handlers.at(-1)?.() ?? false };
+}
+
+function NestedOverlays(props: {
+	readonly guarded?: boolean;
+	readonly adapter: OverlayBackAdapter;
 }) {
 	const trigger = useRef<HTMLButtonElement>(null);
-	return (
-		<>
-			<button type="button" ref={trigger}>
-				Open
-			</button>
-			{props.open === false ? null : (
-				<Modal
-					triggerRef={trigger}
-					onClose={props.onClose}
-					label={testText("Confirm")}
-					closeLabel={testText("Close dialog")}
-					onInterceptBack={props.onInterceptBack ?? (() => false)}
-				>
-					<button type="button">Cancel</button>
-				</Modal>
-			)}
-		</>
-	);
-}
-
-const bodyChildOf = (element: HTMLElement) =>
-	Array.from(document.body.children).find((child) => child.contains(element));
-
-function MenuInModal() {
-	const trigger = useRef<HTMLButtonElement>(null);
-	const [open, setOpen] = useState(false);
-	return (
-		<Modal onClose={() => {}} label={testText("Confirm")} closeLabel={testText("Close dialog")}>
-			<button type="button" ref={trigger} onClick={() => setOpen(true)}>
-				Actions
-			</button>
-			{open ? (
-				<Menu
-					activeIndex={0}
-					triggerRef={trigger}
-					label={testText("Actions")}
-					onActiveIndexChange={() => {}}
-					onClose={() => setOpen(false)}
-					items={[{ key: "rename", onSelect: () => {}, label: testText("Rename") }]}
-				/>
-			) : null}
-		</Modal>
-	);
-}
-
-function NestedModals(props: { readonly adapter: OverlayBackAdapter }) {
-	const [outerOpen, setOuterOpen] = useState(true);
-	const [innerOpen, setInnerOpen] = useState(true);
+	const [outer, setOuter] = useState(false);
+	const [inner, setInner] = useState(false);
 	return (
 		<OverlayBackProvider adapter={props.adapter}>
-			{outerOpen ? (
+			<button type="button" ref={trigger} onClick={() => setOuter(true)}>
+				Open editor
+			</button>
+			<Modal
+				open={outer}
+				kind="drawer"
+				placement="sheet"
+				triggerRef={trigger}
+				label={testText("Editor")}
+				onClose={() => setOuter(false)}
+			>
+				<input aria-label="Draft" defaultValue="Preserve this" />
+				<Menu
+					label={testText("Actions")}
+					trigger={<button type="button">Actions</button>}
+					items={[{ key: "delete", label: testText("Delete"), onSelect: () => setInner(true) }]}
+				/>
 				<Modal
-					label={testText("Outer")}
-					onClose={() => setOuterOpen(false)}
-					closeLabel={testText("Close outer")}
+					open={inner}
+					kind="alert"
+					dismissible={!props.guarded}
+					onClose={() => setInner(false)}
+					label={testText("Delete item?")}
 				>
-					<button type="button">Outer action</button>
-					{innerOpen ? (
-						<Modal
-							label={testText("Inner")}
-							onClose={() => setInnerOpen(false)}
-							closeLabel={testText("Close inner")}
-						>
-							<button type="button">Inner action</button>
-						</Modal>
-					) : null}
+					<button type="button" onClick={() => setInner(false)}>
+						Cancel
+					</button>
 				</Modal>
-			) : null}
+			</Modal>
 		</OverlayBackProvider>
 	);
 }
 
 describe("Modal", () => {
-	it("dismisses sheets after a deliberate downward pull or flick, not an upward or short drag", () => {
-		expect(shouldDismissSheet(121, 0, 600)).toBe(true);
-		expect(shouldDismissSheet(76, 0, 300)).toBe(true);
-		expect(shouldDismissSheet(30, 800, 600)).toBe(true);
-		expect(shouldDismissSheet(20, 800, 600)).toBe(false);
-		expect(shouldDismissSheet(60, 0, 600)).toBe(false);
-		expect(shouldDismissSheet(-150, -800, 600)).toBe(false);
-	});
-	it("dismisses a nested modal before its parent on document Back", () => {
-		const handlers: Array<() => boolean> = [];
-		const adapter: OverlayBackAdapter = {
-			register: (handler) => {
-				handlers.push(handler);
-				return () => {
-					const index = handlers.lastIndexOf(handler);
-					if (index !== -1) {
-						handlers.splice(index, 1);
-					}
-				};
-			},
-		};
-		render(<NestedModals adapter={adapter} />);
-
-		act(() => expect(handlers.at(-1)?.()).toBe(true));
-		expect(screen.queryByRole("dialog", { name: "Inner" })).toBeNull();
-		expect(screen.getByRole("dialog", { name: "Outer" })).toBeTruthy();
-
-		act(() => expect(handlers.at(-1)?.()).toBe(true));
-		expect(screen.queryByRole("dialog")).toBeNull();
-	});
-
 	it.live(
-		"restores trigger focus after document Back dismisses it",
+		"uses Back for the top menu or confirmation and keeps a blocked draft open",
 		() =>
 			Effect.gen(function* () {
-				let dismiss: undefined | (() => boolean);
-				const adapter: OverlayBackAdapter = {
-					register: (handler) => {
-						dismiss = handler;
-						return () => {
-							dismiss = undefined;
-						};
-					},
-				};
-				function Page() {
-					const trigger = useRef<HTMLButtonElement>(null);
-					const [open, setOpen] = useState(false);
-					return (
-						<OverlayBackProvider adapter={adapter}>
-							<button ref={trigger} type="button" onClick={() => setOpen(true)}>
-								Open overlay
-							</button>
-							{open ? (
-								<Modal
-									triggerRef={trigger}
-									label={testText("Overlay")}
-									onClose={() => setOpen(false)}
-									closeLabel={testText("Close overlay")}
-								>
-									<button type="button">Inside overlay</button>
-								</Modal>
-							) : null}
-						</OverlayBackProvider>
-					);
-				}
-				render(<Page />);
-				const trigger = screen.getByRole("button", { name: "Open overlay" });
-				fireEvent.click(trigger);
+				const { back, adapter } = backHarness();
+				const view = render(<NestedOverlays guarded adapter={adapter} />);
+				const opener = screen.getByRole("button", { name: "Open editor" });
+				fireEvent.click(opener);
+				fireEvent.click(screen.getByRole("button", { name: "Actions" }));
+				expect(screen.getByRole("menu")).toBeTruthy();
 
-				act(() => expect(dismiss?.()).toBe(true));
-				yield* Effect.promise(() => act(() => Promise.resolve()));
+				act(() => expect(back()).toBe(true));
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(screen.getByRole("dialog", { name: "Editor" })).toBeTruthy();
 
+				fireEvent.click(screen.getByRole("button", { name: "Actions" }));
+				fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+				const confirmation = screen.getByRole("alertdialog", { name: "Delete item?" });
+				fireEvent.keyDown(confirmation, { key: "Escape" });
+				act(() => expect(back()).toBe(true));
+				expect(screen.getByRole("alertdialog")).toBe(confirmation);
+
+				view.rerender(<NestedOverlays adapter={adapter} />);
+				fireEvent.keyDown(confirmation, { key: "Escape" });
+				expect(screen.queryByRole("alertdialog")).toBeNull();
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Draft" }).value).toBe(
+					"Preserve this",
+				);
+
+				act(() => expect(back()).toBe(true));
 				expect(screen.queryByRole("dialog")).toBeNull();
-				expect(document.activeElement).toBe(trigger);
+				expect(back()).toBe(false);
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(opener)));
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"focuses its first control and restores focus to the trigger when it closes",
+		"labels an open dialog and hides its background from assistive technology",
 		() =>
 			Effect.gen(function* () {
-				const view = render(<TriggeredModal onClose={() => {}} />);
-
-				expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
-
-				const trigger = screen.getByRole("button", { name: "Open" });
-				view.rerender(<TriggeredModal open={false} onClose={() => {}} />);
-				yield* Effect.promise(() => act(() => Promise.resolve()));
-
-				expect(document.activeElement).toBe(trigger);
-			}),
-		testTimeout,
-	);
-
-	it("focuses the dialog panel and closes on Escape when it has no interactive children", () => {
-		let closes = 0;
-		render(
-			<Modal
-				label={testText("Information")}
-				closeLabel={testText("Close dialog")}
-				onClose={() => {
-					closes += 1;
-				}}
-			>
-				No actions available
-			</Modal>,
-		);
-
-		const dialog = screen.getByRole("dialog", { name: "Information" });
-		expect(dialog.tabIndex).toBe(-1);
-		expect(document.activeElement).toBe(dialog);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-		expect(closes).toBe(1);
-	});
-
-	it("closes on Escape and on the scrim, and locks body scroll while open", () => {
-		document.body.style.overflow = "auto";
-		let closes = 0;
-		const view = render(
-			<TriggeredModal
-				onClose={() => {
-					closes += 1;
-				}}
-			/>,
-		);
-		expect(document.body.style.overflow).toBe("hidden");
-
-		fireEvent.keyDown(document, { key: "Escape" });
-		expect(closes).toBe(1);
-
-		fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
-		expect(closes).toBe(2);
-
-		view.unmount();
-		expect(document.body.style.overflow).toBe("auto");
-	});
-
-	it("closes only the topmost modal on Escape", () => {
-		const closed: string[] = [];
-		const view = render(
-			<>
-				<Modal
-					label={testText("Outer")}
-					closeLabel={testText("Close outer")}
-					onClose={() => closed.push("outer")}
-				>
-					<button type="button">Outer action</button>
-				</Modal>
-				<Modal
-					label={testText("Inner")}
-					closeLabel={testText("Close inner")}
-					onClose={() => closed.push("inner")}
-				>
-					<button type="button">Inner action</button>
-				</Modal>
-			</>,
-		);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-		expect(closed).toEqual(["inner"]);
-
-		view.rerender(
-			<Modal
-				label={testText("Outer")}
-				closeLabel={testText("Close outer")}
-				onClose={() => closed.push("outer")}
-			>
-				<button type="button">Outer action</button>
-			</Modal>,
-		);
-		fireEvent.keyDown(document, { key: "Escape" });
-
-		expect(closed).toEqual(["inner", "outer"]);
-	});
-
-	it("skips closing when the injected back interceptor handles the request", () => {
-		let closes = 0;
-		let intercepts = 0;
-		render(
-			<TriggeredModal
-				onClose={() => {
-					closes += 1;
-				}}
-				onInterceptBack={() => {
-					intercepts += 1;
-					return true;
-				}}
-			/>,
-		);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-
-		expect(intercepts).toBe(1);
-		expect(closes).toBe(0);
-	});
-
-	it("inerts the page behind it and releases it once the last modal closes", () => {
-		const view = render(<TriggeredModal onClose={() => {}} />);
-		const page = bodyChildOf(screen.getByRole("button", { name: "Open" }));
-
-		expect(page?.hasAttribute("inert")).toBe(true);
-		expect(bodyChildOf(screen.getByRole("dialog"))?.hasAttribute("inert")).toBe(false);
-
-		view.rerender(<TriggeredModal open={false} onClose={() => {}} />);
-
-		expect(page?.hasAttribute("inert")).toBe(false);
-	});
-
-	it("inerts an underlying modal while a modal is stacked over it", () => {
-		const view = render(
-			<>
-				<Modal onClose={() => {}} label={testText("Outer")} closeLabel={testText("Close outer")}>
-					<button type="button">Outer action</button>
-				</Modal>
-				<Modal onClose={() => {}} label={testText("Inner")} closeLabel={testText("Close inner")}>
-					<button type="button">Inner action</button>
-				</Modal>
-			</>,
-		);
-		const outer = bodyChildOf(screen.getByRole("button", { name: "Outer action" }));
-		const inner = bodyChildOf(screen.getByRole("button", { name: "Inner action" }));
-
-		expect(outer?.hasAttribute("inert")).toBe(true);
-		expect(inner?.hasAttribute("inert")).toBe(false);
-
-		view.rerender(
-			<Modal onClose={() => {}} label={testText("Outer")} closeLabel={testText("Close outer")}>
-				<button type="button">Outer action</button>
-			</Modal>,
-		);
-
-		expect(outer?.hasAttribute("inert")).toBe(false);
-	});
-
-	it("leaves a menu opened from inside a modal reachable", () => {
-		render(<MenuInModal />);
-
-		fireEvent.click(screen.getByRole("button", { name: "Actions" }));
-		const menu = screen.getByRole("menu", { name: "Actions" });
-
-		expect(bodyChildOf(menu)?.hasAttribute("inert")).toBe(false);
-		expect(screen.getByRole("menuitem", { name: "Rename" }).closest("[inert]")).toBeNull();
-	});
-
-	it.live(
-		"passes an axe pass on the open dialog",
-		() =>
-			Effect.gen(function* () {
-				render(<TriggeredModal onClose={() => {}} />);
-
+				render(
+					<>
+						<button type="button">Background action</button>
+						<Modal onClose={() => {}} label={testText("Information")}>
+							<p>Important information</p>
+						</Modal>
+					</>,
+				);
+				expect(screen.getByRole("dialog", { name: "Information" })).toBeTruthy();
+				expect(screen.queryByRole("button", { name: "Background action" })).toBeNull();
 				const results = yield* Effect.promise(() =>
 					axe.run(document.body, {
 						rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
 					}),
 				);
-
 				expect(results.violations.map((violation) => violation.id)).toEqual([]);
 			}),
 		testTimeout,
 	);
-
-	it("ignores dismissal while it is not dismissible", () => {
-		let closes = 0;
-		render(
-			<Modal
-				dismissible={false}
-				label={testText("Pending")}
-				closeLabel={testText("Close pending")}
-				onClose={() => {
-					closes += 1;
-				}}
-			>
-				<button type="button">Cancel</button>
-			</Modal>,
-		);
-
-		fireEvent.keyDown(document, { key: "Escape" });
-		fireEvent.click(screen.getByRole("button", { name: "Close pending" }));
-
-		expect(closes).toBe(0);
-	});
 });

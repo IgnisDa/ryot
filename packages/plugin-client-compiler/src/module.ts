@@ -355,9 +355,7 @@ export function compileClientPluginModule(
 			}
 		}
 
-		const files = bundled.files.map(({ path, bytes, contentType }) =>
-			clientArtifactFile({ path, bytes, contentType }),
-		);
+		const files = bundled.files.map(clientArtifactFile);
 		const artifactBytes = files.reduce((total, file) => total + file.contents.byteLength, 0);
 		if (artifactBytes > CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes) {
 			return yield* failure(

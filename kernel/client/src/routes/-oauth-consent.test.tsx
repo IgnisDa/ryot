@@ -132,7 +132,7 @@ describe("Hosted OAuth consent", () => {
 				expect(redirectOrigin.parentElement?.textContent).toBe(
 					"You will return to https://client.example.",
 				);
-				expect(screen.getByRole("button", { name: /^Access:/ }).textContent).toContain(
+				expect(screen.getByRole("combobox", { name: /^Access:/ }).textContent).toContain(
 					"Ask before each change",
 				);
 				expect(screen.queryByRole("listitem")).toBeNull();
@@ -219,11 +219,13 @@ describe("Hosted OAuth consent", () => {
 					consentDetails: () => Effect.succeed({ ...details, scopes: [...requested] }),
 				});
 				const access = yield* Effect.promise(() =>
-					screen.findByRole("button", { name: /^Access:/ }),
+					screen.findByRole("combobox", { name: /^Access:/ }),
 				);
 				yield* Effect.promise(() => userEvent.click(access));
-				expect(screen.getAllByRole("radio")).toHaveLength(requested.length);
-				yield* Effect.promise(() => userEvent.click(screen.getByRole("radio", { name: choice })));
+				expect(yield* Effect.promise(() => screen.findAllByRole("option"))).toHaveLength(
+					requested.length,
+				);
+				yield* Effect.promise(() => userEvent.click(screen.getByRole("option", { name: choice })));
 				yield* Effect.promise(() =>
 					userEvent.click(screen.getByRole("button", { name: "Approve" })),
 				);

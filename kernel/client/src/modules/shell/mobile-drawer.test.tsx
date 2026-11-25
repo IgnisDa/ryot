@@ -7,11 +7,10 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
-import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
@@ -81,14 +80,11 @@ type HarnessProps = {
 	readonly onClose?: () => void;
 	readonly onNavigateHome?: () => void;
 	readonly catalog?: PluginClientCatalog;
-	readonly progress?: MotionValue<number>;
 	readonly onSelectWorkspace?: (workspace: WorkspaceTarget) => void;
 };
 
 function Harness(props: HarnessProps) {
 	const current = workspace();
-	const fallback = useMotionValue(0);
-	const progress = props.progress ?? fallback;
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const [isOpen, setIsOpen] = useState(false);
 	return (
@@ -107,7 +103,6 @@ function Harness(props: HarnessProps) {
 				session={session}
 				current={current}
 				activeHome={true}
-				progress={progress}
 				sections={sections}
 				drawerId="test-drawer"
 				activeSettings={false}
@@ -115,11 +110,12 @@ function Harness(props: HarnessProps) {
 				triggerRef={triggerRef}
 				onCustomize={() => undefined}
 				onOpenSearch={() => undefined}
+				onOpen={() => setIsOpen(true)}
 				onNavigateItem={() => undefined}
-				hasDrawer={props.hasDrawer ?? true}
 				onCreateCollection={() => undefined}
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
+				swipeToOpen={props.hasDrawer ?? true}
 				onNavigateHome={() => props.onNavigateHome?.()}
 				onSelectWorkspace={(target) => props.onSelectWorkspace?.(target)}
 				assistant={{ attention: 0, mood: "idle", onOpen: () => undefined }}
@@ -152,12 +148,16 @@ describe("mobile drawer", () => {
 				render(<Harness />, { wrapper: wrapper });
 				const { dialog, trigger } = yield* Effect.promise(() => openDrawer());
 
-				expect(document.body.style.overflow).toBe("hidden");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.body.style.overflowY).toBe("hidden")),
+				);
 				fireEvent.keyDown(dialog, { key: "Escape" });
 
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === trigger).toBe(true)),
+				);
 				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-				expect(document.body.style.overflow).toBe("");
+				yield* Effect.promise(() => waitFor(() => expect(document.body.style.overflowY).toBe("")));
 			}),
 		testTimeout,
 	);
@@ -178,53 +178,12 @@ describe("mobile drawer", () => {
 		testTimeout,
 	);
 
-	it.live(
-		"contains forward and reverse Tab focus",
-		() =>
-			Effect.gen(function* () {
-				render(<Harness />, { wrapper: wrapper });
-				const { dialog } = yield* Effect.promise(() => openDrawer());
-				const first = screen.getByRole("button", { name: /^Fixture workspace,/ });
-				const last = screen.getByRole("link", { name: "Open settings" });
-
-				first.focus();
-				fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-				expect(document.activeElement).toBe(last);
-
-				last.focus();
-				fireEvent.keyDown(dialog, { key: "Tab" });
-				expect(document.activeElement).toBe(first);
-			}),
-		testTimeout,
-	);
-
-	it("stays mounted off its route until the closing panel settles off screen", () => {
-		const progress = motionValue(0);
-		render(<Harness hasDrawer={false} progress={progress} />, { wrapper: wrapper });
-
-		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-
-		act(() => progress.set(0.5));
-		expect(screen.getByTestId("mobile-drawer")).toBeTruthy();
-
-		act(() => progress.set(0));
-		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+	it("only enables the drawer swipe on routes with drawer intent", () => {
+		const view = render(<Harness hasDrawer={false} />, { wrapper });
+		expect(screen.queryByTestId("edge-gesture")).toBeNull();
+		view.rerender(<Harness />);
+		expect(screen.getByTestId("edge-gesture")).toBeTruthy();
 	});
-
-	it.live(
-		"closes on scrim click",
-		() =>
-			Effect.gen(function* () {
-				render(<Harness />, { wrapper: wrapper });
-				const { trigger } = yield* Effect.promise(() => openDrawer());
-
-				fireEvent.click(screen.getByTestId("drawer-scrim"));
-
-				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
-				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-			}),
-		testTimeout,
-	);
 
 	it.live(
 		"resets its workspace menu when the drawer closes",
@@ -235,28 +194,14 @@ describe("mobile drawer", () => {
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 				expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 
-				fireEvent.click(screen.getByTestId("drawer-scrim"));
+				fireEvent.keyDown(screen.getByRole("menu", { name: "Workspaces" }), { key: "Escape" });
+				fireEvent.keyDown(screen.getByRole("dialog", { name: "Navigation" }), { key: "Escape" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull()),
+				);
 				yield* Effect.promise(() => openDrawer());
 
 				expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"releases body scrolling before it reports the close",
-		() =>
-			Effect.gen(function* () {
-				const overflow: Array<string> = [];
-				render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />, {
-					wrapper: wrapper,
-				});
-				yield* Effect.promise(() => openDrawer());
-
-				expect(document.body.style.overflow).toBe("hidden");
-				fireEvent.click(screen.getByRole("link", { name: "Home" }));
-
-				expect(overflow).toEqual([""]);
 			}),
 		testTimeout,
 	);

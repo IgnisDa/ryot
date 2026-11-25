@@ -52,14 +52,14 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 						preferences.contentLanguage,
 					)
 				: null;
-		const render = yield* (yield* MessageRegistry).renderer(
+		const { render, catalogLocale } = yield* (yield* MessageRegistry).renderer(
 			locale,
 			message === null ? [] : messageNamespaces(message),
 			{ timeZone: preferences.reportingTimeZone },
 		);
 		const shared = {
-			locale,
-			direction: textDirection(locale),
+			locale: catalogLocale,
+			direction: textDirection(catalogLocale),
 			title: render(kernelMessage("notification.title")),
 			email: {
 				heading: render(kernelMessage("notification.email.heading")),

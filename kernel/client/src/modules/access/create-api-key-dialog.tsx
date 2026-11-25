@@ -90,7 +90,7 @@ export function CreateApiKeyDialog(props: {
 			onClose={props.onClose}
 			initialFocusRef={nameRef}
 			triggerRef={props.triggerRef}
-			onInterceptBack={() => create.isPending}
+			dismissible={!create.isPending}
 			closeLabel={t(kernelMessage("common.action.close"))}
 			title={t(kernelMessage("client.access.create.title"))}
 			description={t(kernelMessage("client.access.create.description"))}

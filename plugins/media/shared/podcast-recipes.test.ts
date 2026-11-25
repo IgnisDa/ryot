@@ -9,17 +9,19 @@ const rows = (items: readonly Record<string, unknown>[]) =>
 
 const PODCAST_EPISODE_ROW = {
 	runtime: 52,
+	airingAt: null,
 	id: "episode-9",
 	episodeNumber: 9,
 	state: "untracked",
 	name: "The Interview",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "podcast-episode",
 	description: "A long conversation.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/episode-9.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-9.jpg" }],
 };
 
 describe("media podcast query recipes", () => {
@@ -56,12 +58,14 @@ describe("media podcast query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
-			"images",
+			"image",
 			"episodeNumber",
 			"runtime",
+			"airingAt",
 			"publishDate",
 			"description",
 			"state",
+			"airingSourceUrl",
 		]);
 	});
 

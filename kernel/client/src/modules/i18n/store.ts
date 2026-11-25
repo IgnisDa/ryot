@@ -1,14 +1,16 @@
 import type { PluginLocaleCatalogs } from "@ryot-app/contract/modules/plugins/schemas";
-import { InterfaceLocale } from "@ryot-app/contract/schema/user-preferences";
 import {
+	catalogLocale,
 	type CatalogRegistry,
 	catalogRegistry,
 	type CompiledCatalog,
 } from "@ryot-app/i18n/catalog";
-import { fallbackChain, negotiateLocale, SOURCE_LOCALE } from "@ryot-app/i18n/locale";
+import { fallbackChain, SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { type KernelLocale, kernelLocales } from "@ryot-app/kernel-messages/catalog";
 import { Effect, Schedule, Schema } from "effect";
+
+import { resolveDeviceLocale } from "./device-locale";
 
 /**
  * `loading` while any plugin catalog load is in flight or waiting to retry, so a missing plugin
@@ -21,27 +23,29 @@ export type PluginCatalogLoader = (
 ) => Effect.Effect<PluginLocaleCatalogs["catalogs"], unknown>;
 
 /**
- * `preference` is the applied interface locale preference (`null` follows the device), and
- * `localeSettled` says whether `locale` is the requested one or its kernel catalog failed to load.
+ * `localeSettled` says whether the requested kernel catalogs loaded or failed.
  */
 export type I18nSnapshot = {
-	readonly locale: KernelLocale;
+	readonly locale: string;
+	readonly catalogLocale: string;
 	readonly localeSettled: boolean;
 	readonly registry: CatalogRegistry;
-	readonly preference: null | KernelLocale;
+	readonly preference: null | string;
 	readonly pluginCatalogs: PluginCatalogsState;
 };
 
 export type I18nStore = {
+	readonly deviceLocale: string;
 	readonly getSnapshot: () => I18nSnapshot;
 	readonly invalidatePluginCatalogs: () => void;
 	readonly subscribe: (listener: () => void) => () => void;
-	readonly setInterfaceLocale: (preference: null | KernelLocale) => void;
+	readonly setInterfaceLocale: (preference: null | string) => void;
 	readonly setPluginCatalogLoader: (load: null | PluginCatalogLoader) => void;
 };
 
 const pluginCatalogRetrySchedule = Schedule.exponential("1 second");
 const PLUGIN_CATALOG_RETRIES = 3;
+const isKernelLocale = Schema.is(Schema.Literals(kernelLocales));
 
 /**
  * Starts with the source catalog so rendering never waits, requesting the initial preference or else
@@ -52,16 +56,15 @@ const PLUGIN_CATALOG_RETRIES = 3;
  */
 export function createI18nStore(input: {
 	readonly sourceCatalog: CompiledCatalog;
+	readonly initialPreference?: null | string;
 	readonly deviceLocales: ReadonlyArray<string>;
-	readonly initialPreference?: null | KernelLocale;
 	readonly run: (effect: Effect.Effect<void>) => void;
 	readonly load: (locale: KernelLocale) => Effect.Effect<CompiledCatalog>;
 }): I18nStore {
-	const deviceLocale = negotiateLocale(input.deviceLocales, kernelLocales, SOURCE_LOCALE);
+	const deviceLocale = resolveDeviceLocale(input.deviceLocales);
 	const listeners = new Set<() => void>();
-	let requested: KernelLocale = SOURCE_LOCALE;
+	let requested: string = SOURCE_LOCALE;
 	let preference = input.initialPreference ?? null;
-	let failed: undefined | KernelLocale;
 	let kernel = catalogRegistry([
 		{ locale: SOURCE_LOCALE, namespace: KERNEL_NAMESPACE, catalog: input.sourceCatalog },
 	]);
@@ -82,19 +85,21 @@ export function createI18nStore(input: {
 		registry: kernel,
 		localeSettled: true,
 		locale: SOURCE_LOCALE,
+		catalogLocale: SOURCE_LOCALE,
 		pluginCatalogs: pluginCatalogsState(),
 	};
 
-	const publish = (locale: KernelLocale) => {
+	const publish = (locale: string) => {
 		publishedPlugins = plugins;
 		snapshot = {
 			locale,
 			preference,
+			localeSettled: locale === requested,
 			pluginCatalogs: pluginCatalogsState(),
-			localeSettled: locale === requested || failed === requested,
+			catalogLocale: catalogLocale(kernel, locale),
 			registry: catalogRegistry(
-				[...plugins].flatMap(([catalogLocale, catalogs]) =>
-					catalogs.map((entry) => ({ ...entry, locale: catalogLocale })),
+				[...plugins].flatMap(([candidate, catalogs]) =>
+					catalogs.map((entry) => ({ ...entry, locale: candidate })),
 				),
 				kernel,
 			),
@@ -110,13 +115,13 @@ export function createI18nStore(input: {
 		}
 	};
 
-	const loadPluginCatalogs = (locale: KernelLocale) => {
+	const loadPluginCatalogs = (locale: string) => {
 		const load = pluginLoader;
 		if (load === null) {
 			return;
 		}
 		const generation = pluginGeneration;
-		const missing = fallbackChain(locale).filter(
+		const missing = fallbackChain(locale, kernelLocales).filter(
 			(candidate) => !freshPluginLocales.has(candidate) && !pendingPluginLocales.has(candidate),
 		);
 		for (const candidate of missing) {
@@ -155,14 +160,13 @@ export function createI18nStore(input: {
 		}
 	};
 
-	const select = (next: null | KernelLocale) => {
+	const select = (next: null | string) => {
 		const locale = next ?? deviceLocale;
 		preference = next;
 		requested = locale;
-		failed = undefined;
 		loadPluginCatalogs(locale);
-		const missing = fallbackChain(locale)
-			.filter(Schema.is(InterfaceLocale))
+		const missing = fallbackChain(locale, kernelLocales)
+			.filter(isKernelLocale)
 			.filter((candidate) => kernel.get(KERNEL_NAMESPACE)?.has(candidate) !== true);
 		if (missing.length === 0) {
 			if (
@@ -186,9 +190,8 @@ export function createI18nStore(input: {
 				),
 				{
 					onFailure: () => {
-						failed = locale;
 						if (requested === locale) {
-							publish(snapshot.locale);
+							publish(locale);
 						}
 					},
 					onSuccess: (loaded) => {
@@ -209,6 +212,7 @@ export function createI18nStore(input: {
 	select(preference);
 
 	return {
+		deviceLocale,
 		setInterfaceLocale: select,
 		getSnapshot: () => snapshot,
 		invalidatePluginCatalogs: () => {

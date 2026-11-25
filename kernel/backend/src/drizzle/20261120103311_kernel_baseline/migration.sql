@@ -296,6 +296,7 @@ CREATE TABLE "client_artifact_file" (
 	"name" text,
 	"contents" bytea NOT NULL,
 	"content_type" text NOT NULL,
+	"static_imports" jsonb DEFAULT '[]' NOT NULL,
 	"artifact_hash" text,
 	CONSTRAINT "client_artifact_file_pkey" PRIMARY KEY("artifact_hash","name")
 );
@@ -322,6 +323,7 @@ CREATE TABLE "definition_calendar_source" (
 	"id" text PRIMARY KEY,
 	"art" text,
 	"done" text,
+	"instant_at" text,
 	"icon" text NOT NULL,
 	"start_at" text NOT NULL,
 	"caption" jsonb,
@@ -444,19 +446,20 @@ CREATE TABLE "definition_saved_view" (
 );
 --> statement-breakpoint
 CREATE TABLE "definition_signal_schedule" (
+	"instant_at" text,
 	"delay_days" integer,
 	"slug" text NOT NULL,
 	"due_at" text NOT NULL,
 	"signal" text NOT NULL,
 	"occurrence" text NOT NULL,
 	"position" integer NOT NULL,
+	"read_schema_slugs" text[],
 	"entitlement" text,
 	"query" jsonb NOT NULL,
 	"subject" jsonb NOT NULL,
 	"precision" text NOT NULL,
 	"properties" jsonb NOT NULL,
 	"freshness" jsonb,
-	"read_schema_slugs" text[],
 	"id" text PRIMARY KEY,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_signal_schedule_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
@@ -1363,7 +1366,7 @@ CREATE TABLE "user" (
 		and (
 			jsonb_typeof("preferences"->'interfaceLocale') = 'null'
 			or (jsonb_typeof("preferences"->'interfaceLocale') = 'string'
-				and "preferences"->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+				and "preferences"->>'interfaceLocale' ~ '^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$')
 		)
 		and (
 			jsonb_typeof("preferences"->'contentLanguage') = 'null'

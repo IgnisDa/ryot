@@ -97,11 +97,13 @@ it.live(
 			expect(screen.getByText("This local time occurs twice. Choose an occurrence.")).toBeTruthy();
 			act(() => {
 				fireEvent.click(
-					screen.getByRole("button", { name: "Date and time occurrence: Choose an occurrence" }),
+					screen.getByRole("combobox", { name: "Date and time occurrence: Choose an occurrence" }),
 				);
 			});
 			act(() => {
-				fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+				const second = screen.getByRole("option", { name: "Second occurrence (UTC-05:00)" });
+				fireEvent.pointerDown(second, { pointerType: "mouse" });
+				fireEvent.click(second);
 			});
 			act(() => {
 				fireEvent.click(screen.getByRole("button", { name: "Save reading" }));

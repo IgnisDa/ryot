@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { mediaCopiesRecipe } from "@ryot-app/media-plugin/shared/media-copy-recipes";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { Effect } from "effect";
 
 import {
@@ -20,7 +21,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const digitalVersion = (id: string, width: number, interlaced?: boolean) => ({
 	Id: id,

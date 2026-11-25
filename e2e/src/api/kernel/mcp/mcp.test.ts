@@ -10,6 +10,7 @@ import {
 	OAuthConsentDetailsRequest,
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import { getConnectedApps } from "~/fixtures/kernel/account";
@@ -22,7 +23,6 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const Registration = Schema.Struct({ client_id: Schema.String });
 const Redirect = Schema.Struct({ url: Schema.String });

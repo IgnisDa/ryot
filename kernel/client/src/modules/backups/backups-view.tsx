@@ -151,16 +151,16 @@ function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: Backup
 	const t = useT();
 	const formatters = useFormatters();
 	const progress = backupRunProgress(t, formatters, props.run);
+	const label = t(backupRunKindLabel(props.run.kind));
 	return (
 		<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
 			<div className="flex items-center justify-between gap-3">
-				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-					{t(backupRunKindLabel(props.run.kind))}
-				</span>
+				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">{label}</span>
 				<RunStatusPill status={props.run.status} />
 			</div>
 			<div className="flex flex-col gap-2">
 				<RunProgressBar
+					label={label}
 					progress={progress}
 					value={backupRunProgressValue(t, formatters, props.run)}
 				/>

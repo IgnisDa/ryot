@@ -6,7 +6,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 
-import { IngestionRunReport } from "./ingestion-run-report";
+import { IngestionRunReport, IngestionRunTechnicalDetails } from "./ingestion-run-report";
 
 afterEach(cleanup);
 
@@ -60,21 +60,39 @@ const run: ImportRunSummary = {
 };
 
 describe("ingestion reports", () => {
-	it("shows concurrent activities with their own units, waits and exact denominators", () => {
-		render(<IngestionRunReport run={run} />, { wrapper: testI18nWrapper() });
-		const bars = screen.getAllByRole("progressbar");
-		expect(bars[0]?.hasAttribute("aria-valuemax")).toBe(false);
-		expect(bars[0]?.getAttribute("aria-valuetext")).toBe("2 files");
-		expect(bars[1]?.getAttribute("aria-valuemax")).toBe("12");
-		expect(bars[1]?.getAttribute("aria-valuetext")).toBe("6 of 12 listening events");
-		expect(screen.getByText("Waiting: provider-backoff · example-service")).toBeTruthy();
-		expect(screen.getAllByText(/Last advancement:/)).toHaveLength(2);
-		expect(
-			screen.getByText(
-				"listening events: 6 created · 1 updated · 2 unchanged · 3 skipped · 4 unsuccessful",
-			),
-		).toBeTruthy();
-		expect(screen.queryByText("Preparing")).toBeNull();
+	it("shows one current activity and only renders a progress bar when its total is known", () => {
+		const view = render(<IngestionRunReport run={run} />, { wrapper: testI18nWrapper() });
+		expect(screen.getByRole("heading", { name: "Reading input" })).toBeTruthy();
+		expect(screen.getByText("2 files")).toBeTruthy();
+		expect(screen.queryByRole("progressbar")).toBeNull();
+		view.rerender(
+			<IngestionRunReport
+				run={{
+					...run,
+					activities: run.activities.map((activity) =>
+						activity.kind === "writing"
+							? { ...activity, wait: null, state: "running" }
+							: { ...activity, exactTotal: 2, state: "completed" },
+					),
+				}}
+			/>,
+		);
+		const bar = screen.getByRole("progressbar", { name: "Adding records" });
+		expect(screen.getByRole("heading", { name: "Adding records" })).toBeTruthy();
+		expect(bar.getAttribute("aria-valuemax")).toBe("12");
+		expect(bar.getAttribute("aria-valuetext")).toBe("6 of 12 listening events");
+		expect(screen.queryByText("2 of 2 files")).toBeNull();
+		view.rerender(<IngestionRunReport run={{ ...run, status: "completed" }} />);
+		expect(screen.getByRole("heading", { name: "Completed with issues" })).toBeTruthy();
+		expect(screen.queryByRole("progressbar")).toBeNull();
+		expect(screen.getByText("6 added")).toBeTruthy();
+		expect(screen.getByText("4 failed")).toBeTruthy();
+	});
+	it("puts activity history and wait codes in a collapsed disclosure", () => {
+		render(<IngestionRunTechnicalDetails run={run} />, { wrapper: testI18nWrapper() });
+		const disclosure = screen.getByText("Technical details").closest("details");
+		expect(disclosure?.hasAttribute("open")).toBe(false);
+		expect(disclosure?.textContent).toContain("Waiting: provider-backoff · example-service");
 	});
 	it("shows a fixed blocked deadline and terminal expiry instructions", () => {
 		const view = render(

@@ -125,7 +125,6 @@
 	"pokemon-details.weight-value": "{value, number} 百克",
 	"pokemon-picker.add-to-collection": "将 {name} 添加到合集",
 	"pokemon-picker.adding": "正在添加宝可梦…",
-	"pokemon-picker.cancel-adding": "取消添加宝可梦",
 	"pokemon-picker.choose-title": "选择合集",
 	"pokemon-picker.collections-empty": "没有可用的合集。",
 	"pokemon-picker.collections-unavailable": "合集不可用。",

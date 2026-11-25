@@ -4,9 +4,8 @@ import {
 	type PluginArchivePackage,
 	writePluginArchive,
 } from "@ryot-app/plugin-archive";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
-
-import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";

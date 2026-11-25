@@ -26,11 +26,11 @@ export function KernelI18nProvider(props: {
 		props.store.getSnapshot,
 		props.store.getSnapshot,
 	);
-	const { locale, registry, pluginCatalogs } = snapshot;
+	const { locale, registry, catalogLocale, pluginCatalogs } = snapshot;
 	useEffect(() => {
-		document.documentElement.lang = locale;
-		document.documentElement.dir = textDirection(locale);
-	}, [locale]);
+		document.documentElement.lang = catalogLocale;
+		document.documentElement.dir = textDirection(catalogLocale);
+	}, [catalogLocale]);
 	return (
 		<I18nSnapshotContext value={snapshot}>
 			<I18nProvider

@@ -4,11 +4,11 @@ import { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { NamespaceCatalog } from "@ryot-app/i18n/catalog";
-import { TextDirection } from "@ryot-app/i18n/locale";
+import { LocaleTag, TextDirection } from "@ryot-app/i18n/locale";
 import { Message, MessageNamespace } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
-import { clientVersionFields } from "../artifact";
+import { ClientCompositionMetadata, clientVersionFields } from "../artifact";
 import {
 	ClientPageContext,
 	KernelShortcut,
@@ -20,7 +20,15 @@ import {
 import { RyotClientErrorReason } from "./capabilities";
 
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
+export const CLIENT_BRIDGE_BOOTSTRAP = "ryot-client-bootstrap";
+export const CLIENT_BRIDGE_NONCE_ELEMENT_ID = "ryot-client-bridge-nonce";
+
+export const PluginBridgeBootstrapProof = strictStruct({
+	nonce: Schema.String,
+	composition: ClientCompositionMetadata,
+});
+
+export type PluginBridgeBootstrapProof = typeof PluginBridgeBootstrapProof.Type;
 
 export const CLIENT_PAGE_ROOT_ELEMENT_ID = "app";
 export const CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID = "ryot-client-composition";
@@ -42,10 +50,7 @@ const pluginBridgeIdentityFields = {
 
 const pluginSafeAreaInset = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
-export const PluginBridgeCatalog = strictStruct({
-	...NamespaceCatalog.fields,
-	locale: Schema.String,
-});
+export const PluginBridgeCatalog = strictStruct({ ...NamespaceCatalog.fields, locale: LocaleTag });
 
 export type PluginBridgeCatalog = Schema.Schema.Type<typeof PluginBridgeCatalog>;
 
@@ -54,8 +59,8 @@ export type PluginBridgeCatalog = Schema.Schema.Type<typeof PluginBridgeCatalog>
  * `pendingNamespaces` lists the namespaces whose catalogs are still loading.
  */
 const pluginBridgeLocaleFields = {
+	locale: LocaleTag,
 	dir: TextDirection,
-	locale: Schema.String,
 	catalogs: Schema.Array(PluginBridgeCatalog),
 	pendingNamespaces: Schema.Array(MessageNamespace),
 };
@@ -117,7 +122,6 @@ export type PluginBridgeDismissOverlay = Schema.Schema.Type<typeof PluginBridgeD
 
 export const PluginBridgeDismissOverlayResult = strictStruct({
 	requestId: Schema.String,
-	dismissed: Schema.Boolean,
 	type: Schema.Literal("dismiss-overlay-result"),
 });
 

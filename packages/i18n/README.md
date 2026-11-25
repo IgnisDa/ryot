@@ -58,8 +58,8 @@ User-facing text crosses boundaries as a `Message` (`/message`), never as a rend
   schema. `decodeCompiledCatalog(input, file?)` decodes an untrusted catalog and applies
   `compiledCatalogIssues`. Compiled catalogs are pre-parsed ICU ASTs in
   a closed JSON shape; number and date skeletons are stored as validated option objects.
-- `format(registry, locale, message, options?)` (`/format`) walks the fallback chain
-  (`pt-BR → pt → en`) inside the message's namespace, formats with `intl-messageformat` over the
+- `format(registry, locale, message, options?)` (`/format`) walks the catalog fallback chain
+  (`en-AU → en`) inside the message's namespace, formats with `intl-messageformat` over the
   pre-parsed AST, and returns branded `Text` (`/text`). Plural categories follow the locale of the
   catalog the message resolved from, so an English fallback keeps English plural branches, while
   numbers and dates format in the requested locale. `options.timeZone` sets the IANA zone of date
@@ -120,13 +120,15 @@ and the formatter, not any call site.
 ## Locales
 
 `/locale` exports `SOURCE_LOCALE` (`en`), `PSEUDO_LOCALE` (`en-XA`), `canonicalLocale`, the
-`LocaleTag` schema (canonical BCP 47 tags), `fallbackChain`, `parseAcceptLanguage`, `negotiateLocale` (exact or truncated match with the same likely script, then the same
-language and script, preferring the likely region; never the pseudo-locale by language), `textDirection` with its `TextDirection` schema,
-`languageOfLocale`, and
-`weekStartForLocale`. Week days are the `WeekDay` schema and type, in Effect's `weekStartsOn`
-numbering (`0` is Sunday). The week
-start comes from `Intl.Locale#getWeekInfo` when the runtime has it, otherwise from the bundled CLDR
-first-day table, which `cldrWeekStart` exposes directly.
+`LocaleTag` schema (canonical BCP 47 tags), `parseAcceptLanguage`, `textDirection` with its
+`TextDirection` schema, `languageOfLocale`, and `weekStartForLocale`. `preferredLocale` keeps the
+full tag of the first requested locale with a matching catalog. If none match, it keeps the first
+valid tag. `fallbackChain` tries the locale's base tag and parents in the same script, then the
+closest matching catalog and English. `catalogLocales` derives that chain from the registered kernel
+catalogs and `catalogLocale` returns the first available kernel catalog.
+
+The first weekday comes from the bundled CLDR table for the locale's likely region. Clients and
+server jobs use `WeekDay` in Effect's `weekStartsOn` numbering (`0` is Sunday).
 
 ## Catalog compiler
 

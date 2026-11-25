@@ -34,10 +34,11 @@ const document: ClientCompositionDocument = {
 	},
 };
 
+const nonce = "frame-nonce";
 const server = ServerOrigin.make("http://192.168.1.5:3000");
 
 it("puts the server base and referrer policy before every resource", () => {
-	const html = renderClientDocument(document, server);
+	const html = renderClientDocument(document, server, nonce);
 	const base = html.indexOf('<base href="http://192.168.1.5:3000/" />');
 	const referrer = html.indexOf('<meta name="referrer" content="no-referrer" />');
 	expect(html.indexOf("<head>")).toBeLessThan(base);
@@ -50,7 +51,7 @@ it("puts the server base and referrer policy before every resource", () => {
 });
 
 it("renders the import map, preload plan, metadata, descriptor, and bootstrap", () => {
-	const html = renderClientDocument(document, server);
+	const html = renderClientDocument(document, server, nonce);
 	expect(html.indexOf('<script type="importmap"')).toBeLessThan(
 		html.indexOf('<link rel="modulepreload"'),
 	);
@@ -66,10 +67,13 @@ it("renders the import map, preload plan, metadata, descriptor, and bootstrap", 
 		`<link rel="preload" href="${asset("icon.svg")}" as="image" type="image/svg+xml" />`,
 	);
 	expect(html).toContain('"hash":"composition"');
+	expect(html).toContain(
+		'<script type="application/json" id="ryot-client-bridge-nonce">"frame-nonce"</script>',
+	);
 	expect(html).toContain(`"stylesheets":["${asset("card.css")}"]`);
 	expect(html).not.toContain(`<link rel="stylesheet" href="${asset("card.css")}"`);
 	expect(html).toContain(`<script type="module" src="${asset("bootstrap.js")}"></script>`);
-	expect(renderClientDocument(document, server)).toBe(html);
+	expect(renderClientDocument(document, server, nonce)).toBe(html);
 });
 
 it("escapes document text, attributes, and embedded JSON", () => {
@@ -81,11 +85,12 @@ it("escapes document text, attributes, and embedded JSON", () => {
 			importMap: { imports: { "</script><script>alert(1)</script>": "/x.js" } },
 		},
 		server,
+		nonce,
 	);
 	expect(html).toContain(
 		"<title>&lt;/title&gt;&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</title>",
 	);
 	expect(html).toContain('src="/boot.js&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"></script>');
 	expect(html).toContain("\\u003c/script>\\u003cscript>alert(1)\\u003c/script>");
-	expect(html.match(/<script/g)).toHaveLength(4);
+	expect(html.match(/<script/g)).toHaveLength(5);
 });

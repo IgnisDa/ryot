@@ -12,12 +12,12 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
+	coalesce,
 	column,
 	defineRecipe,
 	field,
 	gte,
 	isNull,
-	lt,
 	or,
 	table,
 } from "@ryot-app/ryotql";
@@ -25,10 +25,12 @@ import { parameters } from "@ryot-app/ryotql/authoring";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Option, Result, Schema } from "effect";
 
+import { rowSourceTimeWindow } from "./row-source-time";
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
 const DUE_QUERY = "signalScheduleDue";
 const NEXT_QUERY = "signalScheduleNext";
+const NEXT_INSTANT_QUERY = "signalScheduleNextInstant";
 
 export type SignalScheduleCandidate = {
 	readonly subjectId: string;
@@ -41,6 +43,7 @@ export type SignalScheduleSource = {
 	readonly dueAt: string;
 	readonly occurrence: string;
 	readonly query: RowSourceQuery;
+	readonly instantAt?: null | string;
 	readonly subject: SavedViewSubject;
 	readonly properties: Readonly<Record<string, string>>;
 	readonly freshness: null | { readonly confirmedAt: string };
@@ -58,8 +61,11 @@ const textValue = (row: DueRow, key: string) => {
 };
 
 /**
- * `signalScheduleDue` pages the fresh occurrences due in `[start, end)`; `signalScheduleNext` is the
- * earliest fresh `dueAt` at or after `end`, null when there is none.
+ * `signalScheduleDue` pages the fresh occurrences due in `[start, end)`, or, for a row with an
+ * `instantAt` value, in `[instantStart, instantEnd)`. `signalScheduleNext` is the earliest fresh
+ * `dueAt` at or after `end` of a row without an instant, null when there is none. A schedule that
+ * binds `instantAt` also has `signalScheduleNextInstant`, the earliest fresh instant at or after
+ * `instantEnd`.
  */
 export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleSource }) => {
 	const { schedule } = input;
@@ -82,6 +88,18 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				description: "Inclusive bounded scan start",
 				label: kernelMessage("recipe.parameter.start"),
 			},
+			instantEnd: {
+				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				label: kernelMessage("recipe.parameter.end"),
+				description: "Exclusive scan end for timed rows",
+			},
+			instantStart: {
+				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				label: kernelMessage("recipe.parameter.start"),
+				description: "Inclusive scan start for timed rows",
+			},
 		},
 	});
 	const fields = schedule.query.output.fields.flatMap((selection) =>
@@ -89,9 +107,10 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 	);
 	const expression = (key: string) => fields.find((selection) => selection.key === key)?.expr;
 	const dueAt = expression(schedule.dueAt);
+	const instantAt = schedule.instantAt == null ? null : expression(schedule.instantAt);
 	const occurrence = expression(schedule.occurrence);
 	const confirmedAt = schedule.freshness ? expression(schedule.freshness.confirmedAt) : null;
-	if (!dueAt || !occurrence || confirmedAt === undefined) {
+	if (!dueAt || !occurrence || confirmedAt === undefined || instantAt === undefined) {
 		return Result.fail(new Error(`Signal schedule '${schedule.slug}' does not project its fields`));
 	}
 	const subject = table("entity", schedule.subject.entityAlias);
@@ -128,25 +147,39 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				occurrence: yield* textValue(row, occurrenceKey),
 			} satisfies SignalScheduleCandidate;
 		});
+	const nextQuery = (at: ScalarExpression, window: Predicate) => ({
+		decodeResult: (result: unknown) =>
+			Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items: [row] }) =>
+				row === undefined ? Result.succeed(null) : textValue(row, dueAtKey),
+			),
+		document: {
+			...schedule.query,
+			where: where(window),
+			output: {
+				type: "rows" as const,
+				orderBy: [ascending(at)],
+				fields: [field(dueAtKey, at)],
+				pagination: { limit: 1, maxLimit: 1 },
+			},
+		},
+	});
 	const recipe = defineRecipe({
 		parameters: recipeParameters.schema,
 		queries: {
-			[NEXT_QUERY]: {
-				decodeResult: (result: unknown) =>
-					Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items: [row] }) =>
-						row === undefined ? Result.succeed(null) : textValue(row, dueAtKey),
-					),
-				document: {
-					...schedule.query,
-					where: where(gte(dueAt, recipeParameters.value("end"))),
-					output: {
-						type: "rows",
-						orderBy: [ascending(dueAt)],
-						fields: [field(dueAtKey, dueAt)],
-						pagination: { limit: 1, maxLimit: 1 },
-					},
-				},
-			},
+			[NEXT_QUERY]: nextQuery(
+				dueAt,
+				instantAt === null
+					? gte(dueAt, recipeParameters.value("end"))
+					: and(isNull(instantAt), gte(dueAt, recipeParameters.value("end"))),
+			),
+			...(instantAt === null
+				? {}
+				: {
+						[NEXT_INSTANT_QUERY]: nextQuery(
+							instantAt,
+							gte(instantAt, recipeParameters.value("instantEnd")),
+						),
+					}),
 			[DUE_QUERY]: {
 				decodeResult: (result: unknown) =>
 					Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items, pageInfo }) =>
@@ -158,13 +191,27 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				document: {
 					...schedule.query,
 					where: where(
-						gte(dueAt, recipeParameters.value("start")),
-						lt(dueAt, recipeParameters.value("end")),
+						...rowSourceTimeWindow(
+							dueAt,
+							{ end: recipeParameters.value("end"), start: recipeParameters.value("start") },
+							instantAt === null
+								? null
+								: {
+										at: instantAt,
+										bounds: {
+											end: recipeParameters.value("instantEnd"),
+											start: recipeParameters.value("instantStart"),
+										},
+									},
+						),
 					),
 					output: {
 						...schedule.query.output,
 						pagination: { limit: 100, maxLimit: 1000 },
-						orderBy: [ascending(dueAt), ascending(occurrence)],
+						orderBy: [
+							ascending(instantAt === null ? dueAt : coalesce(instantAt, dueAt)),
+							ascending(occurrence),
+						],
 						fields: [
 							...fields.filter(({ key }) => propertyKeys.has(key)),
 							field(idKey, column(subject, "id")),

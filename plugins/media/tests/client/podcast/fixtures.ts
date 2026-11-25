@@ -4,6 +4,7 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { podcastRecipes } from "../../../shared/podcast-recipes";
 import { rowsResult } from "../query-result-fixture";
 import { servedProviderName } from "../served-names";
+import { artworkSummaryFixture } from "../summary-fixture";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
@@ -21,6 +22,7 @@ const podcastActivityFixtureRecipe = bindRecipe(
 );
 export const podcastSummaryRow = {
 	owned: false,
+	airingAt: null,
 	id: "podcast-1",
 	isCustom: false,
 	ownedEpisodes: 0,
@@ -35,6 +37,7 @@ export const podcastSummaryRow = {
 	providerRating: 72.5,
 	inProgressEpisodes: 1,
 	schemaSlug: "podcast",
+	airingSourceUrl: null,
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	productionStatus: "Ended",
@@ -45,8 +48,10 @@ export const podcastSummaryRow = {
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
+	...artworkSummaryFixture([
+		{ type: "remote", purpose: "cover", url: "https://images.test/reply-all.jpg" },
+	]),
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/reply-all.jpg" }],
 	genres: {
 		pageInfo: { limit: 100, hasMore: false },
 		items: [{ name: "Technology", id: "genre-technology" }],

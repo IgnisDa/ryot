@@ -355,7 +355,7 @@ describe("Media RyotQL query recipe results", () => {
 				seasonNumber: 1,
 				releaseDate: "2024-01-01",
 				description: "Season 1 overview",
-				images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
+				image: { type: "remote", url: "https://images.test/season-1.jpg" },
 			});
 			expect(firstEpisodeResult).toMatchObject({
 				runtime: 40,
@@ -363,7 +363,7 @@ describe("Media RyotQL query recipe results", () => {
 				episodeNumber: 1,
 				publishDate: "2024-01-01",
 				description: "Season 1 episode 1 synopsis",
-				images: [{ type: "remote", purpose: "still", url: "https://images.test/episode-1-1.jpg" }],
+				image: { type: "remote", url: "https://images.test/episode-1-1.jpg" },
 			});
 			expect(secondSeasonEpisodeResult.name).toBe("Season 2 Episode 1");
 			expect(secondSeasonEpisodeResult.state).toBe("untracked");
@@ -494,10 +494,14 @@ describe("Media RyotQL query recipe results", () => {
 				genres.map(({ name }) => name).sort(),
 			);
 			expect(summaryRow.description).toBe("A four-part limited series.");
-			expect(summaryRow.images).toEqual([
-				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
-				{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-			]);
+			expect(summaryRow.image).toEqual({
+				type: "remote",
+				purpose: "cover",
+				url: "https://images.test/cover.jpg",
+			});
+			expect(summaryRow.imageCount).toBe(2);
+			expect(summaryRow.backdropPreviewImage?.purpose).toBe("backdrop");
+			expect(summaryRow).not.toHaveProperty("images");
 			expect(summaryRow.collections.items.map(({ name }) => name)).toEqual([collection.name]);
 		}),
 	);
@@ -641,9 +645,7 @@ describe("Media RyotQL query recipe results", () => {
 			expect(leadCredit.isInMediaLibrary).toBe(true);
 			expect(leadCredit.character).toBe("Jamie");
 			expect(leadCredit.roles).toEqual(["Actor"]);
-			expect(leadCredit.images).toEqual([
-				{ type: "remote", purpose: "profile", url: "https://images.test/lead.jpg" },
-			]);
+			expect(leadCredit.image).toEqual({ type: "remote", url: "https://images.test/lead.jpg" });
 			const writerCredit = overview.people.items[1];
 			assertPresent(writerCredit, "Expected the writer credit");
 			expect(writerCredit.character).toBeNull();
@@ -659,9 +661,10 @@ describe("Media RyotQL query recipe results", () => {
 			expect(studioCredit.roles).toEqual([]);
 			expect(studioCredit.roleCodes).toEqual(["production_company"]);
 			expect(overview.companies.items.map((item) => item.isInMediaLibrary)).toEqual([true, false]);
-			expect(studioCredit.images).toEqual([
-				{ type: "remote", purpose: "logo", url: "https://images.test/studio-logo.png" },
-			]);
+			expect(studioCredit.image).toEqual({
+				type: "remote",
+				url: "https://images.test/studio-logo.png",
+			});
 			expect(overview.recommendations.items.map((item) => item.id)).toEqual([
 				suggestedFirst.id,
 				suggestedSecond.id,
@@ -671,9 +674,10 @@ describe("Media RyotQL query recipe results", () => {
 			);
 			const suggestedA = overview.recommendations.items[0];
 			assertPresent(suggestedA, "Expected the first suggestion");
-			expect(suggestedA.images).toEqual([
-				{ type: "remote", purpose: "cover", url: "https://images.test/suggested-a.jpg" },
-			]);
+			expect(suggestedA.image).toEqual({
+				type: "remote",
+				url: "https://images.test/suggested-a.jpg",
+			});
 			expect(overview.recommendations.items.map((item) => item.isInMediaLibrary)).toEqual([
 				true,
 				false,

@@ -18,7 +18,6 @@ import {
 	IconButton,
 	LoadMoreButton,
 	MotionList,
-	MotionPresence,
 	Notice,
 	RadioGroup,
 	ReorderableList,
@@ -284,27 +283,21 @@ function HistorySession(props: {
 					{text("client.history.sets-failed")}
 				</Notice>
 			) : null}
-			<MotionPresence>
-				{confirming ? (
-					<ConfirmDialog
-						key="append-history"
-						disabled={result.data === undefined}
-						onClose={() => setConfirming(false)}
-						cancelLabel={text("common.action.cancel")}
-						confirmLabel={text("client.history.add-sets")}
-						title={text("client.history.add-title", { name: props.session.name })}
-						description={text("client.history.add-description", {
-							count: result.data?.length ?? 0,
-						})}
-						onConfirm={() => {
-							if (result.data !== undefined) {
-								props.onAppend(result.data);
-							}
-							setConfirming(false);
-						}}
-					/>
-				) : null}
-			</MotionPresence>
+			<ConfirmDialog
+				open={confirming}
+				disabled={result.data === undefined}
+				onClose={() => setConfirming(false)}
+				cancelLabel={text("common.action.cancel")}
+				confirmLabel={text("client.history.add-sets")}
+				title={text("client.history.add-title", { name: props.session.name })}
+				description={text("client.history.add-description", { count: result.data?.length ?? 0 })}
+				onConfirm={() => {
+					if (result.data !== undefined) {
+						props.onAppend(result.data);
+					}
+					setConfirming(false);
+				}}
+			/>
 		</Card>
 	);
 }
@@ -312,7 +305,12 @@ function HistorySession(props: {
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
 export function ReorderOverlay(
-	props: DraftOverlayProps & { readonly onDrop: () => void; readonly onPickUp: () => void },
+	props: DraftOverlayProps & {
+		readonly open: boolean;
+		readonly onDrop: () => void;
+		readonly onClosed: () => void;
+		readonly onPickUp: () => void;
+	},
 ) {
 	const text = useFitnessMessages();
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -321,7 +319,9 @@ export function ReorderOverlay(
 	const groups = supersetNames(text, props.draft);
 	return (
 		<EditorSheet
+			open={props.open}
 			onClose={props.onClose}
+			onClosed={props.onClosed}
 			title={text("client.reorder.title")}
 			closeLabel={text("client.reorder.close")}
 			footer={<Button onClick={props.onClose}>{text("common.action.done")}</Button>}
@@ -482,30 +482,26 @@ export function BulkDeleteOverlay(
 					);
 				})}
 			</div>
-			<MotionPresence>
-				{confirming ? (
-					<ConfirmDialog
-						disabled={count === 0}
-						key="bulk-delete-confirm"
-						onClose={() => setConfirming(false)}
-						title={text("client.bulk.confirm-title")}
-						cancelLabel={text("common.action.cancel")}
-						confirmLabel={text("client.bulk.delete-selected")}
-						description={text("client.bulk.confirm-description", {
-							sets: selectedSetCount,
-							exercises: selectedExercises.length,
-						})}
-						onConfirm={() => {
-							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
-							if (selectedSetCount > 0) {
-								props.onDeletedSets();
-							}
-							setConfirming(false);
-							props.onClose();
-						}}
-					/>
-				) : null}
-			</MotionPresence>
+			<ConfirmDialog
+				open={confirming}
+				disabled={count === 0}
+				onClose={() => setConfirming(false)}
+				title={text("client.bulk.confirm-title")}
+				cancelLabel={text("common.action.cancel")}
+				confirmLabel={text("client.bulk.delete-selected")}
+				description={text("client.bulk.confirm-description", {
+					sets: selectedSetCount,
+					exercises: selectedExercises.length,
+				})}
+				onConfirm={() => {
+					props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
+					if (selectedSetCount > 0) {
+						props.onDeletedSets();
+					}
+					setConfirming(false);
+					props.onClose();
+				}}
+			/>
 		</EditorSheet>
 	);
 }
@@ -687,32 +683,30 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 					<p className="text-xs text-text-muted">{text("client.supersets.note")}</p>
 				</section>
 			</div>
-			<MotionPresence>
-				{deleting === undefined ? null : (
-					<ConfirmDialog
-						key="superset-delete-confirm"
-						onClose={() => setDeleting(undefined)}
-						cancelLabel={text("common.action.cancel")}
-						confirmLabel={text("client.supersets.delete")}
-						description={text("client.supersets.delete-description")}
-						title={text("client.supersets.delete-title", {
-							name: groups.get(deleting) ?? text("client.superset.fallback"),
-						})}
-						onConfirm={() => {
-							const groupId = deleting;
-							props.onChange((draft) => ({
-								...draft,
-								supersets: draft.supersets.filter(({ clientId }) => clientId !== groupId),
-							}));
-							if (editing === groupId) {
-								setEditing(undefined);
-								setSelected([]);
-							}
-							setDeleting(undefined);
-						}}
-					/>
-				)}
-			</MotionPresence>
+			{deleting === undefined ? null : (
+				<ConfirmDialog
+					key="superset-delete-confirm"
+					onClose={() => setDeleting(undefined)}
+					cancelLabel={text("common.action.cancel")}
+					confirmLabel={text("client.supersets.delete")}
+					description={text("client.supersets.delete-description")}
+					title={text("client.supersets.delete-title", {
+						name: groups.get(deleting) ?? text("client.superset.fallback"),
+					})}
+					onConfirm={() => {
+						const groupId = deleting;
+						props.onChange((draft) => ({
+							...draft,
+							supersets: draft.supersets.filter(({ clientId }) => clientId !== groupId),
+						}));
+						if (editing === groupId) {
+							setEditing(undefined);
+							setSelected([]);
+						}
+						setDeleting(undefined);
+					}}
+				/>
+			)}
 		</EditorSheet>
 	);
 }

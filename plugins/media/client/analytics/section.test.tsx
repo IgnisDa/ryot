@@ -330,6 +330,7 @@ describe("media analytics section", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 					);
+					const change = screen.getByRole("button", { name: "Change owner" });
 					act(() => {
 						fireEvent.click(screen.getByRole("button", { name: "View contributing records" }));
 					});
@@ -343,7 +344,7 @@ describe("media analytics section", () => {
 					expect(screen.getByRole("dialog")).toBeDefined();
 
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Change owner" }));
+						fireEvent.click(change);
 					});
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()),

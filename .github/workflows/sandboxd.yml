@@ -3,13 +3,7 @@ name: Sandbox Sidecar
 on:
   workflow_call:
     inputs:
-      source-ref:
-        required: true
-        type: string
-      candidate-artifact:
-        required: true
-        type: string
-      candidate-run:
+      build-version:
         required: true
         type: string
       run-tests:
@@ -20,7 +14,6 @@ on:
         type: boolean
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
@@ -53,14 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-          filter: blob:none
           persist-credentials: false
-          ref: ${{ inputs.source-ref }}
-      - name: Describe version
-        if: inputs.run-tests
-        id: version
-        run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         if: inputs.run-tests
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -73,11 +59,11 @@ jobs:
           load: true
           tags: ryot-sandbox-test
           platforms: linux/${{ matrix.arch }}
-          build-args: RYOT_VERSION=${{ steps.version.outputs.value }}
+          build-args: RYOT_VERSION=${{ inputs.build-version }}
           cache-from: |
-            type=gha,scope=sandbox-test-linux-${{ matrix.arch }}
-            type=gha,scope=runner-linux-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,ignore-error=true,scope=sandbox-test-linux-${{ matrix.arch }}
+            ${{ github.event_name == 'pull_request' && format('type=gha,scope=sandbox-test-linux-{0}', matrix.arch) || '' }}
+            ${{ github.event_name == 'pull_request' && format('type=gha,scope=runner-linux-{0}', matrix.arch) || '' }}
+          cache-to: ${{ github.event_name == 'pull_request' && format('type=gha,mode=max,ignore-error=true,scope=sandbox-test-linux-{0}', matrix.arch) || '' }}
       - name: Check the sidecar, launcher, and protocol fixtures
         if: inputs.run-tests && matrix.arch == 'amd64'
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox ryot-sandbox-test bun run check
@@ -126,17 +112,12 @@ jobs:
         if: inputs.run-kubernetes && matrix.arch == 'amd64'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ${{ inputs.candidate-artifact }}
+          name: ryot-image-${{ github.sha }}-amd64.tar
           path: ${{ runner.temp }}/candidate
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.candidate-run }}
+          skip-decompress: true
       - name: Load the tested image
         if: inputs.run-kubernetes && matrix.arch == 'amd64'
-        working-directory: ${{ runner.temp }}/candidate
-        run: |
-          skopeo copy oci-archive:image.tar docker-archive:docker.tar:ryot-image:latest
-          docker load --input docker.tar
-          rm docker.tar
+        run: bash ci/images/load.sh "$RUNNER_TEMP/candidate/ryot-image-$GITHUB_SHA-amd64.tar"
       - name: Set up Helm
         if: inputs.run-kubernetes && matrix.arch == 'amd64'
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1

@@ -16,12 +16,7 @@ import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
-import {
-	determinateRunProgress,
-	isTerminalRunStatus,
-	type RunProgress,
-	type RunProgressValue,
-} from "#/modules/ui/run/run-status";
+import { isTerminalRunStatus, type RunProgressValue } from "#/modules/ui/run/run-status";
 
 type Translate = (message: Message) => Text;
 
@@ -45,33 +40,11 @@ export const importRunCancelConfirmation = (phrase: string) =>
 
 const wholeCount = (value: number) => Math.max(Math.round(value), 0);
 
-export const ingestionActivityProgress = (
-	t: Translate,
-	formatters: Formatters,
-	activity: IngestionActivity,
-): RunProgress => {
-	if (activity.exactTotal === null) {
-		return {
-			kind: "indeterminate",
-			label: t(
-				kernelMessage("client.imports.activity.count", {
-					unit: activity.unit,
-					count: wholeCount(activity.completed),
-				}),
-			),
-		};
-	}
-	return determinateRunProgress(
-		formatters,
-		activity.exactTotal <= 0 ? 100 : (activity.completed / activity.exactTotal) * 100,
-	);
-};
-
 export const ingestionActivityProgressValue = (
 	t: Translate,
 	activity: IngestionActivity,
 ): RunProgressValue =>
-	activity.exactTotal === null
+	activity.exactTotal === null || activity.exactTotal === 0
 		? {
 				text: t(
 					kernelMessage("client.imports.activity.count", {

@@ -35,8 +35,9 @@ key; callers in other modules reuse it. Identifiers, paths and user text are str
 counts and limits are `number` arguments, and enumerations are `select` codes, never English
 fragments.
 
-`kernelLocales` is the allowed list for the `interfaceLocale` preference. `en-XA` is accepted there
-for testing but is not offered by the language picker.
+`kernelLocales` lists the available translation catalogs. The account locale can carry a regional
+tag such as `en-AU` while using the `en` catalog. The language picker shows the pseudo-locale
+`en-XA` when it is the saved locale.
 
 The authored locales are English (`en`), German (`de`), French (`fr`), Spanish for Spain
 (`es-ES`), Brazilian Portuguese (`pt-BR`), European Portuguese (`pt-PT`), and Simplified Chinese

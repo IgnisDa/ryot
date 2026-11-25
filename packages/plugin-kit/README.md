@@ -397,8 +397,10 @@ caption: catalogRowText("calendar-source.releases.caption", { kind: "kind" }),
 // en.json: "{kind, select, book {Book release} movie {Movie release} other {Release}}"
 ```
 
-`precision` is `date` for date-only values stored at UTC midnight or
-`instant` for timestamps. `subject` names the query alias of the occurrence's entity and its schemas,
+`precision` is `date` for calendar days or `instant` for timed values. A date-precision source can
+also name a projected `instantAt` field. When that field is non-null it supplies the occurrence time,
+and otherwise the row uses `startAt` as a calendar day. The account reporting timezone determines
+how timed entries are grouped. `subject` names the query alias of the occurrence's entity and its schemas,
 as for entity-browser views. Installation validates the query with plugin-audience access, the field
 kinds, and that the subject alias is an entity table; `self` references bind to the installed plugin.
 
@@ -418,6 +420,7 @@ condition or the table's own left join condition), or a change to any global row
 schedule for every subscriber.
 `dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
 text key, and `properties` maps signal properties to projected fields (null values are omitted).
+An optional `instantAt` on a date-precision schedule supplies the due instant for timed rows.
 Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows
 whose `confirmedAt` is older than `maxAgeHours`; optional `entitlement` limits delivery to accounts
 holding that entitlement.

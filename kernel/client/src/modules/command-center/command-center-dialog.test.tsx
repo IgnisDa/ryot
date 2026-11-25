@@ -1,8 +1,9 @@
 import { describe, expect } from "bun:test";
 
 import { testFormatters, testText } from "@ryot-app/kernel-messages/testing";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
+import { Effect } from "effect";
 import { useState } from "react";
 
 import { CommandCenterDialog } from "#/modules/command-center/command-center-dialog";
@@ -69,7 +70,6 @@ function Harness(props: {
 				onQueryChange={setQuery}
 				failed={props.failed ?? []}
 				stale={props.stale ?? false}
-				onInterceptBack={() => false}
 				pending={props.pending ?? false}
 				results={{ ...props.results, filter }}
 				onRetry={() => props.retried?.push("retry")}
@@ -96,22 +96,26 @@ const activeLabel = () => {
 };
 
 describe("command center dialog", () => {
-	it("exposes a combobox controlling a listbox of grouped options", () => {
-		render(<Harness results={results()} />);
+	it.live("exposes a combobox controlling a listbox of grouped options", () =>
+		Effect.gen(function* () {
+			render(<Harness results={results()} />);
 
-		const listbox = screen.getByRole("listbox");
-		expect(input().getAttribute("aria-controls")).toBe(listbox.id);
-		expect(screen.getAllByRole("option").map(({ textContent }) => textContent)).toEqual([
-			"Alpha",
-			"Beta",
-			"Gamma",
-		]);
-		const top = screen.getByRole("group", { name: "Top results" });
-		expect(within(top).getAllByRole("option")).toHaveLength(2);
-		expect(within(top).getByText("7")).toBeTruthy();
-		expect(activeLabel()).toBe("Alpha");
-		expect(document.activeElement).toBe(input());
-	});
+			const listbox = screen.getByRole("listbox");
+			expect(input().getAttribute("aria-controls")).toBe(listbox.id);
+			expect(screen.getAllByRole("option").map(({ textContent }) => textContent)).toEqual([
+				"Alpha",
+				"Beta",
+				"Gamma",
+			]);
+			const top = screen.getByRole("group", { name: "Top results" });
+			expect(within(top).getAllByRole("option")).toHaveLength(2);
+			expect(within(top).getByText("7")).toBeTruthy();
+			expect(activeLabel()).toBe("Alpha");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.activeElement === input()).toBe(true)),
+			);
+		}),
+	);
 
 	it("offers asking the assistant after the results without taking the default", () => {
 		const asked: string[] = [];
@@ -121,26 +125,24 @@ describe("command center dialog", () => {
 		);
 
 		expect(activeLabel()).toBe("Alpha");
-		fireEvent.keyDown(input(), { key: "End" });
+		fireEvent.keyDown(input(), { key: "ArrowDown" });
+		fireEvent.keyDown(input(), { key: "ArrowDown" });
+		fireEvent.keyDown(input(), { key: "ArrowDown" });
 		expect(activeLabel()).toBe(`Ask Ryo "what's next"`);
 		fireEvent.keyDown(input(), { key: "Enter" });
 		expect(asked).toEqual(["what's next"]);
 		expect(selected).toEqual([]);
 	});
 
-	it("moves the active option with arrows, Home, and End and wraps around", () => {
+	it("moves the active option with the arrow keys", () => {
 		render(<Harness results={results()} />);
 
 		fireEvent.keyDown(input(), { key: "ArrowDown" });
 		expect(activeLabel()).toBe("Beta");
-		fireEvent.keyDown(input(), { key: "End" });
-		expect(activeLabel()).toBe("Gamma");
 		fireEvent.keyDown(input(), { key: "ArrowDown" });
-		expect(activeLabel()).toBe("Alpha");
-		fireEvent.keyDown(input(), { key: "ArrowUp" });
 		expect(activeLabel()).toBe("Gamma");
-		fireEvent.keyDown(input(), { key: "Home" });
-		expect(activeLabel()).toBe("Alpha");
+		fireEvent.keyDown(input(), { key: "ArrowUp" });
+		expect(activeLabel()).toBe("Beta");
 	});
 
 	it("keeps the highlighted option while it stays in the results", () => {
@@ -187,27 +189,27 @@ describe("command center dialog", () => {
 		const closed: string[] = [];
 		render(<Harness closed={closed} results={results()} />);
 
-		fireEvent.keyDown(document, { key: "Escape" });
+		fireEvent.keyDown(input(), { key: "Escape" });
 
 		expect(closed).toEqual(["closed"]);
 	});
 
-	it("cycles filters with Tab and returns focus to the search after a filter click", () => {
-		const filtered: string[] = [];
-		render(<Harness initialQuery="da" filtered={filtered} results={results({ filters })} />);
+	it.live("returns focus to the search after changing the filter", () =>
+		Effect.gen(function* () {
+			const filtered: string[] = [];
+			render(<Harness initialQuery="da" filtered={filtered} results={results({ filters })} />);
 
-		fireEvent.keyDown(input(), { key: "Tab" });
-		fireEvent.keyDown(input(), { key: "Tab" });
-		fireEvent.keyDown(input(), { key: "Tab" });
-		fireEvent.keyDown(input(), { key: "Tab", shiftKey: true });
-		fireEvent.click(screen.getByRole("radio", { name: "Shows · 4" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Shows · 4" }));
 
-		expect(filtered).toEqual(["shows", "pages", "all", "pages", "shows"]);
-		expect(screen.getByRole("radio", { name: "Shows · 4" }).getAttribute("aria-checked")).toBe(
-			"true",
-		);
-		expect(document.activeElement).toBe(input());
-	});
+			expect(filtered).toEqual(["shows"]);
+			expect(screen.getByRole("radio", { name: "Shows · 4" }).getAttribute("aria-checked")).toBe(
+				"true",
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(document.activeElement === input()).toBe(true)),
+			);
+		}),
+	);
 
 	it("marks the search busy and offers one retry for every failed view", () => {
 		const retried: string[] = [];

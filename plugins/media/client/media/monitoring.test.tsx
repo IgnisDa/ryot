@@ -23,7 +23,7 @@ function Header(props: { readonly media: MediaEntitySummaryValue }) {
 			compact={false}
 			media={props.media}
 			settled={undefined}
-			artwork={{ purpose: "cover", aspect: "poster" }}
+			artwork={{ aspect: "poster" }}
 			detail={{
 				chips: [],
 				facts: [],
@@ -54,7 +54,6 @@ it.live(
 			const query = createRyotQuery(() =>
 				Effect.sync(() =>
 					decodeFlatSummary(fixtureSummaryRecipe, {
-						images: [],
 						isMonitored: monitored,
 						isInMediaLibrary: inLibrary,
 					}),
@@ -107,7 +106,7 @@ it.live(
 			const background = createTestBackgroundSubmissions();
 			const mounted = mountRyotClient(
 				background.adapter,
-				<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
+				<Header media={decodeFlatSummary(fixtureSummaryRecipe)} />,
 			);
 			try {
 				const control = getByRole(mounted.container, "button", { name: "Monitor" });
@@ -136,7 +135,7 @@ it.live(
 it("hides monitoring for media without a provider", () => {
 	const mounted = mountRyotClient(
 		{},
-		<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [], providerName: null })} />,
+		<Header media={decodeFlatSummary(fixtureSummaryRecipe, { providerName: null })} />,
 	);
 	try {
 		expect(queryByRole(mounted.container, "button", { name: "Monitor" })).toBeNull();

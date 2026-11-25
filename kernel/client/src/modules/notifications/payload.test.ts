@@ -89,4 +89,34 @@ describe("createNotificationChannelBody", () => {
 
 		expect(Result.isFailure(body)).toBe(true);
 	});
+
+	it("keeps the configured Telegram topic ID", () => {
+		const body = succeed("telegram", { ...complete.telegram, messageThreadId: 42 });
+
+		expect(body.channelSpecifics).toEqual({
+			kind: "telegram",
+			...complete.telegram,
+			messageThreadId: 42,
+		});
+	});
+
+	it("omits the Telegram topic ID when the field is cleared", () => {
+		const body = succeed("telegram", { ...complete.telegram, messageThreadId: null });
+
+		expect(body.channelSpecifics).toEqual({ kind: "telegram", ...complete.telegram });
+	});
+
+	it.each([
+		["zero", 0],
+		["a negative number", -1],
+		["a fraction", 1.5],
+		["text", "invalid"],
+	] as const)("rejects %s as a Telegram topic ID", (_label, messageThreadId) => {
+		const body = createNotificationChannelBody({
+			kind: "telegram",
+			values: { ...complete.telegram, messageThreadId },
+		});
+
+		expect(Result.isFailure(body)).toBe(true);
+	});
 });

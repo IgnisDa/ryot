@@ -1,3 +1,4 @@
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, FileSystem, Schema } from "effect";
 
@@ -16,7 +17,6 @@ import {
 import { installSidecarRecoveryImport } from "~/fixtures/kernel/sidecar-recovery-import";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { getSharedHarnessTarget } from "~/support/harness-target";
 import { runFileOnIsolatedServer } from "~/support/isolated-harness";
 

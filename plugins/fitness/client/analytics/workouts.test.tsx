@@ -177,10 +177,11 @@ describe("Fitness analytics workout charts", () => {
 						},
 					]);
 
-					fireEvent.click(screen.getByRole("button", { name: "Show: Workouts" }));
+					fireEvent.click(screen.getByRole("combobox", { name: "Show: Workouts" }));
 					const volumeOption = yield* Effect.promise(() =>
-						screen.findByRole("menuitemradio", { name: "Volume" }),
+						screen.findByRole("option", { name: "Volume" }),
 					);
+					fireEvent.pointerDown(volumeOption, { pointerType: "mouse" });
 					fireEvent.click(volumeOption);
 					const volumeRequest = yield* Effect.promise(() =>
 						waitFor(() => {

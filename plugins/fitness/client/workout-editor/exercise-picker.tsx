@@ -2,6 +2,8 @@ import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	AssetArtWell,
+	collectManagedAssetLocators,
 	createRyotQuery,
 	ManagedAssetProvider,
 	nextPageCursor,
@@ -24,7 +26,6 @@ import {
 	workoutExerciseCollectionOptionsRecipe,
 	workoutExercisePickerRecipe,
 } from "../../shared/workout-exercise-recipes";
-import { AssetArtWell, managedAssetBatch } from "../asset-urls";
 import { useExerciseLabels, useFitnessMessages } from "../messages";
 import { EditorSheet } from "./editor-sheet";
 import {
@@ -367,7 +368,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					</Notice>
 				) : null}
 				<ManagedAssetProvider
-					assets={managedAssetBatch(visibleExercises.map(({ images }) => images?.[0]))}
+					assets={collectManagedAssetLocators(visibleExercises.map(({ images }) => images?.[0]))}
 				>
 					<div role="region" className="grid" aria-label={text("client.picker.library")}>
 						{exercises.isPending && exerciseItems.length === 0 ? (
@@ -471,8 +472,8 @@ function ExerciseOption(props: {
 			)}
 		>
 			<AssetArtWell
-				name={props.exercise.name}
 				className="size-11 shrink-0"
+				monogram={props.exercise.name}
 				asset={props.exercise.images?.[0]}
 			/>
 			<span className="min-w-0 flex-1">

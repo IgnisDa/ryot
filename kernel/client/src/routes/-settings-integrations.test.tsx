@@ -1146,7 +1146,7 @@ describe("integration detail", () => {
 						screen.findByRole("menuitem", { name: "Delete integration" }),
 					),
 				);
-				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				const dialog = yield* Effect.promise(() => screen.findByRole("alertdialog"));
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete integration" }));
 
 				yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["int_1"])));

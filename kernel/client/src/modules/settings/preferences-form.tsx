@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/schema/user-preferences";
 import { formatDisplayText } from "@ryot-app/i18n/format";
 import { formattersFor } from "@ryot-app/i18n/formatters";
-import { PSEUDO_LOCALE, WeekDay } from "@ryot-app/i18n/locale";
+import { LocaleTag, PSEUDO_LOCALE, SOURCE_LOCALE, WeekDay } from "@ryot-app/i18n/locale";
 import { useFormatters, useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelLocales } from "@ryot-app/kernel-messages/catalog";
@@ -27,12 +27,14 @@ import { useForm } from "@tanstack/react-form";
 import { Cause, Effect, Schema } from "effect";
 import { useState } from "react";
 
+import { resolveDeviceLocale } from "#/modules/i18n/device-locale";
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 const CUSTOM_LANGUAGE = "custom";
 const DEFAULT_LANGUAGE = "default";
 const DEFAULT_CHOICE = "default";
+const DEVICE_LOCALE_CHOICE = "@device";
 
 const LANGUAGE_CODES = [
 	"en",
@@ -59,6 +61,7 @@ const RATING_SCALES = [
 ] as const satisfies readonly { readonly code: string; readonly value: RatingScale }[];
 
 const isRatingScale = Schema.is(RatingScale);
+const isLocale = Schema.is(LocaleTag);
 const isWeekDay = Schema.is(WeekDay);
 const weekDays = WeekDay.literals;
 
@@ -310,13 +313,16 @@ function InterfaceLocaleField(props: {
 	const { displayNames } = useFormatters();
 	const names = displayNames({ type: "language" });
 	const label = t(kernelMessage("settings.preferences.interface-locale.label"));
+	const deviceLocale = resolveDeviceLocale();
+	const savedLocales = new Set([...kernelLocales, props.value, props.saved ?? SOURCE_LOCALE]);
 	const choices: readonly SelectChoice[] = [
 		{
-			value: DEFAULT_CHOICE,
+			value: DEVICE_LOCALE_CHOICE,
+			hint: formatDisplayText(t, names.of(deviceLocale) ?? deviceLocale),
 			label: t(kernelMessage("settings.preferences.interface-locale.device")),
 		},
-		...kernelLocales
-			.filter((locale) => locale !== PSEUDO_LOCALE || locale === props.saved)
+		...[...savedLocales]
+			.filter((locale) => isLocale(locale) && (locale !== PSEUDO_LOCALE || locale === props.saved))
 			.map((locale) => ({
 				value: locale,
 				hint: formatDisplayText(t, names.of(locale) ?? locale),
@@ -334,11 +340,13 @@ function InterfaceLocaleField(props: {
 					id={control.id}
 					choices={choices}
 					disabled={props.disabled}
+					value={props.value || SOURCE_LOCALE}
 					aria-describedby={control["aria-describedby"]}
 					checkIcon={<AppIcon size={16} name="check" />}
 					chevronIcon={<AppIcon size={16} name="chevron-down" />}
-					value={props.value === "" ? DEFAULT_CHOICE : props.value}
-					onChange={(value) => props.onChange(value === DEFAULT_CHOICE ? "" : value)}
+					onChange={(value) =>
+						props.onChange(value === DEVICE_LOCALE_CHOICE ? deviceLocale : value)
+					}
 				/>
 			)}
 		</Field>
@@ -358,7 +366,7 @@ function WeekStartField(props: {
 	const weekdays = dateTime({ weekday: "long", timeZone: "UTC" });
 	const dayName = (day: WeekDay) =>
 		formatDisplayText(t, weekdays.format(referenceSunday + day * 86_400_000));
-	const interfaceLocale = kernelLocales.find((locale) => locale === props.interfaceLocale) ?? null;
+	const interfaceLocale = isLocale(props.interfaceLocale) ? props.interfaceLocale : null;
 	const choices: readonly SelectChoice[] = [
 		{
 			value: DEFAULT_CHOICE,

@@ -13,6 +13,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -37,7 +38,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
 

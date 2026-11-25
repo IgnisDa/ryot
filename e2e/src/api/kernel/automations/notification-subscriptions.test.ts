@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { FakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
@@ -27,7 +28,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 

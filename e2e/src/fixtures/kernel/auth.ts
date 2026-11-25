@@ -13,6 +13,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
@@ -20,7 +21,6 @@ import { Clock, Effect, Schema } from "effect";
 
 import { requirePresent, requireString } from "~/support/assertions";
 import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 import { type ContractSession, makeSession } from "./contract-client";
 

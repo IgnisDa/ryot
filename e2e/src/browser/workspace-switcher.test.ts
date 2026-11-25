@@ -32,12 +32,10 @@ it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 
 		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
 
-		const menu = sidebar.getByRole("menu", { name: "Workspaces" });
+		const menu = page.getByRole("menu", { name: "Workspaces" });
 		yield* menu.waitFor({ state: "visible" });
 		const currentWorkspace = menu.getByRole("menuitemradio", { checked: true });
-		expect(yield* currentWorkspace.evaluate((element) => document.activeElement === element)).toBe(
-			true,
-		);
+		yield* currentWorkspace.waitForFunction((element) => document.activeElement === element);
 
 		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
 		expect(yield* menu.isVisible()).toBe(true);

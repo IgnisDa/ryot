@@ -19,7 +19,7 @@ type EventStreamResponse = {
 };
 
 export const fetchEventStream: EventStreamFactory = (url, request) =>
-	fetch(url, { ...request, cache: "no-store", credentials: "omit" });
+	fetch(url, { ...request, cache: "no-store", credentials: "same-origin" });
 
 export class EventStreamClosed extends Schema.TaggedError<
 	EventStreamClosed,
@@ -93,7 +93,7 @@ const readEventStream = (body: ReadableStream<Uint8Array>, onEvent: EventStreamL
 export const openEventStream = (
 	open: EventStreamFactory,
 	url: string,
-	token: string,
+	authorization: Record<string, string>,
 	onEvent: EventStreamListener,
 ) =>
 	// The stream signal must outlive fetch's response Promise until its reader is closed.
@@ -106,7 +106,7 @@ export const openEventStream = (
 					try: () =>
 						open(url, {
 							signal: controller.signal,
-							headers: { accept: "text/event-stream", authorization: `Bearer ${token}` },
+							headers: { accept: "text/event-stream", ...authorization },
 						}),
 				});
 				if (response.status === 401) {

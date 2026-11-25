@@ -366,6 +366,7 @@ describe("fitness analytics section", () => {
 						outcome: "success",
 						response: rankingResultResponse(null, targetRankingResponse.data.targets.items),
 					});
+					const changeScope = screen.getByRole("button", { name: "Change reporting scope" });
 					const triggerName = "View workouts contributing to Upper back";
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.getByRole("button", { name: triggerName })).toBeDefined()),
@@ -385,7 +386,7 @@ describe("fitness analytics section", () => {
 					expect(screen.getByRole("dialog", { name: /Upper back/ })).toBeDefined();
 
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Change reporting scope" }));
+						fireEvent.click(changeScope);
 					});
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()),

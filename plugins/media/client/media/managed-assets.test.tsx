@@ -6,14 +6,13 @@ import {
 	RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { AssetArtWell, ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
-import { ManagedAssetImage } from "./managed-assets";
 
 const recordingAdapter = (
 	calls: (readonly ManagedAssetLocator[])[],
@@ -42,7 +41,7 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-describe("ManagedAssetImage", () => {
+describe("AssetArtWell", () => {
 	it.live(
 		"shows a placeholder until the managed asset resolves, then renders the resolved image",
 		() =>
@@ -52,7 +51,7 @@ describe("ManagedAssetImage", () => {
 				const { unmount, container } = mountRyotClient(
 					recordingAdapter([], pending),
 					<ManagedAssetProvider assets={[asset]}>
-						<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
+						<AssetArtWell asset={asset} state="absent" className="w-10" monogram="Cover" />
 					</ManagedAssetProvider>,
 				);
 
@@ -82,7 +81,7 @@ describe("ManagedAssetImage", () => {
 				const { unmount, container } = mountRyotClient(
 					adapter,
 					<ManagedAssetProvider assets={[asset]}>
-						<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
+						<AssetArtWell asset={asset} state="absent" className="w-10" monogram="Cover" />
 					</ManagedAssetProvider>,
 				);
 

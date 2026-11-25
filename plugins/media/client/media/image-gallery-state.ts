@@ -1,5 +1,4 @@
 import { type MediaImage, mediaImagePurposes } from "../../shared/media-image";
-import { type MediaGalleryImage, mediaGalleryImages } from "./image";
 
 export type GalleryFilter = "all" | MediaImagePurpose;
 
@@ -7,14 +6,10 @@ export type GalleryFilterOption = { readonly count: number; readonly filter: Gal
 
 type MediaImagePurpose = MediaImage["purpose"];
 
-export const galleryImages = mediaGalleryImages;
-
-export const galleryFilterImages = (images: readonly MediaGalleryImage[], filter: GalleryFilter) =>
+export const galleryFilterImages = (images: readonly MediaImage[], filter: GalleryFilter) =>
 	filter === "all" ? images : images.filter((image) => image.purpose === filter);
 
-export const galleryFilters = (
-	images: readonly MediaGalleryImage[],
-): readonly GalleryFilterOption[] => {
+export const galleryFilters = (images: readonly MediaImage[]): readonly GalleryFilterOption[] => {
 	const present = mediaImagePurposes.flatMap((filter) => {
 		const count = galleryFilterImages(images, filter).length;
 		return count === 0 ? [] : [{ count, filter }];

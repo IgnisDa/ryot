@@ -7,25 +7,17 @@ import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin
 import {
 	Button,
 	CopyField,
+	DestructiveConfirmation,
 	LoadMoreButton,
 	Menu,
 	type MenuItem,
-	Modal,
 	useFieldEscape,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect } from "effect";
-import {
-	type RefObject,
-	type SyntheticEvent,
-	useEffect,
-	useEffectEvent,
-	useId,
-	useRef,
-	useState,
-} from "react";
+import { type RefObject, type SyntheticEvent, useEffect, useRef, useState } from "react";
 
 import type { ShareAction } from "#/modules/device/share";
 import {
@@ -43,7 +35,6 @@ import type {
 	InstanceAdminUserLifecycleOperation,
 	InstanceAdminUserResetResult,
 } from "#/modules/instance-admin/user-lifecycle";
-import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
@@ -73,7 +64,6 @@ type UserAction = "reset" | "delete" | "password" | "disabled" | "impersonate";
 type UsersAdministrationProps = {
 	readonly shareAction: ShareAction;
 	readonly onUnauthorized: () => void;
-	readonly backInterceptors: BackInterceptors;
 	readonly operations: InstanceAdminUserOperations;
 };
 
@@ -238,7 +228,6 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 							operations={props.operations}
 							shareAction={props.shareAction}
 							onUnauthorized={props.onUnauthorized}
-							backInterceptors={props.backInterceptors}
 						/>
 					)}
 				/>
@@ -290,51 +279,11 @@ function Badge(props: { readonly children: string; readonly tone?: "danger" | "s
 	);
 }
 
-function UserActionsMenu(props: {
-	readonly id: string;
-	readonly note?: Text;
-	readonly open: boolean;
-	readonly activeIndex: number;
-	readonly items: ReadonlyArray<MenuItem>;
-	readonly backInterceptors: BackInterceptors;
-	readonly onClose: (restoreFocus: boolean) => void;
-	readonly onActiveIndexChange: (index: number) => void;
-	readonly triggerRef: RefObject<null | HTMLButtonElement>;
-}) {
-	const t = useT();
-	const { open, backInterceptors } = props;
-	const close = useEffectEvent((restoreFocus: boolean) => props.onClose(restoreFocus));
-
-	useEffect(() => {
-		if (!open) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			close(true);
-			return true;
-		});
-	}, [backInterceptors, open]);
-
-	return open ? (
-		<Menu
-			id={props.id}
-			note={props.note}
-			items={props.items}
-			onClose={props.onClose}
-			triggerRef={props.triggerRef}
-			activeIndex={props.activeIndex}
-			onActiveIndexChange={props.onActiveIndexChange}
-			label={t(kernelMessage("client.instance-admin.users.actions-menu"))}
-		/>
-	) : null;
-}
-
 function UserRow(props: {
 	readonly onRefresh: () => void;
 	readonly user: InstanceAdminUser;
 	readonly shareAction: ShareAction;
 	readonly onUnauthorized: () => void;
-	readonly backInterceptors: BackInterceptors;
 	readonly operations: InstanceAdminUserOperations;
 }) {
 	const t = useT();
@@ -342,11 +291,8 @@ function UserRow(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const pendingRef = useRef<null | string>(null);
 	const unmountSignal = useUnmountSignal();
-	const menuId = useId();
 	const [error, setError] = useState<Message>();
 	const [confirmation, setConfirmation] = useState<null | "reset" | "delete">(null);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeMenuIndex, setActiveMenuIndex] = useState(0);
 	const [pending, setPending] = useState<
 		null | "reset" | "delete" | "password" | "disabled" | "impersonation"
 	>(null);
@@ -477,14 +423,7 @@ function UserRow(props: {
 			kernelMessage("client.instance-admin.users.error.delete"),
 		);
 	};
-	const closeMenu = (restoreFocus: boolean) => {
-		setMenuOpen(false);
-		if (restoreFocus) {
-			queueMicrotask(() => triggerRef.current?.focus());
-		}
-	};
 	const selectAction = (kind: UserAction) => {
-		closeMenu(kind !== "reset" && kind !== "delete");
 		setError(undefined);
 		if (kind === "reset" || kind === "delete") {
 			setConfirmation(kind);
@@ -553,11 +492,6 @@ function UserRow(props: {
 			),
 		},
 	];
-	const openMenu = () => {
-		const firstEnabled = actionItems.findIndex((item) => !item.disabled);
-		setActiveMenuIndex(firstEnabled === -1 ? 0 : firstEnabled);
-		setMenuOpen(true);
-	};
 
 	return (
 		<>
@@ -596,31 +530,25 @@ function UserRow(props: {
 					{formatDate(formatters, props.user.createdAt)}
 				</td>
 				<td className="w-14 px-2 py-3">
-					<button
-						type="button"
-						ref={triggerRef}
-						aria-haspopup="menu"
-						aria-controls={menuId}
-						aria-expanded={menuOpen}
-						disabled={pending !== null}
-						onClick={() => (menuOpen ? closeMenu(true) : openMenu())}
-						aria-label={t(
-							kernelMessage("client.instance-admin.users.row-actions", { email: props.user.email }),
-						)}
-						className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border-strong bg-raised text-text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-text-subtle"
-					>
-						<AppIcon size={18} name="more-horizontal" />
-					</button>
-					<UserActionsMenu
-						id={menuId}
-						open={menuOpen}
+					<Menu
 						note={resetNote}
 						items={actionItems}
-						onClose={closeMenu}
-						triggerRef={triggerRef}
-						activeIndex={activeMenuIndex}
-						onActiveIndexChange={setActiveMenuIndex}
-						backInterceptors={props.backInterceptors}
+						label={t(kernelMessage("client.instance-admin.users.actions-menu"))}
+						trigger={
+							<button
+								type="button"
+								ref={triggerRef}
+								disabled={pending !== null}
+								aria-label={t(
+									kernelMessage("client.instance-admin.users.row-actions", {
+										email: props.user.email,
+									}),
+								)}
+								className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border-strong bg-raised text-text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-text-subtle"
+							>
+								<AppIcon size={18} name="more-horizontal" />
+							</button>
+						}
 					/>
 				</td>
 			</tr>
@@ -660,7 +588,6 @@ function UserRow(props: {
 					kind={confirmation}
 					triggerRef={triggerRef}
 					pending={pending === confirmation}
-					backInterceptors={props.backInterceptors}
 					onConfirm={() => Effect.runFork(confirm(), { signal: unmountSignal() })}
 					onClose={() => {
 						if (pendingRef.current === null) {
@@ -683,85 +610,37 @@ function ConfirmationDialog(props: {
 	readonly onClose: () => void;
 	readonly onConfirm: () => void;
 	readonly kind: "reset" | "delete";
-	readonly backInterceptors: BackInterceptors;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const t = useT();
-	const cancelRef = useRef<HTMLButtonElement>(null);
-	const close = useEffectEvent(() => props.onClose());
-	const interceptBack = useEffectEvent(() => {
-		if (props.pending) {
-			return true;
-		}
-		close();
-		return true;
-	});
-
-	useEffect(() => props.backInterceptors.register(interceptBack), [props.backInterceptors]);
-
 	const reset = props.kind === "reset";
-	let pendingLabel = t(
-		reset
-			? kernelMessage("client.instance-admin.users.action.reset")
-			: kernelMessage("client.instance-admin.users.action.delete"),
-	);
-	if (props.pending) {
-		pendingLabel = t(
-			reset
-				? kernelMessage("client.instance-admin.users.action.resetting")
-				: kernelMessage("common.status.deleting"),
-		);
-	}
-
 	return (
-		<Modal
+		<DestructiveConfirmation
+			pending={props.pending}
 			onClose={props.onClose}
-			initialFocusRef={cancelRef}
+			onConfirm={props.onConfirm}
 			triggerRef={props.triggerRef}
-			labelledBy="user-confirmation-title"
-			onInterceptBack={() => props.pending}
-			className="ui-card w-[min(100%,460px)]"
-			closeLabel={t(kernelMessage("common.action.close"))}
-			containerClassName="items-center justify-center p-4"
-		>
-			<h2 id="user-confirmation-title" className="font-display text-xl font-semibold">
-				{t(
-					reset
-						? kernelMessage("client.instance-admin.users.confirm.reset-title")
-						: kernelMessage("client.instance-admin.users.confirm.delete-title"),
-				)}
-			</h2>
-			<p className="mt-3 text-sm text-text-muted">
-				{t(
-					reset
-						? kernelMessage("client.instance-admin.users.confirm.reset-body")
-						: kernelMessage("client.instance-admin.users.confirm.delete-body"),
-				)}
-			</p>
-			{props.error && (
-				<p role="alert" className="mt-3 text-sm text-danger">
-					{t(props.error)}
-				</p>
+			errorMessage={props.error === undefined ? undefined : t(props.error)}
+			pendingLabel={t(
+				reset
+					? kernelMessage("client.instance-admin.users.action.resetting")
+					: kernelMessage("common.status.deleting"),
 			)}
-			<div className="mt-6 flex justify-end gap-3">
-				<Button
-					type="button"
-					ref={cancelRef}
-					variant="secondary"
-					onClick={props.onClose}
-					disabled={props.pending}
-				>
-					{t(kernelMessage("common.action.cancel"))}
-				</Button>
-				<button
-					type="button"
-					disabled={props.pending}
-					onClick={props.onConfirm}
-					className="min-h-11 rounded-lg bg-danger-solid px-4 py-2.5 font-semibold text-danger-ink disabled:opacity-50"
-				>
-					{pendingLabel}
-				</button>
-			</div>
-		</Modal>
+			actionLabel={t(
+				reset
+					? kernelMessage("client.instance-admin.users.action.reset")
+					: kernelMessage("client.instance-admin.users.action.delete"),
+			)}
+			detail={t(
+				reset
+					? kernelMessage("client.instance-admin.users.confirm.reset-body")
+					: kernelMessage("client.instance-admin.users.confirm.delete-body"),
+			)}
+			title={t(
+				reset
+					? kernelMessage("client.instance-admin.users.confirm.reset-title")
+					: kernelMessage("client.instance-admin.users.confirm.delete-title"),
+			)}
+		/>
 	);
 }

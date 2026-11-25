@@ -335,7 +335,7 @@ describe("movie.tvdb sandbox script", () => {
 						name: "Nombre",
 						properties: {
 							description: "Descripción",
-							images: [{ type: "remote", purpose: "cover", url: "http://poster-es" }],
+							localizedArtwork: { type: "remote", purpose: "cover", url: "http://poster-es" },
 						},
 					});
 					return undefined;

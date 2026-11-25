@@ -154,12 +154,26 @@ const evaluate = (slug: string, user: MediaUser) =>
 		assert(definition);
 		const recipe = Result.getOrThrow(signalScheduleRecipe({ schedule: definition }));
 		const service = yield* RyotQLService;
+		const window = { end: utcDay(3).toISOString(), start: utcDay(-3).toISOString() };
 		const response = yield* service.executeForUser(user, null, "kernel", {
 			source: { kind: "inline", document: recipe.document },
-			arguments: { end: utcDay(3).toISOString(), start: utcDay(-3).toISOString() },
+			arguments: {
+				...window,
+				...(definition.instantAt === undefined
+					? {}
+					: { instantEnd: window.end, instantStart: window.start }),
+			},
 		});
-		const { signalScheduleDue, signalScheduleNext } = Result.getOrThrow(recipe.decode(response));
-		return { next: signalScheduleNext, due: signalScheduleDue.items };
+		const { signalScheduleDue, signalScheduleNext, signalScheduleNextInstant } = Result.getOrThrow(
+			recipe.decode(response),
+		);
+		return {
+			next: signalScheduleNext,
+			due: signalScheduleDue.items,
+			...(signalScheduleNextInstant === undefined
+				? {}
+				: { nextInstant: signalScheduleNextInstant }),
+		};
 	});
 
 const name = (entityName: string) => ({ entityName });
@@ -168,9 +182,15 @@ const seedSchedules = Effect.gen(function* () {
 	yield* insertEpisodicTitle("watched-show", "show", [
 		{ days: -1, id: "watched-show-e1" },
 		{ days: 5, id: "watched-show-e2" },
+		{ days: 2, airingAt: utcDay(2.5), id: "watched-show-e3" },
+		{ days: 2, airingAt: utcDay(4), id: "watched-show-e4" },
 		{ days: 1, season: 0, id: "watched-show-special" },
 	]);
 	yield* insertEpisodicTitle("quiet-show", "show", [{ days: 1, id: "quiet-show-e1" }]);
+	yield* insertEpisodicTitle("late-show", "show", [{ days: 2, id: "late-show-e1" }]);
+	yield* insertEpisodicTitle("tonight-show", "show", [
+		{ days: 6, airingAt: utcDay(4), id: "tonight-show-e1" },
+	]);
 	yield* insertEpisodicTitle("foreign-show", "show", [{ days: 1, id: "foreign-show-e1" }]);
 	yield* insertEpisodicTitle("watched-podcast", "podcast", [{ days: 2, id: "watched-podcast-e1" }]);
 	yield* insertEntities([
@@ -196,6 +216,8 @@ const seedSchedules = Effect.gen(function* () {
 	yield* linkToLibrary("owner", "in-media-library", [
 		...monitored,
 		"quiet-show",
+		"late-show",
+		"tonight-show",
 		"stalled-movie",
 		"held-book",
 	]);
@@ -208,11 +230,21 @@ const seedSchedules = Effect.gen(function* () {
 	yield* linkToLibrary("other", "media-monitoring", ["foreign-show", "foreign-movie"]);
 	yield* storeLibrarySummary("owner", "quiet-show", {
 		lifecycleState: "caught_up",
-		nextAiringAt: utcDay(1).toISOString(),
+		nextAiringDate: utcDay(1).toISOString(),
+	});
+	yield* storeLibrarySummary("owner", "late-show", {
+		lifecycleState: "caught_up",
+		nextAiringAt: utcDay(4).toISOString(),
+		nextAiringDate: utcDay(2).toISOString(),
+	});
+	yield* storeLibrarySummary("owner", "tonight-show", {
+		lifecycleState: "caught_up",
+		nextAiringAt: utcDay(4).toISOString(),
+		nextAiringDate: utcDay(6).toISOString(),
 	});
 	yield* storeLibrarySummary("owner", "watched-show", {
 		lifecycleState: "caught_up",
-		nextAiringAt: utcDay(1).toISOString(),
+		nextAiringAt: utcDay(2.5).toISOString(),
 	});
 	yield* storeLibrarySummary("owner", "stalled-movie", {
 		lifecycleState: "in_progress",
@@ -229,143 +261,159 @@ const seedSchedules = Effect.gen(function* () {
 });
 
 layer(mediaDatabaseLayer("media_signal_schedules"))((test) => {
-	test.effect("finds each schedule's due and next occurrences among the user's own titles", () =>
-		Effect.gen(function* () {
-			yield* seedSchedules;
-			const results = yield* Effect.forEach(materialized, ({ slug }) =>
-				Effect.map(
-					Effect.all([evaluate(slug, "owner"), evaluate(slug, "other")]),
-					([owner, other]) => [slug, { owner, other }] as const,
-				),
-			);
-			expect(Object.fromEntries(results)).toEqual({
-				"podcast-episodes-available": {
-					owner: { due: [], next: null },
-					other: { due: [], next: null },
-				},
-				"show-episodes-available": {
-					other: { due: [], next: null },
-					owner: {
-						next: null,
-						due: [
-							{
-								subjectId: "quiet-show",
-								properties: name("quiet-show"),
-								occurrence: `quiet-show:${utcDay(1).toISOString()}`,
-							},
-						],
+	test.effect(
+		"finds each schedule's due and next occurrences among the user's own titles, by instant when timed",
+		() =>
+			Effect.gen(function* () {
+				yield* seedSchedules;
+				const results = yield* Effect.forEach(materialized, ({ slug }) =>
+					Effect.map(
+						Effect.all([evaluate(slug, "owner"), evaluate(slug, "other")]),
+						([owner, other]) => [slug, { owner, other }] as const,
+					),
+				);
+				expect(Object.fromEntries(results)).toEqual({
+					"podcast-episodes-available": {
+						owner: { due: [], next: null, nextInstant: null },
+						other: { due: [], next: null, nextInstant: null },
 					},
-				},
-				"podcast-episode-releases": {
-					other: { due: [], next: null },
-					owner: {
-						next: null,
-						due: [
-							{
-								subjectId: "watched-podcast",
-								occurrence: "watched-podcast-e1",
-								properties: { ...name("watched-podcast"), episodeNumber: 1 },
-							},
-						],
-					},
-				},
-				"anime-airing-releases": {
-					other: { due: [], next: null },
-					owner: {
-						next: utcDay(8).toISOString(),
-						due: [
-							{
-								subjectId: "watched-anime",
-								occurrence: "watched-anime:2",
-								properties: { ...name("watched-anime"), episodeNumber: 2 },
-							},
-						],
-					},
-				},
-				"on-hold-stale": {
-					other: { due: [], next: null },
-					owner: {
-						next: null,
-						due: [
-							{
-								subjectId: "held-book",
-								occurrence: `held-book:on_hold:${utcDay(-2).toISOString()}`,
-								properties: { ...name("held-book"), days: 14, lifecycleState: "on_hold" },
-							},
-						],
-					},
-				},
-				"flat-releases": {
-					owner: {
-						next: null,
-						due: [
-							{
-								subjectId: "watched-movie",
-								occurrence: "watched-movie",
-								properties: name("watched-movie"),
-							},
-						],
-					},
-					other: {
-						next: null,
-						due: [
-							{
-								subjectId: "foreign-movie",
-								occurrence: "foreign-movie",
-								properties: name("foreign-movie"),
-							},
-						],
-					},
-				},
-				"show-episode-releases": {
-					other: {
-						next: null,
-						due: [
-							{
-								subjectId: "foreign-show",
-								occurrence: "foreign-show-e1",
-								properties: { ...name("foreign-show"), seasonNumber: 1, episodeNumber: 1 },
-							},
-						],
-					},
-					owner: {
-						next: utcDay(5).toISOString(),
-						due: [
-							{
-								subjectId: "watched-show",
-								occurrence: "watched-show-e1",
-								properties: { ...name("watched-show"), seasonNumber: 1, episodeNumber: 1 },
-							},
-						],
-					},
-				},
-				"in-progress-stale": {
-					owner: {
-						next: null,
-						due: [
-							{
-								subjectId: "stalled-movie",
-								occurrence: `stalled-movie:in_progress:${utcDay(-1).toISOString()}`,
-								properties: { ...name("stalled-movie"), days: 7, lifecycleState: "in_progress" },
-							},
-						],
-					},
-					other: {
-						next: null,
-						due: [
-							{
-								subjectId: "foreign-stalled-movie",
-								occurrence: `foreign-stalled-movie:in_progress:${utcDay(-1).toISOString()}`,
-								properties: {
-									...name("foreign-stalled-movie"),
-									days: 7,
-									lifecycleState: "in_progress",
+					"anime-airing-releases": {
+						other: { due: [], next: null },
+						owner: {
+							next: utcDay(8).toISOString(),
+							due: [
+								{
+									subjectId: "watched-anime",
+									occurrence: "watched-anime:2",
+									properties: { ...name("watched-anime"), episodeNumber: 2 },
 								},
-							},
-						],
+							],
+						},
 					},
-				},
-			});
-		}),
+					"on-hold-stale": {
+						other: { due: [], next: null },
+						owner: {
+							next: null,
+							due: [
+								{
+									subjectId: "held-book",
+									occurrence: `held-book:on_hold:${utcDay(-2).toISOString()}`,
+									properties: { ...name("held-book"), days: 14, lifecycleState: "on_hold" },
+								},
+							],
+						},
+					},
+					"podcast-episode-releases": {
+						other: { due: [], next: null, nextInstant: null },
+						owner: {
+							next: null,
+							nextInstant: null,
+							due: [
+								{
+									subjectId: "watched-podcast",
+									occurrence: "watched-podcast-e1",
+									properties: { ...name("watched-podcast"), episodeNumber: 1 },
+								},
+							],
+						},
+					},
+					"flat-releases": {
+						owner: {
+							next: null,
+							due: [
+								{
+									subjectId: "watched-movie",
+									occurrence: "watched-movie",
+									properties: name("watched-movie"),
+								},
+							],
+						},
+						other: {
+							next: null,
+							due: [
+								{
+									subjectId: "foreign-movie",
+									occurrence: "foreign-movie",
+									properties: name("foreign-movie"),
+								},
+							],
+						},
+					},
+					"show-episodes-available": {
+						other: { due: [], next: null, nextInstant: null },
+						owner: {
+							next: null,
+							nextInstant: utcDay(4).toISOString(),
+							due: [
+								{
+									subjectId: "quiet-show",
+									properties: name("quiet-show"),
+									occurrence: `quiet-show:${utcDay(1).toISOString()}`,
+								},
+								{
+									subjectId: "late-show",
+									properties: name("late-show"),
+									occurrence: `late-show:${utcDay(2).toISOString()}`,
+								},
+							],
+						},
+					},
+					"in-progress-stale": {
+						owner: {
+							next: null,
+							due: [
+								{
+									subjectId: "stalled-movie",
+									occurrence: `stalled-movie:in_progress:${utcDay(-1).toISOString()}`,
+									properties: { ...name("stalled-movie"), days: 7, lifecycleState: "in_progress" },
+								},
+							],
+						},
+						other: {
+							next: null,
+							due: [
+								{
+									subjectId: "foreign-stalled-movie",
+									occurrence: `foreign-stalled-movie:in_progress:${utcDay(-1).toISOString()}`,
+									properties: {
+										...name("foreign-stalled-movie"),
+										days: 7,
+										lifecycleState: "in_progress",
+									},
+								},
+							],
+						},
+					},
+					"show-episode-releases": {
+						other: {
+							next: null,
+							nextInstant: null,
+							due: [
+								{
+									subjectId: "foreign-show",
+									occurrence: "foreign-show-e1",
+									properties: { ...name("foreign-show"), seasonNumber: 1, episodeNumber: 1 },
+								},
+							],
+						},
+						owner: {
+							next: utcDay(5).toISOString(),
+							nextInstant: utcDay(4).toISOString(),
+							due: [
+								{
+									subjectId: "watched-show",
+									occurrence: "watched-show-e1",
+									properties: { ...name("watched-show"), seasonNumber: 1, episodeNumber: 1 },
+								},
+								{
+									subjectId: "watched-show",
+									occurrence: "watched-show-e3",
+									properties: { ...name("watched-show"), seasonNumber: 1, episodeNumber: 3 },
+								},
+							],
+						},
+					},
+				});
+			}),
 	);
 });

@@ -19,7 +19,18 @@ import {
 	signalScheduleRecipe,
 } from "@ryot-app/ryotql-recipes/signal-schedules";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { Context, DateTime, Effect, Layer, Option, Ref, Result, Schema } from "effect";
+import {
+	Array as Arr,
+	Context,
+	DateTime,
+	Effect,
+	Layer,
+	Option,
+	Order,
+	Ref,
+	Result,
+	Schema,
+} from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { ChangeSets } from "#modules/changes/service";
@@ -95,6 +106,23 @@ export const signalScheduleDueFrom = (input: {
 				),
 			)
 		: DateTime.toDate(shifted);
+};
+
+/** When the earlier of the next date-only row and the next timed row enters the window. */
+export const signalScheduleNextDue = (input: {
+	timeZone: TimeZone;
+	next: null | string;
+	delayDays: null | number;
+	nextInstant: null | string;
+	precision: "date" | "instant";
+}) => {
+	const due = [
+		...(input.next === null ? [] : [signalScheduleDueFrom({ ...input, dueAt: input.next })]),
+		...(input.nextInstant === null
+			? []
+			: [signalScheduleDueFrom({ ...input, precision: "instant", dueAt: input.nextInstant })]),
+	];
+	return Arr.isReadonlyArrayNonEmpty(due) ? Arr.min(due, Order.Date) : null;
 };
 
 export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>()(
@@ -175,13 +203,17 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				now: Date,
 			) {
 				const timeZone = target.preferences.reportingTimeZone;
-				const bounds = signalScheduleBounds({
+				const timing = {
 					now,
 					timeZone,
 					delayDays: target.delayDays,
-					precision: target.precision,
 					maxAgeHours: target.freshness?.maxAgeHours ?? null,
-				});
+				};
+				const bounds = signalScheduleBounds({ ...timing, precision: target.precision });
+				const instantBounds =
+					target.instantAt === null
+						? null
+						: signalScheduleBounds({ ...timing, precision: "instant" });
 				const ledger = {
 					scheduleSlug: target.slug,
 					pluginId: target.pluginId,
@@ -205,6 +237,9 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						arguments: {
 							end: bounds.end,
 							start: bounds.start,
+							...(instantBounds === null
+								? {}
+								: { instantEnd: instantBounds.end, instantStart: instantBounds.start }),
 							...(bounds.confirmedAfter === null ? {} : { confirmedAfter: bounds.confirmedAfter }),
 						},
 					});
@@ -222,14 +257,13 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						yield* admit(target, candidate, now);
 					}
 					if (!result.pageInfo.hasMore || result.pageInfo.nextCursor === null) {
-						return first.signalScheduleNext === null
-							? null
-							: signalScheduleDueFrom({
-									timeZone,
-									delayDays: target.delayDays,
-									precision: target.precision,
-									dueAt: first.signalScheduleNext,
-								});
+						return signalScheduleNextDue({
+							timeZone,
+							precision: target.precision,
+							delayDays: target.delayDays,
+							next: first.signalScheduleNext,
+							nextInstant: first.signalScheduleNextInstant ?? null,
+						});
 					}
 					if (page === OCCURRENCE_PAGE_LIMIT) {
 						return now;

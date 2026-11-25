@@ -4,7 +4,9 @@ import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { stopTestProcess } from "@ryot-app/testing/process";
 import { randomUuid } from "@ryot-app/testing/random";
+import { makeTestResourceScope } from "@ryot-app/testing/resource-scope";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import getPort from "get-port";
@@ -21,15 +23,10 @@ import {
 	startMockOidcServer,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
+import { watchBrowserSessionExchange } from "~/support/browser";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { HarnessTarget } from "~/support/harness-target";
-import {
-	buildApiEnv,
-	startApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 
 const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
@@ -157,7 +154,7 @@ describe("Local auth disabled (API B)", () => {
 	beforeAll(() =>
 		runPromise(
 			resources.run(
-				stopApiProcess(apiProcessA).pipe(
+				stopTestProcess(apiProcessA).pipe(
 					Effect.andThen(
 						Effect.gen(function* () {
 							apiProcessB = yield* startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
@@ -205,12 +202,7 @@ describe("Local auth disabled (API B)", () => {
 				);
 			const hostedLoginRequest = yield* request("/oauth/login");
 			const hostedSignInRequest = yield* request("/api/auth/sign-in/social");
-			const tokenResponse = yield* page.eventStream("response").pipe(
-				Stream.filter((response) => new URL(response.url()).pathname === "/api/auth/oauth2/token"),
-				Stream.runHead,
-				Effect.map(Option.getOrThrow),
-				Effect.forkChild({ startImmediately: true }),
-			);
+			const sessionResponseFiber = yield* watchBrowserSessionExchange(page);
 			const providerObservation = yield* page.eventStream("request").pipe(
 				Stream.filter((item) => {
 					const url = new URL(item.url());
@@ -239,7 +231,7 @@ describe("Local auth disabled (API B)", () => {
 			const loginRequest = yield* Fiber.join(hostedLoginRequest);
 			const signInRequest = yield* Fiber.join(hostedSignInRequest);
 			const { stateCookieObserved, request: oidcRequest } = yield* Fiber.join(providerObservation);
-			const oauthResponse = yield* Fiber.join(tokenResponse);
+			const sessionResponse = yield* Fiber.join(sessionResponseFiber);
 			expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
 			const body: unknown = Option.getOrThrow(yield* signInRequest.postDataJSON);
 			const oauthQuery: unknown =
@@ -247,7 +239,7 @@ describe("Local auth disabled (API B)", () => {
 			expect(typeof oauthQuery).toBe("string");
 			expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
 			expect(stateCookieObserved).toBe(true);
-			expect(oauthResponse.ok()).toBe(true);
+			expect(sessionResponse.ok()).toBe(true);
 			yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 			expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
 		}).pipe(PlaywrightSpawner.withBrowser),
@@ -256,7 +248,7 @@ describe("Local auth disabled (API B)", () => {
 	afterAll(() =>
 		runPromise(
 			resources.run(
-				stopApiProcess(apiProcessB).pipe(
+				stopTestProcess(apiProcessB).pipe(
 					Effect.andThen(
 						Effect.gen(function* () {
 							apiProcessA = yield* startApi("A", apiPortA, {
@@ -368,7 +360,7 @@ describe("Registration gating for OIDC (API C)", () => {
 		runPromise(
 			resources.run(
 				oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
-					Effect.andThen(stopApiProcess(apiProcessA)),
+					Effect.andThen(stopTestProcess(apiProcessA)),
 					Effect.andThen(
 						Effect.gen(function* () {
 							apiProcessC = yield* startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });

@@ -1,8 +1,8 @@
 import { FileText, Mail, Scale } from "lucide-react";
 
-import { SectionHeader } from "~/lib/components/SectionHeader";
-import { TermsSection } from "~/lib/components/TermsSection";
-import { Card, CardContent } from "~/lib/components/ui/card";
+import { SectionHeader } from "~/components/SectionHeader";
+import { Card, CardContent } from "~/components/ui/card";
+import { TermsSection } from "~/features/marketing/TermsSection";
 import { contactEmail } from "~/lib/general";
 
 export const meta = () => {

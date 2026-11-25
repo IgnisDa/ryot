@@ -1,3 +1,5 @@
+import { acquireInChildScope } from "@ryot-app/testing/resource-scope";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
 import {
@@ -9,8 +11,6 @@ import {
 } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
-import { acquireInChildScope } from "~/support/resource-scope";
-import { webRequest } from "~/support/web-request";
 
 import {
 	continueAfterInitialization,

@@ -21,9 +21,9 @@ export const showPersonRow = {
 	isInMediaLibrary: false,
 	roles: ["Actor", "Guest Star"],
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: "https://images.test/owen.jpg" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "profile", url: "https://images.test/owen.jpg" }],
 };
 
 export const showCompanyRow = {
@@ -34,9 +34,9 @@ export const showCompanyRow = {
 	isInMediaLibrary: false,
 	roleCodes: ["production_company"],
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: "https://images.test/warp.png" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "logo", url: "https://images.test/warp.png" }],
 };
 
 export const showRecommendationRow = {
@@ -45,8 +45,8 @@ export const showRecommendationRow = {
 	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/bad-girls.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/bad-girls.jpg" }],
 };
 
 type OverviewRows = {

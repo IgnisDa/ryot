@@ -3,7 +3,7 @@ import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { servedProviderName } from "../served-names";
-import { decodeMediaSummaryResult } from "../summary-fixture";
+import { artworkSummaryFixture, decodeMediaSummaryResult } from "../summary-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
 export const CREATOR_SUMMARY_INPUT = {
@@ -32,10 +32,10 @@ export const creatorSummaryRow = {
 		pageInfo: { limit: 6, hasMore: false },
 		items: [{ name: "Favourites", id: "collection-1" }],
 	},
-	images: [
+	...artworkSummaryFixture([
 		{ type: "remote", purpose: "profile", url: "https://images.test/edward.jpg" },
 		{ type: "remote", purpose: "logo", url: "https://images.test/logo.png" },
-	],
+	]),
 };
 
 export const decodeCreatorSummaryResult = (

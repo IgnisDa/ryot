@@ -1,7 +1,7 @@
 import { Text } from "@ryot-app/i18n/text";
 
 import { mediaActivityTimeLabel } from "../../../client/media/activity-timeline";
-import type { MediaPresentationSubject } from "../../../client/media/entity-presentation";
+import type { MediaSavedViewPresentationSubject } from "../../../client/media/entity-presentation";
 import { defineFlatMediaSchema, type MediaOverviewRail } from "../../../client/media/flat-schema";
 import { catalogMessage } from "../../../shared/messages.generated";
 import {
@@ -62,12 +62,12 @@ export const fixtureSchema = defineFixtureSchema();
 export const railItem = (
 	id: string,
 	name: string,
-): MediaPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
+): MediaSavedViewPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
 	id,
 	name,
 	isInMediaLibrary: false,
+	image: { type: "s3", key: `${id}-cover` },
 	translationStatus: { state: "idle", availability: "none" },
-	images: [{ type: "s3", purpose: "cover", key: `${id}-cover` }],
 	populationStatus: { state: "succeeded", availability: "complete" },
 });
 

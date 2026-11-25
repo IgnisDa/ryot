@@ -140,13 +140,13 @@ it.live(
 					yield* Effect.promise(() => screen.findByRole("button", { name: "Revoke" })),
 				);
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Revoke this link?" }),
+					screen.findByRole("alertdialog", { name: "Revoke this link?" }),
 				);
 				expect(view.requests).toHaveLength(2);
 				fireEvent.click(within(confirmation).getByRole("button", { name: "Revoke link" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.queryByRole("dialog", { name: "Revoke this link?" })).toBeNull(),
+						expect(screen.queryByRole("alertdialog", { name: "Revoke this link?" })).toBeNull(),
 					),
 				);
 				expect(view.requests.at(-1)).toEqual({ linkId: "link-1" });

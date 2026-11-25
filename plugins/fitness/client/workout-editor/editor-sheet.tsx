@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 export function EditorSheet(
 	props: { readonly wide?: "side" | "center" } & Omit<
 		ComponentProps<typeof Dialog>,
-		"placement" | "safeAreaBottom"
+		"kind" | "placement" | "safeAreaBottom"
 	>,
 ) {
 	const { compact, safeAreaBottom } = useRyotViewport();

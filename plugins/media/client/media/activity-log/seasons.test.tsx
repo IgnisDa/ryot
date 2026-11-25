@@ -3,8 +3,9 @@ import { afterEach, describe, expect } from "bun:test";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { fireEvent, getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
+import { act } from "react";
 
 import { rowsResult } from "../../../tests/client/query-result-fixture";
 import {
@@ -62,11 +63,13 @@ describe("activity season choices", () => {
 					yield* Effect.promise(() => waitFor(() => expect(documents).toHaveLength(count)));
 				}
 				expect(queryByRole(view.container, "button", { name: "Load more seasons" })).toBeNull();
-				clickRyotElement(getByRole(view.container, "button", { name: /^Season:/ }));
+				clickRyotElement(getByRole(view.container, "combobox", { name: /^Season:/ }));
 				yield* Effect.promise(() => flushRyotClient());
-				const picker = getByRole(document.body, "dialog", { name: "Season" });
-				expect(getAllByRole(picker, "radio")).toHaveLength(125);
-				clickRyotElement(getByRole(picker, "radio", { name: "Season 125" }));
+				const picker = getByRole(document.body, "listbox", { name: "Season" });
+				expect(getAllByRole(picker, "option")).toHaveLength(125);
+				const option = getByRole(picker, "option", { name: "Season 125" });
+				void act(() => fireEvent.pointerDown(option, { pointerType: "mouse" }));
+				clickRyotElement(option);
 				yield* Effect.promise(() => flushRyotClient());
 				expect(selected).toEqual([125]);
 				expect(documents.every((document) => document.includes('"limit":40'))).toBe(true);

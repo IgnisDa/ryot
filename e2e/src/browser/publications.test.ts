@@ -45,11 +45,8 @@ for (const mode of ["live", "snapshot"] as const) {
 			yield* chooseMenuItem(owner.locator("iframe").contentFrame(), "More actions", "Share");
 			const sheet = owner.getByRole("dialog", { name: "Share" });
 			if (mode === "snapshot") {
-				yield* sheet.getByRole("button", { exact: true, name: "Mode: Live" }).click();
-				yield* owner
-					.getByRole("dialog", { exact: true, name: "Mode" })
-					.getByRole("radio", { exact: true, name: "Snapshot" })
-					.click();
+				yield* sheet.getByRole("combobox", { exact: true, name: "Mode: Live" }).click();
+				yield* owner.getByRole("option", { exact: true, name: "Snapshot" }).click();
 			}
 			yield* sheet.getByRole("button", { name: "Publish and create link" }).click();
 			const linkField = sheet.getByRole("textbox", { name: "New link" });
@@ -92,7 +89,7 @@ for (const mode of ["live", "snapshot"] as const) {
 				.getByRole("button", { exact: true, name: "Revoke" })
 				.click();
 			yield* owner
-				.getByRole("dialog", { name: "Revoke this link?" })
+				.getByRole("alertdialog", { name: "Revoke this link?" })
 				.getByRole("button", { name: "Revoke link" })
 				.click();
 			yield* owner

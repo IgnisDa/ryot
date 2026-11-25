@@ -64,6 +64,13 @@
 			"when": 1786205197919,
 			"tag": "0008_yielding_carnage",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1786205197920,
+			"tag": "0009_billing_event",
+			"breakpoints": true
 		}
 	]
 }

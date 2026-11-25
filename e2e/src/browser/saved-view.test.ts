@@ -496,7 +496,7 @@ it.live("swaps the desktop add button for the mobile add affordances", () =>
 		yield* runtime.getByRole("button", { name: "View options, 0 active filters" }).click();
 		const sheet = runtime.getByRole("dialog", { name: "View options" });
 		yield* sheet.waitFor({ state: "visible" });
-		expect(yield* sheet.getByRole("button", { name: /^Add filter/ }).isVisible()).toBe(true);
+		expect(yield* sheet.getByRole("combobox", { name: /^Add filter/ }).isVisible()).toBe(true);
 		yield* runtime.getByRole("button", { name: "Close" }).click();
 		yield* sheet.waitFor({ state: "hidden" });
 
@@ -549,21 +549,18 @@ it.live(
 			const filtersDialog = runtime.getByRole("dialog", { exact: true, name: "Filters" });
 			const addRule = (field: string) =>
 				Effect.gen(function* () {
-					yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
-					yield* runtime.getByRole("radio", { exact: true, name: field }).click();
+					yield* filtersDialog.getByRole("combobox", { name: /^Add filter/ }).click();
+					yield* runtime.getByRole("option", { exact: true, name: field }).click();
 				});
 			yield* runtime.getByRole("button", { name: /^Filters/ }).click();
 			yield* addRule("Level");
-			yield* filtersDialog.getByRole("button", { exact: true, name: "Level values" }).click();
-			yield* runtime.getByRole("checkbox", { exact: true, name: "Beginner" }).click();
-			yield* runtime
-				.getByRole("dialog", { exact: true, name: "Level values" })
-				.getByRole("button", { exact: true, name: "Close options" })
-				.click();
+			yield* filtersDialog.getByRole("combobox", { exact: true, name: "Level values" }).click();
+			yield* runtime.getByRole("option", { exact: true, name: "Beginner" }).click();
+			yield* page.keyboard.press("Escape");
 			yield* addRule("Muscles");
-			yield* filtersDialog.getByRole("button", { name: /^Muscles values/ }).click();
-			yield* runtime.getByRole("checkbox", { exact: true, name: `Filter chest ${id}` }).click();
-			yield* runtime.getByRole("button", { exact: true, name: "Done" }).click();
+			yield* filtersDialog.getByRole("combobox", { exact: true, name: "Muscles" }).click();
+			yield* runtime.getByRole("option", { exact: true, name: `Filter chest ${id}` }).click();
+			yield* page.keyboard.press("Escape");
 			yield* page.keyboard.press("Escape");
 			yield* filtersDialog.waitFor({ state: "hidden" });
 

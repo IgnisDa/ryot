@@ -1,7 +1,7 @@
 import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
-	calendarWindowBounds,
+	calendarWindowArguments,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { Effect, Result } from "effect";
 
@@ -37,10 +37,7 @@ const occurrences = (client: Client) =>
 		return yield* collectRyotQLRecipeItems(
 			client,
 			Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
-			{
-				windowEnd: calendarWindowBounds(source.precision, window).end,
-				windowStart: calendarWindowBounds(source.precision, window).start,
-			},
+			calendarWindowArguments(source, window),
 			"calendarOccurrences",
 		);
 	});

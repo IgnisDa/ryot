@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import {
 	FetchHttpClient,
 	HttpClient,
@@ -25,6 +25,11 @@ export class EgressDenied extends Schema.TaggedError<
 >()("EgressDenied", { reason: Schema.Literals(["scheme", "address", "resolution"]) }) {}
 
 const ALLOWED_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
+
+export const RequirePublicHttps = Context.Reference<boolean>(
+	"@ryot-app/kernel-backend/platform/egress/http-client/RequirePublicHttps",
+	{ defaultValue: () => false },
+);
 
 const denied = (
 	request: HttpClientRequest.HttpClientRequest,
@@ -88,6 +93,7 @@ export const withEgressPolicy = (
 			return denied(request, "scheme");
 		}
 		return Effect.gen(function* () {
+			const requirePublicHttps = yield* RequirePublicHttps;
 			const init = yield* Effect.serviceOption(FetchHttpClient.RequestInit);
 			if (Option.isSome(init) && "unix" in init.value) {
 				return yield* denied(request, "address");
@@ -101,8 +107,10 @@ export const withEgressPolicy = (
 			if (pinned === undefined) {
 				return yield* denied(request, "resolution");
 			}
+			const secureMode = target.protocol === "http:" ? "private" : "public-or-private";
+			const mode = requirePublicHttps ? secureMode : "standard";
 			const refused = addresses.find(
-				(address) => classifyAddress(address, policy.allowedNetworks) === "denied",
+				(address) => classifyAddress(address, policy.allowedNetworks, mode) === "denied",
 			);
 			if (refused !== undefined) {
 				return yield* denied(request, "address", family(refused));

@@ -22,7 +22,7 @@ export class ClientArtifactStore extends Context.Service<ClientArtifactStore>()(
 					packageId: null,
 					clientDeclarationHash: null,
 					files: files
-						.map(({ name, contentType }) => ({ name, contentType }))
+						.map(({ contents: _contents, ...file }) => file)
 						.sort((left, right) => left.name.localeCompare(right.name)),
 				});
 			};

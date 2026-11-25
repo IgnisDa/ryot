@@ -131,6 +131,13 @@ export function PickerToolbar({
 			>
 				<MenuButton
 					label={text("client.picker.sort-label")}
+					triggerElement={
+						<button type="button" className={chip} aria-label={text("client.picker.sort-label")}>
+							<AppIcon size={14} name="arrow-up-down" />
+							{sortLabel(text, props.sort)}
+							{chevron}
+						</button>
+					}
 					items={sortOrder.map((value) => ({
 						key: value,
 						onSelect: () => props.onSort(value),
@@ -139,18 +146,6 @@ export function PickerToolbar({
 								? text("client.picker.checked", { label: sortLabel(text, value) })
 								: sortLabel(text, value),
 					}))}
-					renderTrigger={(trigger) => (
-						<button
-							{...trigger}
-							type="button"
-							className={chip}
-							aria-label={text("client.picker.sort-label")}
-						>
-							<AppIcon size={14} name="arrow-up-down" />
-							{sortLabel(text, props.sort)}
-							{chevron}
-						</button>
-					)}
 				/>
 				{props.replacementKind === undefined ? (
 					<MultiSelect
@@ -210,9 +205,8 @@ export function PickerToolbar({
 				{props.replacementKind === undefined ? (
 					<MenuButton
 						label={text("client.presets.title")}
-						renderTrigger={(trigger) => (
+						triggerElement={
 							<button
-								{...trigger}
 								type="button"
 								aria-label={text("client.presets.title")}
 								className={clsx(
@@ -225,7 +219,7 @@ export function PickerToolbar({
 								{appliedPreset?.name ?? text("client.presets.title")}
 								{chevron}
 							</button>
-						)}
+						}
 						items={[
 							...props.presets.map(({ id, name }) => ({
 								key: id,

@@ -28,6 +28,7 @@ import { preferredMediaImageExpression } from "../shared/entity-presentations";
 import { libraryLinkExists } from "../shared/entity-selections";
 import {
 	episodeDisplayStateExpression,
+	episodeReleaseTime,
 	episodicEpisodeQuery,
 	mediaLifecycleExpressions,
 	occursAt,
@@ -74,6 +75,7 @@ export const episodeSource = (
 		seasonNumber,
 		episodeNumber,
 		parentJoins: scope.parentJoins,
+		time: episodeReleaseTime(episode),
 		state: episodeDisplayStateExpression(episode, parent, "calendarEpisodeState"),
 		query: {
 			from: episode,
@@ -91,7 +93,8 @@ export const episodeSource = (
 };
 
 const episodeFields = (source: ReturnType<typeof episodeSource>) => [
-	field("startAt", occursAt(source.episode)),
+	field("startAt", source.time.date),
+	field("instantAt", source.time.instant),
 	field("episode", source.episodeNumber),
 	...(source.seasonNumber ? [field("season", source.seasonNumber)] : []),
 	field(
@@ -113,6 +116,7 @@ const showEpisodes = () => {
 		startAt: "startAt",
 		icon: "monitor-play",
 		slug: "show-episodes",
+		instantAt: "instantAt",
 		subject: subjectOf("show", ["show"]),
 		name: catalogMessage("calendar-source.show-episodes.name"),
 		query: { ...source.query, output: { type: "rows", fields: episodeFields(source) } },
@@ -131,6 +135,7 @@ const podcastEpisodes = () => {
 		icon: "podcast",
 		precision: "date",
 		startAt: "startAt",
+		instantAt: "instantAt",
 		slug: "podcast-episodes",
 		subject: subjectOf("podcast", ["podcast"]),
 		name: catalogMessage("calendar-source.podcast-episodes.name"),

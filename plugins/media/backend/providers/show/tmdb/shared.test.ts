@@ -28,6 +28,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		log: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed(null),
+		setCachedValue: () => Effect.succeed(null),
 		getUserSettings: () => Effect.succeed({ allowNsfw: false }),
 		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
@@ -59,10 +62,10 @@ const makeTvHost = (id: string, fixtures: TvFixtures, requests: URL[] = []) =>
 		return httpSuccess(fixtures.other?.(requestUrl.pathname) ?? {});
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-const image = (purpose: string, path: string) => ({
+const image = (purpose: "cover" | "backdrop", path: string) => ({
 	purpose,
 	type: "remote",
-	url: `https://image.tmdb.org/t/p/original${path}`,
+	url: `https://image.tmdb.org/t/p/${purpose === "cover" ? "w500" : "w780"}${path}`,
 });
 
 describe("show.tmdb sandbox script", () => {
@@ -131,6 +134,64 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	it("enriches matching TV episodes through the show's IMDb ID", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const requests: URL[] = [];
+				const host = makeTvHost(
+					"1",
+					{
+						show: { id: 1, name: "The Simpsons", seasons: [{ id: 38, season_number: 38 }] },
+						appended: {
+							external_ids: { imdb_id: "tt0096697" },
+							"season/38": {
+								season_number: 38,
+								episodes: [
+									{ id: 8, episode_number: 8, air_date: "2026-11-22" },
+									{ id: 9, episode_number: 9, air_date: "2026-11-29" },
+								],
+							},
+						},
+						other: (path) =>
+							path === "/lookup/shows"
+								? { id: 83 }
+								: [
+										{
+											number: 8,
+											season: 38,
+											id: 3803533,
+											airtime: "20:00",
+											airdate: "2026-11-22",
+											airstamp: "2026-11-22T20:00:00-05:00",
+										},
+										{
+											id: 9,
+											number: 9,
+											season: 38,
+											airtime: "20:00",
+											airdate: "2026-11-30",
+											airstamp: "2026-11-30T20:00:00-05:00",
+										},
+									],
+					},
+					requests,
+				);
+				const result = yield* runSandboxTestScript(details, { externalId: "1" }, host, execution);
+				expect(
+					requests
+						.filter((url) => url.hostname === "api.tvmaze.com")
+						.map((url) => url.pathname + url.search),
+				).toEqual(["/lookup/shows?imdb=tt0096697", "/shows/83/episodes"]);
+				const episodes = result.childEntities?.[0]?.childEntities;
+				expect(episodes?.[0]?.properties).toMatchObject({
+					publishDate: "2026-11-22",
+					airingAt: "2026-11-23T01:00:00.000Z",
+					airingSourceUrl: "https://www.tvmaze.com/episodes/3803533",
+				});
+				expect(episodes?.[1]?.properties).not.toHaveProperty("airingAt");
+			}),
+		));
 
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeTvHost("1", {
@@ -285,10 +346,7 @@ describe("show.tmdb sandbox script", () => {
 							searchParams.get("append_to_response"),
 							searchParams.get("language"),
 						]),
-					).toEqual([
-						["/3/tv/1", "watch/providers,episode_groups", "en"],
-						["/3/tv/1/images", null, null],
-					]);
+					).toEqual([["/3/tv/1", "watch/providers,episode_groups,external_ids", "en"]]);
 					expect(
 						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
 					).toEqual([]);
@@ -310,9 +368,9 @@ describe("show.tmdb sandbox script", () => {
 					expect(
 						requests.map(({ searchParams }) => searchParams.get("append_to_response")),
 					).toEqual([
-						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
+						"watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations",
 						null,
-						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
+						"watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations",
 						null,
 					]);
 					return undefined;
@@ -435,7 +493,7 @@ describe("show.tmdb sandbox script", () => {
 		);
 	});
 
-	it("requests show images without a language and keeps every localized and unlocalized image", () => {
+	it("filters and bounds the full artwork inventory by purpose", () => {
 		const requests: URL[] = [];
 		const host = makeTvHost(
 			"1",
@@ -456,19 +514,28 @@ describe("show.tmdb sandbox script", () => {
 						{ iso_639_1: "fr", file_path: "/poster-fr.jpg" },
 						{ iso_639_1: null, file_path: "/poster-none.jpg" },
 						{ iso_639_1: "en", file_path: "/poster-main.jpg" },
+						...Array.from({ length: 200 }, (_, index) => ({
+							iso_639_1: null,
+							file_path: `/poster-${index}.jpg`,
+						})),
 					],
 				},
 			},
 			requests,
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { level: "full", externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					const imagesRequest = requests.find(({ pathname }) => pathname.endsWith("/images"));
-					expect(imagesRequest?.search).toBe("");
+					expect(imagesRequest?.searchParams.get("include_image_language")).toBe("en,null");
 					expect(result.properties).toMatchObject({
 						images: [
-							image("cover", "/poster-main.jpg"),
+							{
+								...image("cover", "/poster-main.jpg"),
+								language: "en",
+								largeUrl: "https://image.tmdb.org/t/p/w780/poster-main.jpg",
+								thumbnailUrl: "https://image.tmdb.org/t/p/w185/poster-main.jpg",
+							},
 							image("cover", "/poster-fr.jpg"),
 							image("cover", "/poster-none.jpg"),
 							image("backdrop", "/backdrop-main.jpg"),
@@ -513,12 +580,12 @@ describe("show.tmdb sandbox script", () => {
 								{
 									type: "remote",
 									purpose: "cover",
-									url: "https://image.tmdb.org/t/p/original/show.jpg",
+									url: "https://image.tmdb.org/t/p/w500/show.jpg",
 								},
 								{
 									type: "remote",
 									purpose: "backdrop",
-									url: "https://image.tmdb.org/t/p/original/show-backdrop.jpg",
+									url: "https://image.tmdb.org/t/p/w780/show-backdrop.jpg",
 								},
 							],
 						},
@@ -530,7 +597,7 @@ describe("show.tmdb sandbox script", () => {
 									{
 										type: "remote",
 										purpose: "cover",
-										url: "https://image.tmdb.org/t/p/original/season.jpg",
+										url: "https://image.tmdb.org/t/p/w500/season.jpg",
 									},
 								],
 							},
@@ -541,7 +608,7 @@ describe("show.tmdb sandbox script", () => {
 											{
 												type: "remote",
 												purpose: "still",
-												url: "https://image.tmdb.org/t/p/original/still.jpg",
+												url: "https://image.tmdb.org/t/p/w300/still.jpg",
 											},
 										],
 									},
@@ -582,7 +649,7 @@ describe("show.tmdb sandbox script", () => {
 									{
 										name: "Tubi",
 										offers: ["free", "ads"],
-										image: "https://image.tmdb.org/t/p/original/tubi.jpg",
+										image: "https://image.tmdb.org/t/p/w342/tubi.jpg",
 									},
 								],
 							},
@@ -837,14 +904,12 @@ describe("show.tmdb sandbox script", () => {
 				execution,
 			).pipe(
 				Effect.flatMap((showResult) => {
-					expect(showResult.properties).toEqual({
-						images: [
-							{
-								type: "remote",
-								purpose: "cover",
-								url: "https://image.tmdb.org/t/p/original/poster-fr.jpg",
-							},
-						],
+					expect(showResult.properties).toMatchObject({
+						localizedArtwork: {
+							type: "remote",
+							purpose: "cover",
+							url: "https://image.tmdb.org/t/p/w500/poster-fr.jpg",
+						},
 					});
 					return runSandboxTestScript(
 						translate,
@@ -860,14 +925,12 @@ describe("show.tmdb sandbox script", () => {
 					);
 				}),
 				Effect.map((episodeResult) => {
-					expect(episodeResult.properties).toEqual({
-						images: [
-							{
-								type: "remote",
-								purpose: "still",
-								url: "https://image.tmdb.org/t/p/original/still-fr.jpg",
-							},
-						],
+					expect(episodeResult.properties).toMatchObject({
+						localizedArtwork: {
+							type: "remote",
+							purpose: "still",
+							url: "https://image.tmdb.org/t/p/w300/still-fr.jpg",
+						},
 					});
 					return undefined;
 				}),

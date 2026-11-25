@@ -12,7 +12,6 @@ import {
 	EmptyState,
 	LoadMoreButton,
 	type MetricFormat,
-	MotionPresence,
 	percentUnit,
 	StatusMessage,
 	useMetricFormat,
@@ -100,99 +99,96 @@ export function MediaAnalyticsRecords(props: {
 	];
 	const timeZone = firstPage?.reporting.resolved.timeZone ?? text("common.status.loading");
 	return (
-		<MotionPresence>
-			<Dialog
-				size="lg"
-				title={heading}
-				onClose={props.onClose}
-				key="media-analytics-records"
-				safeAreaBottom={viewport.safeAreaBottom}
-				placement={viewport.compact ? "sheet" : "center"}
-				closeLabel={text("analytics.records.close-label")}
-				footer={
-					<Button variant="secondary" onClick={props.onClose}>
-						{text("common.action.close")}
-					</Button>
-				}
+		<Dialog
+			size="lg"
+			title={heading}
+			onClose={props.onClose}
+			safeAreaBottom={viewport.safeAreaBottom}
+			placement={viewport.compact ? "sheet" : "center"}
+			closeLabel={text("analytics.records.close-label")}
+			footer={
+				<Button variant="secondary" onClick={props.onClose}>
+					{text("common.action.close")}
+				</Button>
+			}
+		>
+			<section
+				className="flex min-w-0 flex-col gap-3"
+				aria-label={text("analytics.records.section-label", { title: props.request.title })}
 			>
-				<section
-					className="flex min-w-0 flex-col gap-3"
-					aria-label={text("analytics.records.section-label", { title: props.request.title })}
-				>
-					<p className="text-label text-text-muted">
-						{filters.length === 0
-							? text("analytics.records.context", { timeZone, period: props.request.periodCaption })
-							: text("analytics.records.context-filtered", {
-									timeZone,
-									filters: filters.join(" · "),
-									period: props.request.periodCaption,
-								})}
-					</p>
-					<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-						{loadedCaption === null ? null : (
-							<span className="text-label text-text-muted tabular-nums">{loadedCaption}</span>
+				<p className="text-label text-text-muted">
+					{filters.length === 0
+						? text("analytics.records.context", { timeZone, period: props.request.periodCaption })
+						: text("analytics.records.context-filtered", {
+								timeZone,
+								filters: filters.join(" · "),
+								period: props.request.periodCaption,
+							})}
+				</p>
+				<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
+					{loadedCaption === null ? null : (
+						<span className="text-label text-text-muted tabular-nums">{loadedCaption}</span>
+					)}
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={result.refetch}
+						disabled={result.isFetching}
+					>
+						{text("analytics.records.refresh")}
+					</Button>
+				</div>
+				{result.pages.length === 0 && result.isError ? (
+					<StatusMessage
+						tone="error"
+						action={{
+							onClick: result.retry,
+							disabled: result.isFetching,
+							label: text("common.action.try-again"),
+						}}
+					>
+						{errorMessage}
+					</StatusMessage>
+				) : null}
+				{result.pages.length === 0 && !result.isError ? (
+					<StatusMessage tone="pending">{text("analytics.records.loading")}</StatusMessage>
+				) : null}
+				{firstPage !== undefined ? (
+					<>
+						{result.operation === "refresh" ? (
+							<StatusMessage tone="pending">{text("analytics.records.refreshing")}</StatusMessage>
+						) : null}
+						{result.isError ? (
+							<StatusMessage
+								tone="error"
+								action={{
+									onClick: result.retry,
+									disabled: result.isFetching,
+									label: text("common.action.try-again"),
+								}}
+							>
+								{errorMessage}
+							</StatusMessage>
+						) : null}
+						{items.length === 0 ? (
+							<EmptyState title={text("analytics.records.empty")} />
+						) : (
+							<RecordTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
 						)}
-						<Button
-							size="sm"
-							variant="secondary"
-							onClick={result.refetch}
-							disabled={result.isFetching}
-						>
-							{text("analytics.records.refresh")}
-						</Button>
-					</div>
-					{result.pages.length === 0 && result.isError ? (
-						<StatusMessage
-							tone="error"
-							action={{
-								onClick: result.retry,
-								disabled: result.isFetching,
-								label: text("common.action.try-again"),
-							}}
-						>
-							{errorMessage}
-						</StatusMessage>
-					) : null}
-					{result.pages.length === 0 && !result.isError ? (
-						<StatusMessage tone="pending">{text("analytics.records.loading")}</StatusMessage>
-					) : null}
-					{firstPage !== undefined ? (
-						<>
-							{result.operation === "refresh" ? (
-								<StatusMessage tone="pending">{text("analytics.records.refreshing")}</StatusMessage>
-							) : null}
-							{result.isError ? (
-								<StatusMessage
-									tone="error"
-									action={{
-										onClick: result.retry,
-										disabled: result.isFetching,
-										label: text("common.action.try-again"),
-									}}
-								>
-									{errorMessage}
-								</StatusMessage>
-							) : null}
-							{items.length === 0 ? (
-								<EmptyState title={text("analytics.records.empty")} />
-							) : (
-								<RecordTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
-							)}
-							{result.hasNextPage && !result.isError ? (
-								<LoadMoreButton
-									variant="secondary"
-									className="self-center"
-									disabled={result.isFetching}
-									onClick={result.fetchNextPage}
-									label={text("analytics.records.show-more")}
-									isFetchingNextPage={result.isFetchingNextPage}
-								/>
-							) : null}
-						</>
-					) : null}
-				</section>
-			</Dialog>
-		</MotionPresence>
+						{result.hasNextPage && !result.isError ? (
+							<LoadMoreButton
+								variant="secondary"
+								className="self-center"
+								disabled={result.isFetching}
+								onClick={result.fetchNextPage}
+								label={text("analytics.records.show-more")}
+								isFetchingNextPage={result.isFetchingNextPage}
+							/>
+						) : null}
+					</>
+				) : null}
+			</section>
+		</Dialog>
 	);
 }
 

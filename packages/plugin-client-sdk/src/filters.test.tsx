@@ -56,7 +56,7 @@ describe("ViewFiltersSheet", () => {
 		expect(screen.getByRole("heading", { level: 2, name: "View options" })).toBeTruthy();
 		expect(screen.getByRole("dialog", { name: "View options" })).toBeTruthy();
 		expect(screen.getByText("Sheet body")).toBeTruthy();
-		expect(screen.getAllByLabelText("Close").length).toBeGreaterThan(0);
+		expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
 	});
 
 	it("anchors to the bottom edge when compact", () => {
@@ -160,22 +160,22 @@ describe("filter entitlements", () => {
 					},
 				);
 				const add = yield* Effect.promise(() =>
-					waitFor(() => screen.getByRole("button", { name: "Add filter: Add filter (Pro)" })),
+					waitFor(() => screen.getByRole("combobox", { name: "Add filter: Add filter (Pro)" })),
 				);
 				expect(add).toHaveProperty("disabled", true);
-				fireEvent.click(screen.getByRole("button", { name: /^Filter 1 field: / }));
-				fireEvent.click(
-					yield* Effect.promise(() =>
-						waitFor(() => screen.getByRole("radio", { name: "Date added" })),
-					),
+				fireEvent.click(screen.getByRole("combobox", { name: /^Filter 1 field: / }));
+				const date = yield* Effect.promise(() =>
+					screen.findByRole("option", { name: "Date added" }),
 				);
+				fireEvent.pointerDown(date, { pointerType: "mouse" });
+				fireEvent.click(date);
 				fireEvent.click(
 					yield* Effect.promise(() =>
-						waitFor(() => screen.getByRole("button", { name: "Filter 1 operator: is not set" })),
+						waitFor(() => screen.getByRole("combobox", { name: "Filter 1 operator: is not set" })),
 					),
 				);
 				const after = yield* Effect.promise(() =>
-					waitFor(() => screen.getByRole("radio", { name: "is after (Pro)" })),
+					waitFor(() => screen.getByRole("option", { name: "is after (Pro)" })),
 				);
 				expect(after.getAttribute("aria-disabled")).toBe("true");
 			}),

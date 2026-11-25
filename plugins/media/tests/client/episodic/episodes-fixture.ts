@@ -24,17 +24,19 @@ export const EPISODIC_PAGE_LIMIT = 2;
 
 export const episodicEpisodeRow = {
 	runtime: 52,
+	airingAt: null,
 	id: "episode-1",
 	episodeNumber: 1,
 	state: "untracked",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "podcast-episode",
 	name: "Episode 1: The Arrest",
 	description: "A thirteen-year-old is arrested at dawn.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/episode-1.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-1.jpg" }],
 };
 
 export const episodicEpisode = (overrides: Record<string, unknown>) => ({
@@ -81,7 +83,6 @@ export const episodicFixtureEpisodesQuery = createRyotQuery<
 
 export const EPISODIC_FIXTURE_RENDER: MediaEpisodeRender<EpisodicFixtureEpisode> = {
 	aspect: "square",
-	purpose: "cover",
 	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: (episode) =>
@@ -129,7 +130,7 @@ export const EPISODIC_FIXTURE_CREDITS = createMediaEpisodeCredits({
 
 export const episodicCreditRow = (overrides: Record<string, unknown>) => ({
 	order: 0,
-	images: [],
+	image: null,
 	isGuest: null,
 	character: null,
 	creditKinds: null,

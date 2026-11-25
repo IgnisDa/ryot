@@ -1,11 +1,29 @@
-import { ChipRadioGroup, Modal, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import {
+	ActiveScreenContext,
+	AssetArtWell,
+	assetKey,
+	collectManagedAssetLocators,
+	createRyotQuery,
+	ManagedAssetProvider,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
+import {
+	ChipRadioGroup,
+	LoadMoreButton,
+	Modal,
+	StatusMessage,
+	useShortcut,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useContext, useEffect, useRef, useState } from "react";
 
+import { mediaGalleryRecipe } from "../../shared/artwork-recipes";
+import type { MediaImage } from "../../shared/media-image";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { useMediaMessages } from "../messages";
 import { MediaDetailModal } from "./detail-modal";
-import type { MediaGalleryImage } from "./image";
+import { imageRendition } from "./image";
 import {
 	type GalleryFilter,
 	galleryFilterImages,
@@ -15,95 +33,128 @@ import {
 	galleryTileColumns,
 	galleryTileFit,
 } from "./image-gallery-state";
-import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 
 const SWIPE_THRESHOLD = 44;
 
 const DOT_LIMIT = 12;
 
-export function MediaImageGallery(props: {
+const GALLERY_PAGE_SIZE = 12;
+const STRIP_RADIUS = 2;
+
+type GalleryProps = {
 	readonly name: string;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
-	readonly images: readonly MediaGalleryImage[];
 	readonly triggerRef: RefObject<null | HTMLElement>;
-}) {
+};
+
+const galleryQuery = createRyotQuery<{ readonly entityId: string }, readonly MediaImage[]>(
+	({ input, client }) =>
+		client.data.query(
+			mediaGalleryRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			input,
+		),
+	{ cancelOnUnmount: true },
+);
+
+export function MediaEntityImageGallery(props: GalleryProps & { readonly entityId: string }) {
+	const active = useContext(ActiveScreenContext);
+	return active ? <ActiveMediaEntityGallery {...props} /> : null;
+}
+
+export function MediaImageGallery(
+	props: GalleryProps & { readonly status?: ReactNode; readonly images: readonly MediaImage[] },
+) {
 	const text = useMediaMessages();
 	const [filter, setFilter] = useState<GalleryFilter>("all");
 	const [lightbox, setLightbox] = useState<number>();
+	const [tileLimit, setTileLimit] = useState(GALLERY_PAGE_SIZE);
 	const tileRef = useRef<null | HTMLElement>(null);
 	const gridRef = useRef<HTMLDivElement>(null);
 	const visible = galleryFilterImages(props.images, filter);
+	const tiles = visible.slice(0, tileLimit);
 
 	const selectFilter = (next: GalleryFilter) => {
 		setFilter(next);
+		setTileLimit(GALLERY_PAGE_SIZE);
 		if (gridRef.current !== null) {
 			gridRef.current.scrollTop = 0;
 		}
 	};
 
 	return (
-		<MediaDetailModal
-			contentRef={gridRef}
-			compact={props.compact}
-			onClose={props.onClose}
-			triggerRef={props.triggerRef}
-			title={text("property.images")}
-			safeAreaTop={props.safeAreaTop}
-			closeLabel={text("gallery.close")}
-			label={text("gallery.label", { name: props.name })}
-			toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
-			headerAside={
-				<span className="font-ui text-[12px] text-text-muted">
-					{text("gallery.count", { count: visible.length })}
-				</span>
-			}
-			overlay={
-				lightbox === undefined ? null : (
-					<Modal
-						triggerRef={tileRef}
-						onClose={() => setLightbox(undefined)}
-						closeLabel={text("gallery.close-image")}
-						className="flex h-full w-full flex-col bg-bg"
-						label={text("gallery.position", { index: lightbox + 1, total: visible.length })}
-					>
-						<GalleryLightboxBody
-							images={visible}
-							index={lightbox}
-							name={props.name}
-							onSelect={setLightbox}
-							compact={props.compact}
-							safeAreaTop={props.safeAreaTop}
+		<ManagedAssetProvider assets={collectManagedAssetLocators(tiles)}>
+			<MediaDetailModal
+				contentRef={gridRef}
+				compact={props.compact}
+				onClose={props.onClose}
+				triggerRef={props.triggerRef}
+				title={text("property.images")}
+				safeAreaTop={props.safeAreaTop}
+				closeLabel={text("gallery.close")}
+				label={text("gallery.label", { name: props.name })}
+				toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
+				headerAside={
+					props.status === undefined && (
+						<span className="font-ui text-[12px] text-text-muted">
+							{text("gallery.count", { count: visible.length })}
+						</span>
+					)
+				}
+				overlay={
+					lightbox === undefined ? null : (
+						<Modal
+							triggerRef={tileRef}
 							onClose={() => setLightbox(undefined)}
+							className="flex h-full w-full flex-col bg-bg"
+							label={text("gallery.position", { index: lightbox + 1, total: visible.length })}
+						>
+							<GalleryLightboxBody
+								images={visible}
+								index={lightbox}
+								name={props.name}
+								onSelect={setLightbox}
+								compact={props.compact}
+								safeAreaTop={props.safeAreaTop}
+								onClose={() => setLightbox(undefined)}
+							/>
+						</Modal>
+					)
+				}
+			>
+				{props.status}
+				<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
+					{tiles.map((image, index) => (
+						<button
+							type="button"
+							key={assetKey(image)}
+							aria-label={text("gallery.view-image", { index: index + 1 })}
+							className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
+							onClick={(event) => {
+								tileRef.current = event.currentTarget;
+								setLightbox(index);
+							}}
+						>
+							<AssetArtWell
+								monogram={props.name}
+								fit={galleryTileFit(filter)}
+								asset={imageRendition(image, "thumbnail")}
+								className={clsx("w-full", galleryTileAspect(filter))}
+							/>
+						</button>
+					))}
+				</div>
+				{tiles.length < visible.length && (
+					<div className="flex justify-center pt-4">
+						<LoadMoreButton
+							isFetchingNextPage={false}
+							onClick={() => setTileLimit(tileLimit + GALLERY_PAGE_SIZE)}
 						/>
-					</Modal>
-				)
-			}
-		>
-			<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
-				{visible.map((image, index) => (
-					<button
-						type="button"
-						key={imageAssetKey(image)}
-						aria-label={text("gallery.view-image", { index: index + 1 })}
-						className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
-						onClick={(event) => {
-							tileRef.current = event.currentTarget;
-							setLightbox(index);
-						}}
-					>
-						<ManagedAssetImage
-							asset={image}
-							state="ready"
-							monogram={props.name}
-							fit={galleryTileFit(filter)}
-							className={clsx("w-full", galleryTileAspect(filter))}
-						/>
-					</button>
-				))}
-			</div>
-		</MediaDetailModal>
+					</div>
+				)}
+			</MediaDetailModal>
+		</ManagedAssetProvider>
 	);
 }
 
@@ -120,9 +171,25 @@ function GalleryCloseButton(props: { readonly label: string; readonly onClick: (
 	);
 }
 
+function ActiveMediaEntityGallery(props: GalleryProps & { readonly entityId: string }) {
+	const text = useMediaMessages();
+	const query = useRyotQuery(galleryQuery, { entityId: props.entityId });
+	let status: ReactNode;
+	if (query.data === undefined) {
+		status = query.isError ? (
+			<StatusMessage tone="error" action={{ onClick: query.refetch, label: text("gallery.retry") }}>
+				{text("gallery.error")}
+			</StatusMessage>
+		) : (
+			<StatusMessage tone="pending">{text("gallery.loading")}</StatusMessage>
+		);
+	}
+	return <MediaImageGallery {...props} status={status} images={query.data ?? []} />;
+}
+
 function GalleryFilterRow(props: {
 	readonly active: GalleryFilter;
-	readonly images: readonly MediaGalleryImage[];
+	readonly images: readonly MediaImage[];
 	readonly onSelect: (filter: GalleryFilter) => void;
 }) {
 	const text = useMediaMessages();
@@ -149,21 +216,23 @@ function GalleryLightboxFooter(props: {
 	readonly name: string;
 	readonly index: number;
 	readonly compact: boolean;
+	readonly images: readonly MediaImage[];
 	readonly onSelect: (index: number) => void;
-	readonly images: readonly MediaGalleryImage[];
 }) {
 	const { index, images } = props;
 	const text = useMediaMessages();
 	const stripRef = useRef<HTMLDivElement>(null);
+	const start = Math.max(0, index - STRIP_RADIUS);
+	const thumbnails = images.slice(start, index + STRIP_RADIUS + 1);
 
 	useEffect(() => {
 		const strip = stripRef.current;
-		const active = strip?.firstElementChild?.children[index];
+		const active = strip?.firstElementChild?.children[index - start];
 		if (!strip || !(active instanceof HTMLElement)) {
 			return;
 		}
 		strip.scrollLeft = active.offsetLeft - (strip.clientWidth - active.clientWidth) / 2;
-	}, [index]);
+	}, [index, start]);
 
 	if (props.compact) {
 		if (images.length > DOT_LIMIT) {
@@ -173,7 +242,7 @@ function GalleryLightboxFooter(props: {
 			<div className="flex justify-center gap-1.5 py-4">
 				{images.map((dot, dotIndex) => (
 					<span
-						key={imageAssetKey(dot)}
+						key={assetKey(dot)}
 						className={clsx(
 							"h-1 rounded-pill",
 							dotIndex === index ? "w-3.5 bg-accent" : "w-1 bg-border",
@@ -184,29 +253,34 @@ function GalleryLightboxFooter(props: {
 		);
 	}
 	return (
-		<div ref={stripRef} className="overflow-x-auto px-4 py-3">
-			<div className="flex w-max gap-1.5">
-				{images.map((thumb, thumbIndex) => (
-					<button
-						type="button"
-						key={imageAssetKey(thumb)}
-						onClick={() => props.onSelect(thumbIndex)}
-						aria-label={text("gallery.go-to-image", { index: thumbIndex + 1 })}
-						className={clsx(
-							"w-16 shrink-0 rounded-sm",
-							thumbIndex === index ? "outline-2 outline-accent" : "opacity-45",
-						)}
-					>
-						<ManagedAssetImage
-							asset={thumb}
-							state="ready"
-							monogram={props.name}
-							className="aspect-video w-full"
-						/>
-					</button>
-				))}
+		<ManagedAssetProvider assets={collectManagedAssetLocators(thumbnails)}>
+			<div ref={stripRef} className="overflow-x-auto px-4 py-3">
+				<div className="flex w-max gap-1.5">
+					{thumbnails.map((thumb, offset) => {
+						const thumbIndex = start + offset;
+						return (
+							<button
+								type="button"
+								key={assetKey(thumb)}
+								onClick={() => props.onSelect(thumbIndex)}
+								aria-label={text("gallery.go-to-image", { index: thumbIndex + 1 })}
+								className={clsx(
+									"w-16 shrink-0 rounded-sm",
+									thumbIndex === index ? "outline-2 outline-accent" : "opacity-45",
+								)}
+							>
+								<AssetArtWell
+									state="ready"
+									monogram={props.name}
+									className="aspect-video w-full"
+									asset={imageRendition(thumb, "thumbnail")}
+								/>
+							</button>
+						);
+					})}
+				</div>
 			</div>
-		</div>
+		</ManagedAssetProvider>
 	);
 }
 
@@ -216,8 +290,8 @@ function GalleryLightboxBody(props: {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
+	readonly images: readonly MediaImage[];
 	readonly onSelect: (index: number) => void;
-	readonly images: readonly MediaGalleryImage[];
 }) {
 	const { index, images } = props;
 	const text = useMediaMessages();
@@ -279,13 +353,15 @@ function GalleryLightboxBody(props: {
 						<AppIcon size={18} name="chevron-left" />
 					</button>
 				)}
-				<ManagedAssetImage
-					fit="contain"
-					state="ready"
-					asset={image}
-					monogram={props.name}
-					className="max-h-full min-h-0 w-full flex-1"
-				/>
+				<ManagedAssetProvider assets={collectManagedAssetLocators([image])}>
+					<AssetArtWell
+						fit="contain"
+						loading="eager"
+						monogram={props.name}
+						asset={imageRendition(image, "large")}
+						className="max-h-full min-h-0 w-full flex-1"
+					/>
+				</ManagedAssetProvider>
 				{props.compact ? null : (
 					<button
 						type="button"

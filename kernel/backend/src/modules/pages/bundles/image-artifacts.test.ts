@@ -18,6 +18,7 @@ const rendererHash = "b".repeat(64);
 const shippedHash = "c".repeat(64);
 const file = (name: string, value: number) => ({
 	name,
+	staticImports: [],
 	contentType: "text/javascript",
 	contents: new Uint8Array([value]),
 });

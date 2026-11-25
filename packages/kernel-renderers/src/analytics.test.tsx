@@ -207,12 +207,12 @@ it.effect(
 
 const choose = (label: string, choice: string) =>
 	Effect.gen(function* () {
-		fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}:`) }));
-		fireEvent.click(
-			yield* Effect.promise(() => screen.findByRole("menuitemradio", { name: choice })),
-		);
+		fireEvent.click(screen.getByRole("combobox", { name: new RegExp(`^${label}:`) }));
+		const option = yield* Effect.promise(() => screen.findByRole("option", { name: choice }));
+		fireEvent.pointerDown(option, { pointerType: "mouse" });
+		fireEvent.click(option);
 		yield* Effect.promise(() =>
-			waitFor(() => expect(screen.queryByRole("menu", { name: label })).toBeNull()),
+			waitFor(() => expect(screen.queryByRole("listbox", { name: label })).toBeNull()),
 		);
 	});
 
@@ -367,16 +367,15 @@ it.effect(
 			const page = mountControls(`?${search}`);
 			yield* Effect.promise(() => answerPreferences(page, []));
 			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" })),
+				yield* Effect.promise(() => screen.findByRole("combobox", { name: "Range: Last 30 days" })),
 			);
 			const locked = yield* Effect.promise(() =>
-				screen.findByRole("menuitemradio", { name: "Last 90 days (Pro)" }),
+				screen.findByRole("option", { name: "Last 90 days (Pro)" }),
 			);
-			expect(locked).toHaveProperty("disabled", true);
-			expect(screen.getByRole("menuitemradio", { name: "Last 7 days" })).toHaveProperty(
-				"disabled",
-				false,
-			);
+			expect(locked.getAttribute("aria-disabled")).toBe("true");
+			expect(
+				screen.getByRole("option", { name: "Last 7 days" }).getAttribute("aria-disabled"),
+			).toBeNull();
 		}),
 	testTimeout,
 );
@@ -396,9 +395,9 @@ it.effect(
 			yield* Effect.promise(() => answerPreferences(page));
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 90 days" })).toBeDefined();
-					expect(screen.getByRole("button", { name: "Compare: Previous period" })).toBeDefined();
-					expect(screen.getByRole("button", { name: "Group by: Week" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 90 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Compare: Previous period" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Group by: Week" })).toBeDefined();
 					expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
 				}),
 			);
@@ -416,9 +415,9 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Previous month" })).toBeDefined();
-					expect(screen.getByRole("button", { name: "Compare: Off" })).toBeDefined();
-					expect(screen.getByRole("button", { name: "Group by: Month" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Previous month" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Compare: Off" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Group by: Month" })).toBeDefined();
 				}),
 			);
 
@@ -433,13 +432,13 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: All time" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: All time" })).toBeDefined();
 					expect(
-						screen.getByRole("button", { name: "Compare: Off" }).getAttribute("disabled"),
+						screen.getByRole("combobox", { name: "Compare: Off" }).getAttribute("disabled"),
 					).not.toBeNull();
 					expect(screen.queryByText(/compared with/)).toBeNull();
 					expect(
-						screen.getByRole("button", { name: "Group by: Year" }).getAttribute("disabled"),
+						screen.getByRole("combobox", { name: "Group by: Year" }).getAttribute("disabled"),
 					).not.toBeNull();
 				}),
 			);
@@ -479,7 +478,7 @@ it.effect(
 			yield* Effect.promise(() => answerPreferences(page));
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 30 days" })).toBeDefined();
 					expect(sectionRange()).toContain('"days":30');
 				}),
 			);
@@ -500,7 +499,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 7 days" })).toBeDefined();
 					expect(sectionRange()).toContain('"days":7');
 				}),
 			);
@@ -513,7 +512,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 30 days" })).toBeDefined();
 					expect(sectionRange()).toEqual(thirtyDayRange);
 				}),
 			);
@@ -525,7 +524,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 7 days" })).toBeDefined();
 					expect(sectionRange()).toEqual(sevenDayRange);
 				}),
 			);
@@ -547,7 +546,7 @@ it.effect(
 			search.set("section", "contributor/activity");
 			const page = mountControls(`?${search}`);
 			yield* Effect.promise(() => answerPreferences(page));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" }));
+			yield* Effect.promise(() => screen.findByRole("combobox", { name: "Range: Last 30 days" }));
 			const committedCaptions = periodCaptions();
 
 			yield* choose("Range", "Custom dates");
@@ -600,7 +599,7 @@ it.effect(
 			const customSearch = `?${reportingSearch(customSelection)}`;
 			const page = mountControls(rollingSearch);
 			yield* Effect.promise(() => answerPreferences(page));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" }));
+			yield* Effect.promise(() => screen.findByRole("combobox", { name: "Range: Last 30 days" }));
 
 			page.navigate(routeLocation("/v/k/analytics", customSearch), {
 				index: 1,
@@ -608,7 +607,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Custom dates" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Custom dates" })).toBeDefined();
 					expect(screen.getByDisplayValue("2025-03-02")).toBeDefined();
 					expect(screen.getByDisplayValue("2025-03-04")).toBeDefined();
 				}),
@@ -627,7 +626,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Last 30 days" })).toBeDefined();
 					expect(screen.queryByLabelText("Start date")).toBeNull();
 				}),
 			);
@@ -638,7 +637,7 @@ it.effect(
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(screen.getByRole("button", { name: "Range: Custom dates" })).toBeDefined();
+					expect(screen.getByRole("combobox", { name: "Range: Custom dates" })).toBeDefined();
 					expect(screen.getByDisplayValue("2025-03-02")).toBeDefined();
 					expect(screen.getByDisplayValue("2025-03-04")).toBeDefined();
 				}),
@@ -689,7 +688,7 @@ it.effect(
 			});
 			page.navigate(routeLocation("/v/k/analytics", `?${search}`));
 			yield* Effect.promise(() => answerPreferences(page));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Compare: Off" }));
+			yield* Effect.promise(() => screen.findByRole("combobox", { name: "Compare: Off" }));
 
 			yield* choose("Compare", "Previous period");
 			yield* Effect.promise(() =>
@@ -712,7 +711,7 @@ it.effect(
 			);
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Compare: Previous period" })).toBeDefined(),
+					expect(screen.getByRole("combobox", { name: "Compare: Previous period" })).toBeDefined(),
 				),
 			);
 

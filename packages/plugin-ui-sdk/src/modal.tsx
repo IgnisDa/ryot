@@ -1,188 +1,189 @@
+import { AlertDialog } from "@base-ui/react/alert-dialog";
+import { Dialog } from "@base-ui/react/dialog";
+import { Drawer } from "@base-ui/react/drawer";
 import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
-import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
-import {
-	createContext,
-	type ReactNode,
-	type RefObject,
-	useCallback,
-	useContext,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-} from "react";
-import { createPortal } from "react-dom";
+import type { ReactElement, ReactNode, RefObject } from "react";
 
+import { IconButton } from "./button";
 import { revealFocusedField } from "./focused-field";
-import { useMotionTransition } from "./motion";
-import {
-	focusableElements,
-	interactiveSelector,
-	useFocusTrap,
-	useInertBackground,
-	useRestoreFocus,
-	useScrollLock,
-} from "./overlay";
+import { AppIcon } from "./icon";
 import { ReportProvider } from "./report";
-import { OverlayScope } from "./shortcut";
+import { dismissTopOverlay, ShortcutScopeContext, useOverlayScope } from "./shortcut";
 
-type ModalProps = {
+type ModalPlacement =
+	| {
+			readonly kind: "drawer";
+			readonly onSwipeOpen?: () => void;
+			readonly swipeArea?: ReactElement;
+			readonly placement: "left" | "sheet";
+	  }
+	| {
+			readonly swipeArea?: never;
+			readonly onSwipeOpen?: never;
+			readonly kind?: "alert" | "dialog";
+			readonly placement?: "side" | "center";
+	  };
+
+type ModalProps = ModalPlacement & {
+	readonly id?: string;
 	readonly label?: Text;
-	readonly closeLabel: Text;
+	readonly open?: boolean;
 	readonly className?: string;
-	readonly children: ReactNode;
 	readonly labelledBy?: string;
+	readonly children: ReactNode;
 	readonly onClose: () => void;
 	readonly dismissible?: boolean;
 	readonly backEnabled?: boolean;
-	readonly scrimClassName?: string;
 	readonly containerClassName?: string;
-	readonly placement?: "side" | "sheet" | "center";
-	readonly onInterceptBack?: undefined | (() => boolean);
+	readonly onClosed?: undefined | (() => void);
 	readonly triggerRef?: undefined | RefObject<null | HTMLElement>;
 	readonly initialFocusRef?: undefined | RefObject<null | HTMLElement>;
 };
 
-const ModalClose = createContext<() => boolean>(() => false);
+const backdropClassName =
+	"absolute inset-0 z-50 bg-overlay transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none";
+const popupClassName =
+	"relative pointer-events-auto outline-none transition-[opacity,transform,translate] duration-150 ease-out motion-reduce:transition-none";
+const dialogOffset = {
+	side: "data-ending-style:translate-x-6 data-starting-style:translate-x-6",
+	center: "data-ending-style:translate-y-1.5 data-starting-style:translate-y-1.5",
+};
+const drawerOffset = {
+	left: "[transform:translateX(var(--drawer-swipe-movement-x,0px))] data-ending-style:-translate-x-full data-starting-style:-translate-x-full",
+	sheet:
+		"[transform:translateY(var(--drawer-swipe-movement-y,0px))] data-ending-style:translate-y-full data-starting-style:translate-y-full",
+};
 
-export const useModalClose = () => useContext(ModalClose);
-
-export const shouldDismissSheet = (offset: number, velocity: number, height: number) =>
-	offset >= Math.min(120, height * 0.25) || (offset > 24 && velocity > 600);
+export function ModalClose(props: {
+	readonly label: Text;
+	readonly disabled?: boolean;
+	readonly className?: string;
+	readonly children?: ReactNode;
+}) {
+	return (
+		<Dialog.Close
+			disabled={props.disabled ?? false}
+			render={
+				<IconButton size="sm" label={props.label} className={props.className}>
+					{props.children ?? <AppIcon name="x" size={18} />}
+				</IconButton>
+			}
+		/>
+	);
+}
 
 export function Modal({
-	label,
-	onClose,
-	children,
-	className,
-	closeLabel,
-	labelledBy,
-	triggerRef,
-	scrimClassName,
-	initialFocusRef,
-	onInterceptBack,
+	open = true,
 	backEnabled = true,
-	containerClassName,
 	dismissible = true,
-	placement = "center",
+	...props
 }: ModalProps) {
-	const panelRef = useRef<HTMLDivElement>(null);
-	const fallbackTriggerRef = useRef<null | HTMLElement>(null);
-	const present = useIsPresent();
-	const reduced = useReducedMotion();
-	const transition = useMotionTransition();
-	const dragControls = useDragControls();
-	const draggable = placement === "sheet" && dismissible && present;
-	const hidden = {
-		opacity: 0,
-		x: reduced || placement !== "side" ? 0 : 24,
-		y: reduced ? 0 : { side: 0, center: 6, sheet: "100%" }[placement],
-	};
-
-	useRestoreFocus(triggerRef ?? fallbackTriggerRef, panelRef);
-	useInertBackground(panelRef);
-	useScrollLock(true);
-	useLayoutEffect(() => {
-		if (document.activeElement instanceof HTMLElement) {
-			fallbackTriggerRef.current = document.activeElement;
-		}
-	}, []);
-
-	useEffect(() => {
-		const initial =
-			initialFocusRef?.current ?? focusableElements(panelRef.current)[0] ?? panelRef.current;
-		initial?.focus();
-	}, [initialFocusRef]);
-
-	const requestClose = useCallback(() => {
-		if (!dismissible || onInterceptBack?.() === true) {
+	const requestClose = () => {
+		if (!dismissible) {
 			return false;
 		}
-		onClose();
+		props.onClose();
 		return true;
-	}, [dismissible, onClose, onInterceptBack]);
-
-	useFocusTrap(panelRef, { enabled: present });
-
-	return createPortal(
+	};
+	const overlay = useOverlayScope(open, backEnabled ? requestClose : undefined);
+	const onOpenChange = (
+		next: boolean,
+		details: Dialog.Root.ChangeEventDetails | Drawer.Root.ChangeEventDetails,
+	) => {
+		if (next) {
+			if (details.reason === "swipe") {
+				props.onSwipeOpen?.();
+			}
+			return;
+		}
+		if (details.reason === "close-watcher" && backEnabled && !overlay.isTop()) {
+			details.cancel();
+			dismissTopOverlay();
+			return;
+		}
+		if (!overlay.isTop() || !requestClose()) {
+			details.cancel();
+		}
+	};
+	const root = {
+		open,
+		onOpenChange,
+		onOpenChangeComplete: (opened: boolean) => {
+			if (opened) {
+				revealFocusedField();
+			} else {
+				props.onClosed?.();
+			}
+		},
+	};
+	const popup = {
+		id: props.id,
+		"aria-label": props.label,
+		...(props.labelledBy === undefined ? {} : { "aria-labelledby": props.labelledBy }),
+		finalFocus: props.triggerRef,
+		initialFocus: props.initialFocusRef,
+	};
+	const viewportClassName = clsx(
+		"pointer-events-none fixed inset-0 z-50 flex",
+		props.containerClassName,
+	);
+	const children = (
 		<ReportProvider report={null}>
-			<OverlayScope
-				enabled={present}
-				onBack={requestClose}
-				onEscape={requestClose}
-				backEnabled={present && dismissible && backEnabled}
-			>
-				<div
-					inert={!present}
-					aria-hidden={!present}
-					className={clsx("fixed inset-0 z-50 flex", containerClassName)}
-				>
-					<motion.button
-						type="button"
-						exit={{ opacity: 0 }}
-						aria-label={closeLabel}
-						transition={transition}
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						onClick={() => requestClose()}
+			<ShortcutScopeContext value={overlay.scope}>{props.children}</ShortcutScopeContext>
+		</ReportProvider>
+	);
+
+	if (props.kind === "drawer") {
+		const { placement } = props;
+		return (
+			<Drawer.Root {...root} swipeDirection={placement === "left" ? "left" : "down"}>
+				{props.swipeArea !== undefined && <Drawer.SwipeArea render={props.swipeArea} />}
+				<Drawer.Portal>
+					<Drawer.Backdrop
+						forceRender
 						className={clsx(
-							"absolute inset-0 motion-reduce:transform-none",
-							scrimClassName ?? "bg-overlay",
+							backdropClassName,
+							"opacity-[calc(1-var(--drawer-swipe-progress,0))] data-swiping:transition-none",
 						)}
 					/>
-					<motion.div
-						role="dialog"
-						tabIndex={-1}
-						exit={hidden}
-						ref={panelRef}
-						initial={hidden}
-						dragSnapToOrigin
-						aria-modal="true"
-						aria-label={label}
-						dragListener={false}
-						dragMomentum={false}
-						transition={transition}
-						dragControls={dragControls}
-						aria-labelledby={labelledBy}
-						drag={draggable ? "y" : false}
-						dragElastic={{ top: 0, bottom: 1 }}
-						animate={{ x: 0, y: 0, opacity: 1 }}
-						dragConstraints={{ top: 0, bottom: 0 }}
-						className={clsx("relative motion-reduce:transition-none", className)}
-						onAnimationComplete={() => {
-							if (present) {
-								revealFocusedField();
-							}
-						}}
-						onDragEnd={(_event, info) => {
-							if (
-								shouldDismissSheet(
-									info.offset.y,
-									info.velocity.y,
-									panelRef.current?.getBoundingClientRect().height ?? 0,
-								)
-							) {
-								requestClose();
-							}
-						}}
-						onPointerDownCapture={(event) => {
-							if (
-								draggable &&
-								event.button === 0 &&
-								event.target instanceof HTMLElement &&
-								event.target.closest("[data-sheet-drag-region]") !== null &&
-								event.target.closest(interactiveSelector) === null
-							) {
-								dragControls.start(event);
-								window.getSelection()?.removeAllRanges();
-							}
-						}}
+					<Drawer.Viewport className={viewportClassName}>
+						<Drawer.Popup
+							{...popup}
+							className={clsx(
+								popupClassName,
+								drawerOffset[placement],
+								"data-swiping:translate-none data-swiping:transition-none",
+								props.className,
+							)}
+						>
+							{children}
+						</Drawer.Popup>
+					</Drawer.Viewport>
+				</Drawer.Portal>
+			</Drawer.Root>
+		);
+	}
+
+	const Surface = props.kind === "alert" ? AlertDialog : Dialog;
+	return (
+		<Surface.Root {...root}>
+			<Surface.Portal>
+				<Surface.Backdrop forceRender className={backdropClassName} />
+				<Surface.Viewport className={viewportClassName}>
+					<Surface.Popup
+						{...popup}
+						className={clsx(
+							popupClassName,
+							dialogOffset[props.placement ?? "center"],
+							"data-ending-style:opacity-0 data-starting-style:opacity-0",
+							props.className,
+						)}
 					>
-						<ModalClose value={requestClose}>{children}</ModalClose>
-					</motion.div>
-				</div>
-			</OverlayScope>
-		</ReportProvider>,
-		document.body,
+						{children}
+					</Surface.Popup>
+				</Surface.Viewport>
+			</Surface.Portal>
+		</Surface.Root>
 	);
 }

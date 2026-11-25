@@ -71,6 +71,6 @@ describe("notification channel demo protection", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Delete the Discord channel" }));
 
 		expect(actions).toEqual(["add", "test", "toggle"]);
-		expect(screen.getByRole("dialog")).toBeTruthy();
+		expect(screen.getByRole("alertdialog")).toBeTruthy();
 	});
 });

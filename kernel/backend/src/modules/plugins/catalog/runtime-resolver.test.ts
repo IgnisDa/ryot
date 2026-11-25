@@ -190,12 +190,14 @@ const withClient = (
 ) => {
 	const files = [
 		{
+			staticImports: [],
 			name: "index.html",
 			contentType: "text/html; charset=utf-8",
 			contents: new TextEncoder().encode("<!doctype html><html></html>"),
 		},
 		{
 			name: "plugin.js",
+			staticImports: [],
 			contentType: "text/javascript; charset=utf-8",
 			contents: new TextEncoder().encode(
 				imports

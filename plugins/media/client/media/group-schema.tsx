@@ -3,7 +3,7 @@ import type {
 	EntityRendererProps,
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe, SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
@@ -44,7 +44,6 @@ import {
 	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
-import { collectManagedAssetLocators } from "./image";
 import {
 	MediaCreditColumns,
 	type MediaCreditCopy,
@@ -319,7 +318,6 @@ export const defineGroupMediaSchema = <
 						kind="people"
 						aspect="square"
 						compact={compact}
-						purpose="profile"
 						query={peopleQuery}
 						input={{ entityId }}
 						title={creditCopy.people}
@@ -329,7 +327,6 @@ export const defineGroupMediaSchema = <
 				companiesAction={
 					<MediaCreditsButton
 						fit="contain"
-						purpose="logo"
 						aspect="square"
 						kind="companies"
 						compact={compact}
@@ -372,11 +369,11 @@ export const defineGroupMediaSchema = <
 				overviewRelations={overviewRelations}
 				overviewIsEmpty={groupCreditsAreEmpty}
 				refreshOverview={props.refreshOverview}
+				artwork={{ aspect: descriptor.aspect }}
 				summaryError={summaryState.summaryError}
 				summaryRefreshStatus={props.summaryRefreshStatus}
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
-				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
 				overviewLoadingDetail={catalogMessage("group.overview-loading")}
 				tabContent={{ members: props.members, activity: props.activity }}
 				overviewNoticeTitle={creditCopy?.notice ?? catalogMessage("property.images")}

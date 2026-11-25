@@ -5,11 +5,11 @@ import {
 	OAUTH_PKCE_METHOD,
 	OAUTH_TOKEN_PATH,
 } from "@ryot-app/contract/oauth";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
 
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("GET /auth/.well-known/openid-configuration", () => {
 	it.live("serves JSON discovery for the path-ful issuer", () =>

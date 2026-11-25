@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { arrayContaining } from "@ryot-app/testing/matchers";
+import { arrayContaining, stringMatching } from "@ryot-app/testing/matchers";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
@@ -19,6 +19,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		log: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: ({ required: keys = [] }) =>
@@ -101,8 +102,23 @@ describe("show.tvdb sandbox script", () => {
 	it("dedupes seasons by number, keeps only official ones sorted by number", () => {
 		const requested: string[] = [];
 		const host = makeHost((_method, url) => {
-			const { pathname } = new URL(url);
-			requested.push(pathname);
+			const { pathname, search: query } = new URL(url);
+			requested.push(pathname + query);
+			if (pathname === "/lookup/shows" && query === "?thetvdb=1") {
+				return httpSuccess({ id: 2 });
+			}
+			if (pathname === "/shows/2/episodes") {
+				return httpSuccess([
+					{
+						id: 80,
+						season: 1,
+						number: 1,
+						airtime: "22:00",
+						airdate: "2020-01-01",
+						airstamp: "2020-01-02T03:00:00+00:00",
+					},
+				]);
+			}
 			if (pathname.endsWith("/series/1/extended")) {
 				return httpSuccess({
 					data: {
@@ -176,10 +192,12 @@ describe("show.tvdb sandbox script", () => {
 							"/v4/seasons/102/extended",
 							"/v4/seasons/103/extended",
 							"/v4/seasons/100/extended",
+							"/lookup/shows?thetvdb=1",
+							"/shows/2/episodes",
 						]),
 					);
 					expect(requested).not.toContain("/v4/seasons/999/extended");
-					expect(result.childEntities).toEqual([
+					expect(result.childEntities).toEqual<unknown>([
 						{
 							name: "Season 1",
 							externalId: "101",
@@ -203,6 +221,9 @@ describe("show.tvdb sandbox script", () => {
 										description: "ov",
 										parentShowExternalId: "1",
 										publishDate: "2020-01-01",
+										airingAt: "2020-01-02T03:00:00.000Z",
+										airingSourceUrl: "https://www.tvmaze.com/episodes/80",
+										airingConfirmedAt: stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/),
 										images: [{ url: "e1.jpg", type: "remote", purpose: "still" }],
 									},
 								},
@@ -490,7 +511,7 @@ describe("show.tvdb sandbox script", () => {
 						name: "Localized",
 						properties: {
 							description: "Localized Desc",
-							images: [{ type: "remote", url: "art.jpg", purpose: "cover" }],
+							localizedArtwork: { type: "remote", url: "art.jpg", purpose: "cover" },
 						},
 					});
 					return runSandboxTestScript(
@@ -516,7 +537,7 @@ describe("show.tvdb sandbox script", () => {
 						name: "Localized",
 						properties: {
 							description: "Localized Desc",
-							images: [{ type: "remote", url: "art.jpg", purpose: "still" }],
+							localizedArtwork: { type: "remote", url: "art.jpg", purpose: "still" },
 						},
 					});
 					return undefined;

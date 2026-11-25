@@ -154,7 +154,7 @@ it.live(
 				expect(screen.getByRole("textbox", { name: "Label" }).matches(":disabled")).toBe(true);
 				expect(screen.getByRole("button", { name: "Add field" }).matches(":disabled")).toBe(true);
 				expect(screen.getByRole("button", { name: "Cancel" }).matches(":disabled")).toBe(true);
-				fireEvent.keyDown(document, { key: "Escape" });
+				fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 				expect(view.outcomes).toEqual([]);
 				yield* Deferred.succeed(gate, response);
 				yield* Effect.promise(() =>
@@ -324,7 +324,7 @@ it.live(
 				yield* Effect.promise(() => screen.findByRole("dialog", { name: "Edit Favourites" }));
 				fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
 				expect(attempts).toBe(0);
-				let confirmation = within(screen.getByRole("dialog", { name: "Delete Favourites?" }));
+				let confirmation = within(screen.getByRole("alertdialog", { name: "Delete Favourites?" }));
 				fireEvent.click(confirmation.getByRole("button", { name: "Delete collection" }));
 				yield* Effect.promise(() =>
 					screen.findByText("The collection could not be deleted. Try again."),
@@ -332,7 +332,7 @@ it.live(
 				expect(view.outcomes).toEqual([]);
 				fireEvent.click(confirmation.getByRole("button", { name: "Cancel" }));
 				fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
-				confirmation = within(screen.getByRole("dialog", { name: "Delete Favourites?" }));
+				confirmation = within(screen.getByRole("alertdialog", { name: "Delete Favourites?" }));
 				expect(screen.queryByText("The collection could not be deleted. Try again.")).toBeNull();
 				fireEvent.click(confirmation.getByRole("button", { name: "Delete collection" }));
 				yield* Effect.promise(() =>
@@ -347,7 +347,7 @@ it.live(
 				expect(
 					screen.getByRole("textbox", { name: "Name", hidden: true }).matches(":disabled"),
 				).toBe(true);
-				fireEvent.keyDown(document, { key: "Escape" });
+				fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
 				expect(view.outcomes).toEqual([]);
 				yield* Deferred.succeed(gate, response);
 				yield* Effect.promise(() => waitFor(() => expect(view.outcomes).toEqual(["deleted"])));
@@ -391,7 +391,7 @@ for (const action of ["create", "update", "delete"] as const) {
 						if (action === "delete") {
 							fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
 							fireEvent.click(
-								within(screen.getByRole("dialog", { name: "Delete Favourites?" })).getByRole(
+								within(screen.getByRole("alertdialog", { name: "Delete Favourites?" })).getByRole(
 									"button",
 									{ name: "Delete collection" },
 								),

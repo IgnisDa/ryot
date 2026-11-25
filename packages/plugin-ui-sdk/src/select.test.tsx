@@ -32,30 +32,33 @@ function LanguageSelect() {
 }
 
 const openOptions = () =>
-	fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
+	fireEvent.click(screen.getByRole("combobox", { name: "Metadata language: Provider default" }));
 
 describe("Select", () => {
 	it("names the trigger with the selected label and commits a choice on press", () => {
 		render(<LanguageSelect />);
 		openOptions();
 
-		fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+		fireEvent.pointerDown(screen.getByRole("option", { name: "Spanish" }), {
+			pointerType: "mouse",
+		});
+		fireEvent.click(screen.getByRole("option", { name: "Spanish" }));
 
-		expect(screen.queryByRole("dialog")).toBeNull();
-		expect(screen.getByRole("button", { name: "Metadata language: Spanish" })).toBeTruthy();
+		expect(screen.queryByRole("listbox")).toBeNull();
+		expect(screen.getByRole("combobox", { name: "Metadata language: Spanish" })).toBeTruthy();
 	});
 
-	it("keeps the options open while arrow keys move the selection", () => {
+	it("keeps the saved value while arrow keys move the highlight", () => {
 		render(<LanguageSelect />);
 		openOptions();
 
-		fireEvent.keyDown(screen.getByRole("radio", { name: "Provider default" }), {
+		fireEvent.keyDown(screen.getByRole("option", { name: "Provider default" }), {
 			key: "ArrowDown",
 		});
 
-		expect(screen.getByRole("dialog")).toBeTruthy();
-		expect(screen.getByRole("radio", { name: "Spanish" }).getAttribute("aria-checked")).toBe(
-			"true",
+		expect(screen.getByRole("listbox")).toBeTruthy();
+		expect(screen.getByRole("option", { name: "Spanish" }).getAttribute("aria-selected")).toBe(
+			"false",
 		);
 	});
 
@@ -64,9 +67,9 @@ describe("Select", () => {
 		openOptions();
 
 		expect(
-			screen.getByRole("radio", { name: "Provider default" }).getAttribute("aria-checked"),
+			screen.getByRole("option", { name: "Provider default" }).getAttribute("aria-selected"),
 		).toBe("true");
-		expect(screen.getByRole("radio", { name: "French" }).getAttribute("aria-checked")).toBe(
+		expect(screen.getByRole("option", { name: "French" }).getAttribute("aria-selected")).toBe(
 			"false",
 		);
 	});

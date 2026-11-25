@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { testFormatters } from "@ryot-app/kernel-messages/testing";
+import { UTC } from "@ryot-app/plugin-client-sdk/plugin";
 import { assert } from "@ryot-app/testing/assert";
 
 import { catalogMessage } from "../../shared/messages.generated";
@@ -39,10 +40,10 @@ describe("media episode state", () => {
 		expect(mediaEpisodeNumberLabel(first)).toEqual(
 			catalogMessage("episode.number", { episode: 1 }),
 		);
-		expect(mediaEpisodeAirDateLabel(testFormatters, first)).toBe("Mar 13, 2025");
+		expect(mediaEpisodeAirDateLabel(testFormatters, first, UTC)).toBe("Mar 13, 2025");
 		expect<string | undefined>(mediaEpisodeRuntimeLabel(testMediaText, first)).toBe("52 min");
 		expect(mediaEpisodeSynopsis(first)).toBe("A thirteen-year-old is arrested at dawn.");
-		expect(mediaEpisodeAirDateLabel(testFormatters, second)).toBeUndefined();
+		expect(mediaEpisodeAirDateLabel(testFormatters, second, UTC)).toBeUndefined();
 		expect(mediaEpisodeRuntimeLabel(testMediaText, second)).toBeUndefined();
 		expect(mediaEpisodeSynopsis(second)).toBeUndefined();
 	});
@@ -59,12 +60,10 @@ describe("media episode state", () => {
 
 	it("collects only the managed locators the episode artwork needs", () => {
 		const episodes = readyEpisodes([
-			episodicEpisode({ images: [{ type: "local", purpose: "cover", key: "episode-cover" }] }),
-			episodicEpisode({ images: null, id: "episode-2" }),
+			episodicEpisode({ image: { type: "local", key: "episode-cover" } }),
+			episodicEpisode({ image: null, id: "episode-2" }),
 		]);
 
-		expect(mediaEpisodesManagedAssets(episodes, "cover")).toEqual([
-			{ type: "local", key: "episode-cover" },
-		]);
+		expect(mediaEpisodesManagedAssets(episodes)).toEqual([{ type: "local", key: "episode-cover" }]);
 	});
 });

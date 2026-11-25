@@ -1,6 +1,10 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	AssetArtWell,
+	assetKey,
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
 	type Text,
 	useFormatters,
 	usePluginIdentity,
@@ -19,11 +23,9 @@ import type { MediaStatusCopy } from "./detail-screen";
 import { useMediaEnrichment } from "./enrichment";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
-import type { MediaGalleryImage, MediaImageAsset } from "./image";
-import { MediaImageGallery } from "./image-gallery";
-import { galleryImages } from "./image-gallery-state";
+import { imageRendition } from "./image";
+import { MediaEntityImageGallery } from "./image-gallery";
 import { MediaLibraryTitle } from "./library-title";
-import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 import {
 	mediaCharacterLabel,
 	type MediaCompany,
@@ -46,7 +48,7 @@ import {
 	mediaShelfIcons,
 	MediaStatusMessage,
 } from "./primitives";
-import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
+import { mediaGalleryPreview, type MediaSummaryFields } from "./summary-state";
 import { mediaSyncCounts } from "./sync-counts";
 import {
 	type MediaWatchProviders,
@@ -62,16 +64,14 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0";
 
-export type MediaOverviewSubject = Pick<
-	MediaSummaryFields,
-	"id" | "name" | "images" | "relatedPopulationStatus"
->;
-
 export type MediaCreditCopy = {
 	readonly people: LocalMessage;
 	readonly notice: LocalMessage;
 	readonly companies: LocalMessage;
 };
+
+export type MediaOverviewSubject = Parameters<typeof mediaGalleryPreview>[0] &
+	Pick<MediaSummaryFields, "id" | "name" | "imageCount" | "relatedPopulationStatus">;
 
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
@@ -79,53 +79,6 @@ export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly overview: Overview;
 	readonly safeAreaTop: number;
 }) => ReactNode;
-
-export function MediaImageGallerySection(props: {
-	readonly name: string;
-	readonly compact: boolean;
-	readonly safeAreaTop: number;
-	readonly assets: readonly MediaImageAsset[];
-	readonly images: readonly MediaGalleryImage[];
-}) {
-	const text = useMediaMessages();
-	const triggerRef = useRef<HTMLButtonElement>(null);
-	const [galleryOpen, setGalleryOpen] = useState(false);
-	if (props.assets.length === 0) {
-		return null;
-	}
-	return (
-		<MediaOverviewSection
-			title={text("property.images")}
-			action={
-				<Button variant="link" ref={triggerRef} onClick={() => setGalleryOpen(true)}>
-					{text("overview.view-all-images")}
-				</Button>
-			}
-		>
-			<Shelf compact={props.compact} icons={mediaShelfIcons} label={text("property.images")}>
-				{props.assets.map((asset) => (
-					<ManagedAssetImage
-						state="ready"
-						asset={asset}
-						monogram={props.name}
-						key={imageAssetKey(asset)}
-						className={clsx("aspect-video", props.compact ? "w-64" : "w-96")}
-					/>
-				))}
-			</Shelf>
-			{galleryOpen && (
-				<MediaImageGallery
-					name={props.name}
-					images={props.images}
-					triggerRef={triggerRef}
-					compact={props.compact}
-					safeAreaTop={props.safeAreaTop}
-					onClose={() => setGalleryOpen(false)}
-				/>
-			)}
-		</MediaOverviewSection>
-	);
-}
 
 export function MediaWatchProvidersSection(props: {
 	readonly region: string;
@@ -163,7 +116,7 @@ export function MediaWatchProvidersSection(props: {
 									key={provider.name}
 									className={clsx("flex flex-col gap-2", props.compact ? "w-20" : "w-24")}
 								>
-									<ManagedAssetImage
+									<AssetArtWell
 										state="ready"
 										monogram={provider.name}
 										className="aspect-square w-full"
@@ -204,6 +157,56 @@ function MediaRegionWatchProvidersSection(props: {
 			link={watchProviderLink(props.media, region)}
 			groups={watchProviderGroups(props.media, region)}
 		/>
+	);
+}
+
+function MediaImageGallerySection(props: {
+	readonly compact: boolean;
+	readonly safeAreaTop: number;
+	readonly media: MediaOverviewSubject;
+}) {
+	const text = useMediaMessages();
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const [galleryOpen, setGalleryOpen] = useState(false);
+	const { media, compact } = props;
+	const preview = mediaGalleryPreview(media);
+	if (media.imageCount === 0) {
+		return null;
+	}
+	return (
+		<MediaOverviewSection
+			title={text("property.images")}
+			action={
+				<Button variant="link" ref={triggerRef} onClick={() => setGalleryOpen(true)}>
+					{text("overview.view-all-images")}
+				</Button>
+			}
+		>
+			<ManagedAssetProvider assets={collectManagedAssetLocators(preview)}>
+				{preview.length > 0 && (
+					<Shelf compact={compact} icons={mediaShelfIcons} label={text("property.images")}>
+						{preview.map((asset) => (
+							<AssetArtWell
+								monogram={media.name}
+								key={assetKey(asset)}
+								asset={imageRendition(asset, "thumbnail")}
+								className={clsx("aspect-video", compact ? "w-64" : "w-96")}
+							/>
+						))}
+					</Shelf>
+				)}
+				{galleryOpen && (
+					<MediaEntityImageGallery
+						name={media.name}
+						compact={compact}
+						entityId={media.id}
+						triggerRef={triggerRef}
+						safeAreaTop={props.safeAreaTop}
+						onClose={() => setGalleryOpen(false)}
+					/>
+				)}
+			</ManagedAssetProvider>
+		</MediaOverviewSection>
 	);
 }
 
@@ -314,14 +317,13 @@ export function MediaOverview<Overview>(props: {
 	readonly relations: MediaOverviewRelationsRender<Overview>;
 	readonly trailing?: undefined | ((input: { readonly compact: boolean }) => ReactNode);
 }) {
-	const gallery = mediaGalleryAssets(props.media);
 	const related = props.media.relatedPopulationStatus;
 	const relations =
 		isEnrichmentActive(related) ||
 		related.state === "failed" ||
 		props.overview.status !== "ready" ||
 		!props.isEmpty(props.overview.overview);
-	if (props.empty !== undefined && !relations && gallery.length === 0) {
+	if (props.empty !== undefined && !relations && props.media.imageCount === 0) {
 		return (
 			<>
 				{props.refreshStatus}
@@ -333,11 +335,9 @@ export function MediaOverview<Overview>(props: {
 		<div className="grid grid-cols-[minmax(0,1fr)] gap-8">
 			{props.refreshStatus}
 			<MediaImageGallerySection
-				assets={gallery}
-				name={props.media.name}
+				media={props.media}
 				compact={props.compact}
 				safeAreaTop={props.safeAreaTop}
-				images={galleryImages(props.media.images)}
 			/>
 			<MediaOverviewBody
 				related={related}
@@ -452,7 +452,7 @@ export function MediaCompaniesSection(props: {
 							aria-description={company.isInMediaLibrary ? text("library.in-library") : undefined}
 							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 						>
-							<ManagedAssetImage
+							<AssetArtWell
 								fit="contain"
 								monogram={company.name}
 								className="h-9 w-9 shrink-0"
@@ -476,7 +476,7 @@ export function MediaCompaniesSection(props: {
 				})}
 				{unlinked.map((creator) => (
 					<div className="flex items-center gap-3" key={mediaUnlinkedCreatorKey(creator)}>
-						<ManagedAssetImage
+						<AssetArtWell
 							state="ready"
 							asset={undefined}
 							monogram={creator.name}
@@ -533,7 +533,7 @@ export function MediaPeopleSection(props: {
 								props.compact ? "w-24" : "w-28",
 							)}
 						>
-							<ManagedAssetImage
+							<AssetArtWell
 								shape="circle"
 								monogram={person.name}
 								asset={mediaPersonAsset(person)}
@@ -570,7 +570,7 @@ export function MediaPeopleSection(props: {
 						key={mediaUnlinkedCreatorKey(creator)}
 						className={clsx("flex flex-col gap-2.5", props.compact ? "w-24" : "w-28")}
 					>
-						<ManagedAssetImage
+						<AssetArtWell
 							state="ready"
 							shape="circle"
 							asset={undefined}

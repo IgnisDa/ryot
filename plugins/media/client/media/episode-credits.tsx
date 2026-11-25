@@ -1,5 +1,9 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
-import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { mediaEpisodeCreditsRecipe } from "../../shared/media-recipes";
@@ -7,7 +11,6 @@ import { useMediaCopy } from "../messages";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery } from "./detail-queries";
 import type { MediaEpisode } from "./episodes-state";
-import { collectManagedAssetLocators } from "./image";
 import {
 	MediaOverviewBody,
 	type MediaOverviewRelationsRender,
@@ -70,7 +73,6 @@ export const createMediaEpisodeCredits = (input: {
 								index === 0 ? (
 									<MediaCreditsButton
 										aspect="square"
-										purpose="profile"
 										compact={compact}
 										title={copy.title}
 										query={peopleQuery}

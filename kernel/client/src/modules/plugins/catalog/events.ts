@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/contract";
 import { Context, Duration, Effect, Layer, Schedule } from "effect";
 
+import { requestAuthorization } from "#/api/authenticated";
 import {
 	EventStreamClosed,
 	type EventStreamFactory,
@@ -36,11 +37,11 @@ const makePluginCatalogEventsService = (
 
 		const connect = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
-				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
-				if (token === null) {
+				const authorization = yield* requestAuthorization(tokens, scope, forceRefresh);
+				if (authorization === null) {
 					return yield* Effect.never;
 				}
-				const unauthorized = yield* openEventStream(open, url, token, onEvent);
+				const unauthorized = yield* openEventStream(open, url, authorization, onEvent);
 				if (!unauthorized) {
 					return yield* new EventStreamClosed({ cause: "stream ended" });
 				}

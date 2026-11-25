@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import { render, screen } from "@testing-library/react";
-import { motionValue } from "motion/react";
 
 import { completesEdgeGesture, EdgeGesture } from "#/modules/navigation/edge-gesture";
 
@@ -13,8 +12,7 @@ describe("EdgeGesture", () => {
 	});
 
 	it("renders when the kernel or an iframe overlay owns an available edge", () => {
-		const progress = motionValue(0);
-		const common = { progress, onBack: () => undefined, onOpenChange: () => undefined };
+		const common = { onBack: () => undefined };
 		const { rerender } = render(
 			<EdgeGesture
 				{...common}

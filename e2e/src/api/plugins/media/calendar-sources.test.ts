@@ -2,7 +2,7 @@ import {
 	type CalendarOccurrence,
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
-	calendarWindowBounds,
+	calendarWindowArguments,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
@@ -49,10 +49,7 @@ const occurrences = (client: Client, slug: string) =>
 		return yield* collectRyotQLRecipeItems(
 			client,
 			Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
-			{
-				windowEnd: calendarWindowBounds(source.precision, window).end,
-				windowStart: calendarWindowBounds(source.precision, window).start,
-			},
+			calendarWindowArguments(source, window),
 			"calendarOccurrences",
 		);
 	});
@@ -114,7 +111,12 @@ describe("Media calendar sources", () => {
 						seasonNumber: 1,
 						episodes: [
 							{ episodeNumber: 1, publishDate: "2026-09-05" },
-							{ episodeNumber: 2, publishDate: "2026-09-12", images: [coverImage("episode.jpg")] },
+							{
+								episodeNumber: 2,
+								publishDate: "2026-09-12",
+								images: [coverImage("episode.jpg")],
+								properties: { airingAt: "2026-09-13T01:00:00.000Z" },
+							},
 							{ episodeNumber: 3, publishDate: "2026-10-02" },
 						],
 					},
@@ -155,7 +157,7 @@ describe("Media calendar sources", () => {
 					subject: show.id,
 					art: remoteAsset("episode.jpg"),
 					caption: { season: 1, episode: 2 },
-					startAt: "2026-09-12T00:00:00.000Z",
+					startAt: "2026-09-13T01:00:00.000Z",
 				},
 				{
 					done: false,

@@ -240,8 +240,8 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 
 		yield* workoutDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* workoutTable.waitFor({ state: "detached" });
-		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Volume" }).click();
 		const volumeChart = frame.getByRole("img", {
 			exact: true,
 			name: "Volume by workout-start period",
@@ -268,16 +268,16 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		yield* volumeTable.waitFor({ state: "detached" });
 
 		const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
-		yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Group by: Day" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Week" }).click();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
 		yield* frame
-			.getByRole("button", { exact: true, name: "Group by: Week" })
+			.getByRole("combobox", { exact: true, name: "Group by: Week" })
 			.waitFor({ state: "visible" });
 		yield* trendChart.waitFor({ state: "visible" });
 		expect(yield* workoutsTab.getAttribute("aria-selected")).toBe("true");
-		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Volume" }).click();
 		yield* volumeChart.waitFor({ state: "visible" });
 		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* volumeTable.waitForFunction((table) => table.querySelectorAll("tr").length === 3);
@@ -296,12 +296,12 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		yield* page.goBack();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
 		yield* frame
-			.getByRole("button", { exact: true, name: "Group by: Day" })
+			.getByRole("combobox", { exact: true, name: "Group by: Day" })
 			.waitFor({ state: "visible" });
 		yield* trendChart.waitFor({ state: "visible" });
 		expect(yield* workoutsTab.getAttribute("aria-selected")).toBe("true");
-		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
-		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
+		yield* frame.getByRole("combobox", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("option", { exact: true, name: "Volume" }).click();
 		yield* volumeChart.waitFor({ state: "visible" });
 		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* volumeTable.getByRole("row").first().waitFor({ state: "visible" });

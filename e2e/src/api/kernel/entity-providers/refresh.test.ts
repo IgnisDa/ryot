@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect } from "effect";
 
@@ -23,7 +24,6 @@ import {
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import { expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 it.live(
 	"refreshes successful shared data once, keeps user links, and replays after completion",

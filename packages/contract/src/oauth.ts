@@ -23,6 +23,7 @@ export const OAUTH_NATIVE_CLIENT_IDS = [
 ] as const;
 export const OAUTH_CLIENT_IDS = [...OAUTH_WEB_CLIENT_IDS, ...OAUTH_NATIVE_CLIENT_IDS] as const;
 export const REPORTING_TIME_ZONE_HEADER = "x-ryot-reporting-time-zone";
+export const INTERFACE_LOCALE_HEADER = "x-ryot-interface-locale";
 
 export const AccessClass = Schema.Literals(["standard", "demo"]);
 export type AccessClass = typeof AccessClass.Type;
@@ -196,6 +197,22 @@ export const OAuthUserInfoResponse = strictStruct({
 	email_verified: Schema.optional(Schema.NullOr(Schema.Boolean)),
 });
 export type OAuthUserInfoResponse = typeof OAuthUserInfoResponse.Type;
+
+export const BROWSER_SESSION_PATH = "/api/auth/browser-session";
+export const BROWSER_SESSION_HEADER = "x-ryot-browser-session";
+export const BrowserSessionExchange = strictStruct({
+	clientId: WebOAuthClientId,
+	code: Schema.NonEmptyString,
+	nonce: Schema.NonEmptyString,
+	codeVerifier: Schema.NonEmptyString,
+});
+export type BrowserSessionExchange = typeof BrowserSessionExchange.Type;
+export const BrowserSessionProfile = Schema.Struct({
+	...OAuthUserInfoResponse.fields,
+	session: Schema.NonEmptyString,
+	accessClass: Schema.Literals(["standard", "demo"]),
+});
+export type BrowserSessionProfile = typeof BrowserSessionProfile.Type;
 
 export const PendingAuthorization = strictStruct({
 	state: Schema.String,

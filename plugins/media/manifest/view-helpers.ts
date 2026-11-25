@@ -5,7 +5,7 @@ import type {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { column, jsonPath, table } from "@ryot-app/ryotql";
 
-import { preferredMediaImageExpression } from "../shared/entity-presentations";
+import { mediaArtworkPurpose, preferredMediaImageExpression } from "../shared/entity-presentations";
 import { catalogMessage } from "../shared/messages.generated";
 import { averageUserRating } from "../shared/user-rating";
 
@@ -19,7 +19,8 @@ type ViewExpressions = {
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
-const entityImage = () => preferredMediaImageExpression(entity);
+const entityImage = (slug: string) =>
+	preferredMediaImageExpression(entity, mediaArtworkPurpose(slug));
 const text = (expression: ScalarExpression) => ({ expression, displayKind: "text" as const });
 const yearValue = (expression: ScalarExpression) => ({ expression, displayKind: "year" as const });
 const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
@@ -174,7 +175,7 @@ const summarySubtitle = (columns: readonly ViewColumn[]): EntityBrowserSummary["
 export const buildViewExpressions = (slug: string): ViewExpressions => {
 	const columns = tableColumns(slug);
 	return {
-		table: { columns, image: entityImage() },
+		table: { columns, image: entityImage(slug) },
 		summary: { image: "image", subtitle: summarySubtitle(columns) },
 	};
 };

@@ -1,3 +1,4 @@
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect } from "effect";
 
@@ -14,7 +15,6 @@ import {
 } from "~/fixtures/kernel";
 import { requireArray, requireNumber } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const youtubeiSource = (input: { readonly name: string; readonly slug: string }) => `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";

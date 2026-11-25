@@ -41,6 +41,8 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 							...(contentLanguage === undefined ? {} : { contentLanguage }),
 						});
 			});
+			const initializeInterfaceLocale = (user: CurrentUserValue, locale: string) =>
+				auth.initializeInterfaceLocale(user.id, locale);
 			const rename = Effect.fn("UserSettingsService.rename")(function* (
 				user: CurrentUserValue,
 				name: string,
@@ -78,6 +80,7 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				refreshAvatar,
 				updatePreferences,
 				revokeConnectedApp,
+				initializeInterfaceLocale,
 			};
 		}),
 	},

@@ -60,6 +60,7 @@ it("matches immutable client artifacts by exact bytes", () => {
 		files: [
 			{
 				name: "asset.bin",
+				staticImports: [],
 				contents: new Uint8Array([0, 255, 1]),
 				contentType: "application/octet-stream",
 			},
@@ -68,6 +69,7 @@ it("matches immutable client artifacts by exact bytes", () => {
 	const files = [
 		{
 			name: "asset.bin",
+			staticImports: [],
 			artifactHash: metadata.hash,
 			contents: Buffer.from([0, 255, 1]),
 			contentType: "application/octet-stream",

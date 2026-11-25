@@ -23,7 +23,7 @@ import {
 	type CalendarSource,
 	calendarSourcesRecipe,
 	type CalendarWindow,
-	calendarWindowBounds,
+	calendarWindowArguments,
 } from "./calendar";
 import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
@@ -37,6 +37,7 @@ const source: CalendarSource = {
 	done: "done",
 	isHidden: false,
 	pluginId: owner,
+	instantAt: null,
 	precision: "date",
 	startAt: "startsAt",
 	slug: CalendarSourceSlug.make("tasks"),
@@ -81,11 +82,10 @@ const occurrences = (input: {
 	readonly window: CalendarWindow;
 }) => {
 	const recipe = Result.getOrThrow(calendarOccurrencesPageRecipe({ source: input.source }));
-	const bounds = calendarWindowBounds(input.source.precision, input.window);
+
 	return bindRecipe(recipe, {
 		after: input.after,
-		windowEnd: bounds.end,
-		windowStart: bounds.start,
+		...calendarWindowArguments(input.source, input.window),
 	});
 };
 const occurrenceQuery = (input: Parameters<typeof occurrences>[0]) =>

@@ -364,8 +364,12 @@ describe("workspace switcher", () => {
 
 				yield* Effect.promise(() => user.click(trigger));
 
-				expect(screen.queryByRole("menu")).toBeNull();
-				expect(document.activeElement).toBe(trigger);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(screen.queryByRole("menu") === null).toBe(true);
+						expect(document.activeElement === trigger).toBe(true);
+					}),
+				);
 			}),
 		testTimeout,
 	);
@@ -442,6 +446,7 @@ describe("workspace switcher", () => {
 		"closes and restores trigger focus before selecting another workspace",
 		() =>
 			Effect.gen(function* () {
+				const user = userEvent.setup();
 				const current = workspace();
 				const observations: Array<{ slug: string; open: boolean; focused: boolean }> = [];
 				render(
@@ -468,9 +473,16 @@ describe("workspace switcher", () => {
 					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-				fireEvent.click(trigger);
+				trigger.focus();
+				yield* Effect.promise(() => user.keyboard("{ArrowDown}"));
+				const selected = yield* Effect.promise(() =>
+					screen.findByRole("menuitemradio", { name: /^Switch to Fixture / }),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === selected).toBe(true)),
+				);
 
-				fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Other / }));
+				yield* Effect.promise(() => user.keyboard("{ArrowDown}{Enter}"));
 
 				yield* Effect.promise(() =>
 					waitFor(() =>

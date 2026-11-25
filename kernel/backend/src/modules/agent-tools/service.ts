@@ -348,11 +348,11 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			});
 			const list = (headers: PlatformHeaders.Headers, resource?: string) =>
 				auth
-					.resolveRequestCredential(new Headers(headers), resource)
+					.resolveRequestCredential(new Headers(headers), { resource })
 					.pipe(Effect.map((account) => availableAgentTools(account.authorization)));
 			const call = (input: AgentToolInvocation & { readonly headers: PlatformHeaders.Headers }) =>
 				auth
-					.resolveRequestCredential(new Headers(input.headers), input.resource)
+					.resolveRequestCredential(new Headers(input.headers), { resource: input.resource })
 					.pipe(Effect.flatMap((account) => callForAccount(account, input)));
 			const listTrusted = (userId: UserId) =>
 				auth

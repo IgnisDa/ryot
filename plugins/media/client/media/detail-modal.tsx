@@ -61,7 +61,6 @@ export function MediaDetailModal({
 		<Modal
 			label={label}
 			onClose={onClose}
-			closeLabel={closeLabel}
 			triggerRef={triggerRef}
 			containerClassName={
 				compact ? "items-stretch justify-stretch" : "items-center justify-center p-6"

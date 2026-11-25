@@ -1,18 +1,17 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedQuery } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { mediaGroupQuery, MediaOverviewRows } from "../../shared/media-recipes";
 import { useMediaCopy } from "../messages";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
-import { collectManagedAssetLocators } from "./image";
 import {
 	mediaOverviewAssets,
 	mediaRelationsAreEmpty,
 	type MediaUnlinkedCreator,
 } from "./overview-state";
-import { mediaPosterAsset } from "./summary-state";
 
 export type MediaGroup = NonNullable<SelectedQuerySuccess<ReturnType<typeof mediaGroupQuery>>>;
 
@@ -25,7 +24,7 @@ const mediaGroupMembers = (overview: MediaGroupOverview) => overview.group?.memb
 export const mediaGroupOverviewManagedAssets = (overview: MediaGroupOverview) =>
 	collectManagedAssetLocators([
 		...mediaOverviewAssets(overview),
-		...mediaGroupMembers(overview).map((member) => mediaPosterAsset(member)),
+		...mediaGroupMembers(overview).map((member) => member.image ?? undefined),
 	]);
 
 export const mediaGroupOverviewIsEmpty = (

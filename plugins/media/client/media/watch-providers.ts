@@ -1,5 +1,6 @@
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
+import type { MediaImageAsset } from "../../shared/media-image";
 import {
 	VIEWING_REGION_SETTING,
 	type WatchProvider,
@@ -7,7 +8,6 @@ import {
 	type WatchProviderOffer,
 	watchProviderOffers,
 } from "../../shared/watch-provider";
-import type { MediaImageAsset } from "./image";
 
 export type MediaWatchProviders = { readonly watchProviders: WatchProviderList };
 

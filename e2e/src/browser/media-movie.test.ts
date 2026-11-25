@@ -202,10 +202,10 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			`${frontendUrl}/settings/plugin-preferences/${mediaInstallation.installationId}`,
 		);
 		yield* page
-			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.getByRole("combobox", { exact: true, name: "Viewing country: Automatic (browser region)" })
 			.click();
-		yield* page.getByRole("textbox", { name: "Search Viewing country" }).fill("United Kingdom");
-		yield* page.getByRole("radio", { exact: true, name: "United Kingdom" }).click();
+		yield* page.getByRole("combobox", { name: "Search Viewing country" }).fill("United Kingdom");
+		yield* page.getByRole("option", { exact: true, name: "United Kingdom" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
@@ -365,24 +365,21 @@ it.live("filters All Movies by status and rating and sorts them by rating", () =
 
 		const filters = view.getByRole("dialog", { exact: true, name: "Filters" });
 		yield* view.getByRole("button", { name: /^Filters/ }).click();
-		yield* filters.getByRole("button", { name: /^Add filter/ }).click();
-		yield* view.getByRole("radio", { exact: true, name: "Status" }).click();
-		yield* filters.getByRole("button", { exact: true, name: "Status values" }).click();
-		yield* view.getByRole("checkbox", { exact: true, name: "In progress" }).click();
-		yield* view
-			.getByRole("dialog", { exact: true, name: "Status values" })
-			.getByRole("button", { exact: true, name: "Close options" })
-			.click();
+		yield* filters.getByRole("combobox", { name: /^Add filter/ }).click();
+		yield* view.getByRole("option", { exact: true, name: "Status" }).click();
+		yield* filters.getByRole("combobox", { exact: true, name: "Status values" }).click();
+		yield* view.getByRole("option", { exact: true, name: "In progress" }).click();
+		yield* page.keyboard.press("Escape");
 		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "detached" });
 		yield* view.locator(`article[data-entity-id="${watching}"]`).waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([watching]);
 
 		yield* filters.getByRole("button", { exact: true, name: "Remove filter 1" }).click();
-		yield* view.getByRole("button", { name: /^Sort by/ }).click();
-		expect(
-			yield* view.getByRole("dialog", { exact: true, name: "Sort by" }).getByRole("radio").count,
-		).toBe(9);
-		yield* view.getByRole("radio", { exact: true, name: "Your rating" }).click();
+		yield* view.getByRole("combobox", { name: /^Sort by/ }).click();
+		const sortOptions = view.getByRole("listbox", { name: "Sort by" });
+		yield* sortOptions.waitFor({ state: "visible" });
+		expect(yield* sortOptions.getByRole("option").count).toBe(9);
+		yield* view.getByRole("option", { exact: true, name: "Your rating" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "userRating-desc");
 		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([finished, watching, planned]);
@@ -545,6 +542,7 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 		const suffix = yield* randomUuid;
 		const movieName = `Phone Tracer Movie ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
+		const imageOrigin = "https://images.test/phone-art";
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			withCredits: true,
@@ -555,13 +553,15 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 				publishYear: 2006,
 				providerRating: 65.63,
 				productionStatus: "Released",
-				images: [1, 2, 3, 4].map((index) => ({
-					type: "remote",
-					purpose: "backdrop",
-					url: `https://images.test/phone-${index}.svg`,
-				})),
 				description:
 					"In order to avoid a jail sentence, a teenager heads to a new city to live with a relative and gets caught up in an underground racing scene that tests everything he thought he knew.",
+				images: Array.from({ length: 100 }, (_, index) => ({
+					type: "remote",
+					url: `${imageOrigin}/display-${index}.svg`,
+					purpose: index === 2 ? "backdrop" : "cover",
+					largeUrl: `${imageOrigin}/large-${index}.svg`,
+					thumbnailUrl: `${imageOrigin}/thumb-${index}.svg`,
+				})),
 				watchProviders: [
 					{
 						country: "US",
@@ -586,6 +586,13 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* page.setViewportSize({ width: 390, height: 844 });
+		const imageRequests: string[] = [];
+		yield* page.use((native) =>
+			native.context().route(`${imageOrigin}/**`, (route) => {
+				imageRequests.push(new URL(route.request().url()).pathname);
+				return route.fulfill({ body: MOVIE_COVER, contentType: "image/svg+xml" });
+			}),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
 		const media = mediaPluginFrame(page).contentFrame();
@@ -593,6 +600,32 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* media.getByText("TMDB rating", { exact: true }).waitFor({ state: "visible" });
+
+		const galleryTrigger = media.getByRole("button", { exact: true, name: "View all images" });
+		yield* galleryTrigger.scrollIntoViewIfNeeded();
+		yield* media.locator("header img").waitFor({ state: "visible" });
+		expect(imageRequests.length).toBeGreaterThan(0);
+		expect(imageRequests.every((path) => /(?:thumb-[012]|display-0)\.svg$/.test(path))).toBe(true);
+
+		yield* galleryTrigger.click();
+		const gallery = media.getByRole("dialog", { name: `${movieName} images` });
+		const firstImage = gallery.getByRole("button", { exact: true, name: "View image 1" });
+		yield* firstImage.waitFor({ state: "visible" });
+		expect(yield* gallery.getByRole("button", { name: /^View image / }).count).toBe(12);
+		expect(
+			imageRequests.every((path) => /(?:thumb-(?:[0-9]|1[01])|display-0)\.svg$/.test(path)),
+		).toBe(true);
+
+		yield* firstImage.click();
+		const lightbox = media.getByRole("dialog", { exact: true, name: "Image 1 of 100" });
+		yield* lightbox
+			.locator('img[src$="large-0.svg"]')
+			.waitForFunction((image) => image instanceof HTMLImageElement && image.naturalWidth > 0);
+		expect(imageRequests.filter((path) => path.includes("/large-"))).toEqual([
+			"/phone-art/large-0.svg",
+		]);
+		yield* lightbox.getByRole("button", { name: "Close image" }).click();
+		yield* gallery.getByRole("button", { name: "Close images" }).click();
 
 		const overflowing = yield* media.locator("html").evaluate((root) =>
 			[...root.querySelectorAll("main *")]

@@ -6,7 +6,6 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
-import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
@@ -83,11 +82,7 @@ export const translate = defineProvider({
 			const artworks = detailsShow ? (detailsShow["artworks"] ?? detailsShow["artwork"]) : null;
 			const purpose = input.entitySchemaSlug === "show-episode" ? "still" : "cover";
 			const image = getLocalizedArtwork(artworks, providerLanguage, purpose);
-			const result = buildTranslationResult(translationData, image);
-			const description = normalizePlainDescription(result.properties?.["description"]);
-			return description
-				? { ...result, properties: { ...result.properties, description } }
-				: result;
+			return buildTranslationResult(translationData, image);
 		});
 	},
 });

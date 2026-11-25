@@ -5,15 +5,14 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	type PluginBridgeInit,
 	PluginBridgeRyotQLRequest,
 } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { bootstrapClientPage } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	pluginContributor,
+	startTestPluginBridge,
 	testBridgeLocale,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
@@ -22,8 +21,10 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
+import type { MediaImage } from "../shared/media-image";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { servedProviderName } from "../tests/client/served-names";
+import { artworkSummaryFixture } from "../tests/client/summary-fixture";
 import { mediaMessages } from "../tests/client/test-support";
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import ShowDetailPage from "./show/screen";
@@ -102,23 +103,21 @@ const readyResponse = {
 						{ name: "Mystery", id: "genre-mystery" },
 					],
 				},
-				images: [
+				...artworkSummaryFixture([
 					{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 					{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-				],
+				]),
 			},
 		]),
 	},
 };
 
-const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
+const responseWithImages = (images: readonly MediaImage[]) => ({
 	data: {
 		requested: rows([{ schemaSlug: "show" }]),
-		summary: rows([{ ...readyResponse.data.summary.items[0], images }]),
+		summary: rows([{ ...readyResponse.data.summary.items[0], ...artworkSummaryFixture(images) }]),
 	},
 });
-
-type Bootstrap = ReturnType<typeof bootstrapClientPage>;
 
 type AssetLocator = { readonly key: string; readonly type: "s3" | "local" };
 
@@ -136,8 +135,7 @@ type AssetRequest = {
 	readonly assets: readonly AssetLocator[];
 };
 
-const bootstraps: Bootstrap[] = [];
-const channels: MessageChannel[] = [];
+const bootstraps: ReturnType<typeof startTestPluginBridge>[] = [];
 const clocks: ReturnType<typeof createTestRyotClock>[] = [];
 
 const openTestClock = () => {
@@ -148,48 +146,35 @@ const openTestClock = () => {
 
 const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 	document.body.innerHTML = '<div id="app"></div>';
-	const metadataElement = document.createElement("script");
-	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
-	metadataElement.type = "application/json";
-	metadataElement.textContent = JSON.stringify(metadata);
-	document.head.append(metadataElement);
-
-	bootstraps.push((clock?.bootstrap.bootstrapClientPage ?? bootstrapClientPage)(ShowDetailPage));
-	const channel = new MessageChannel();
-	channels.push(channel);
-	const messages: unknown[] = [];
-	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-	channel.port1.start();
-	window.dispatchEvent(
-		new MessageEvent("message", {
-			source: window.parent,
-			ports: [channel.port2],
-			data: {
-				...init,
-				page: {
-					view: null,
-					settings: {},
-					dataSources: null,
-					route: { params: {} },
-					renderer: { kind: "plugin", pluginId: "media-owner", exportName: "show-detail" },
-					target: {
-						kind: "entity",
-						entityId: "show-1",
-						entitySchemaSlug: "show",
-						entitySchemaPluginId: "media-owner",
-					},
-					contributors: [
-						pluginContributor({
-							name: "media",
-							pluginId: "media-owner",
-							packageId: PLUGIN_PACKAGE_ID,
-						}),
-					],
-				},
-			},
-		}),
+	const bootstrap = startTestPluginBridge(
+		(offer) => (clock ?? openTestClock()).bootstrap.bootstrapClientPage(ShowDetailPage, {}, offer),
+		metadata,
 	);
-	channel.port1.postMessage({
+	bootstraps.push(bootstrap);
+	const { port } = bootstrap;
+	const messages: unknown[] = [];
+	port.addEventListener("message", ({ data }) => messages.push(data));
+	port.start();
+	port.postMessage({
+		...init,
+		page: {
+			view: null,
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { kind: "plugin", pluginId: "media-owner", exportName: "show-detail" },
+			contributors: [
+				pluginContributor({ name: "media", pluginId: "media-owner", packageId: PLUGIN_PACKAGE_ID }),
+			],
+			target: {
+				kind: "entity",
+				entityId: "show-1",
+				entitySchemaSlug: "show",
+				entitySchemaPluginId: "media-owner",
+			},
+		},
+	});
+	port.postMessage({
 		index: 0,
 		key: "show-1",
 		compact: false,
@@ -198,7 +183,7 @@ const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 		leading: "drawer",
 		location: { search: "", kind: "entity", entityId: "show-1", entitySchemaSlug: "show" },
 	});
-	return { channel, messages, container: document.getElementById("app") };
+	return { port, messages, container: document.getElementById("app") };
 };
 
 const queryRequests = (messages: readonly unknown[]) =>
@@ -255,23 +240,23 @@ const assetCancels = (messages: readonly unknown[]) =>
 	);
 
 const reply = (
-	channel: MessageChannel,
+	port: MessagePort,
 	requestId: string,
 	result:
 		| { readonly response: unknown; readonly outcome: "success" }
 		| { readonly outcome: "failure"; readonly reason: "query-failed" },
-) => channel.port1.postMessage({ requestId, type: "ryotql-result", ...result });
+) => port.postMessage({ requestId, type: "ryotql-result", ...result });
 
 const assetReply = (
-	channel: MessageChannel,
+	port: MessagePort,
 	requestId: string,
 	result:
 		| { readonly outcome: "failure"; readonly reason: "asset-failed" }
 		| { readonly outcome: "success"; readonly resolutions: readonly AssetResolution[] },
-) => channel.port1.postMessage({ requestId, type: "asset-result", ...result });
+) => port.postMessage({ requestId, type: "asset-result", ...result });
 
-const replyOverview = (channel: MessageChannel, messages: readonly unknown[], index = 0) =>
-	reply(channel, queryRequestFor(messages, "people", index).requestId, {
+const replyOverview = (port: MessagePort, messages: readonly unknown[], index = 0) =>
+	reply(port, queryRequestFor(messages, "people", index).requestId, {
 		outcome: "success",
 		response: emptyOverviewResponse,
 	});
@@ -295,12 +280,7 @@ afterEach(() => {
 	for (const bootstrap of bootstraps) {
 		bootstrap.dispose();
 	}
-	for (const channel of channels) {
-		channel.port1.close();
-		channel.port2.close();
-	}
 	bootstraps.length = 0;
-	channels.length = 0;
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
 	return Effect.runPromise(
@@ -321,11 +301,11 @@ describe("ShowScreen", () => {
 		"queries the live entity after same-document entity navigation",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages } = openShow();
+				const { port, messages } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				channel.port1.postMessage({
+				port.postMessage({
 					index: 1,
 					key: "show-2",
 					compact: false,
@@ -365,11 +345,11 @@ describe("ShowScreen", () => {
 		"renders an error and retries through the query result",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages, container } = openShow();
+				const { port, messages, container } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "failure",
 					reason: "query-failed",
 				});
@@ -387,7 +367,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2)),
 				);
-				reply(channel, queryRequestFor(messages, "summary", 1).requestId, {
+				reply(port, queryRequestFor(messages, "summary", 1).requestId, {
 					outcome: "success",
 					response: readyResponse,
 				});
@@ -407,7 +387,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(missing.messages, "summary")).toHaveLength(1)),
 				);
-				reply(missing.channel, queryRequestFor(missing.messages, "summary").requestId, {
+				reply(missing.port, queryRequestFor(missing.messages, "summary").requestId, {
 					outcome: "success",
 					response: { data: { summary: rows([]), requested: rows([]) } },
 				});
@@ -428,7 +408,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "summary")).toHaveLength(1)),
 				);
-				reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "summary").requestId, {
+				reply(wrongSchema.port, queryRequestFor(wrongSchema.messages, "summary").requestId, {
 					outcome: "success",
 					response: { data: { summary: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
 				});
@@ -447,18 +427,18 @@ describe("ShowScreen", () => {
 		"renders seeded summary fields and publishes the Show title",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages, container } = openShow();
+				const { port, messages, container } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: readyResponse,
 				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1)),
 				);
-				replyOverview(channel, messages);
+				replyOverview(port, messages);
 
 				yield* Effect.promise(() =>
 					waitFor(() => expect(container?.textContent).toContain("Tracer Show")),
@@ -496,11 +476,11 @@ describe("ShowScreen", () => {
 		"renders a managed cover placeholder before resolving its signed URL",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages, container } = openShow();
+				const { port, messages, container } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: responseWithImages([
 						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
@@ -516,7 +496,7 @@ describe("ShowScreen", () => {
 
 				const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
 				const now = yield* DateTime.now;
-				assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				assetReply(port, assetRequestAt(messages, 0).requestId, {
 					outcome: "success",
 					resolutions: [
 						{
@@ -538,17 +518,17 @@ describe("ShowScreen", () => {
 		"shows an unavailable managed cover after the initial asset request fails",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages, container } = openShow();
+				const { port, messages, container } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 				});
 				yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
 
-				assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				assetReply(port, assetRequestAt(messages, 0).requestId, {
 					outcome: "failure",
 					reason: "asset-failed",
 				});
@@ -564,11 +544,11 @@ describe("ShowScreen", () => {
 		() =>
 			Effect.gen(function* () {
 				const clock = openTestClock();
-				const { channel, messages, container } = openShow(clock);
+				const { port, messages, container } = openShow(clock);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 				});
@@ -579,7 +559,7 @@ describe("ShowScreen", () => {
 				);
 				const expiresAt = DateTime.formatIso(DateTime.makeUnsafe("2026-09-04T12:05:00.000Z"));
 				const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
-				assetReply(channel, assetRequestAt(messages, 0).requestId, {
+				assetReply(port, assetRequestAt(messages, 0).requestId, {
 					outcome: "success",
 					resolutions: [
 						{ expiresAt, url: staleUrl, asset: { type: "local", key: "managed-cover" } },
@@ -593,7 +573,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() => flush());
 				expect(assetRequests(messages)).toHaveLength(2);
 
-				assetReply(channel, assetRequestAt(messages, 1).requestId, {
+				assetReply(port, assetRequestAt(messages, 1).requestId, {
 					outcome: "failure",
 					reason: "asset-failed",
 				});
@@ -607,17 +587,17 @@ describe("ShowScreen", () => {
 		"cancels a managed cover request when its screen unmounts",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages } = openShow();
+				const { port, messages } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 				});
 				yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
 
-				channel.port1.postMessage({
+				port.postMessage({
 					index: 2,
 					compact: false,
 					edgeBack: false,
@@ -640,11 +620,11 @@ describe("ShowScreen", () => {
 		"omits absent optional fields",
 		() =>
 			Effect.gen(function* () {
-				const { channel, messages, container } = openShow();
+				const { port, messages, container } = openShow();
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 				);
-				reply(channel, queryRequestFor(messages, "summary").requestId, {
+				reply(port, queryRequestFor(messages, "summary").requestId, {
 					outcome: "success",
 					response: {
 						data: {
@@ -653,7 +633,7 @@ describe("ShowScreen", () => {
 								{
 									owned: false,
 									id: "show-1",
-									images: null,
+									...artworkSummaryFixture([]),
 									ownedEpisodes: 0,
 
 									isCustom: false,

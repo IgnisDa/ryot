@@ -61,8 +61,8 @@ export const personSchema = defineCreatorMediaSchema({
 	kind: "person",
 	recipes: personRecipes,
 	links: mediaSourceLinks,
+	artwork: { aspect: "poster" },
 	creditSections: creatorCreditSections,
-	artwork: { aspect: "poster", purpose: "profile" },
 	facts: (person, copy) =>
 		personSummaryFacts(copy, person, formatLocalDateKey(new Date().toISOString())),
 });

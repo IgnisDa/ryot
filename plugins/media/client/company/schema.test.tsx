@@ -9,6 +9,7 @@ import {
 	decodeCreatorSummary,
 } from "../../tests/client/creator/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
+import { artworkSummaryFixture } from "../../tests/client/summary-fixture";
 import { testMediaCopy } from "../../tests/client/test-text";
 import { companySchema, companySummaryFacts } from "./schema";
 
@@ -18,6 +19,10 @@ const companySummary = (overrides: Record<string, unknown> = {}) =>
 			entityId: CREATOR_SUMMARY_INPUT.entityId,
 		}),
 		{
+			...artworkSummaryFixture(
+				[{ type: "remote", purpose: "logo", url: "https://images.test/logo.png" }],
+				"logo",
+			),
 			website: null,
 			sourceUrl: null,
 			foundedYear: 1994,

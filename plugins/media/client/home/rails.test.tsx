@@ -288,25 +288,29 @@ const upcomingEpisode = (
 	still = true,
 ) => ({
 	id,
-	publishDate,
 	seasonNumber,
 	episodeNumber,
-	images: still ? [{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" }] : [],
+	airingAt: null,
+	releaseDay: `${publishDate}T00:00:00.000Z`,
+	image: still ? { type: "remote", url: "https://images.test/still.jpg" } : null,
 });
 
 const upcomingEpisodic = (
-	identity: ReturnType<typeof mediaIdentity>,
+	identity: ReturnType<typeof mediaIdentity> & {
+		readonly backdrop?: null | { readonly url: string; readonly type: string };
+	},
 	total: number,
 	episodes: readonly ReturnType<typeof upcomingEpisode>[],
 ): UpcomingEpisodic => ({
 	total,
 	id: identity.id,
-	rows: episodes.map(({ id, images, ...episode }) => ({
+	rows: episodes.map(({ id, image, ...episode }) => ({
+		backdrop: null,
 		...identity,
 		...episode,
 		occurrenceId: id,
 		onePerTitle: true,
-		occurrenceImages: images,
+		occurrenceImage: image,
 	})),
 });
 
@@ -317,6 +321,7 @@ const upcomingShow = (total: number, episodes: readonly ReturnType<typeof upcomi
 
 const upcomingAnime = (id: string, name: string, airings: readonly string[]) => ({
 	...mediaIdentity(id, name, "anime"),
+	backdrop: null,
 	total: airings.length,
 	occurrences: includeResult(
 		airings.map((airingAt, index) => ({ airingAt, episodeNumber: index + 4 })),
@@ -350,18 +355,9 @@ describe("UpcomingRail", () => {
 					upcomingEpisodic(
 						{
 							...severance,
-							images: [
-								...severance.images,
-								...(backdrop
-									? [
-											{
-												type: "remote",
-												purpose: "backdrop",
-												url: "https://images.test/backdrop.jpg",
-											},
-										]
-									: []),
-							],
+							backdrop: backdrop
+								? { type: "remote", url: "https://images.test/backdrop.jpg" }
+								: null,
 						},
 						1,
 						[upcomingEpisode("episode-1", "2026-09-26", 2, 10, still)],
@@ -390,7 +386,13 @@ describe("UpcomingRail", () => {
 				const data = upcomingData({
 					anime: [upcomingAnime("anime-1", "Frieren", [mondayMorning])],
 					shows: [upcomingShow(3, [upcomingEpisode("episode-1", "2026-09-26", 2, 10)])],
-					releases: [{ ...mediaIdentity("movie-1", "Dune", "movie"), publishDate: "2026-10-05" }],
+					releases: [
+						{
+							...mediaIdentity("movie-1", "Dune", "movie"),
+							backdrop: null,
+							publishDate: "2026-10-05",
+						},
+					],
 					podcasts: [
 						upcomingEpisodic(mediaIdentity("podcast-1", "Hardcore History", "podcast"), 1, [
 							upcomingEpisode("podcast-ep", "2026-09-28", null, 71),
@@ -430,7 +432,13 @@ describe("UpcomingRail", () => {
 	it("keeps each title's soonest entry across sources and counts the rest", () => {
 		const data = upcomingData({
 			anime: [upcomingAnime("anime-1", "Frieren", ["2026-09-30T12:00:00.000Z"])],
-			releases: [{ ...mediaIdentity("anime-1", "Frieren", "anime"), publishDate: "2026-09-27" }],
+			releases: [
+				{
+					...mediaIdentity("anime-1", "Frieren", "anime"),
+					backdrop: null,
+					publishDate: "2026-09-27",
+				},
+			],
 		});
 		const view = mountRyotClient(
 			noopAdapter,

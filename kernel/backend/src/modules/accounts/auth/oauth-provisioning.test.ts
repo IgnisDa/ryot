@@ -210,6 +210,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 				revokeUserOAuthConsent: () => Effect.die("unused"),
 				listIncompleteBootstraps: () => Effect.die("unused"),
 				revokeSessionOAuthTokens: () => Effect.die("unused"),
+				initializeInterfaceLocale: () => Effect.die("unused"),
 				upsertInternalOAuthClient: (client) =>
 					Ref.update(clients, (all) => new Map(all).set(client.clientId, client)),
 				upsertInternalOAuthResource: (resource) =>

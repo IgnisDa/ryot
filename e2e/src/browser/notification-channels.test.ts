@@ -1,10 +1,10 @@
+import { type FakeHttpServer, startFakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -93,7 +93,7 @@ it.live("adds, pauses, tests and deletes a notification channel", () =>
 			expect(yield* row.innerText()).toContain("Paused");
 
 			yield* page.getByRole("button", { name: "Delete the Discord channel" }).click();
-			const confirmation = page.getByRole("dialog");
+			const confirmation = page.getByRole("alertdialog", { name: "Delete the Discord channel?" });
 			yield* confirmation.waitFor({ state: "visible" });
 			yield* confirmation.getByRole("button", { name: "Delete channel" }).click();
 

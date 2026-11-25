@@ -1,8 +1,8 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
-import type { CatalogRegistry } from "@ryot-app/i18n/catalog";
-import { fallbackChain, textDirection } from "@ryot-app/i18n/locale";
+import { catalogLocale, catalogLocales, type CatalogRegistry } from "@ryot-app/i18n/catalog";
+import { textDirection } from "@ryot-app/i18n/locale";
 import { type DisplayText, KERNEL_NAMESPACE, messageNamespaces } from "@ryot-app/i18n/message";
 import {
 	type AddToCollectionOutcome,
@@ -147,14 +147,14 @@ export const bridgeLocaleState = (
 	namespaces: undefined | ReadonlySet<string>,
 	pluginCatalogsLoading: boolean,
 ): PluginBridgeLocaleState => {
-	const chain = fallbackChain(locale);
+	const chain = catalogLocales(registry, locale);
 	const pendingNamespaces = pluginCatalogsLoading
 		? [...(namespaces ?? registry.keys())].filter((namespace) => namespace !== KERNEL_NAMESPACE)
 		: [];
 	return {
 		locale,
 		pendingNamespaces,
-		dir: textDirection(locale),
+		dir: textDirection(catalogLocale(registry, locale)),
 		catalogs: [...registry].flatMap(([namespace, catalogs]) =>
 			namespaces?.has(namespace) === false
 				? []
@@ -183,10 +183,6 @@ export type PluginBridgeSession = {
 };
 
 type PluginBridgeState = "ready" | "active" | "failed" | "closing" | "disposed";
-
-type PluginBridgeTarget = {
-	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
-};
 
 type HostScreenType =
 	| "pick-entity-screen"
@@ -241,6 +237,7 @@ export type BackgroundOperationAcceptance =
 	| { readonly outcome: "success"; readonly reservation: BackgroundSubmissionReservation };
 
 type PluginBridgeOptions = {
+	readonly port: MessagePort;
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
 	readonly documentKey: string;
@@ -249,7 +246,6 @@ type PluginBridgeOptions = {
 	readonly page?: ClientPageContext;
 	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
-	readonly target: PluginBridgeTarget;
 	readonly onNavigateBack: () => void;
 	readonly watchEntities: WatchEntities;
 	readonly locale: PluginBridgeLocaleState;
@@ -338,6 +334,7 @@ const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
 	ready.sessionId === init.sessionId && ready.compositionHash === init.compositionHash;
 
 export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSession {
+	const { port } = options;
 	const init: PluginBridgeInit = {
 		sessionId: createUuid(),
 		apiVersion: CLIENT_API_VERSION,
@@ -362,7 +359,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let mode = options.theme.resolvedMode;
 	let locale = options.locale;
 	let interestIds = new Set<string>();
-	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
 	const pending = new Map<string, PendingRequest>();
@@ -401,7 +397,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		options.onOverlayState(0);
 		if (notify) {
 			try {
-				channel.port1.postMessage({ reason: next, type: "lifecycle-close" });
+				port.postMessage({ reason: next, type: "lifecycle-close" });
 			} catch {
 				// The transport is already unavailable.
 			}
@@ -411,7 +407,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			Effect.runFork(Fiber.interrupt(fiber));
 		}
 		pending.clear();
-		channel.port1.close();
+		port.close();
 		state = next;
 	}
 
@@ -429,7 +425,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function post(message: unknown) {
 		try {
-			channel.port1.postMessage(message);
+			port.postMessage(message);
 		} catch {
 			fail();
 		}
@@ -569,10 +565,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 		overlayDismiss.cancelTimeout();
 		overlayDismiss = undefined;
-		if (result.dismissed && overlayCount > 0) {
-			overlayCount -= 1;
-			options.onOverlayState(overlayCount);
-		}
 	}
 
 	function handleLifecycleClose(reason: "failed" | "disposed") {
@@ -689,7 +681,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 								reportDiagnostic(type, requestId, cause);
 								message = outgoingResult(type, requestId, failure);
 							}
-							channel.port1.postMessage(message);
+							port.postMessage(message);
 							pending.delete(requestId);
 						} catch {
 							delivered?.(false);
@@ -924,7 +916,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
-	channel.port1.addEventListener(
+	port.addEventListener(
 		"message",
 		(event) => {
 			if (state === "active") {
@@ -1149,14 +1141,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		},
 		{ signal: listeners.signal },
 	);
-	channel.port1.addEventListener("messageerror", () => fail(), { signal: listeners.signal });
-	channel.port1.start();
-	try {
-		options.target.postMessage(init, "*", [channel.port2]);
-	} catch {
-		channel.port2.close();
-		fail(false);
-	}
+	port.addEventListener("messageerror", () => fail(), { signal: listeners.signal });
+	port.start();
+	post(init);
 
 	return {
 		close,

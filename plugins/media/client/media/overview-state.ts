@@ -1,12 +1,11 @@
 import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
 import type { CreditRoleCode, UnlinkedCreator } from "../../shared/credit-roles";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import type { MediaCopy, MediaText } from "../messages";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
-import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditPerson = MediaCreatorCredit;
 
@@ -50,11 +49,9 @@ export const mediaOverviewError = (
 			: text("overview.error-malformed"),
 });
 
-export const mediaPersonAsset = (person: MediaCreditPerson) =>
-	preferredMediaImageAsset(person.images, "profile");
+export const mediaPersonAsset = (person: MediaCreditPerson) => person.image ?? undefined;
 
-export const mediaCompanyAsset = (company: MediaCompany) =>
-	preferredMediaImageAsset(company.images, "logo");
+export const mediaCompanyAsset = (company: MediaCompany) => company.image ?? undefined;
 
 export const mediaCreditAssets = (credits: {
 	readonly companies: { readonly items: readonly MediaCompany[] };
@@ -66,7 +63,7 @@ export const mediaCreditAssets = (credits: {
 
 export const mediaOverviewAssets = (overview: MediaOverviewRows) => [
 	...mediaCreditAssets(overview),
-	...overview.recommendations.items.map((recommendation) => mediaPosterAsset(recommendation)),
+	...overview.recommendations.items.map((recommendation) => recommendation.image ?? undefined),
 ];
 
 export const mediaOverviewManagedAssets = (overview: MediaOverviewRows) =>

@@ -19,6 +19,7 @@ import {
 	notificationDeliveriesRecipe,
 	notificationOutcomeRecipe,
 } from "@ryot-app/ryotql-recipes/notification-delivery";
+import type { FakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
@@ -48,7 +49,6 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 

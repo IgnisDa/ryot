@@ -9,15 +9,14 @@ import {
 	useSyncExternalStore,
 } from "react";
 
-type ShortcutScope = { readonly id: symbol; readonly parent?: ShortcutScope };
-type OverlayEntry = { readonly scope: ShortcutScope; readonly dismiss: () => boolean };
+type ShortcutScope = { readonly parent?: ShortcutScope };
+type OverlayEntry = { readonly scope: ShortcutScope; readonly back?: undefined | (() => void) };
 
-const rootScope: ShortcutScope = { id: Symbol("shortcut-scope-root") };
+const rootScope: ShortcutScope = {};
 const listeners = new Set<() => void>();
-const shortcutStack: Array<{ readonly scope: ShortcutScope }> = [];
-const backStack: OverlayEntry[] = [];
+const overlays: OverlayEntry[] = [];
 
-const ShortcutScopeContext = createContext(rootScope);
+export const ShortcutScopeContext = createContext(rootScope);
 export type OverlayBackAdapter = { readonly register: (dismiss: () => boolean) => () => void };
 const OverlayBackContext = createContext<undefined | OverlayBackAdapter>(undefined);
 
@@ -25,11 +24,8 @@ export function OverlayBackProvider(props: {
 	readonly children: ReactNode;
 	readonly adapter: OverlayBackAdapter;
 }) {
-	return (
-		<OverlayBackContext.Provider value={props.adapter}>
-			{props.children}
-		</OverlayBackContext.Provider>
-	);
+	const parent = useContext(OverlayBackContext);
+	return <OverlayBackContext value={parent ?? props.adapter}>{props.children}</OverlayBackContext>;
 }
 
 const notify = () => {
@@ -54,24 +50,32 @@ const contains = (scope: ShortcutScope, candidate: ShortcutScope) => {
 	return false;
 };
 
-const topScopeIn = <Entry extends { readonly scope: ShortcutScope }>(entries: readonly Entry[]) =>
-	entries.reduce<Entry | undefined>((top, entry) => {
+const topOverlay = () =>
+	overlays.reduce<undefined | OverlayEntry>((top, entry) => {
 		if (top === undefined || contains(top.scope, entry.scope)) {
 			return entry;
 		}
 		return contains(entry.scope, top.scope) ? top : entry;
 	}, undefined);
-const topScope = () => topScopeIn(shortcutStack)?.scope ?? rootScope;
-const dismissTop = () => topScopeIn(backStack)?.dismiss() ?? false;
+
+const topScope = () => topOverlay()?.scope ?? rootScope;
+
+export const dismissTopOverlay = () => {
+	const back = topOverlay()?.back;
+	if (back === undefined) {
+		return false;
+	}
+	back();
+	return true;
+};
 
 export function useShortcut(
 	key: RegisterableHotkey,
 	handler: () => void,
-	options?: { readonly enabled?: boolean; readonly scope?: ShortcutScope },
+	options?: { readonly enabled?: boolean },
 ) {
-	const inherited = useContext(ShortcutScopeContext);
-	const target = options?.scope ?? inherited;
-	const isActive = useSyncExternalStore(subscribe, () => topScope() === target);
+	const scope = useContext(ShortcutScopeContext);
+	const isActive = useSyncExternalStore(subscribe, () => topScope() === scope);
 
 	useHotkey(key, handler, {
 		stopPropagation: false,
@@ -80,60 +84,30 @@ export function useShortcut(
 	});
 }
 
-export function OverlayScope(props: {
-	readonly enabled?: boolean;
-	readonly children: ReactNode;
-	readonly onEscape: () => void;
-	readonly backEnabled?: boolean;
-	readonly onBack?: () => boolean;
-}) {
-	const back = useContext(OverlayBackContext);
+export function useOverlayScope(open: boolean, onBack?: () => void) {
+	const adapter = useContext(OverlayBackContext);
 	const parent = useContext(ShortcutScopeContext);
-	const [scope] = useState<ShortcutScope>(() => ({ parent, id: Symbol("shortcut-scope") }));
-	const dismiss = useEffectEvent(() => {
-		if (props.onBack !== undefined) {
-			return props.onBack();
-		}
-		props.onEscape();
-		return true;
-	});
-	const enabled = props.enabled ?? true;
+	const [scope] = useState<ShortcutScope>(() => ({ parent }));
+	const handleBack = useEffectEvent(() => onBack?.());
+	const handlesBack = onBack !== undefined;
 
 	useLayoutEffect(() => {
-		if (!enabled) {
+		if (!open) {
 			return undefined;
 		}
-		const entry = { scope };
-		shortcutStack.push(entry);
+		const entry = { scope, back: handlesBack ? handleBack : undefined };
+		overlays.push(entry);
+		const unregister = handlesBack ? adapter?.register(dismissTopOverlay) : undefined;
 		notify();
 		return () => {
-			const index = shortcutStack.lastIndexOf(entry);
+			const index = overlays.lastIndexOf(entry);
 			if (index !== -1) {
-				shortcutStack.splice(index, 1);
+				overlays.splice(index, 1);
 			}
+			unregister?.();
 			notify();
 		};
-	}, [enabled, scope]);
+	}, [adapter, handlesBack, open, scope]);
 
-	useLayoutEffect(() => {
-		if (!enabled || !(props.backEnabled ?? true) || back === undefined) {
-			return undefined;
-		}
-		const entry = { scope, dismiss };
-		backStack.push(entry);
-		const unregister = back.register(dismissTop);
-		return () => {
-			const index = backStack.lastIndexOf(entry);
-			if (index !== -1) {
-				backStack.splice(index, 1);
-			}
-			unregister();
-		};
-	}, [back, enabled, props.backEnabled, scope]);
-
-	useShortcut("Escape", () => props.onEscape(), { scope, enabled });
-
-	return (
-		<ShortcutScopeContext.Provider value={scope}>{props.children}</ShortcutScopeContext.Provider>
-	);
+	return { scope, isTop: () => topScope() === scope };
 }

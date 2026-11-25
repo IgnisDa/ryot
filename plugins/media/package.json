@@ -26,6 +26,8 @@
 			"types": "./shared/media-copy-recipes.ts",
 			"default": "./shared/media-copy-recipes.ts"
 		},
+		"./shared/media-image": "./shared/media-image.ts",
+		"./backend/lib/vendors/tmdb-artwork": "./backend/lib/vendors/tmdb-artwork.ts",
 		"./shared/media-genres": {
 			"types": "./shared/media-genres.ts",
 			"default": "./shared/media-genres.ts"

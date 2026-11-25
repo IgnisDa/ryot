@@ -3,8 +3,8 @@ import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 
+import { Badge } from "~/components/ui/badge";
 import { getBlogPost } from "~/content/blog-registry";
-import { Badge } from "~/lib/components/ui/badge";
 
 import type { Route } from "./+types/blog.$slug";
 

@@ -13,17 +13,23 @@ import {
 	coalesce,
 	column,
 	concat,
+	conditional,
 	entitySchemaPredicate,
 	eq,
 	field,
 	gt,
 	inArray,
+	isNull,
 	jsonPath,
 	literal,
+	localDate,
+	lt,
 	not,
+	or,
 	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
+import { reportingTimeZone } from "@ryot-app/ryotql/authoring";
 
 import { libraryLinkExists, libraryLinkSource } from "../shared/entity-selections";
 import {
@@ -52,8 +58,10 @@ const releaseSchedule = (input: {
 	readonly root: TableReference;
 	readonly dueAt: ScalarExpression;
 	readonly joins?: readonly Join[];
+	readonly instantAt?: ScalarExpression;
 	readonly occurrence: ScalarExpression;
 	readonly precision: "date" | "instant";
+	readonly confirmedAt?: ScalarExpression;
 	readonly subject: ReturnType<typeof subjectOf>;
 	readonly positions?: Readonly<Record<string, ScalarExpression>>;
 }) => {
@@ -65,6 +73,7 @@ const releaseSchedule = (input: {
 	);
 	return {
 		dueAt: "dueAt",
+		...(input.instantAt === undefined ? {} : { instantAt: "instantAt" }),
 		slug: input.slug,
 		subject: input.subject,
 		signal: RELEASED_SIGNAL,
@@ -83,11 +92,13 @@ const releaseSchedule = (input: {
 				type: "rows",
 				fields: [
 					field("dueAt", input.dueAt),
+					...(input.instantAt === undefined ? [] : [field("instantAt", input.instantAt)]),
 					field("occurrence", input.occurrence),
 					field("entityName", column(input.root, "name")),
 					field(
 						"confirmedAt",
 						coalesce(
+							input.confirmedAt ?? literal(null),
 							column(input.root, "providerCheckedAt"),
 							castDate(literal("1970-01-01T00:00:00.000Z")),
 						),
@@ -106,8 +117,16 @@ const episodeReleases = (
 	return releaseSchedule({
 		precision: "date",
 		root: source.parent,
+		dueAt: source.time.date,
 		joins: source.parentJoins,
-		dueAt: occursAt(source.episode),
+		instantAt: source.time.instant,
+		...(config.kind === "show"
+			? {
+					confirmedAt: castDate(
+						jsonPath(column(source.episode, "properties"), "airingConfirmedAt"),
+					),
+				}
+			: {}),
 		slug: `${config.kind}-episode-releases`,
 		occurrence: column(source.episode, "id"),
 		subject: subjectOf(config.parentSchemaSlug, [config.parentSchemaSlug]),
@@ -195,15 +214,25 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	} satisfies PluginSignalSchedule;
 };
 
+/**
+ * Due when the title's earliest unaired release arrives: its earliest instant when that falls before
+ * the reporting day of its earliest date-only release, otherwise that date.
+ */
 const episodesAvailable = (
 	config: typeof showEpisodicKindConfig | typeof podcastEpisodicKindConfig,
 ) => {
 	const parent = table("entity", config.parentSchemaSlug);
 	const library = libraryLinkSource(parent, "availableLibrary", "in-media-library");
-	const nextAiringAt = summaryValue(library.link, "nextAiringAt");
+	const date = castDate(summaryValue(library.link, "nextAiringDate"));
+	const instant = castDate(summaryValue(library.link, "nextAiringAt"));
+	const timedFirst = or(
+		isNull(date),
+		lt(castDate(localDate(instant, { timeZone: reportingTimeZone })), date),
+	);
 	return {
 		dueAt: "dueAt",
 		precision: "date",
+		instantAt: "instantAt",
 		occurrence: "occurrence",
 		signal: AVAILABLE_SIGNAL,
 		properties: { entityName: "entityName" },
@@ -212,20 +241,34 @@ const episodesAvailable = (
 		query: {
 			from: library.from,
 			joins: library.joins,
-			output: {
-				type: "rows",
-				fields: [
-					field("dueAt", castDate(nextAiringAt)),
-					field("entityName", column(parent, "name")),
-					field("occurrence", concat(column(parent, "id"), literal(":"), castText(nextAiringAt))),
-				],
-			},
 			where: and(
 				library.where,
 				entitySchemaPredicate(parent, config.parentSchemaSlug, self),
 				eq(castText(summaryValue(library.link, "lifecycleState")), literal("caught_up")),
 				not(libraryLinkExists(parent, "availableMonitoring", "media-monitoring")),
 			),
+			output: {
+				type: "rows",
+				fields: [
+					field("dueAt", date),
+					field("instantAt", conditional(timedFirst, instant, literal(null))),
+					field("entityName", column(parent, "name")),
+					field(
+						"occurrence",
+						concat(
+							column(parent, "id"),
+							literal(":"),
+							castText(
+								conditional(
+									timedFirst,
+									summaryValue(library.link, "nextAiringAt"),
+									summaryValue(library.link, "nextAiringDate"),
+								),
+							),
+						),
+					),
+				],
+			},
 		},
 	} satisfies PluginSignalSchedule;
 };

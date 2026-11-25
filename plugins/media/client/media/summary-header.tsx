@@ -1,5 +1,10 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { type Text, useAssetUrl, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
+import {
+	AssetArtWell,
+	type Text,
+	useAssetUrl,
+	useDisplayText,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, ProgressBar, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -19,21 +24,29 @@ import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
 import { MediaCollectionsControl } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
-import { ManagedAssetImage } from "./managed-assets";
 import { MediaMonitoringControl } from "./monitoring";
 import { MediaOwnershipControl } from "./ownership";
 import { MediaExternalLink, MediaFactRow, MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
 import { MediaReviewButton } from "./review";
 import {
+	awaitsLocalizedArtwork,
 	type MediaEntitySummaryValue,
-	mediaPosterAsset,
 	type MediaStatusRailConfig,
 	type MediaSummaryArtwork,
+	mediaSummaryArtworkAsset,
 	type MediaSummaryFact,
 	type MediaSummaryHeaderDetail,
 } from "./summary-state";
 import { MediaUserDataControl } from "./user-data";
+
+type MediaSummaryHeaderProps = {
+	readonly compact: boolean;
+	readonly artwork: MediaSummaryArtwork;
+	readonly media: MediaEntitySummaryValue;
+	readonly detail: MediaSummaryHeaderDetail;
+	readonly settled: undefined | EntitySettleReason;
+};
 
 export function MediaSummarySkeleton(props: {
 	readonly title: Text;
@@ -65,26 +78,27 @@ export function MediaSummarySkeleton(props: {
 	);
 }
 
-export function MediaSummaryHeader(props: {
-	readonly compact: boolean;
-	readonly artwork: MediaSummaryArtwork;
-	readonly media: MediaEntitySummaryValue;
-	readonly detail: MediaSummaryHeaderDetail;
-	readonly settled: undefined | EntitySettleReason;
-}) {
+export function MediaSummaryHeader(props: MediaSummaryHeaderProps) {
 	const { media, detail, compact, artwork } = props;
-	const poster = mediaPosterAsset(media, artwork.purpose);
-	const { gradientStops } = useImageTint(useAssetUrl(poster));
+	const poster = mediaSummaryArtworkAsset(media);
+	const { onLoad, gradientStops } = useImageTint(useAssetUrl(poster));
 	const art = (
-		<ManagedAssetImage
+		<AssetArtWell
 			asset={poster}
+			onLoad={onLoad}
+			loading="eager"
 			fit={artwork.fit}
 			monogram={media.name}
-			state={fieldSyncState(poster, media)}
+			state={awaitsLocalizedArtwork(media) ? "pending" : fieldSyncState(poster, media)}
 			className={clsx(
 				"shadow-card",
 				mediaArtworkClass({ compact, layout: "grid", aspect: artwork.aspect }),
 			)}
+			srcSet={
+				poster?.type === "remote" && poster.thumbnailUrl !== undefined
+					? `${poster.thumbnailUrl} 1x, ${poster.url} 2x`
+					: undefined
+			}
 		/>
 	);
 	const identity = (

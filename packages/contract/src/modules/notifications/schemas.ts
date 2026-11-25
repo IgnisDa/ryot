@@ -50,6 +50,7 @@ const TelegramSpecifics = Schema.Struct({
 	chatId: Schema.String,
 	botToken: Schema.String,
 	kind: Schema.Literal("telegram"),
+	messageThreadId: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 
 export const NotificationChannelSpecifics = Schema.Union([

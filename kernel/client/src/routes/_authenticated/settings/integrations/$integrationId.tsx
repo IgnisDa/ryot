@@ -168,8 +168,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const uploadFile = useSchemaFileUpload();
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
@@ -190,7 +188,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const providerNames = integrationProviderNames(providers.data ?? [], t);
 	const title = formatDisplayText(t, integrationTitle(integration, providerNames));
 	const [saveDetail, setSaveDetail] = useState<Message | undefined>();
-	const { backInterceptors } = Route.useRouteContext();
 	const provider = useLatestDefined(
 		findOwnedIntegrationProvider(providers.data ?? [], integration),
 	);
@@ -254,20 +251,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		return () => clearInterval(interval);
 	}, [isPolling]);
 
-	useEffect(() => {
-		if (!menuOpen && !isConfirming) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			if (remove.isPending) {
-				return true;
-			}
-			setMenuOpen(false);
-			setIsConfirming(false);
-			return true;
-		});
-	}, [backInterceptors, remove.isPending, isConfirming, menuOpen]);
-
 	const confirmDelete = () => {
 		setDeleteFailed(false);
 		return Effect.runPromise(
@@ -298,7 +281,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 			destructive: true,
 			label: t(kernelMessage("client.route.settings.integration.delete-action")),
 			onSelect: () => {
-				setMenuOpen(false);
 				setDeleteFailed(false);
 				setIsConfirming(true);
 			},
@@ -319,29 +301,21 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				</p>
 			}
 			actions={
-				<>
-					<button
-						type="button"
-						ref={menuTrigger}
-						aria-haspopup="menu"
-						aria-expanded={menuOpen}
-						onClick={() => setMenuOpen((open) => !open)}
-						aria-label={t(kernelMessage("client.route.settings.integration.actions"))}
-						className="flex size-11 shrink-0 items-center justify-center text-text-muted"
-					>
-						<AppIcon size={20} name="more-horizontal" />
-					</button>
-					{menuOpen && (
-						<Menu
-							items={menuItems}
-							triggerRef={menuTrigger}
-							activeIndex={activeIndex}
-							onClose={() => setMenuOpen(false)}
-							onActiveIndexChange={setActiveIndex}
-							label={t(kernelMessage("client.route.settings.integration.actions"))}
-						/>
-					)}
-				</>
+				<Menu
+					items={menuItems}
+					label={t(kernelMessage("client.route.settings.integration.actions"))}
+					trigger={
+						<button
+							type="button"
+							ref={menuTrigger}
+
+							aria-label={t(kernelMessage("client.route.settings.integration.actions"))}
+							className="flex size-11 shrink-0 items-center justify-center text-text-muted"
+						>
+							<AppIcon size={20} name="more-horizontal" />
+						</button>
+					}
+				/>
 			}
 		>
 			<IntegrationDetailView

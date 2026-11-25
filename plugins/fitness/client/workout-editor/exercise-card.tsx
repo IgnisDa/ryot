@@ -1,5 +1,5 @@
 import { createUuid, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { AssetArtWell, useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -7,7 +7,6 @@ import {
 	formatClock,
 	IconButton,
 	MenuButton,
-	MotionPresence,
 	Notice,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -21,7 +20,6 @@ import type {
 } from "../../shared/workout-editor-draft";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import type { WorkoutSetLot } from "../../shared/workout-set";
-import { AssetArtWell } from "../asset-urls";
 import { useFitnessMessages } from "../messages";
 import { editSet, newWorkoutSet } from "./actions";
 import {
@@ -109,7 +107,7 @@ export function ExerciseCard(props: {
 				id={`occurrence-${occurrence.clientId}`}
 			>
 				<div className="flex items-center gap-2.5">
-					<AssetArtWell name="?" asset={undefined} className="size-10 shrink-0" />
+					<AssetArtWell monogram="?" asset={undefined} className="size-10 shrink-0" />
 					<div className="min-w-0 flex-1">
 						<h2 className="text-[15px] font-semibold">{name}</h2>
 						<p className="text-xs text-text-muted">{text("client.card.removed")}</p>
@@ -145,7 +143,7 @@ export function ExerciseCard(props: {
 		>
 			<div className="flex items-start gap-2.5 px-1">
 				<AssetArtWell
-					name={name}
+					monogram={name}
 					asset={exercise?.images?.[0]}
 					className={compact ? "size-10 shrink-0" : "size-11 shrink-0"}
 				/>
@@ -347,47 +345,45 @@ export function ExerciseCard(props: {
 					</div>
 				</div>
 			</Collapse>
-			<MotionPresence>
-				{openSet === undefined ? null : (
-					<SetSheet
-						set={openSet}
-						pro={props.pro}
-						key="set-options"
-						exerciseName={name}
-						draft={editorDraft}
-						disabled={disabled}
-						occurrence={occurrence}
-						onClose={() => setOpenSetId(undefined)}
-						previous={previous.get(openSet.clientId)}
-						onCopyPrevious={() => {
-							props.onPrevious(openSet);
-							setOpenSetId(undefined);
-						}}
-						onChange={(transform) => {
-							props.onSetChanged(openSet.clientId);
-							patchSet(openSet.clientId, transform);
-						}}
-						inheritedRestSeconds={(() => {
-							const rest = inheritedRestFor(openSet.setLot);
-							return rest.kind === "resolved" ? rest.seconds : 0;
-						})()}
-						onDelete={() => {
-							const deleted = change((item) =>
-								item.sets.some(({ clientId }) => clientId === openSet.clientId)
-									? {
-											...item,
-											sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
-										}
-									: item,
-							);
-							if (deleted) {
-								props.onDeletedSet();
-							}
-							setOpenSetId(undefined);
-						}}
-					/>
-				)}
-			</MotionPresence>
+			{openSet === undefined ? null : (
+				<SetSheet
+					set={openSet}
+					pro={props.pro}
+					key="set-options"
+					exerciseName={name}
+					draft={editorDraft}
+					disabled={disabled}
+					occurrence={occurrence}
+					onClose={() => setOpenSetId(undefined)}
+					previous={previous.get(openSet.clientId)}
+					onCopyPrevious={() => {
+						props.onPrevious(openSet);
+						setOpenSetId(undefined);
+					}}
+					onChange={(transform) => {
+						props.onSetChanged(openSet.clientId);
+						patchSet(openSet.clientId, transform);
+					}}
+					inheritedRestSeconds={(() => {
+						const rest = inheritedRestFor(openSet.setLot);
+						return rest.kind === "resolved" ? rest.seconds : 0;
+					})()}
+					onDelete={() => {
+						const deleted = change((item) =>
+							item.sets.some(({ clientId }) => clientId === openSet.clientId)
+								? {
+										...item,
+										sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
+									}
+								: item,
+						);
+						if (deleted) {
+							props.onDeletedSet();
+						}
+						setOpenSetId(undefined);
+					}}
+				/>
+			)}
 		</Card>
 	);
 }

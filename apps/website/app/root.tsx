@@ -15,11 +15,11 @@ import {
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 
+import { Button } from "~/components/ui/button";
+import { Toaster } from "~/components/ui/sonner";
 import { cn } from "~/lib/utils";
 
 import type { Route } from "./+types/root";
-import { Button } from "./lib/components/ui/button";
-import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 
 // oxlint-disable-next-line import/no-unassigned-import

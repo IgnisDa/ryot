@@ -1,5 +1,6 @@
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
@@ -24,7 +25,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 describe("Watcharr Show Import E2E (episode resolution)", () => {

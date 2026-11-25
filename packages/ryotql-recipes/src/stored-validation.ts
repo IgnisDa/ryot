@@ -8,7 +8,11 @@ import {
 	RowsOutput,
 	type RyotQLDocument as ExecutableDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	materializeValidationSample,
+	storedValidationContext,
+} from "@ryot-app/ryotql/binding";
 import type { RyotQLAccess } from "@ryot-app/ryotql/catalog";
 import { filterOperatorsFor, sampleFilterRule } from "@ryot-app/ryotql/filters";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
@@ -35,19 +39,15 @@ const controlQuery = (query: ExecutableQuery) =>
 				: { ...query.output, limit: query.output.limit ?? 1, maxLimit: query.output.limit ?? 1 },
 	});
 
-const decodePredicate = Schema.decodeUnknownResult(Predicate);
-const decodeOrderBy = Schema.decodeUnknownResult(Schema.Array(OrderBy));
-const decodeRowsOutput = Schema.decodeUnknownResult(RowsOutput);
-
-const memoizeByJson = <A>(decode: (input: unknown) => A) => {
-	const results = new Map<string, A>();
+const memoizeSample = <A>(decode: (input: unknown) => Result.Result<A, unknown>) => {
+	const results = new Map<string, Result.Result<A, unknown>>();
 	return (input: unknown) => {
 		const key = JSON.stringify(input);
 		const known = results.get(key);
 		if (known !== undefined) {
 			return known;
 		}
-		const result = decode(input);
+		const result = Result.flatMap(materializeValidationSample(input), decode);
 		results.set(key, result);
 		return result;
 	};
@@ -77,9 +77,9 @@ export const storedValidationBranches = (
 		return Result.fail(projections.failure);
 	}
 	const controlTargets = Object.entries(document.controls ?? {});
-	const decodeSamplePredicate = memoizeByJson(decodePredicate);
-	const decodeSampleOrderBy = memoizeByJson(decodeOrderBy);
-	const decodeSampleRowsOutput = memoizeByJson(decodeRowsOutput);
+	const decodeSamplePredicate = memoizeSample(Schema.decodeUnknownResult(Predicate));
+	const decodeSampleOrderBy = memoizeSample(Schema.decodeUnknownResult(Schema.Array(OrderBy)));
+	const decodeSampleRowsOutput = memoizeSample(Schema.decodeUnknownResult(RowsOutput));
 	for (const branch of projections.success) {
 		const issue = accessIssue(branch, access);
 		if (issue) {

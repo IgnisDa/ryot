@@ -1,5 +1,10 @@
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionOwner,
+	type EntitySchemaReference,
+	ownerIdentityReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { entitySchemaPredicate, table } from "@ryot-app/ryotql";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -33,6 +38,19 @@ const PROVIDER_SLUG = "pokemon.pokeapi";
 const SAVED_VIEW_SLUG = "all-pokemon";
 const MOVE_PROVIDER_SLUG = "move.pokeapi";
 const MOVE_SAVED_VIEW_SLUG = "all-moves";
+
+const savedViewScope = ({ slug, owner }: EntitySchemaReference) =>
+	objectContaining({
+		type: "and",
+		predicates: arrayContaining([
+			objectContaining({
+				type: "and",
+				predicates: arrayContaining([
+					entitySchemaPredicate(table("entity", "entity"), slug, ownerIdentityReference(owner)),
+				]),
+			}),
+		]),
+	});
 
 const installFixture = (label: string) =>
 	Effect.gen(function* () {
@@ -162,17 +180,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					}),
 				]),
 			);
-			expect(source.where).toEqual<unknown>(
-				objectContaining({
-					type: "and",
-					predicates: arrayContaining([
-						objectContaining({
-							right: { type: "literal", value: schema.id },
-							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-						}),
-					]),
-				}),
-			);
+			expect(source.where).toEqual<unknown>(savedViewScope(schema.reference));
 			expect(view.settings["tableColumns"]).toEqual([
 				{
 					field: "image",
@@ -366,17 +374,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					}),
 				]),
 			);
-			expect(source.where).toEqual<unknown>(
-				objectContaining({
-					type: "and",
-					predicates: arrayContaining([
-						objectContaining({
-							right: { type: "literal", value: schema.id },
-							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-						}),
-					]),
-				}),
-			);
+			expect(source.where).toEqual<unknown>(savedViewScope(schema.reference));
 			expect(view.settings["tableColumns"]).toEqual([
 				{
 					field: "name",

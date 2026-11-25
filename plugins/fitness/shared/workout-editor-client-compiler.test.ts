@@ -24,7 +24,7 @@ const compilerLayer = Layer.mergeAll(
 			build: () =>
 				Effect.succeed({
 					output: [
-						{ type: "chunk", fileName: "module.js", code: "export default {};" },
+						{ imports: [], type: "chunk", fileName: "module.js", code: "export default {};" },
 						{ source: "", type: "asset", fileName: "module.css" },
 					],
 				}),

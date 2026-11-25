@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { localMessageBuilder, type TextArgument } from "@ryot-app/i18n/builder";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -80,7 +81,11 @@ describe("plugin messages", () => {
 					...english,
 					locale: "pt",
 					type: "locale",
-					catalogs: [...english.catalogs, catalog("pt", "Olá ")],
+					catalogs: [
+						...english.catalogs,
+						{ catalog: {}, locale: "pt", namespace: KERNEL_NAMESPACE },
+						catalog("pt", "Olá "),
+					],
 				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -94,7 +99,8 @@ describe("plugin messages", () => {
 					locale: "ar",
 					type: "locale",
 					pendingNamespaces: ["messages-owner"],
-					catalogs: english.catalogs.filter(({ namespace }) => namespace !== "messages-owner"),
+					catalogs: testBridgeLocale([{ catalog: {}, locale: "ar", namespace: KERNEL_NAMESPACE }])
+						.catalogs,
 				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(mounted.container?.textContent).toBe("…|…|Custom|Cancel")),

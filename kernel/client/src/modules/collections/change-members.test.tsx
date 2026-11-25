@@ -205,7 +205,7 @@ it.live(
 			});
 			try {
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Remove 2 items from Favourites?" }),
+					screen.findByRole("alertdialog", { name: "Remove 2 items from Favourites?" }),
 				);
 				expect(confirmation.textContent).toContain("The items stay in your library");
 				fireEvent.click(
@@ -247,7 +247,7 @@ it.live(
 			});
 			try {
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Remove 1 item from Favourites?" }),
+					screen.findByRole("alertdialog", { name: "Remove 1 item from Favourites?" }),
 				);
 				fireEvent.click(within(confirmation).getByRole("button", { name: "Cancel" }));
 				expect(removing.outcomes).toEqual([{ kind: "cancelled" }]);

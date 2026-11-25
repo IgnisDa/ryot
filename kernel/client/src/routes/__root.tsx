@@ -1,5 +1,6 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "#/styles/index.css";
+import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
 import type { KernelRyotClientStore } from "#/api/ryot-client";
@@ -26,17 +27,19 @@ export type RouterContext = {
 export const Route = createRootRouteWithContext<RouterContext>()({ component: RootComponent });
 
 function RootComponent() {
-	const { i18n, theme, runtime } = Route.useRouteContext();
+	const { i18n, theme, runtime, backInterceptors } = Route.useRouteContext();
 	return (
 		<KernelI18nProvider store={i18n}>
-			<PageTitleProvider>
-				<DeviceLifecycle runtime={runtime} />
-				<SkipToContentLink />
-				<ThemeController theme={theme} runtime={runtime} />
-				<MainViewProvider>
-					<Outlet />
-				</MainViewProvider>
-			</PageTitleProvider>
+			<OverlayBackProvider adapter={backInterceptors}>
+				<PageTitleProvider>
+					<DeviceLifecycle runtime={runtime} />
+					<SkipToContentLink />
+					<ThemeController theme={theme} runtime={runtime} />
+					<MainViewProvider>
+						<Outlet />
+					</MainViewProvider>
+				</PageTitleProvider>
+			</OverlayBackProvider>
 		</KernelI18nProvider>
 	);
 }

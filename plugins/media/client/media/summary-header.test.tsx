@@ -13,6 +13,15 @@ import {
 import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
 import { MediaExternalLink } from "./primitives";
 import { MediaSummaryHeader } from "./summary-header";
+import type { MediaSummaryHeaderDetail } from "./summary-state";
+
+const headerDetail: MediaSummaryHeaderDetail = {
+	chips: [],
+	facts: [],
+	links: [],
+	identityDetail: undefined,
+	rail: { logActivity: undefined },
+};
 
 it.live(
 	"keeps the header preview plain, expands formatting and spoilers, and opens links through the capability",
@@ -20,7 +29,7 @@ it.live(
 		Effect.gen(function* () {
 			const opened: string[] = [];
 			const media = decodeFlatSummary(fixtureSummaryRecipe, {
-				images: [],
+				image: null,
 				description:
 					"**Readable** *summary* [source](https://example.test). :spoiler[Hidden ending]",
 			});
@@ -37,14 +46,8 @@ it.live(
 					media={media}
 					compact={false}
 					settled={undefined}
-					artwork={{ purpose: "cover", aspect: "poster" }}
-					detail={{
-						chips: [],
-						facts: [],
-						links: [],
-						identityDetail: undefined,
-						rail: { logActivity: undefined },
-					}}
+					detail={headerDetail}
+					artwork={{ aspect: "poster" }}
 				/>,
 			);
 			try {
@@ -79,6 +82,38 @@ it.live(
 			}
 		}),
 	testTimeout,
+);
+
+it.live("withholds the canonical poster while localized artwork is pending", () =>
+	Effect.sync(() => {
+		const media = decodeFlatSummary(fixtureSummaryRecipe, {
+			translationStatus: { state: "idle", availability: "missing" },
+		});
+		const header = (value: typeof media) => (
+			<MediaSummaryHeader
+				media={value}
+				compact={false}
+				settled={undefined}
+				detail={headerDetail}
+				artwork={{ aspect: "poster" }}
+			/>
+		);
+		const mounted = mountRyotClient({}, header(media));
+		try {
+			expect(mounted.container.querySelector("header img")).toBeNull();
+			const url = "https://images.test/cover-fr.jpg";
+			mounted.rerender(
+				header({
+					...media,
+					image: { url, type: "remote", purpose: "cover" },
+					translationStatus: { state: "succeeded", availability: "complete" },
+				}),
+			);
+			expect(mounted.container.querySelector("header img")?.getAttribute("src")).toBe(url);
+		} finally {
+			mounted.unmount();
+		}
+	}),
 );
 
 it.live(

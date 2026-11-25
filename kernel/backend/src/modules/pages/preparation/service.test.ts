@@ -68,10 +68,19 @@ const pageRow = {
 const pluginHash = "b".repeat(64);
 const updatedPluginHash = "d".repeat(64);
 const artifacts = new Map([
-	[pageHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
-	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
-	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
-	[updatedPluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+	[pageHash, { files: [{ name: "module.js", staticImports: [], contentType: "text/javascript" }] }],
+	[
+		pluginHash,
+		{ files: [{ name: "module.js", staticImports: [], contentType: "text/javascript" }] },
+	],
+	[
+		runtimeHash,
+		{ files: [{ staticImports: [], name: "bootstrap.js", contentType: "text/javascript" }] },
+	],
+	[
+		updatedPluginHash,
+		{ files: [{ name: "module.js", staticImports: [], contentType: "text/javascript" }] },
+	],
 ]);
 const manifest = fixtureManifest();
 const routeTarget = {

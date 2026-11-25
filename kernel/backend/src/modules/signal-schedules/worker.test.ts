@@ -41,7 +41,12 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { SignalScheduleRepository } from "./repository";
-import { signalScheduleBounds, signalScheduleDueFrom, SignalScheduleWorker } from "./worker";
+import {
+	signalScheduleBounds,
+	signalScheduleDueFrom,
+	signalScheduleNextDue,
+	SignalScheduleWorker,
+} from "./worker";
 
 const now = new Date("2026-10-29T02:30:00.000Z");
 
@@ -123,6 +128,34 @@ describe("signal schedule due times", () => {
 			).getTime();
 		expect(end(from)).toBeGreaterThan(dueAt.getTime());
 		expect(end(new Date(from.getTime() - 1))).toBeLessThanOrEqual(dueAt.getTime());
+	});
+});
+
+describe("signal schedule next due time", () => {
+	const timeZone = TimeZone.make("Asia/Kolkata");
+	it.each([
+		{
+			next: "2026-11-01",
+			due: "2026-10-31T18:30:00.000Z",
+			nextInstant: "2026-10-31T20:00:00.000Z",
+		},
+		{
+			next: "2026-11-01",
+			due: "2026-10-31T17:00:00.000Z",
+			nextInstant: "2026-10-31T17:00:00.000Z",
+		},
+		{ next: null, due: "2026-10-31T17:00:00.000Z", nextInstant: "2026-10-31T17:00:00.000Z" },
+		{ nextInstant: null, next: "2026-11-01", due: "2026-10-31T18:30:00.000Z" },
+		{ due: null, next: null, nextInstant: null },
+	])("is the earlier of the next date $next and the next instant $nextInstant", (input) => {
+		expect(
+			signalScheduleNextDue({
+				...input,
+				timeZone,
+				delayDays: null,
+				precision: "date",
+			})?.toISOString() ?? null,
+		).toBe(input.due);
 	});
 });
 

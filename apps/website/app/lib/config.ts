@@ -10,8 +10,6 @@ const paymentPriceSchema = z.object({
 });
 
 export const configDataSchema = z.object({
-	isSandbox: z.boolean(),
-	clientToken: z.string(),
 	isLoggedIn: z.boolean(),
 	turnstileSiteKey: z.string(),
 	prices: z.array(

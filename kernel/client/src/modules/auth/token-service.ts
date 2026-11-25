@@ -1,5 +1,6 @@
 import {
 	type AccessClass,
+	type BrowserSessionProfile,
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_DEMO_WEB_CLIENT_ID,
@@ -14,11 +15,13 @@ import {
 	OAuthUserInfoResponse,
 	type PendingAuthorization,
 	type StoredTokenSet,
+	WebOAuthClientId,
 } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { type Authorization, makeAuthorizationState } from "#/modules/auth/authorization";
+import { makeBrowserSessionTransport } from "#/modules/auth/browser-session";
 import {
 	type OAuthFetch,
 	postOAuthForm,
@@ -26,6 +29,7 @@ import {
 } from "#/modules/auth/oauth-endpoint";
 import { OAuthStorage, type OAuthStorageError } from "#/modules/auth/oauth-storage";
 import { decodeOAuthTokenClaims } from "#/modules/auth/token-claims";
+import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
 const REFRESH_WINDOW_MS = 60_000;
 const IdTokenClaims = Schema.Struct({ nonce: Schema.String });
@@ -80,8 +84,10 @@ const makeTokenService = (
 	storage: OAuthStorage["Service"],
 	fetcher: OAuthFetch,
 	now: () => number,
+	web = false,
 ): OAuthTokenService["Service"] => {
 	const authorization = makeAuthorizationState();
+	const browser = makeBrowserSessionTransport(fetcher);
 	const refreshCleared = new WeakMap<Authorization, Authorization>();
 	const load = Effect.fnUntraced(function* (origin: ServerOrigin) {
 		const record = authorization.forServer(origin);
@@ -197,31 +203,47 @@ const makeTokenService = (
 		return refreshed?.accessToken ?? null;
 	});
 
-	const access = Effect.fn("OAuthTokenService.access")(function* (
-		origin: ServerOrigin,
-		forceRefresh?: boolean,
-	) {
-		const record = authorization.forServer(origin);
-		let refresh = forceRefresh ?? false;
-		for (;;) {
-			const current = yield* load(origin);
-			const result = yield* accessFor(origin, current, refresh).pipe(Effect.result);
-			if (record.isCurrent(current)) {
-				return { result, authorization: current };
+	const access: OAuthTokenService["Service"]["access"] = Effect.fn("OAuthTokenService.access")(
+		function* (origin: ServerOrigin, forceRefresh?: boolean) {
+			const record = authorization.forServer(origin);
+			if (web) {
+				const current = record.current;
+				const result = yield* browser
+					.read(origin)
+					.pipe(Effect.mapError(requestFailed), Effect.result);
+				if (!record.isCurrent(current)) {
+					return { authorization: record.current, result: Result.succeed(record.current.browser) };
+				}
+				if (Result.isFailure(result)) {
+					return { result, authorization: current };
+				}
+				const observed = record.observeBrowser(result.success);
+				return { authorization: observed, result: Result.succeed(observed.browser) };
 			}
-			const cleared = refreshCleared.get(current);
-			if (Result.isFailure(result) && cleared !== undefined && record.isCurrent(cleared)) {
-				return { result, authorization: cleared };
+			let refresh = forceRefresh ?? false;
+			for (;;) {
+				const current = yield* load(origin);
+				const result = yield* accessFor(origin, current, refresh).pipe(Effect.result);
+				if (record.isCurrent(current)) {
+					return { result, authorization: current };
+				}
+				const cleared = refreshCleared.get(current);
+				if (Result.isFailure(result) && cleared !== undefined && record.isCurrent(cleared)) {
+					return { result, authorization: cleared };
+				}
+				refresh = false;
 			}
-			refresh = false;
-		}
-	});
+		},
+	);
 
 	const userInfo = Effect.fn("OAuthTokenService.userInfo")(function* (
 		origin: ServerOrigin,
 		current: Authorization,
 	) {
 		const record = authorization.forServer(origin);
+		if (web) {
+			return record.isCurrent(current) ? current.browser : null;
+		}
 		const request = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
 				const token = yield* accessFor(origin, current, forceRefresh);
@@ -283,6 +305,33 @@ const makeTokenService = (
 			pending.redirectUri !== expectedRedirectUri
 		) {
 			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-callback" }));
+		}
+		if (web) {
+			const { clientId } = pending;
+			const client = Schema.decodeUnknownOption(WebOAuthClientId)(clientId);
+			if (Option.isNone(client)) {
+				return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-callback" }));
+			}
+			if (!(yield* storage.takePending(origin, state))) {
+				return yield* new OAuthTokenError({ reason: "missing-authorization" });
+			}
+			const record = authorization.forServer(origin);
+			yield* record.mutex.withPermit(
+				Effect.gen(function* () {
+					yield* browser.exchange(origin, {
+						code,
+						nonce: pending.nonce,
+						clientId: client.value,
+						codeVerifier: pending.codeVerifier,
+					});
+					const profile = yield* browser.read(origin);
+					if (profile === null) {
+						return yield* new OAuthTokenError({ reason: "missing-authorization" });
+					}
+					return record.replaceBrowser(profile);
+				}).pipe(Effect.mapError(requestFailed)),
+			);
+			return pending;
 		}
 		const originating = yield* load(origin);
 		const response = yield* postOAuthForm(
@@ -351,6 +400,21 @@ const makeTokenService = (
 		origin: ServerOrigin,
 		postLogoutRedirectUri: string,
 	) {
+		if (web) {
+			const record = authorization.forServer(origin);
+			return yield* record.mutex.withPermit(
+				Effect.gen(function* () {
+					const session = record.current.browser;
+					const url =
+						session === null
+							? null
+							: yield* browser.logout(origin, session.session).pipe(Effect.mapError(requestFailed));
+					record.replace(null);
+					yield* storage.clearPending(origin);
+					return url;
+				}),
+			);
+		}
 		const originating = yield* load(origin);
 		const clearLocal = Effect.gen(function* () {
 			if (authorization.forServer(origin).isCurrent(originating)) {
@@ -402,24 +466,32 @@ const makeTokenService = (
 	});
 
 	return {
+		web,
 		access,
 		logout,
 		userInfo,
 		authorization,
 		rejectAuthorization,
 		completeAuthorization,
-		accessToken: (origin, forceRefresh) =>
-			Effect.flatMap(access(origin, forceRefresh), ({ result }) => Effect.fromResult(result)),
 		clear: (origin) =>
-			Effect.all([clearTokens(origin).pipe(Effect.ignore), storage.clearPending(origin)], {
-				discard: true,
-			}),
+			web
+				? logout(origin, "").pipe(Effect.ignore)
+				: Effect.all([clearTokens(origin).pipe(Effect.ignore), storage.clearPending(origin)], {
+						discard: true,
+					}),
+		accessToken: (origin, forceRefresh) =>
+			Effect.flatMap(access(origin, forceRefresh), ({ result }) =>
+				Effect.fromResult(
+					Result.map(result, (value) => (typeof value === "string" ? value : null)),
+				),
+			),
 	};
 };
 
 export class OAuthTokenService extends Context.Service<
 	OAuthTokenService,
 	{
+		readonly web: boolean;
 		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly authorization: ReturnType<typeof makeAuthorizationState>;
 		readonly rejectAuthorization: (
@@ -446,7 +518,7 @@ export class OAuthTokenService extends Context.Service<
 			forceRefresh?: boolean,
 		) => Effect.Effect<{
 			readonly authorization: Authorization;
-			readonly result: Result.Result<null | string, OAuthTokenError>;
+			readonly result: Result.Result<null | string | BrowserSessionProfile, OAuthTokenError>;
 		}>;
 		readonly completeAuthorization: (
 			origin: ServerOrigin,
@@ -459,7 +531,9 @@ export class OAuthTokenService extends Context.Service<
 >()("@ryot-app/kernel-client/modules/auth/token-service/OAuthTokenService") {
 	static readonly layer = Layer.effect(
 		this,
-		Effect.map(OAuthStorage, (storage) => makeTokenService(storage, fetch, Date.now)),
+		Effect.map(OAuthStorage, (storage) =>
+			makeTokenService(storage, fetch, Date.now, !isNativePlatform()),
+		),
 	).pipe(Layer.provide(OAuthStorage.layer));
 }
 

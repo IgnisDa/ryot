@@ -21,10 +21,12 @@ import {
 	collectPeople,
 	collectSuggestions,
 	collectWatchProviders,
-	getImageUrl,
+	tmdbArtworkInventory,
 	tmdbGet,
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
+import { tmdbArtwork } from "../../../lib/vendors/tmdb-artwork";
+import { enrichShowAirtimes } from "../../../lib/vendors/tvmaze";
 
 /** TMDB episode group types 1 through 7, in TMDB's numbering. */
 const tmdbEpisodeOrderTypes: readonly ShowEpisodeOrder["type"][] = [
@@ -86,7 +88,7 @@ const buildSeason = (
 	}
 	const seasonNumberValue = numberValue(seasonData["season_number"]);
 	const seasonNumber = seasonNumberValue === null ? 0 : Math.trunc(seasonNumberValue);
-	const posterUrl = getImageUrl(seasonData["poster_path"]);
+	const poster = tmdbArtwork(seasonData["poster_path"], "cover");
 	const childEntities = recordsValue(seasonData["episodes"]).flatMap((episode) => {
 		const episodeId = numberValue(episode["id"]);
 		if (episodeId === null || episodeId <= 0) {
@@ -96,7 +98,7 @@ const buildSeason = (
 		const episodeNumber = episodeNumberValue === null ? 0 : Math.trunc(episodeNumberValue);
 		const runtimeValue = numberValue(episode["runtime"]);
 		const runtime = runtimeValue !== null && runtimeValue > 0 ? Math.trunc(runtimeValue) : null;
-		const imageUrl = getImageUrl(episode["still_path"]);
+		const image = tmdbArtwork(episode["still_path"], "still");
 		return [
 			{
 				entitySchemaSlug: "show-episode",
@@ -109,9 +111,7 @@ const buildSeason = (
 					parentShowExternalId,
 					publishDate: stringValue(episode["air_date"]),
 					description: normalizePlainDescription(episode["overview"]),
-					...(imageUrl
-						? { images: [{ url: imageUrl, type: "remote" as const, purpose: "still" as const }] }
-						: {}),
+					...(image === undefined ? {} : { images: [image] }),
 				},
 			},
 		];
@@ -127,9 +127,7 @@ const buildSeason = (
 			parentShowExternalId,
 			releaseDate: stringValue(seasonData["air_date"]),
 			description: normalizePlainDescription(seasonData["overview"]),
-			...(posterUrl
-				? { images: [{ url: posterUrl, type: "remote" as const, purpose: "cover" as const }] }
-				: {}),
+			...(poster === undefined ? {} : { images: [poster] }),
 		},
 	};
 };
@@ -277,7 +275,7 @@ const buildDetailsResult = (
 
 export const getTmdbShowDetails = (
 	input: ProviderDetailsInput,
-	host: TmdbHost,
+	host: TmdbHost & Parameters<typeof enrichShowAirtimes>[0],
 	language: string,
 	token: string,
 ) => {
@@ -289,11 +287,13 @@ export const getTmdbShowDetails = (
 	return Effect.gen(function* () {
 		const appended =
 			input.level === "base"
-				? "watch/providers,episode_groups"
-				: "watch/providers,episode_groups,credits,aggregate_credits,recommendations";
+				? "watch/providers,episode_groups,external_ids"
+				: "watch/providers,episode_groups,external_ids,credits,aggregate_credits,recommendations";
 		const [showData, imagesData] = yield* Effect.all([
 			tmdbGet(host, `/tv/${input.externalId}`, { language, append_to_response: appended }, token),
-			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
+			input.level === "base"
+				? Effect.succeed<UnknownRecord>({})
+				: tmdbArtworkInventory(host, `/tv/${input.externalId}`, language, token),
 		]);
 		const episodeOrderListData = asRecord(showData["episode_groups"]) ?? {};
 		const listedSeasons = recordsValue(showData["seasons"]).flatMap((season) => {
@@ -341,9 +341,21 @@ export const getTmdbShowDetails = (
 				token,
 			).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
-		return yield* Effect.try({
+		const details = yield* Effect.try({
 			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			try: () => buildDetailsResult(input, showData, imagesData, seasonDataList, episodeOrders),
 		});
+		const externalIds = asRecord(showData["external_ids"]);
+		const imdbId = stringValue(externalIds?.["imdb_id"]);
+		const tvdbId = numberValue(externalIds?.["tvdb_id"]);
+		const childEntities = yield* enrichShowAirtimes(
+			host,
+			[
+				...(imdbId === null ? [] : [{ id: imdbId, kind: "imdb" as const }]),
+				...(tvdbId === null ? [] : [{ id: String(tvdbId), kind: "thetvdb" as const }]),
+			],
+			details.childEntities ?? [],
+		);
+		return { ...details, childEntities };
 	});
 };

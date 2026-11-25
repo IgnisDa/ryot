@@ -557,7 +557,7 @@ describe("collection detail", () => {
 				const reorder = yield* Effect.promise(() =>
 					screen.findByRole("menuitem", { name: "Reorder (Pro)" }),
 				);
-				expect(reorder).toHaveProperty("disabled", true);
+				expect(reorder.getAttribute("aria-disabled")).toBe("true");
 			}),
 		testTimeout,
 	);
@@ -982,10 +982,10 @@ describe("collection detail", () => {
 				expect(
 					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
 				).toBe(true);
-				fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
+				fireEvent.click(screen.getByRole("combobox", { name: "Sort by: Collection order" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+						expect(screen.getByRole("option", { name: "Date added to collection" })).toBeTruthy(),
 					),
 				);
 				expect(dialog.textContent).toContain("Add filter");
@@ -1019,7 +1019,7 @@ describe("collection detail", () => {
 						expect(screen.getByRole("heading", { level: 1, name: "Mixed" })).toBeTruthy(),
 					),
 				);
-				expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
+				expect(screen.queryByRole("combobox", { name: /^Sort by/ })).toBeNull();
 				fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
 				const dialog = yield* Effect.promise(() =>
 					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
@@ -1027,10 +1027,10 @@ describe("collection detail", () => {
 				expect(dialog.textContent).toContain("Collection order");
 				expect(dialog.textContent).toContain("Add filter");
 				expect(dialog.textContent).not.toContain("View as");
-				fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
+				fireEvent.click(screen.getByRole("combobox", { name: "Sort by: Collection order" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+						expect(screen.getByRole("option", { name: "Date added to collection" })).toBeTruthy(),
 					),
 				);
 			}),
@@ -1158,10 +1158,10 @@ describe("collection detail", () => {
 				yield* Effect.promise(() => screen.findByRole("button", { name: /^Filters/ }));
 				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
 				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+					yield* Effect.promise(() => screen.findByRole("combobox", { name: /^Add filter/ })),
 				);
 				for (const label of ["Type", "Also in collection", "Notes"]) {
-					yield* Effect.promise(() => screen.findByRole("radio", { name: label }));
+					yield* Effect.promise(() => screen.findByRole("option", { name: label }));
 				}
 			}),
 		testTimeout,
@@ -1261,9 +1261,11 @@ describe("collection detail", () => {
 
 				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
 				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+					yield* Effect.promise(() => screen.findByRole("combobox", { name: /^Add filter/ })),
 				);
-				fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: "Score" })));
+				const option = yield* Effect.promise(() => screen.findByRole("option", { name: "Score" }));
+				fireEvent.pointerDown(option, { pointerType: "mouse" });
+				fireEvent.click(option);
 				const before = page.queryRequests("members").length;
 				fireEvent.change(
 					yield* Effect.promise(() => screen.findByRole("spinbutton", { name: "Score value" })),

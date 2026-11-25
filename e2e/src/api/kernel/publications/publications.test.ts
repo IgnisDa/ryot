@@ -1,6 +1,7 @@
 import { PUBLICATION_SESSION_HEADER } from "@ryot-app/contract/modules/publications/schemas";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Schema } from "effect";
 
@@ -14,7 +15,6 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { webRequest } from "~/support/web-request";
 
 const publishCollection = (client: Client, mode: "live" | "snapshot" = "live") =>
 	Effect.gen(function* () {

@@ -126,6 +126,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 							: { pageAuthority: payload.pageAuthority }),
 						headers: request.headers,
 						operationSlug: params.operationSlug,
+						credentialTarget: { method: request.method },
 						packageId: pluginPackageIdFromSegments(params),
 						...(payload.contentHash === undefined ? {} : { contentHash: payload.contentHash }),
 						...(payload.idempotencyKey === undefined

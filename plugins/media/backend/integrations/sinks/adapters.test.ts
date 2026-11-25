@@ -7,6 +7,7 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../../shared/messages.generated";
 import {
 	execution,
 	hostFailure,
@@ -927,7 +928,8 @@ describe("Plex sink", () => {
 							itemIndex: 0,
 							stage: "provider_resolution",
 							operationId: '["media-source",0,0,0]',
-							message: 'No show found on TMDB for series "Foundation" and episode 5221957',
+							message: "integration.plex.show-not-found",
+							detail: catalogMessage("integration.plex.show-not-found"),
 						},
 					],
 				});
@@ -943,9 +945,10 @@ describe("Plex sink", () => {
 					plexEpisode([{ id: "imdb://tt1234" }, { id: "tmdb://5221957" }]),
 				);
 				expect(result.entityGroups).toEqual([]);
-				expect(result.failures[0]?.message).toMatch(
-					/^Could not look up Plex episode 5221957 on TMDB/,
-				);
+				expect(result.failures[0]).toMatchObject({
+					stage: "provider_resolution",
+					detail: catalogMessage("integration.plex.lookup-failed"),
+				});
 			}),
 		testTimeout,
 	);

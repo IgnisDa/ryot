@@ -1,3 +1,5 @@
+import { notificationOutcomeRecipe } from "@ryot-app/ryotql-recipes/notification-delivery";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { Effect } from "effect";
 
 import {
@@ -7,8 +9,8 @@ import {
 	runSandboxHttpCall,
 	testNotificationChannels,
 } from "~/fixtures/kernel";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const METADATA_URL = "http://169.254.169.254/latest/meta-data/";
 
@@ -55,12 +57,13 @@ describe("outbound HTTP address policy", () => {
 		}),
 	);
 
-	it.live("re-checks every notification delivery hop", () =>
+	it.live("rejects notification redirects and unlisted destinations", () =>
 		Effect.gen(function* () {
 			const server = yield* redirectingServer;
 			const ipv6Server = yield* startFakeHttpServerScoped(undefined, "::1");
 			const { client } = yield* createAuthenticatedClient();
 			for (const { key, baseUrl } of [
+				{ key: "direct", baseUrl: server.url },
 				{ key: "relative", baseUrl: server.url },
 				{ key: "metadata", baseUrl: server.url },
 				{ key: "ipv6", baseUrl: ipv6Server.url },
@@ -70,24 +73,22 @@ describe("outbound HTTP address policy", () => {
 				});
 			}
 
-			yield* testNotificationChannels(client);
-
-			yield* pollUntil(
-				"redirected notification delivery",
-				Effect.sync(() =>
-					server.requests.some((request) => request.path === "/notify/landed") ? true : null,
+			const admitted = yield* testNotificationChannels(client);
+			const outcome = yield* pollUntil(
+				"settled notification outcome",
+				executeRyotQLRecipe(client, notificationOutcomeRecipe, { id: admitted.id }).pipe(
+					Effect.map((result) => (result?.state === "settled" ? result : null)),
 				),
 			);
-			yield* Effect.sleep("1 second");
-
+			expect(outcome.outcome).toBe("partial");
 			expect(server.requests.map((request) => request.path).sort()).toEqual([
-				"/notify/landed",
+				"/notify/direct",
 				"/notify/metadata",
 				"/notify/relative",
 			]);
-			const landed = server.requests.find((request) => request.path === "/notify/landed");
-			expect(landed?.headers["host"]).toBe(new URL(server.url).host);
-			expect(landed?.body).toEqual({
+			const delivered = server.requests.find((request) => request.path === "/notify/direct");
+			expect(delivered?.headers["host"]).toBe(new URL(server.url).host);
+			expect(delivered?.body).toEqual({
 				title: "Ryot",
 				body: "This is a test notification sent through Apprise.",
 			});

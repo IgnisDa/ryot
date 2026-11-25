@@ -11,6 +11,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	type Formatters,
 	ManagedAssetProvider,
 	useAssetUrl,
@@ -32,7 +33,6 @@ import {
 	fitnessPresentationSource,
 	type FitnessPresentationSourceData,
 } from "../shared/entity-presentations";
-import { managedAssetBatch } from "./asset-urls";
 import { formatDay, formatValue } from "./measurements/model";
 import { useFitnessMessages } from "./messages";
 
@@ -65,7 +65,7 @@ const buildFitnessPresentations = (
 			}),
 		),
 		(rows) => {
-			const batchAssets = managedAssetBatch(
+			const batchAssets = collectManagedAssetLocators(
 				rows.map(({ presentationImage }) => presentationImage ?? undefined),
 			);
 			return Object.fromEntries(

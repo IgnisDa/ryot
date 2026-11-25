@@ -13,18 +13,20 @@ const showSeasonEpisodesFixtureRecipe = bindRecipe(
 );
 export const showEpisodeRow = {
 	runtime: 66,
+	airingAt: null,
 	id: "episode-1",
 	seasonNumber: 1,
 	episodeNumber: 1,
 	state: "complete",
+	airingSourceUrl: null,
 	publishDate: "2025-03-13",
 	schemaSlug: "show-episode",
 	name: "Episode 1: The Arrest",
 	description: "A thirteen-year-old is arrested at dawn.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/episode-1.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "still", url: "https://images.test/episode-1.jpg" }],
 };
 
 export const showSeasonRow = {
@@ -39,8 +41,8 @@ export const showSeasonRow = {
 	description: "The complete limited series.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/season-1.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
 };
 
 export const decodeShowSeasonsResult = (input: {

@@ -14,6 +14,14 @@ import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
+const sheetAtRest = (element: Element) => {
+	const { transform } = getComputedStyle(element);
+	return (
+		element.getAnimations().length === 0 &&
+		(transform === "none" || new DOMMatrixReadOnly(transform).isIdentity)
+	);
+};
+
 const startWorkoutWith = (names: readonly string[], reducedMotion: "reduce" | "no-preference") =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
@@ -50,11 +58,7 @@ it.live(
 			yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
 			const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
 			yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Drag recovery");
-			const heading = frame.getByRole("heading", { exact: true, name: "Workout details" });
-			yield* heading.waitForFunction((element) => {
-				const panel = element.closest('[role="dialog"]');
-				return panel instanceof HTMLElement && getComputedStyle(panel).transform === "none";
-			});
+			yield* details.waitForFunction(sheetAtRest);
 			const bounds = requirePresent(
 				yield* page.use((raw) =>
 					raw
@@ -71,10 +75,7 @@ it.live(
 			yield* page.use((raw) => raw.mouse.down());
 			yield* page.use((raw) => raw.mouse.move(x, y + 12, { steps: 6 }));
 			yield* page.use((raw) => raw.mouse.up());
-			yield* heading.waitForFunction((element) => {
-				const panel = element.closest('[role="dialog"]');
-				return panel instanceof HTMLElement && getComputedStyle(panel).transform === "none";
-			});
+			yield* details.waitForFunction(sheetAtRest);
 			yield* page.use((raw) => raw.mouse.move(x, y));
 			yield* page.use((raw) => raw.mouse.down());
 			yield* page.use((raw) => raw.mouse.move(x, y + 180, { steps: 12 }));
@@ -171,7 +172,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 					.getByRole("dialog", { exact: true, name: "Set 1" })
 					.getByRole("button", { exact: true, name: "Delete set" })
 					.click();
-				const confirmation = frame.getByRole("dialog", {
+				const confirmation = frame.getByRole("alertdialog", {
 					exact: true,
 					name: "Delete completed set?",
 				});

@@ -3,20 +3,19 @@ import { HttpUrl } from "@ryot-app/contract/schema/utils";
 import { useFormatters, useT } from "@ryot-app/i18n/react";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
-import { ChipRadioGroup, Modal } from "@ryot-app/plugin-ui-sdk";
+import {
+	ActionSearch,
+	ActionSearchInput,
+	ActionSearchResults,
+	ChipRadioGroup,
+	Modal,
+	ModalClose,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { Schema } from "effect";
-import {
-	type KeyboardEvent,
-	type ReactNode,
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useMemo, useRef } from "react";
 
 import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
 import { AssistantSprite } from "#/modules/assistant/sprite";
@@ -29,12 +28,13 @@ import {
 type CommandCenterDialogProps = {
 	readonly query: string;
 	readonly stale: boolean;
+	readonly open?: boolean;
 	readonly pending: boolean;
 	readonly onClose: () => void;
 	readonly onRetry: () => void;
+	readonly onClosed?: () => void;
 	readonly results: CommandResults;
 	readonly failed: readonly string[];
-	readonly onInterceptBack: () => boolean;
 	readonly onQueryChange: (query: string) => void;
 	readonly onFilterChange: (filter: string) => void;
 	readonly onSelect: (option: CommandOption) => void;
@@ -84,38 +84,6 @@ function OptionContent(props: { readonly option: CommandOption }) {
 	);
 }
 
-function CommandRow(props: {
-	readonly id: string;
-	readonly active: boolean;
-	readonly children: ReactNode;
-	readonly onHover: () => void;
-	readonly onSelect: () => void;
-}) {
-	const ref = useRef<HTMLLIElement>(null);
-	useEffect(() => {
-		const element = ref.current;
-		if (props.active && element !== null && typeof element.scrollIntoView === "function") {
-			element.scrollIntoView({ block: "nearest" });
-		}
-	}, [props.active]);
-	return (
-		<li
-			ref={ref}
-			id={props.id}
-			role="option"
-			onClick={props.onSelect}
-			onMouseMove={props.onHover}
-			aria-selected={props.active}
-			className={clsx(
-				"flex min-h-9 cursor-pointer scroll-mt-8 items-center gap-2.5 rounded-md px-2.5 py-1.5",
-				props.active ? "bg-nav-indicator" : "hover:bg-hover",
-			)}
-		>
-			{props.children}
-		</li>
-	);
-}
-
 const managedImages = (options: readonly CommandOption[]) =>
 	options.flatMap(({ art }): readonly ManagedAssetLocator[] =>
 		art?.image === null || art === undefined || art.image.type === "remote" ? [] : [art.image],
@@ -124,219 +92,135 @@ const managedImages = (options: readonly CommandOption[]) =>
 export function CommandCenterDialog(props: CommandCenterDialogProps) {
 	const t = useT();
 	const formatters = useFormatters();
-	const baseId = useId();
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [activeOptionId, setActiveOptionId] = useState<string | undefined>(undefined);
 	const { empty, filter, groups, filters } = props.results;
 	const options = selectableOptions(groups);
 	const assets = useMemo(() => managedImages(options), [options]);
-	const ids = [...options.map(({ id }) => id), ...(props.ask === undefined ? [] : [ASK_ID])];
-	const activeId = ids.find((id) => id === activeOptionId) ?? ids.at(0);
-	const active = options.find(({ id }) => id === activeId);
-	const optionDomId = (id: string) => `${baseId}-${id}`;
 	const trimmed = props.query.trim();
-
-	const move = (index: number) => {
-		const next = ids.at(index);
-		if (next !== undefined) {
-			setActiveOptionId(next);
-		}
-	};
-	const changeFilter = (key: string) => {
-		props.onFilterChange(key);
-		inputRef.current?.focus();
-	};
-	const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		const index = activeId === undefined ? -1 : ids.indexOf(activeId);
-		if (event.key === "Tab" && filters.length > 1) {
-			event.preventDefault();
-			const current = filters.findIndex(({ key }) => key === filter);
-			const step = event.shiftKey ? -1 : 1;
-			const next = filters.at((current + step + filters.length) % filters.length);
-			if (next !== undefined) {
-				props.onFilterChange(next.key);
-			}
-		} else if (event.key === "ArrowDown") {
-			event.preventDefault();
-			move(index + 1 >= ids.length ? 0 : index + 1);
-		} else if (event.key === "ArrowUp") {
-			event.preventDefault();
-			move(index <= 0 ? ids.length - 1 : index - 1);
-		} else if (event.key === "Home") {
-			event.preventDefault();
-			move(0);
-		} else if (event.key === "End") {
-			event.preventDefault();
-			move(ids.length - 1);
-		} else if (event.key === "Enter" && activeId === ASK_ID) {
-			event.preventDefault();
-			props.ask?.onAsk();
-		} else if (event.key === "Enter" && active !== undefined) {
-			event.preventDefault();
-			props.onSelect(active);
-		}
-	};
+	const actionGroups = groups.map((group) => ({
+		key: group.key,
+		label: group.heading,
+		count: group.count === undefined ? undefined : formatters.number().format(group.count),
+		items: group.options.map((option) => ({
+			key: option.id,
+			label: option.label,
+			onSelect: () => props.onSelect(option),
+			content: <OptionContent option={option} />,
+		})),
+	}));
+	if (props.ask !== undefined) {
+		const ask = t(kernelMessage("client.shell.sidebar.ask", { name: ASSISTANT_NAME }));
+		const text = t(kernelMessage("client.command-center.ask-text", { text: props.ask.text }));
+		actionGroups.push({
+			key: ASK_ID,
+			count: undefined,
+			label: t(kernelMessage("client.command-center.ask-heading")),
+			items: [
+				{
+					key: ASK_ID,
+					label: `${ask} ${text}`,
+					onSelect: props.ask.onAsk,
+					content: (
+						<>
+							<AssistantSprite mood="thinking" className="w-6" />
+							<span className="min-w-0 flex-1 truncate text-body text-text">
+								{ask} <span className="text-accent-text">{text}</span>
+							</span>
+						</>
+					),
+				},
+			],
+		});
+	}
 
 	return (
 		<Modal
 			onClose={props.onClose}
+			onClosed={props.onClosed}
+			open={props.open ?? true}
 			initialFocusRef={inputRef}
-			onInterceptBack={props.onInterceptBack}
 			label={t(kernelMessage("client.command-center.label"))}
-			closeLabel={t(kernelMessage("client.command-center.close"))}
 			containerClassName="items-start justify-center p-4 pt-[12vh]"
 			className="flex h-[min(30rem,76vh)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card"
 		>
-			<div className="relative flex items-center gap-2.5 border-b border-border px-4">
-				<AppIcon size={16} name="search" className="text-text-muted" />
-				<input
-					type="text"
-					ref={inputRef}
-					role="combobox"
-					autoComplete="off"
-					value={props.query}
-					aria-expanded="true"
-					onKeyDown={onKeyDown}
-					aria-autocomplete="list"
-					aria-busy={props.pending}
-					aria-controls={`${baseId}-listbox`}
-					aria-label={t(kernelMessage("client.command-center.search-label"))}
-					onChange={(event) => props.onQueryChange(event.currentTarget.value)}
-					placeholder={t(kernelMessage("client.command-center.search-placeholder"))}
-					aria-activedescendant={activeId === undefined ? undefined : optionDomId(activeId)}
-					className="h-12 min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-subtle pointer-fine:text-sm"
-				/>
-				<div
-					aria-hidden="true"
-					className={clsx(
-						"pointer-events-none absolute inset-x-0 -bottom-px h-0.5 overflow-hidden transition-opacity motion-reduce:transition-none",
-						props.pending ? "opacity-100 delay-150" : "opacity-0",
-					)}
-				>
-					<div className="h-full w-full animate-sync-sweep bg-linear-to-r from-transparent via-accent to-transparent motion-reduce:animate-none" />
-				</div>
-			</div>
-			{filters.length > 1 && (
-				<ChipRadioGroup
-					value={filter}
-					overflow="scroll"
-					onChange={changeFilter}
-					className="shrink-0 px-3 pt-2.5 pb-0.5"
-					label={t(kernelMessage("client.command-center.filter-label"))}
-					options={filters.map(({ key, label, count }) => ({
-						value: key,
-						label:
-							count === undefined
-								? label
-								: t(kernelMessage("ui.multi-select.chip-count", { label, count })),
-					}))}
-				/>
-			)}
-			<ManagedAssetProvider assets={assets}>
-				<div
-					className={clsx(
-						"min-h-0 flex-1 overflow-y-auto p-2 transition-opacity motion-reduce:transition-none",
-						props.stale && "opacity-50 delay-150",
-					)}
-				>
-					{empty && (
-						<p role="status" className="px-2.5 py-6 text-center text-body text-text-muted">
-							{t(kernelMessage("client.command-center.no-matches", { query: trimmed }))}
-						</p>
-					)}
-					{props.failed.length > 0 && !props.pending && (
-						<div className="flex items-center gap-2 px-2.5 py-1.5">
-							<span className="min-w-0 flex-1 text-label text-text-muted">
-								{t(
-									kernelMessage("client.command-center.search-failed", {
-										sources: formatters.list().format(props.failed),
-									}),
-								)}
-							</span>
-							<button
-								type="button"
-								onClick={props.onRetry}
-								className="rounded px-2 py-0.5 text-label font-medium text-text underline"
-							>
-								{t(kernelMessage("common.action.retry"))}
-							</button>
-						</div>
-					)}
-					<ul
-						role="listbox"
-						id={`${baseId}-listbox`}
-						className="flex flex-col gap-2"
-						aria-label={t(kernelMessage("client.command-center.results"))}
-					>
-						{groups.map((group) => (
-							<li key={group.key} role="presentation">
-								<ul
-									role="group"
-									className="flex flex-col gap-0.5"
-									aria-labelledby={`${baseId}-group-${group.key}`}
-								>
-									<li
-										role="presentation"
-										className="flex justify-between px-2.5 py-1 text-micro font-semibold tracking-wide text-text-subtle uppercase"
-									>
-										<span id={`${baseId}-group-${group.key}`}>{group.heading}</span>
-										{group.count !== undefined && (
-											<span className="font-normal tabular-nums">
-												{formatters.number().format(group.count)}
-											</span>
-										)}
-									</li>
-									{group.options.map((option) => (
-										<CommandRow
-											key={option.id}
-											id={optionDomId(option.id)}
-											active={option.id === activeId}
-											onSelect={() => props.onSelect(option)}
-											onHover={() => setActiveOptionId(option.id)}
-										>
-											<OptionContent option={option} />
-										</CommandRow>
-									))}
-								</ul>
-							</li>
-						))}
-						{props.ask === undefined ? null : (
-							<li role="presentation">
-								<ul
-									role="group"
-									className="flex flex-col gap-0.5"
-									aria-labelledby={`${baseId}-group-${ASK_ID}`}
-								>
-									<li
-										role="presentation"
-										className="px-2.5 py-1 text-micro font-semibold tracking-wide text-text-subtle uppercase"
-									>
-										<span id={`${baseId}-group-${ASK_ID}`}>
-											{t(kernelMessage("client.command-center.ask-heading"))}
-										</span>
-									</li>
-									<CommandRow
-										id={optionDomId(ASK_ID)}
-										onSelect={props.ask.onAsk}
-										active={activeId === ASK_ID}
-										onHover={() => setActiveOptionId(ASK_ID)}
-									>
-										<AssistantSprite mood="thinking" className="w-6" />
-										<span className="min-w-0 flex-1 truncate text-body text-text">
-											{t(kernelMessage("client.shell.sidebar.ask", { name: ASSISTANT_NAME }))}{" "}
-											<span className="text-accent-text">
-												{t(
-													kernelMessage("client.command-center.ask-text", { text: props.ask.text }),
-												)}
-											</span>
-										</span>
-									</CommandRow>
-								</ul>
-							</li>
+			<ActionSearch
+				query={props.query}
+				groups={actionGroups}
+				autoHighlight={options.length > 0}
+				onQueryChange={props.onQueryChange}
+			>
+				<div className="relative flex items-center gap-2.5 border-b border-border px-4">
+					<AppIcon size={16} name="search" className="text-text-muted" />
+					<ActionSearchInput
+						ref={inputRef}
+						busy={props.pending}
+						label={t(kernelMessage("client.command-center.search-label"))}
+						placeholder={t(kernelMessage("client.command-center.search-placeholder"))}
+					/>
+					<ModalClose label={t(kernelMessage("client.command-center.close"))} />
+					<div
+						aria-hidden="true"
+						className={clsx(
+							"pointer-events-none absolute inset-x-0 -bottom-px h-0.5 overflow-hidden transition-opacity motion-reduce:transition-none",
+							props.pending ? "opacity-100 delay-150" : "opacity-0",
 						)}
-					</ul>
+					>
+						<div className="h-full w-full animate-sync-sweep bg-linear-to-r from-transparent via-accent to-transparent motion-reduce:animate-none" />
+					</div>
 				</div>
-			</ManagedAssetProvider>
+				{filters.length > 1 && (
+					<ChipRadioGroup
+						value={filter}
+						overflow="scroll"
+						className="shrink-0 px-3 pt-2.5 pb-0.5"
+						label={t(kernelMessage("client.command-center.filter-label"))}
+						onChange={(key) => {
+							props.onFilterChange(key);
+							inputRef.current?.focus();
+						}}
+						options={filters.map(({ key, label, count }) => ({
+							value: key,
+							label:
+								count === undefined
+									? label
+									: t(kernelMessage("ui.multi-select.chip-count", { label, count })),
+						}))}
+					/>
+				)}
+				<ManagedAssetProvider assets={assets}>
+					<div
+						className={clsx(
+							"min-h-0 flex-1 overflow-y-auto p-2 transition-opacity motion-reduce:transition-none",
+							props.stale && "opacity-50 delay-150",
+						)}
+					>
+						{empty && (
+							<p role="status" className="px-2.5 py-6 text-center text-body text-text-muted">
+								{t(kernelMessage("client.command-center.no-matches", { query: trimmed }))}
+							</p>
+						)}
+						{props.failed.length > 0 && !props.pending && (
+							<div className="flex items-center gap-2 px-2.5 py-1.5">
+								<span className="min-w-0 flex-1 text-label text-text-muted">
+									{t(
+										kernelMessage("client.command-center.search-failed", {
+											sources: formatters.list().format(props.failed),
+										}),
+									)}
+								</span>
+								<button
+									type="button"
+									onClick={props.onRetry}
+									className="rounded px-2 py-0.5 text-label font-medium text-text underline"
+								>
+									{t(kernelMessage("common.action.retry"))}
+								</button>
+							</div>
+						)}
+						<ActionSearchResults label={t(kernelMessage("client.command-center.results"))} />
+					</div>
+				</ManagedAssetProvider>
+			</ActionSearch>
 		</Modal>
 	);
 }

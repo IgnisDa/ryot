@@ -10,18 +10,17 @@ import {
 	concat,
 	conditional,
 	count,
-	currentDate,
 	defineRecipe,
 	eq,
 	exists,
 	first,
 	gt,
 	inArray,
+	isNull,
 	IsoDateString,
 	join,
 	jsonPath,
 	literal,
-	lte,
 	maximum,
 	not,
 	or,
@@ -41,6 +40,7 @@ import {
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 import {
+	episodeReleaseTime,
 	type EpisodicEpisodeCounts,
 	episodicEpisodeCounts,
 	episodicEpisodeWalk,
@@ -53,7 +53,8 @@ import {
 	lifecycleEventSlugs,
 	mediaLifecycleExpressions,
 	podcastEpisodicKindConfig,
-	publishDate,
+	type Predicate,
+	releaseHasArrived,
 	sameSchemaOwner,
 	type ScalarExpression,
 	showEpisodicKindConfig,
@@ -99,7 +100,7 @@ export const librarySummaryPropertiesSchema = {
 		nextAiringAt: {
 			type: "datetime" as const,
 			label: catalogMessage("property.next-airing"),
-			description: "Earliest publish date of an unaired regular episode",
+			description: "Earliest release instant of an unaired regular episode",
 		},
 		lastActivityAt: {
 			type: "datetime" as const,
@@ -111,10 +112,22 @@ export const librarySummaryPropertiesSchema = {
 			label: catalogMessage("property.in-progress-episodes"),
 			description: "Aired regular episodes the user is partway through",
 		},
+		nextAiringDate: {
+			type: "datetime" as const,
+			label: catalogMessage("property.next-airing"),
+			description: "Earliest release date of an unaired regular episode without a release instant",
+		},
 		nextTrackedAiringAt: {
 			type: "datetime" as const,
 			label: catalogMessage("property.next-tracked-airing"),
-			description: "Earliest publish date of an unaired regular episode the user has progress on",
+			description:
+				"Earliest release instant of an unaired regular episode the user has progress on",
+		},
+		nextTrackedAiringDate: {
+			type: "datetime" as const,
+			label: catalogMessage("property.next-tracked-airing"),
+			description:
+				"Earliest release date of an unaired regular episode without a release instant the user has progress on",
 		},
 	},
 };
@@ -122,12 +135,11 @@ export const librarySummaryPropertiesSchema = {
 const SummaryRowSchema = {
 	id: Schema.String,
 	state: EpisodicLifecycleStateSchema,
+	release: Schema.NullOr(IsoDateString),
 	releaseDate: Schema.NullOr(IsoDateString),
-	nextAiringAt: Schema.NullOr(IsoDateString),
 	episodeCount: Schema.NullOr(Schema.Finite),
 	lastActivityAt: Schema.NullOr(IsoDateString),
 	nextUpEpisodeId: Schema.NullOr(Schema.String),
-	nextTrackedAiringAt: Schema.NullOr(IsoDateString),
 };
 
 const property = (entity: Table, name: string) => jsonPath(column(entity, "properties"), name);
@@ -161,16 +173,18 @@ const noEpisodeCounts: EpisodicEpisodeCounts = {
 	inProgressEpisodes: literal(null),
 };
 
+const noRelease = { date: literal(null), instant: literal(null) };
+
 const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "other") {
 		return {
 			joins: [],
 			nextUp: literal(null),
+			nextAiring: noRelease,
 			activity: literal(null),
 			counts: noEpisodeCounts,
 			state: literal("untracked"),
-			nextAiringAt: literal(null),
-			nextTrackedAiringAt: literal(null),
+			nextTrackedAiring: noRelease,
 		};
 	}
 	if (kind === "flat") {
@@ -178,16 +192,18 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 		return {
 			joins: [],
 			nextUp: literal(null),
+			nextAiring: noRelease,
 			state: lifecycle.state,
 			counts: noEpisodeCounts,
-			nextAiringAt: literal(null),
-			nextTrackedAiringAt: literal(null),
+			nextTrackedAiring: noRelease,
 			activity: lifecycle.latestSignal.occurredAt,
 		};
 	}
 	const lifecycle = episodicLifecycleExpressions(kind, entity, "summary");
 	const cycle = episodicNewCycleJoin(entity, "summaryCycle");
 	const upcoming = episodicEpisodeWalk(kind, entity, "summaryUpcoming", "upcoming");
+	const release = episodeReleaseTime(upcoming.episode);
+	const dated = isNull(release.instant);
 	const event = table("event", "summaryTrackedEvent");
 	const tracked = exists(event, {
 		where: and(
@@ -200,12 +216,16 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 		joins: [cycle.join],
 		state: lifecycle.state,
 		activity: lifecycle.latestSignal.occurredAt,
-		nextAiringAt: upcoming.minimum(publishDate(upcoming.episode)),
 		counts: episodicEpisodeCounts(kind, entity, "summary", cycle.newCycle),
 		nextUp: episodicNextUpId(kind, entity, "summaryNextUp", cycle.newCycle),
-		nextTrackedAiringAt: upcoming.minimum(
-			conditional(tracked, publishDate(upcoming.episode), literal(null)),
-		),
+		nextAiring: {
+			instant: upcoming.minimum(release.instant),
+			date: upcoming.minimum(conditional(dated, release.date, literal(null))),
+		},
+		nextTrackedAiring: {
+			instant: upcoming.minimum(conditional(tracked, release.instant, literal(null))),
+			date: upcoming.minimum(conditional(and(tracked, dated), release.date, literal(null))),
+		},
 	};
 };
 export const librarySummaryEntitiesRecipe = (() => {
@@ -276,8 +296,9 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 					...sharedSummarySelection(entity),
 					state: selectedField(lifecycle.state, SummaryRowSchema.state),
 					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
-					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
+					nextAiringDate: selectedField(lifecycle.nextAiring.date, SummaryRowSchema.release),
 					nextUpEpisodeId: selectedField(lifecycle.nextUp, SummaryRowSchema.nextUpEpisodeId),
+					nextAiringAt: selectedField(lifecycle.nextAiring.instant, SummaryRowSchema.release),
 					airedEpisodes: selectedField(
 						lifecycle.counts.airedEpisodes,
 						SummaryRowSchema.episodeCount,
@@ -286,17 +307,21 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 						lifecycle.counts.watchedEpisodes,
 						SummaryRowSchema.episodeCount,
 					),
+					nextTrackedAiringDate: selectedField(
+						lifecycle.nextTrackedAiring.date,
+						SummaryRowSchema.release,
+					),
 					upcomingEpisodes: selectedField(
 						lifecycle.counts.upcomingEpisodes,
 						SummaryRowSchema.episodeCount,
 					),
+					nextTrackedAiringAt: selectedField(
+						lifecycle.nextTrackedAiring.instant,
+						SummaryRowSchema.release,
+					),
 					inProgressEpisodes: selectedField(
 						lifecycle.counts.inProgressEpisodes,
 						SummaryRowSchema.episodeCount,
-					),
-					nextTrackedAiringAt: selectedField(
-						lifecycle.nextTrackedAiringAt,
-						SummaryRowSchema.nextTrackedAiringAt,
 					),
 				},
 			}),
@@ -313,12 +338,14 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 			releaseDate: row.releaseDate,
 			nextAiringAt: row.nextAiringAt,
 			airedEpisodes: row.airedEpisodes,
+			nextAiringDate: row.nextAiringDate,
 			lastActivityAt: row.lastActivityAt,
 			watchedEpisodes: row.watchedEpisodes,
 			nextUpEpisodeId: row.nextUpEpisodeId,
 			upcomingEpisodes: row.upcomingEpisodes,
 			inProgressEpisodes: row.inProgressEpisodes,
 			nextTrackedAiringAt: row.nextTrackedAiringAt,
+			nextTrackedAiringDate: row.nextTrackedAiringDate,
 		}).filter(([, value]) => value !== null),
 	);
 
@@ -341,13 +368,27 @@ export const libraryMembershipJoin = (entity: Table, alias: string) => {
 const summaryRead = (membership: Table, name: string) =>
 	jsonPath(column(membership, "projection"), name);
 
+const summaryReleaseArrived = (membership: Table, name: "nextAiring" | "nextTrackedAiring") =>
+	releaseHasArrived({
+		date: castDate(summaryRead(membership, `${name}Date`)),
+		instant: castDate(summaryRead(membership, `${name}At`)),
+	});
+
 /** The episode the summary stored as the next to air has aired since the summary was folded. */
 const summaryNextAiringPassed = (membership: Table) =>
-	lte(castDate(summaryRead(membership, "nextAiringAt")), currentDate());
+	summaryReleaseArrived(membership, "nextAiring");
 
 /** An unaired episode the user has progress on has aired since the fold, so that progress counts. */
 const summaryTrackedAiringPassed = (membership: Table) =>
-	lte(castDate(summaryRead(membership, "nextTrackedAiringAt")), currentDate());
+	summaryReleaseArrived(membership, "nextTrackedAiring");
+
+/** A stored `caught_up` reads as in progress once the summary's next airing has passed. */
+const correctedLifecycleState = (stored: ScalarExpression, nextAiringPassed: Predicate) =>
+	conditional(
+		and(eq(stored, literal("caught_up")), nextAiringPassed),
+		literal("in_progress"),
+		stored,
+	);
 
 /** The summary is folded; a pending or failed one keeps its last output until a fold writes. */
 const summaryReady = (membership: Table) =>
@@ -371,15 +412,11 @@ export const librarySummary = (membership: Table) => {
 	return {
 		releaseDate: castDate(read("releaseDate")),
 		lastActivityAt: castDate(read("lastActivityAt")),
+		lifecycleState: correctedLifecycleState(stored, summaryNextAiringPassed(membership)),
 		userRating: averageUserRating(
 			"libraryReview",
 			column(membership, "sourceEntityId"),
 			column(membership, "relationshipSchemaPluginId"),
-		),
-		lifecycleState: conditional(
-			and(eq(stored, literal("caught_up")), summaryNextAiringPassed(membership)),
-			literal("in_progress"),
-			stored,
 		),
 		timesCompleted: conditional(
 			pending,
@@ -438,6 +475,18 @@ const readyLibrarySummaryValue = (entity: Table, read: (membership: Table) => Sc
 };
 
 /**
+ * Whether `entity`'s ready summary still holds against `passed`, read as its own measure so every
+ * stored value it gates shares one check; null outside the library and while not ready.
+ */
+const readySummaryHolds = (entity: Table, passed: (membership: Table) => Predicate) =>
+	eq(
+		readyLibrarySummaryValue(entity, (membership) =>
+			conditional(passed(membership), literal(0), literal(1)),
+		),
+		literal(1),
+	);
+
+/**
  * The user's own stored progress on `entity`, through its `in-media-library` link: the lifecycle
  * state, corrected like `librarySummary`, and the completed and in-progress episode counts. An airing
  * changes them only when the user has progress on the episode or the state is `caught_up`, which
@@ -448,14 +497,15 @@ export const libraryProgressSummaryValue = (
 	entity: Table,
 	name: "lifecycleState" | "watchedEpisodes" | "inProgressEpisodes",
 ) =>
-	readyLibrarySummaryValue(entity, (membership) =>
-		conditional(
-			summaryTrackedAiringPassed(membership),
-			literal(null),
-			name === "lifecycleState"
-				? librarySummary(membership).lifecycleState
-				: castNumber(summaryRead(membership, name)),
-		),
+	conditional(
+		readySummaryHolds(entity, summaryTrackedAiringPassed),
+		name === "lifecycleState"
+			? correctedLifecycleState(
+					readyLibrarySummaryValue(entity, (membership) => castText(summaryRead(membership, name))),
+					not(readySummaryHolds(entity, summaryNextAiringPassed)),
+				)
+			: readyLibrarySummaryValue(entity, (membership) => castNumber(summaryRead(membership, name))),
+		literal(null),
 	);
 
 /**
@@ -467,12 +517,10 @@ export const currentLibrarySummaryValue = (
 	entity: Table,
 	name: "airedEpisodes" | "upcomingEpisodes",
 ) =>
-	readyLibrarySummaryValue(entity, (membership) =>
-		conditional(
-			summaryNextAiringPassed(membership),
-			literal(null),
-			castNumber(summaryRead(membership, name)),
-		),
+	conditional(
+		readySummaryHolds(entity, summaryNextAiringPassed),
+		readyLibrarySummaryValue(entity, (membership) => castNumber(summaryRead(membership, name))),
+		literal(null),
 	);
 
 /**

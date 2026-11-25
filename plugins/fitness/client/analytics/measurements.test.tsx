@@ -541,7 +541,7 @@ describe("Fitness analytics measurements", () => {
 				try {
 					const trigger = yield* openPicker(page);
 					trigger.focus();
-					fireEvent.keyDown(document, { key: "Escape" });
+					fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()),
 					);
@@ -562,14 +562,14 @@ describe("Fitness analytics measurements", () => {
 				const clock = createTestRyotClock();
 				const page = mountOwnerSwitch(clock);
 				try {
+					const switchOwner = yield* Effect.promise(() =>
+						screen.findByRole("button", { name: "Switch owner" }),
+					);
 					yield* openPicker(page);
 					const firstRequest = page.queryRequests("metrics")[0];
 					if (firstRequest === undefined) {
 						return;
 					}
-					const switchOwner = yield* Effect.promise(() =>
-						screen.findByRole("button", { name: "Switch owner" }),
-					);
 					fireEvent.click(switchOwner);
 					yield* Effect.promise(() => screen.findByRole("button", { name: "Choose a metric" }));
 					page.replyQuery(firstRequest.requestId, {

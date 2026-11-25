@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -39,7 +40,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { webRequest } from "~/support/web-request";
 
 const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
 const testSettingsSchema = {

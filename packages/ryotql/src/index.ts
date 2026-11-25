@@ -842,7 +842,7 @@ export type Recipe<
 type AnySelectedQuery = SelectedQuery<unknown>;
 type RecipeQueries = Readonly<Record<string, AnySelectedQuery>>;
 type QueryResults<Queries extends RecipeQueries> = {
-	readonly [Key in keyof Queries]: Queries[Key] extends SelectedQuery<infer Success>
+	readonly [Key in keyof Queries]: NonNullable<Queries[Key]> extends SelectedQuery<infer Success>
 		? Success
 		: never;
 };

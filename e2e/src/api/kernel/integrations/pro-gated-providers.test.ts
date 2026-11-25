@@ -5,6 +5,8 @@ import {
 	entitlementRequiredReason,
 } from "@ryot-app/contract/schema/entitlement";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
+import { makeTestResourceScope } from "@ryot-app/testing/resource-scope";
 import { Effect, Option } from "effect";
 import getPort from "get-port";
 
@@ -23,9 +25,7 @@ import {
 import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-pro-gated-providers-test";
 const PRO_KEY_ENV_VALUE = "e2e-pro-gated-key";

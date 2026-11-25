@@ -57,7 +57,11 @@ describe("media creator recipes", () => {
 			"relatedPopulationStatus",
 			"providerName",
 			"description",
-			"images",
+			"imageCount",
+			"firstPreviewImage",
+			"image",
+			"secondPreviewImage",
+			"backdropPreviewImage",
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
@@ -178,7 +182,7 @@ describe("media creator recipes", () => {
 	});
 
 	it("selects the character only when configured and only on media targets", () => {
-		const creditFieldKeys = ["id", "name", "images", "order", "roles", "roleCodes"];
+		const creditFieldKeys = ["id", "name", "image", "order", "roles", "roleCodes"];
 
 		expect(creditKeys(OVERVIEW_RECIPE, "movie")).toEqual([
 			...creditFieldKeys,

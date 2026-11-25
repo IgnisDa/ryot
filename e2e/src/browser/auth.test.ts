@@ -3,6 +3,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
+import { watchBrowserSessionExchange } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -30,20 +31,16 @@ it.live("signs up through the hosted OAuth flow", () =>
 			Stream.runHead,
 			Effect.forkChild({ startImmediately: true }),
 		);
-		const tokenResponseFiber = yield* page.eventStream("response").pipe(
-			Stream.filter((response) => new URL(response.url()).pathname === "/api/auth/oauth2/token"),
-			Stream.runHead,
-			Effect.forkChild({ startImmediately: true }),
-		);
+		const sessionResponseFiber = yield* watchBrowserSessionExchange(page);
 		yield* page.getByRole("button", { exact: true, name: "Create account" }).click();
 
 		const request = Option.getOrThrow(yield* Fiber.join(signupRequestFiber));
-		const oauthResponse = Option.getOrThrow(yield* Fiber.join(tokenResponseFiber));
+		const sessionResponse = yield* Fiber.join(sessionResponseFiber);
 		const body: unknown = Option.getOrThrow(yield* request.postDataJSON);
 		const oauthQuery: unknown =
 			body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
 		expect(typeof oauthQuery).toBe("string");
-		expect(oauthResponse.ok()).toBe(true);
+		expect(sessionResponse.ok()).toBe(true);
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 		expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
 	}).pipe(PlaywrightSpawner.withBrowser),

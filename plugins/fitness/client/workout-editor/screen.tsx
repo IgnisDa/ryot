@@ -6,6 +6,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	type Text,
 	useDisplayText,
@@ -14,10 +15,9 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { MotionList } from "@ryot-app/plugin-ui-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
-import { managedAssetBatch } from "../asset-urls";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
 import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import {
@@ -64,6 +64,7 @@ export function WorkoutEditorScreen(props: {
 	const [overlay, setOverlay] = useState<EditorOverlay>();
 	const [mediaTarget, setMediaTarget] = useState<WorkoutMediaTarget>();
 	const editorRoot = useRef<HTMLDivElement>(null);
+	const detailsTriggerRef = useRef<HTMLButtonElement>(null);
 	const editorDraft = snapshot.status === "ready" ? snapshot.draft : undefined;
 	const measurement = useMeasurementLogger();
 	const now = useEditorNow(
@@ -85,6 +86,10 @@ export function WorkoutEditorScreen(props: {
 		}
 	}, [controller, exercises.data]);
 	const close = () => setOverlay(undefined);
+	const openDetails = (trigger: null | HTMLButtonElement) => {
+		detailsTriggerRef.current = trigger;
+		setOverlay("details");
+	};
 	const scrollToEditorTarget = useEditorScroll({
 		editorRoot,
 		floatingRoot,
@@ -130,7 +135,10 @@ export function WorkoutEditorScreen(props: {
 		);
 	}, [editorDraft?.activeOccurrenceId, editorDraft?.activeSetId, isActive, scrollToEditorTarget]);
 
-	const names = new Map(exercises.data?.map(({ id, name }) => [id, name]));
+	const names = useMemo(
+		() => new Map(exercises.data?.map(({ id, name }) => [id, name])),
+		[exercises.data],
+	);
 	const disabled = snapshot.status !== "ready" || saving || editorDraft?.submission !== undefined;
 	const uploading = snapshot.status === "ready" && snapshot.uploading;
 	const locked = disabled || request.existingGuard || request.starting;
@@ -293,10 +301,10 @@ export function WorkoutEditorScreen(props: {
 			draft={editorDraft}
 			snapshot={snapshot}
 			exercises={exercises}
-			onSave={actions.save}
 			onResume={togglePause}
 			historical={historical}
 			conflict={actions.conflict}
+			onSave={() => actions.save()}
 			hasContext={context !== undefined}
 			measurementError={measurement.error}
 			onReload={() => setOverlay("reload")}
@@ -328,7 +336,9 @@ export function WorkoutEditorScreen(props: {
 	const cards = ready ? (
 		<fieldset disabled={locked} className="grid min-w-0 gap-3 border-0 p-0">
 			<ManagedAssetProvider
-				assets={managedAssetBatch((exercises.data ?? []).map((exercise) => exercise.images?.[0]))}
+				assets={collectManagedAssetLocators(
+					(exercises.data ?? []).map((exercise) => exercise.images?.[0]),
+				)}
 			>
 				<MotionList className="grid gap-3">
 					{occurrenceSegments(text, editorDraft).map((segment) =>
@@ -360,6 +370,7 @@ export function WorkoutEditorScreen(props: {
 		historical,
 		editorRoot,
 		onOverlay: setOverlay,
+		onOpenDetails: openDetails,
 	};
 	const finishLabel = live ? text("client.editor.finish") : text("common.action.save");
 	return (
@@ -390,15 +401,16 @@ export function WorkoutEditorScreen(props: {
 						live={live}
 						paused={paused}
 						locked={locked}
+						template={template}
 						onOverlay={setOverlay}
 						saveBlocked={saveBlocked}
 						finishLabel={finishLabel}
 						onTogglePause={togglePause}
+						onOpenDetails={openDetails}
 						menu={workoutMenuItems({
 							text,
 							live,
 							locked,
-							template,
 							stopwatch,
 							discardLabel,
 							onOverlay: setOverlay,
@@ -451,7 +463,7 @@ export function WorkoutEditorScreen(props: {
 					snapshot={snapshot}
 					draft={editorDraft}
 					disabled={disabled}
-					onSave={actions.save}
+					onSaved={props.onSaved}
 					mediaLabel={mediaLabel}
 					controller={controller}
 					measurement={measurement}
@@ -461,6 +473,7 @@ export function WorkoutEditorScreen(props: {
 					scrollTo={scrollToEditorTarget}
 					onReloaded={request.markStarted}
 					refetchExercises={exercises.refetch}
+					detailsTriggerRef={detailsTriggerRef}
 					existingGuard={request.existingGuard}
 					requestBlocked={request.requestBlocked}
 					requestHandled={request.requestHandled}

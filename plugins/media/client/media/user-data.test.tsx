@@ -26,7 +26,6 @@ const entity = {
 
 const summary = (schemaSlug = "movie", isInMediaLibrary = true) =>
 	decodeFlatSummary(fixtureSummaryRecipe, {
-		images: [],
 		schemaSlug,
 		id: "media-1",
 		isInMediaLibrary,
@@ -78,11 +77,11 @@ it.live(
 			);
 			try {
 				clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
-				expect(getByRole(document.body, "dialog").textContent).toContain("Source Film");
-				expect(getByRole(document.body, "dialog").textContent).toContain("child data");
-				expect(getByRole(document.body, "dialog").textContent).toContain("metadata remains");
+				expect(getByRole(document.body, "alertdialog").textContent).toContain("Source Film");
+				expect(getByRole(document.body, "alertdialog").textContent).toContain("child data");
+				expect(getByRole(document.body, "alertdialog").textContent).toContain("metadata remains");
 				clickRyotElement(getByRole(document.body, "button", { name: "Cancel" }));
-				expect(queryByRole(document.body, "dialog")).toBeNull();
+				expect(queryByRole(document.body, "alertdialog")).toBeNull();
 				expect(calls).toEqual([]);
 			} finally {
 				mounted.unmount();
@@ -114,7 +113,7 @@ it.live(
 				clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
 				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+					waitFor(() => expect(queryByRole(document.body, "alertdialog")).toBeNull()),
 				);
 				expect(requests[0]).toMatchObject({
 					packageId: "ryot/media",
@@ -161,13 +160,13 @@ it.live(
 				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(getByRole(document.body, "dialog").textContent).toContain("Target Film"),
+						expect(getByRole(document.body, "alertdialog").textContent).toContain("Target Film"),
 					),
 				);
 				expect(picks).toEqual([
 					{ schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-owner" } } },
 				]);
-				const detail = getByRole(document.body, "dialog").textContent;
+				const detail = getByRole(document.body, "alertdialog").textContent;
 				expect(detail).toContain("Source Film");
 				expect(detail).toContain("Target Film");
 				expect(detail).toContain("history");
@@ -231,7 +230,7 @@ it.live.each([
 				yield* Effect.promise(() =>
 					waitFor(() => expect(getByRole(mounted.container, "alert").textContent).toBe(message)),
 				);
-				expect(queryByRole(document.body, "dialog")).toBeNull();
+				expect(queryByRole(document.body, "alertdialog")).toBeNull();
 				expect(operations).toEqual([]);
 			} finally {
 				mounted.unmount();
@@ -291,13 +290,13 @@ for (const [failure, error, message] of [
 						yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
 					);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(queryByRole(document.body, "dialog")).not.toBeNull()),
+						waitFor(() => expect(queryByRole(document.body, "alertdialog")).not.toBeNull()),
 					);
 					clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
 					yield* Effect.promise(() =>
 						waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
 					);
-					expect(queryByRole(document.body, "dialog")).not.toBeNull();
+					expect(queryByRole(document.body, "alertdialog")).not.toBeNull();
 					expect(getByRole(document.body, "button", { name: "Merge data" })).toBeTruthy();
 				} finally {
 					mounted.unmount();

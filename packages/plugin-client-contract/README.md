@@ -6,7 +6,9 @@ and shared capability payloads. Runtime-only policy stays with its runtime. Brid
 structured-clone values rather than JSON, so the upload source crosses the port as a `Blob`.
 
 Artifact metadata includes content hash, artifact format, client API version, compiler version, and
-bridge version. Bridge init establishes a runtime identity from a random bridge session ID and the
+bridge version. The iframe sends a fixed window-level marker and offers a port. Its first port
+message proves the document nonce and composition identity. The host then sends init on the port.
+Bridge init establishes a runtime identity from a random bridge session ID and the
 composition hash and version metadata. Ready repeats it, and the kernel accepts only an exact match.
 The iframe reports metadata embedded in the composition document rather than treating echoed kernel
 input as proof. Init also carries `locale`, `dir` and `catalogs`: the registered

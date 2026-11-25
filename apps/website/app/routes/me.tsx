@@ -1,277 +1,28 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import PurchaseCompleteEmail from "@ryot-app/email-templates/emails/purchase-complete";
-import { UserId } from "@ryot-app/instance-contract/user";
-import dayjs from "dayjs";
-import { eq } from "drizzle-orm";
-import { Effect, Stream } from "effect";
+import { Effect } from "effect";
 import { useEffect, useState } from "react";
-import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
+import { Form, useFetcher, useLoaderData } from "react-router";
 import { toast } from "sonner";
-import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
-import * as schema from "~/drizzle/schema.server";
-import { resetUserPassword } from "~/lib/api.server";
-import {
-	getCancellation,
-	getPurchaseInProgress,
-	setCancellation,
-	setPurchaseInProgress,
-} from "~/lib/caches.server";
-import Pricing from "~/lib/components/Pricing";
-import { Button } from "~/lib/components/ui/button";
-import { Card } from "~/lib/components/ui/card";
-import { Label } from "~/lib/components/ui/label";
-import {
-	findPolarProductId,
-	getDb,
-	getPolarClient,
-	getPrices,
-	getServerVariables,
-	getUnkeyClient,
-	GRACE_PERIOD,
-	type PaddleCustomData,
-	websiteAuthCookie,
-} from "~/lib/config.server";
-import { fromPromise, WebsiteFailure } from "~/lib/effect.server";
-import { initializePaddleForApplication, startUrl } from "~/lib/general";
-import { runPromise } from "~/lib/runtime.server";
-import {
-	createUnkeyKey,
-	getActionIntent,
-	getCustomerWithActivePurchase,
-	getPaddleServerClient,
-	sendEmail,
-} from "~/lib/utilities.server";
+import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
+import { Label } from "~/components/ui/label";
+import { loadAccount, updateAccount } from "~/features/account/account.server";
+import Pricing from "~/features/billing/Pricing";
+import { initializePaddleForApplication } from "~/lib/general";
 import { changeCase } from "~/lib/utils";
+import type { PaddleCustomData } from "~/server/config.server";
+import { runPromise } from "~/server/runtime.server";
 
 import type { Route } from "./+types/me";
 
-export const loader = ({ request }: Route.LoaderArgs) =>
-	runPromise(
-		Effect.gen(function* () {
-			const customerDetails = yield* getCustomerWithActivePurchase(request);
-			if (!customerDetails) {
-				return redirect(startUrl);
-			}
-
-			const serverVariables = getServerVariables();
-			const isCancelling = getCancellation(customerDetails.id);
-			const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
-			return {
-				isCancelling,
-				customerDetails,
-				prices: getPrices(),
-				isPurchaseInProgress,
-				renewOn: customerDetails.renewOn,
-				isSandbox: !!serverVariables.PADDLE_SANDBOX,
-				clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-				paymentProvider: customerDetails.paymentProvider,
-			};
-		}),
-	);
+export const loader = ({ request }: Route.LoaderArgs) => runPromise(loadAccount(request));
+export const action = ({ request }: Route.ActionArgs) => runPromise(updateAccount(request));
 
 export const meta = () => {
 	return [{ title: "My account | Ryot" }];
 };
-
-const getAllSubscriptionsForCustomer = (customerId: string) => {
-	const paddleClient = getPaddleServerClient();
-	const subscriptionsQuery = paddleClient.subscriptions.list({ customerId: [customerId] });
-	return Stream.fromAsyncIterable(
-		subscriptionsQuery,
-		(cause) => new WebsiteFailure({ cause }),
-	).pipe(Stream.runCollect);
-};
-
-const getAllPolarSubscriptionsForCustomer = (customerId: string) =>
-	Stream.fromAsyncIterable(
-		getPolarClient().subscriptions.iterList({ external_customer_id: customerId }),
-		(cause) => new WebsiteFailure({ cause }),
-	).pipe(Stream.runCollect);
-
-export const action = ({ request }: Route.ActionArgs) =>
-	runPromise(
-		Effect.gen(function* () {
-			const intent = getActionIntent(request);
-			const customer = yield* getCustomerWithActivePurchase(request);
-			const serverVariables = getServerVariables();
-			return yield* match(intent)
-				.with("regenerateUnkeyKey", () =>
-					Effect.gen(function* () {
-						if (!customer?.planType) {
-							throw new Error("No customer found");
-						}
-						if (!customer.unkeyKeyId) {
-							throw new Error("No unkey key found");
-						}
-						const keyId = customer.unkeyKeyId;
-						const unkey = getUnkeyClient();
-						yield* fromPromise(() => unkey.keys.updateKey({ keyId, enabled: false }));
-						const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
-						const created = yield* createUnkeyKey(
-							customer,
-							renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
-						);
-						yield* fromPromise(() =>
-							getDb()
-								.update(schema.customer)
-								.set({ unkeyKeyId: created.keyId })
-								.where(eq(schema.customer.id, customer.id)),
-						);
-						const emailElement = PurchaseCompleteEmail({
-							planType: customer.planType,
-							renewOn: customer.renewOn ?? undefined,
-							details: { key: created.key, kind: "self_hosted" },
-						});
-						if (!emailElement) {
-							throw new Error("Failed to create email element");
-						}
-						yield* sendEmail({
-							element: emailElement,
-							recipient: customer.email,
-							subject: PurchaseCompleteEmail.subject,
-						});
-						return data({});
-					}),
-				)
-				.with("cancelSubscription", () =>
-					Effect.gen(function* () {
-						if (!customer) {
-							throw new Error("No customer found");
-						}
-
-						if (customer.paymentProvider === "polar") {
-							if (!customer.polarCustomerId) {
-								throw new Error("No Polar customer ID found");
-							}
-
-							const subscriptionsResponse = yield* getAllPolarSubscriptionsForCustomer(customer.id);
-
-							const activeSubscription = subscriptionsResponse.find((sub) =>
-								["active", "trialing"].includes(sub.status),
-							);
-
-							if (!activeSubscription) {
-								throw new Error("No active subscription found");
-							}
-
-							yield* Effect.log("Active Polar Subscription:", {
-								customerId: customer.id,
-								activeSubscription: activeSubscription.id,
-							});
-
-							const polar = getPolarClient();
-							yield* fromPromise(() => polar.subscriptions.revoke(activeSubscription.id));
-							setCancellation(customer.id);
-
-							return data({ success: true, message: "Subscription cancelled successfully" });
-						}
-
-						if (!customer.paddleCustomerId) {
-							throw new Error("No Paddle customer ID found");
-						}
-						const paddleClient = getPaddleServerClient();
-
-						const subscriptionsResponse = yield* getAllSubscriptionsForCustomer(
-							customer.paddleCustomerId,
-						);
-
-						const activeSubscription = subscriptionsResponse.find((sub) =>
-							["active", "trialing"].includes(sub.status),
-						);
-
-						if (!activeSubscription) {
-							throw new Error("No active subscription found");
-						}
-
-						yield* Effect.log("Active Paddle Subscription:", {
-							customerId: customer.id,
-							activeSubscription: activeSubscription.id,
-						});
-
-						yield* fromPromise(() =>
-							paddleClient.subscriptions.cancel(activeSubscription.id, {
-								effectiveFrom: "immediately",
-							}),
-						);
-						setCancellation(customer.id);
-
-						return data({ success: true, message: "Subscription cancelled successfully" });
-					}),
-				)
-				.with("checkoutPolar", () =>
-					Effect.gen(function* () {
-						if (!customer) {
-							throw new Error("No customer found");
-						}
-						if (customer.paymentProvider !== "polar") {
-							throw new Error("Customer is not on Polar");
-						}
-
-						const formData = yield* fromPromise(() => request.formData());
-						const productType = schema.ProductTypes.parse(formData.get("productType"));
-						const planType = schema.PlanTypes.parse(formData.get("planType"));
-
-						const productId = findPolarProductId(productType, planType);
-
-						if (!productId) {
-							throw new Error("Polar product not found");
-						}
-
-						setPurchaseInProgress(customer.id);
-
-						const polar = getPolarClient();
-						const frontendUrl = serverVariables.FRONTEND_URL;
-						const checkout = yield* fromPromise(() =>
-							polar.checkouts.create({
-								products: [productId],
-								customer_email: customer.email,
-								success_url: `${frontendUrl}/me`,
-								external_customer_id: customer.id,
-							}),
-						);
-
-						return redirect(checkout.url);
-					}),
-				)
-				.with("checkoutPaddle", () =>
-					Effect.sync(() => {
-						if (!customer) {
-							throw new Error("No customer found");
-						}
-						setPurchaseInProgress(customer.id);
-						return data({});
-					}),
-				)
-				.with("generateResetLink", () =>
-					Effect.gen(function* () {
-						if (!customer?.ryotUserId) {
-							return data({ error: "No associated app user found" });
-						}
-						if (customer.oidcIssuerId) {
-							return data({ error: "Password reset is not available for OIDC accounts" });
-						}
-
-						return yield* resetUserPassword(UserId.make(customer.ryotUserId)).pipe(
-							Effect.map((reset) => data({ email: reset.email, resetUrl: reset.resetUrl })),
-							Effect.catchCause(() =>
-								Effect.succeed(data({ error: "Failed to reach the backend server" })),
-							),
-						);
-					}),
-				)
-				.with("logout", () =>
-					Effect.gen(function* () {
-						const cookies = yield* fromPromise(() =>
-							websiteAuthCookie.serialize("", { expires: new Date(0) }),
-						);
-						return data({}, { headers: { "set-cookie": cookies } });
-					}),
-				)
-				.run();
-		}),
-	);
 
 export default function Index() {
 	const fetcher = useFetcher();
@@ -286,7 +37,7 @@ export default function Index() {
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
 
 	useEffect(() => {
-		if (!paddle) {
+		if (!paddle && loaderData.paymentProvider === "paddle") {
 			Effect.runFork(
 				Effect.promise(() =>
 					initializePaddleForApplication(
@@ -320,6 +71,7 @@ export default function Index() {
 		fetcher,
 		loaderData.isSandbox,
 		loaderData.clientToken,
+		loaderData.paymentProvider,
 		loaderData.customerDetails.paddleCustomerId,
 	]);
 
@@ -343,9 +95,7 @@ export default function Index() {
 					minute to see the updated status.
 				</div>
 			) : null}
-			{!loaderData.customerDetails.hasCancelled &&
-			loaderData.customerDetails.planType &&
-			loaderData.customerDetails.productType ? (
+			{loaderData.customerDetails.planType && loaderData.customerDetails.productType ? (
 				<Card className="w-full max-w-md p-6 grid gap-6 m-auto mt-40">
 					<div className="grid grid-cols-2 gap-4">
 						<div className="col-span-2">
@@ -450,6 +200,7 @@ export default function Index() {
 				<Pricing
 					isLoggedIn
 					prices={loaderData.prices}
+					checkoutReady={loaderData.paymentProvider === "polar" || paddle !== undefined}
 					onClick={(priceId, productType, planType) => {
 						if (loaderData.paymentProvider === "polar") {
 							const formData = new FormData();
@@ -474,28 +225,27 @@ export default function Index() {
 				/>
 			)}
 			<div className="mt-4 md:px-10 flex gap-4 justify-end items-center w-full">
-				{!loaderData.customerDetails.hasCancelled &&
-					!(["free", "lifetime", null] as unknown[]).includes(
-						loaderData.customerDetails.planType,
-					) && (
-						<fetcher.Form
-							method="POST"
-							className="pb-6"
-							action={withQuery(".", { intent: "cancelSubscription" })}
-							onSubmit={(e) => {
-								const yes = confirm(
-									"Are you sure you want to cancel your subscription? You will lose access to the pro features immediately.",
-								);
-								if (!yes) {
-									e.preventDefault();
-								}
-							}}
-						>
-							<Button type="submit" variant="outline">
-								{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
-							</Button>
-						</fetcher.Form>
-					)}
+				{!(["free", "lifetime", null] as unknown[]).includes(
+					loaderData.customerDetails.planType,
+				) && (
+					<fetcher.Form
+						method="POST"
+						className="pb-6"
+						action={withQuery(".", { intent: "cancelSubscription" })}
+						onSubmit={(e) => {
+							const yes = confirm(
+								"Are you sure you want to cancel your subscription? You will lose access to the pro features immediately.",
+							);
+							if (!yes) {
+								e.preventDefault();
+							}
+						}}
+					>
+						<Button type="submit" variant="outline">
+							{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
+						</Button>
+					</fetcher.Form>
+				)}
 				<Form method="POST" className="pb-6" action={withQuery(".", { intent: "logout" })}>
 					<Button type="submit">Sign out</Button>
 				</Form>

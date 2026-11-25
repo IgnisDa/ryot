@@ -59,9 +59,8 @@ export const pagePluginKeys = (definition: PageDefinition) =>
 
 export const describeClientArtifact = (artifact: ClientArtifact): ArchiveClientArtifact => ({
 	...artifact,
-	files: artifact.files.map(({ name, contents, contentType }) => ({
-		name,
-		contentType,
+	files: artifact.files.map(({ contents, ...file }) => ({
+		...file,
 		size: contents.byteLength,
 		sha256: sha256Hex(contents),
 	})),
@@ -164,7 +163,12 @@ const readClientArtifactFiles = Effect.fn(function* (
 				blob.path,
 			);
 		}
-		files.push({ contents, name: file.name, contentType: file.contentType });
+		files.push({
+			contents,
+			name: file.name,
+			contentType: file.contentType,
+			staticImports: file.staticImports,
+		});
 	}
 	return files;
 });

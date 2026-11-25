@@ -7,7 +7,6 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	type ClientPageContext,
 	type PluginBridgeInit,
 	type PluginLogicalLocation,
@@ -29,15 +28,20 @@ import * as pluginSurface from "../plugin";
 import { createRyotQuery } from "../queries/definitions";
 import { useRyotQuery } from "../queries/hooks";
 import { useRyot, useRyotSchedule, useRyotTheme } from "../queries/provider";
-import { RyotClientService, RyotNavigationService } from "../runtime/runtime";
+import {
+	makeRyotPluginRuntime,
+	RyotClientService,
+	RyotNavigationService,
+} from "../runtime/runtime";
 import { RyotScheduleService } from "../schedule";
 import {
 	createTestRyotClock,
 	mountPluginPage,
+	startTestPluginBridge,
 	testBridgeLocale,
 	waitForMessagePortMacrotask,
 } from "../testing";
-import { bootstrapClientPage, bootstrapClientPlugin, createClientBootstrap } from "./application";
+import { createClientBootstrap } from "./application";
 import { usePageContext } from "./page-context";
 
 const metadata = {
@@ -84,7 +88,6 @@ const replacementPage = (label: string): ClientPageContext => ({
 		packageId: PluginPackageId.make("test/fixture"),
 	},
 });
-let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
 
 const Home = () => {
@@ -133,11 +136,7 @@ const OverlayHome = () => {
 				Open
 			</button>
 			{open && (
-				<Modal
-					label={testText("Overlay")}
-					closeLabel={testText("Close")}
-					onClose={() => setOpen(false)}
-				>
+				<Modal label={testText("Overlay")} onClose={() => setOpen(false)}>
 					<button type="button">Inside</button>
 				</Modal>
 			)}
@@ -171,29 +170,25 @@ const ScheduledHome = () => {
 	return <p>{`ticks:${ticks}`}</p>;
 };
 
-const embedMetadata = () => {
-	const element = document.createElement("script");
-	element.type = "application/json";
-	element.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
-	element.textContent = JSON.stringify(metadata);
-	document.head.append(element);
+const liveBootstrap = createClientBootstrap(makeRyotPluginRuntime);
+const launch = (start: Parameters<typeof startTestPluginBridge>[0]) => {
+	const bootstrap = startTestPluginBridge(start, metadata);
+	bootstraps.push(bootstrap);
+	return bootstrap;
 };
+const openPlugin = (
+	definition: Parameters<typeof liveBootstrap.bootstrapClientPlugin>[0],
+	bootstrap = liveBootstrap,
+) => launch((offer) => bootstrap.bootstrapClientPlugin(definition, {}, offer));
+const openPage = (component: Parameters<typeof liveBootstrap.bootstrapClientPage>[0]) =>
+	launch((offer) => liveBootstrap.bootstrapClientPage(component, {}, offer));
 
 const mountSelectedPage = (page: ClientPageContext, location: PluginLogicalLocation) => {
 	document.body.innerHTML = '<div id="app"></div>';
-	embedMetadata();
-	bootstraps.push(bootstrapClientPage(SelectedPage));
-	const channel = new MessageChannel();
-	channels.push(channel);
-	channel.port1.start();
-	window.dispatchEvent(
-		new MessageEvent("message", {
-			source: window.parent,
-			ports: [channel.port2],
-			data: { ...init, page },
-		}),
-	);
-	channel.port1.postMessage({
+	const { port } = openPage(SelectedPage);
+	port.start();
+	port.postMessage({ ...init, page });
+	port.postMessage({
 		index: 0,
 		location,
 		key: "k0",
@@ -202,18 +197,13 @@ const mountSelectedPage = (page: ClientPageContext, location: PluginLogicalLocat
 		type: "location",
 		leading: "drawer",
 	});
-	return channel;
+	return port;
 };
 
 afterEach(() => {
 	for (const bootstrap of bootstraps) {
 		bootstrap.dispose();
 	}
-	for (const channel of channels) {
-		channel.port1.close();
-		channel.port2.close();
-	}
-	channels = [];
 	bootstraps = [];
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
@@ -230,23 +220,19 @@ describe("bootstrapClientPlugin", () => {
 					const container = document.createElement("div");
 					container.id = "app";
 					document.body.append(container);
-					const instance = bootstrap.bootstrapClientPlugin({
-						home: { component: ScheduledHome },
-						routes: [{ path: "/detail", component: StaticHome }],
-					});
-					bootstraps.push(instance);
-					const channel = new MessageChannel();
-					channels.push(channel);
-					channel.port1.start();
-					window.dispatchEvent(
-						new MessageEvent("message", {
-							source: window.parent,
-							ports: [channel.port2],
-							data: { ...init, sessionId },
-						}),
+					const instance = openPlugin(
+						{
+							home: { component: ScheduledHome },
+							routes: [{ path: "/detail", component: StaticHome }],
+						},
+						bootstrap,
 					);
+					const { port } = instance;
+
+					port.start();
+					port.postMessage({ ...init, sessionId });
 					const navigate = (path: string) =>
-						channel.port1.postMessage({
+						port.postMessage({
 							index: 0,
 							key: "k0",
 							compact: false,
@@ -259,7 +245,6 @@ describe("bootstrapClientPlugin", () => {
 					return { instance, navigate, container };
 				};
 				try {
-					embedMetadata();
 					const pageA = open(a.bootstrap, "a");
 					yield* Effect.promise(() =>
 						waitFor(() => expect(pageA.container.textContent).toBe("ticks:0")),
@@ -433,26 +418,33 @@ describe("bootstrapClientPlugin", () => {
 		expect(pluginSurface).not.toHaveProperty("usePluginNavigation");
 	});
 
+	it("does not offer a port without valid embedded metadata", () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		const offered: MessagePort[] = [];
+		const bootstrap = liveBootstrap.bootstrapClientPlugin(
+			{ home: { component: Home } },
+			{},
+			(port) => offered.push(port),
+		);
+		bootstraps.push(bootstrap);
+		expect(offered).toEqual([]);
+	});
+
 	it.live(
-		"does not register a session without valid embedded metadata",
+		"refuses initialization for a different composition on the offered port",
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: StaticHome } });
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage({ ...init, compositionHash: "other-composition" });
+				port.postMessage(init);
 				yield* waitForMessagePortMacrotask;
+
 				expect(messages).toEqual([]);
+				expect(document.getElementById("app")?.textContent).toBe("");
 			}),
 		testTimeout,
 	);
@@ -462,21 +454,13 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: Home } });
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -492,7 +476,7 @@ describe("bootstrapClientPlugin", () => {
 						),
 					),
 				);
-				channel.port1.postMessage({
+				port.postMessage({
 					value: "Hello",
 					outcome: "success",
 					type: "operation-result",
@@ -502,7 +486,7 @@ describe("bootstrapClientPlugin", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello")),
 				);
-				channel.port1.postMessage({ mode: "dark", type: "theme" });
+				port.postMessage({ mode: "dark", type: "theme" });
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello")),
 				);
@@ -515,35 +499,27 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: PageContextHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						source: window.parent,
-						ports: [channel.port2],
-						data: {
-							...init,
-							page: {
-								view: null,
-								settings: {},
-								contributors: [],
-								dataSources: null,
-								route: { params: {} },
-								renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
-								target: {
-									path: "/",
-									search: "tab=stats",
-									kind: "plugin-route",
-									packageId: PluginPackageId.make("test/plugin-1"),
-								},
-							},
+				const { port } = openPlugin({ home: { component: PageContextHome } });
+
+				port.start();
+				port.postMessage({
+					...init,
+					page: {
+						view: null,
+						settings: {},
+						contributors: [],
+						dataSources: null,
+						route: { params: {} },
+						renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
+						target: {
+							path: "/",
+							search: "tab=stats",
+							kind: "plugin-route",
+							packageId: PluginPackageId.make("test/plugin-1"),
 						},
-					}),
-				);
-				channel.port1.postMessage({
+					},
+				});
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -626,11 +602,9 @@ describe("bootstrapClientPlugin", () => {
 					);
 				};
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPage(Counter));
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
+				const { port } = openPage(Counter);
+
+				port.start();
 				const navigation = {
 					index: 0,
 					key: "k0",
@@ -640,14 +614,8 @@ describe("bootstrapClientPlugin", () => {
 					leading: "drawer" as const,
 					location: routeLocation("/"),
 				};
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						source: window.parent,
-						ports: [channel.port2],
-						data: { ...init, page: replacementPage("Records") },
-					}),
-				);
-				channel.port1.postMessage(navigation);
+				port.postMessage({ ...init, page: replacementPage("Records") });
+				port.postMessage(navigation);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(document.getElementById("app")?.textContent).toBe("Records:0:pending"),
@@ -661,7 +629,7 @@ describe("bootstrapClientPlugin", () => {
 						expect(document.getElementById("app")?.textContent).toBe("Records:1:pending"),
 					),
 				);
-				channel.port1.postMessage({
+				port.postMessage({
 					navigation,
 					type: "document",
 					documentKey: "page-2",
@@ -714,7 +682,7 @@ describe("bootstrapClientPlugin", () => {
 		"renders a selected entity page with entity renderer props",
 		() =>
 			Effect.gen(function* () {
-				const channel = mountSelectedPage(
+				const port = mountSelectedPage(
 					{
 						view: null,
 						settings: {},
@@ -743,7 +711,7 @@ describe("bootstrapClientPlugin", () => {
 					),
 				);
 
-				channel.port1.postMessage({
+				port.postMessage({
 					index: 1,
 					key: "k1",
 					compact: false,
@@ -764,7 +732,7 @@ describe("bootstrapClientPlugin", () => {
 						),
 					),
 				);
-				channel.port1.postMessage({
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -794,22 +762,14 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: OverlayHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: OverlayHome } });
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
 				const locate = (compact: boolean) =>
-					channel.port1.postMessage({
+					port.postMessage({
 						compact,
 						index: 0,
 						key: "k0",
@@ -858,7 +818,7 @@ describe("bootstrapClientPlugin", () => {
 
 				const previousOpen = document.querySelector("button");
 				assert(previousOpen instanceof HTMLButtonElement);
-				channel.port1.postMessage({
+				port.postMessage({
 					type: "document",
 					documentKey: "page-2",
 					page: replacementPage("Music"),
@@ -886,15 +846,11 @@ describe("bootstrapClientPlugin", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull()),
 				);
-				channel.port1.postMessage({
-					type: "dismiss-overlay",
-					requestId: "overlay-after-replacement",
-				});
+				port.postMessage({ type: "dismiss-overlay", requestId: "overlay-after-replacement" });
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						expect(document.querySelector('[role="dialog"]')).toBeNull();
 						expect(messages).toContainEqual({
-							dismissed: true,
 							type: "dismiss-overlay-result",
 							requestId: "overlay-after-replacement",
 						});
@@ -909,24 +865,14 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(
-					bootstrapClientPlugin({
-						home: { component: StaticHome },
-						entities: { "fixture-record": { component: RecordRenderer } },
-					}),
-				);
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				const { port } = openPlugin({
+					home: { component: StaticHome },
+					entities: { "fixture-record": { component: RecordRenderer } },
+				});
+
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "record",
 					compact: false,
@@ -955,25 +901,15 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(
-					bootstrapClientPlugin({
-						home: { component: TitledHome },
-						routes: [{ path: "/items/$itemId", component: TitledDetail }],
-					}),
-				);
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({
+					home: { component: TitledHome },
+					routes: [{ path: "/items/$itemId", component: TitledDetail }],
+				});
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
 				const headers = () =>
 					messages.filter(
 						(message) =>
@@ -983,7 +919,7 @@ describe("bootstrapClientPlugin", () => {
 							message.type === "header",
 					);
 				const goTo = (index: number, key: string, path: string) => {
-					channel.port1.postMessage({
+					port.postMessage({
 						key,
 						index,
 						compact: false,
@@ -1036,25 +972,17 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				const { port } = openPlugin({ home: { component: StaticHome } });
+
+				port.start();
+				port.postMessage(init);
 				yield* waitForMessagePortMacrotask;
 				expect(document.getElementById("app")?.textContent).toBe("");
 
 				yield* waitForMessagePortMacrotask;
 				expect(document.getElementById("app")?.textContent).toBe("");
 
-				channel.port1.postMessage({
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1075,20 +1003,13 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: StaticHome } });
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
+				yield* waitForMessagePortMacrotask;
 				const error = new ErrorEvent("error", { cancelable: true, error: new Error("fatal") });
 				window.dispatchEvent(error);
 
@@ -1108,21 +1029,13 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: CrashingHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: CrashingHome } });
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1150,21 +1063,13 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const { port } = openPlugin({ home: { component: StaticHome } });
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1194,22 +1099,14 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
-				bootstraps.push(bootstrap);
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const bootstrap = openPlugin({ home: { component: StaticHome } });
+				const { port } = bootstrap;
+
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1247,20 +1144,12 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
-				bootstraps.push(bootstrap);
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				const bootstrap = openPlugin({ home: { component: StaticHome } });
+				const { port } = bootstrap;
+
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1285,29 +1174,21 @@ describe("bootstrapClientPlugin", () => {
 	);
 
 	it.live(
-		"removes its window listener when disposed before initialization",
+		"closes its bootstrap port when disposed before initialization",
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				const bootstrap = bootstrapClientPlugin({ home: { component: Home } });
-				bootstrap.dispose();
-				const channel = new MessageChannel();
-				channels.push(channel);
+				const bootstrap = openPlugin({ home: { component: Home } });
+				const { port } = bootstrap;
 				const messages: unknown[] = [];
-				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-				channel.port1.start();
-
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
+				port.addEventListener("message", ({ data }) => messages.push(data));
+				port.start();
+				bootstrap.dispose();
+				port.postMessage(init);
 				yield* waitForMessagePortMacrotask;
 
 				expect(messages).toEqual([]);
+				expect(document.getElementById("app")?.textContent).toBe("");
 			}),
 		testTimeout,
 	);
@@ -1317,19 +1198,11 @@ describe("bootstrapClientPlugin", () => {
 		() =>
 			Effect.gen(function* () {
 				document.body.innerHTML = '<div id="app"></div>';
-				embedMetadata();
-				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-				const channel = new MessageChannel();
-				channels.push(channel);
-				channel.port1.start();
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: init,
-						source: window.parent,
-						ports: [channel.port2],
-					}),
-				);
-				channel.port1.postMessage({
+				const { port } = openPlugin({ home: { component: StaticHome } });
+
+				port.start();
+				port.postMessage(init);
+				port.postMessage({
 					index: 0,
 					key: "k0",
 					compact: false,
@@ -1342,7 +1215,7 @@ describe("bootstrapClientPlugin", () => {
 					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
 				);
 
-				channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
+				port.postMessage({ reason: "disposed", type: "lifecycle-close" });
 
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("")),

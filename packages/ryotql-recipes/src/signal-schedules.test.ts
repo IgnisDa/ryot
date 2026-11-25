@@ -158,6 +158,72 @@ describe("signal schedule recipe", () => {
 		});
 		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual<unknown>([dueAt]);
 		expect(query.output.fields).toEqual<unknown>([field("__scheduleDueAt", dueAt)]);
+		expect(page().document.queries["signalScheduleNextInstant"]).toBeUndefined();
+	});
+
+	it("uses the instant window and next instant for rows with an airtime", () => {
+		const instant = column(entity, "updatedAt");
+		const instantStart = "2026-03-12T05:00:00.000Z";
+		const instantEnd = "2026-03-14T21:30:00.000Z";
+		const recipe = Result.getOrThrow(
+			signalScheduleRecipe({
+				schedule: {
+					...schedule,
+					instantAt: "instant",
+					query: {
+						...schedule.query,
+						output: {
+							...schedule.query.output,
+							fields: [...schedule.query.output.fields, field("instant", instant)],
+						},
+					},
+				},
+			}),
+		);
+		const { queries } = bindRecipe(recipe, { ...bounds, instantEnd, instantStart }).document;
+		const freshness = or(
+			isNull(confirmedAt),
+			gte(confirmedAt, castDate(literal(bounds.confirmedAfter))),
+		);
+		expect(requireRowsQuery(queries["signalScheduleDue"]).where).toEqual<unknown>({
+			type: "and",
+			predicates: [
+				where,
+				objectContaining({ type: "or" }),
+				or(
+					and(
+						isNull(instant),
+						gte(dueAt, castDate(literal(bounds.start))),
+						lt(dueAt, castDate(literal(bounds.end))),
+					),
+					and(
+						gte(instant, castDate(literal(instantStart))),
+						lt(instant, castDate(literal(instantEnd))),
+					),
+				),
+				freshness,
+			],
+		});
+		expect(requireRowsQuery(queries["signalScheduleNext"]).where).toEqual<unknown>({
+			type: "and",
+			predicates: [
+				where,
+				objectContaining({ type: "or" }),
+				and(isNull(instant), gte(dueAt, castDate(literal(bounds.end)))),
+				freshness,
+			],
+		});
+		const nextInstant = requireRowsQuery(queries["signalScheduleNextInstant"]);
+		expect(nextInstant.where).toEqual<unknown>({
+			type: "and",
+			predicates: [
+				where,
+				objectContaining({ type: "or" }),
+				gte(instant, castDate(literal(instantEnd))),
+				freshness,
+			],
+		});
+		expect(nextInstant.output.fields).toEqual<unknown>([field("__scheduleDueAt", instant)]);
 	});
 
 	it("decodes declared properties, omits null values and reads the next due time", () => {

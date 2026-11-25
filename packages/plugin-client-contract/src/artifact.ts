@@ -17,9 +17,15 @@ export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 
+export const clientArtifactFileFields = {
+	name: Schema.String,
+	contentType: Schema.String,
+	staticImports: Schema.Array(Schema.String),
+};
+
 const pluginClientArtifactFile = <Encoded, DecodingServices, EncodingServices>(
 	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
-) => strictStruct({ contents, name: Schema.String, contentType: Schema.String });
+) => strictStruct({ contents, ...clientArtifactFileFields });
 
 export const PluginClientArtifactFile = pluginClientArtifactFile(Schema.Uint8Array);
 
@@ -120,13 +126,16 @@ export const clientArtifactFile = ({
 	path,
 	bytes,
 	contentType,
+	staticImports = [],
 }: {
 	readonly path: string;
 	readonly bytes: Uint8Array;
 	readonly contentType: string;
+	readonly staticImports?: readonly string[];
 }): PluginClientArtifactFile => ({
 	name: path,
 	contentType,
+	staticImports,
 	contents: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice(),
 });
 
@@ -166,7 +175,12 @@ const artifactMetadata = (
 	);
 	const identity = { ...versions, ...owner, imports: sortedImports };
 	const fileIdentity = files
-		.map(({ name, contents, contentType }) => ({ name, contentType, sha256: sha256Hex(contents) }))
+		.map(({ name, contents, contentType, staticImports }) => ({
+			name,
+			contentType,
+			...(staticImports.length === 0 ? {} : { staticImports }),
+			sha256: sha256Hex(contents),
+		}))
 		.sort((left, right) => {
 			if (left.name < right.name) {
 				return -1;

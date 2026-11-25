@@ -5,13 +5,15 @@ import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue } from "../../../lib/records";
+import { mediaTranslationResult } from "../../../lib/translation-result";
 import {
 	firstTranslationValue,
-	getLocalizedImageUrl,
+	getLocalizedTmdbArtwork,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
 	tmdbGet,
 	type TmdbHost,
+	tmdbLocalizedImages,
 } from "../../../lib/vendors/tmdb";
 import { tmdbShowChildPath } from "./child-path";
 
@@ -19,16 +21,8 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 	if (!/^\d+$/.test(input.externalId)) {
 		throw new Error("externalId must be a numeric TMDB show ID");
 	}
-	if (input.entitySchemaSlug === "show") {
-		return {
-			imageKey: "posters",
-			purpose: "cover" as const,
-			imagesPath: `/tv/${input.externalId}/images`,
-			translationsPath: `/tv/${input.externalId}/translations`,
-		};
-	}
-
-	const path = tmdbShowChildPath(input);
+	const path =
+		input.entitySchemaSlug === "show" ? `/tv/${input.externalId}` : tmdbShowChildPath(input);
 	const episode = input.entitySchemaSlug === "show-episode";
 	return {
 		imagesPath: `${path}/images`,
@@ -47,7 +41,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 		const { region, script, langCode } = parseTranslationLanguage(input.language);
 		const [translationsData, imagesData] = yield* Effect.all([
 			tmdbGet(host, request.translationsPath, {}, token),
-			tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).pipe(
+			tmdbLocalizedImages(host, request.imagesPath, langCode, token).pipe(
 				Effect.orElseSucceed(() => ({})),
 			),
 		]);
@@ -59,20 +53,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 		const description = normalizePlainDescription(
 			firstTranslationValue(candidates, (data) => data["overview"]),
 		);
-		const imageUrl = getLocalizedImageUrl(imagesData, request.imageKey, langCode);
-		const properties: Record<
-			string,
-			string | Array<{ url: string; type: "remote"; purpose: "cover" | "still" }>
-		> = {};
-		if (description) {
-			properties["description"] = description;
-		}
-		if (imageUrl) {
-			properties["images"] = [{ url: imageUrl, type: "remote", purpose: request.purpose }];
-		}
-		return {
-			...(name ? { name } : {}),
-			...(Object.keys(properties).length > 0 ? { properties } : {}),
-		};
+		const image = getLocalizedTmdbArtwork(imagesData, request.imageKey, langCode, request.purpose);
+		return mediaTranslationResult(name, description, image);
 	});
 };

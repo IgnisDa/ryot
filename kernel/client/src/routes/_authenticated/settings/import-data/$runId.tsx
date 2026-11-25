@@ -1,3 +1,4 @@
+import { formatDisplayText } from "@ryot-app/i18n/format";
 import { useFormatters, useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
@@ -26,13 +27,15 @@ import {
 	ImportsService,
 } from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
+import { integrationTitle } from "#/modules/integrations/presentation";
+import { integrationProviderNames } from "#/modules/integrations/provider-selection";
+import { integrationDetailQuery, integrationProvidersQuery } from "#/modules/integrations/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import {
 	isTerminalRunStatus,
 	runDurationLabel,
 	runTimestampLabel,
 } from "#/modules/ui/run/run-status";
-import { RunStatusPill } from "#/modules/ui/run/run-status-pill";
 import { RUN_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { StatusState } from "#/modules/ui/status-state";
 import { useNowMs } from "#/modules/ui/use-now-ms";
@@ -64,6 +67,14 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 		),
 });
 
+type RunFrameProps = {
+	readonly title: Text;
+	readonly meta?: ReactNode;
+	readonly actions?: ReactNode;
+	readonly children: ReactNode;
+	readonly integrationId?: string;
+};
+
 function ImportRunLoaderError() {
 	const t = useT();
 	const router = useRouter();
@@ -86,12 +97,10 @@ function ImportRunPending() {
 	);
 }
 
-function ImportRunFrame(props: {
-	readonly title: Text;
-	readonly meta?: ReactNode;
-	readonly actions?: ReactNode;
-	readonly children: ReactNode;
-}) {
+function ImportRunFrame(props: RunFrameProps) {
+	if (props.integrationId !== undefined) {
+		return <IntegrationRunFrame {...props} integrationId={props.integrationId} />;
+	}
 	return (
 		<SettingsFrame
 			meta={props.meta}
@@ -139,15 +148,35 @@ function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
 	);
 }
 
+function IntegrationRunFrame(props: RunFrameProps & { readonly integrationId: string }) {
+	const t = useT();
+	const integration = useRyotQuery(integrationDetailQuery, props.integrationId);
+	const providers = useRyotQuery(integrationProvidersQuery);
+	const title = integration.data
+		? formatDisplayText(
+				t,
+				integrationTitle(integration.data, integrationProviderNames(providers.data ?? [], t)),
+			)
+		: t(kernelMessage("client.route.settings.integration.title"));
+	return (
+		<SettingsFrame
+			title={title}
+			meta={props.meta}
+			actions={props.actions}
+			backFallbackHref={`/settings/integrations/${props.integrationId}`}
+		>
+			{props.children}
+		</SettingsFrame>
+	);
+}
+
 function ImportRunRoute() {
 	const formatters = useFormatters();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { runId } = Route.useLoaderData();
-	const { scope, runtime, backInterceptors } = Route.useRouteContext();
+	const { scope, runtime } = Route.useRouteContext();
 	const menuTrigger = useRef<HTMLButtonElement>(null);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
 	const [confirmation, setConfirmation] = useState<null | "cancel" | "delete">(null);
 	const [issueDownload, setIssueDownload] = useState<{
 		readonly runId: string;
@@ -172,6 +201,7 @@ function ImportRunRoute() {
 	const displayedDetail =
 		detail.data ?? (retainedDetail?.runId === runId ? retainedDetail.detail : undefined);
 	const state = displayedDetail === undefined ? undefined : detailState(displayedDetail);
+	const integrationId = displayedDetail?.run?.integrationId ?? undefined;
 	const nowMs = useNowMs(RUN_POLL_MS);
 	const cancelPhrase = t(kernelMessage("client.route.settings.import-run.cancel-phrase"));
 	const sourceNames = importSourceNames(sources.data ?? [], t);
@@ -187,20 +217,6 @@ function ImportRunRoute() {
 		refresh: detail.refetch,
 		enabled: run !== undefined && !isTerminalRunStatus(run.status),
 	});
-
-	useEffect(() => {
-		if (!menuOpen && confirmation === null) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			if (deletion.isPending || cancellation.isPending) {
-				return true;
-			}
-			setMenuOpen(false);
-			setConfirmation(null);
-			return true;
-		});
-	}, [backInterceptors, cancellation.isPending, confirmation, deletion.isPending, menuOpen]);
 
 	useEffect(() => () => issueDownloadController.current?.abort(), []);
 
@@ -265,7 +281,6 @@ function ImportRunRoute() {
 						destructive: true,
 						label: t(kernelMessage("client.route.settings.import-run.cancel-action")),
 						onSelect: () => {
-							setMenuOpen(false);
 							cancellation.reset();
 							setConfirmation("cancel");
 						},
@@ -277,7 +292,6 @@ function ImportRunRoute() {
 						destructive: true,
 						label: t(kernelMessage("client.route.settings.delete-record")),
 						onSelect: () => {
-							setMenuOpen(false);
 							deletion.reset();
 							setConfirmation("delete");
 						},
@@ -310,50 +324,43 @@ function ImportRunRoute() {
 	return (
 		<ImportRunFrame
 			title={title}
+			integrationId={integrationId}
 			meta={
 				run === undefined ? undefined : (
 					<div className="flex flex-col gap-2">
 						<p className="text-xs text-text-subtle">
 							{t(
-								kernelMessage("client.route.settings.import-run.meta", {
-									timestamp: runTimestampLabel(formatters, run.createdAt),
-								}),
+								kernelMessage(
+									integrationId === undefined
+										? "client.route.settings.import-run.meta"
+										: "client.route.settings.import-run.integration-meta",
+									{ timestamp: runTimestampLabel(formatters, run.createdAt) },
+								),
 							)}
 						</p>
-						<div className="flex items-center gap-2">
-							<RunStatusPill status={run.status} />
-							{duration === undefined ? null : (
-								<span className="text-xs tabular-nums text-text-subtle">{duration}</span>
-							)}
-						</div>
+						{duration === undefined ? null : (
+							<span className="text-xs tabular-nums text-text-subtle">{duration}</span>
+						)}
 					</div>
 				)
 			}
 			actions={
 				run !== undefined && (canDeleteImportRun(run.status) || canCancelImportRun(run.status)) ? (
-					<>
-						<button
-							type="button"
-							ref={menuTrigger}
-							aria-haspopup="menu"
-							aria-expanded={menuOpen}
-							onClick={() => setMenuOpen((open) => !open)}
-							aria-label={t(kernelMessage("client.route.settings.import-run.actions"))}
-							className="flex size-11 shrink-0 items-center justify-center text-text-muted"
-						>
-							<AppIcon size={20} name="more-horizontal" />
-						</button>
-						{menuOpen && (
-							<Menu
-								items={menuItems}
-								triggerRef={menuTrigger}
-								activeIndex={activeIndex}
-								onClose={() => setMenuOpen(false)}
-								onActiveIndexChange={setActiveIndex}
-								label={t(kernelMessage("client.route.settings.import-run.actions"))}
-							/>
-						)}
-					</>
+					<Menu
+						items={menuItems}
+						label={t(kernelMessage("client.route.settings.import-run.actions"))}
+						trigger={
+							<button
+								type="button"
+								ref={menuTrigger}
+
+								aria-label={t(kernelMessage("client.route.settings.import-run.actions"))}
+								className="flex size-11 shrink-0 items-center justify-center text-text-muted"
+							>
+								<AppIcon size={20} name="more-horizontal" />
+							</button>
+						}
+					/>
 				) : undefined
 			}
 		>

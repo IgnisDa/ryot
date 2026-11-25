@@ -26,11 +26,9 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeCatalog,
-	PluginBridgeInit,
 	PluginBridgeLocale,
 	PluginBridgeLocation,
 } from "@ryot-app/plugin-client-contract";
@@ -43,7 +41,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
@@ -62,6 +60,7 @@ import {
 	makePluginQueries,
 	makePluginStorage,
 } from "#/modules/pages/bridge/services.test-layer";
+import { connectFrame } from "#/modules/pages/bridge/session.test-support";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
@@ -359,46 +358,11 @@ function mount(options: {
 const noProviders = () =>
 	Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } });
 
-function connectFrame(frame: HTMLIFrameElement) {
-	const messages: unknown[] = [];
-	let init: undefined | PluginBridgeInit;
-	let port: undefined | MessagePort;
-	Object.defineProperty(frame, "contentWindow", {
-		configurable: true,
-		value: {
-			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-				init = Option.getOrUndefined(Schema.decodeUnknownOption(PluginBridgeInit)(message));
-				const transferred = transfer[0];
-				if (!(transferred instanceof MessagePort)) {
-					throw new Error("Missing plugin port");
-				}
-				port = transferred;
-				port.addEventListener("message", (event) => messages.push(event.data));
-				port.start();
-			},
-		},
-	});
-	const readyEvent = new MessageEvent("message", { data: { type: CLIENT_BRIDGE_BOOTSTRAP_READY } });
-	Object.defineProperty(readyEvent, "source", { value: frame.contentWindow });
-	fireEvent(window, readyEvent);
-	if (init === undefined || port === undefined) {
-		throw new Error("Bridge did not connect");
-	}
-	const {
-		dir: _dir,
-		mode: _mode,
-		page: _page,
-		locale: _locale,
-		safeAreaTop: _top,
-		catalogs: _catalogs,
-		safeAreaBottom: _bottom,
-		documentKey: _documentKey,
-		pendingNamespaces: _pendingNamespaces,
-		...ready
-	} = init;
-	port.postMessage(ready);
-	return { init, port, messages };
-}
+const connectReadyFrame = Effect.fnUntraced(function* (frame: HTMLIFrameElement) {
+	const bridge = yield* connectFrame(frame);
+	bridge.port.postMessage(bridge.ready);
+	return bridge;
+});
 
 const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
@@ -495,7 +459,7 @@ describe("client page routes", () => {
 				);
 				expect(window.getComputedStyle(frame).visibility).toBe("visible");
 				expect(frame.closest('main[aria-hidden="true"]')).toBeNull();
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const srcDoc = frame.getAttribute("srcdoc");
 				yield* Effect.promise(() => view.router.navigate({ href: "/v/c/second-view" }));
@@ -548,7 +512,7 @@ describe("client page routes", () => {
 					section: "local-owner/activity",
 				});
 				const view = mount({ entry: `/v/k/analytics?${search}` });
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -588,7 +552,7 @@ describe("client page routes", () => {
 						return Effect.succeed(preparedSavedView(SavedViewId.make("fixture-view")));
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -679,7 +643,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				expect(layoutKeys).toEqual(["/v/c/fixture-view"]);
 				expect(bridge.init.page?.settings).toMatchObject({ defaultLayout: "grid" });
 				expect(view.router.state.location.pathname).toBe("/v/c/fixture-view");
@@ -800,7 +764,7 @@ describe("client page routes", () => {
 						});
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -910,7 +874,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
 				);
-				connectFrame(frame);
+				yield* connectReadyFrame(frame);
 				expect(view.router.state.location.searchStr).toBe("?add=true");
 				expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull();
 			}),
@@ -929,7 +893,7 @@ describe("client page routes", () => {
 							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 						}),
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -1023,7 +987,7 @@ describe("client page routes", () => {
 							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 						}),
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage({
@@ -1070,7 +1034,7 @@ describe("client page routes", () => {
 							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 						}),
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage({
@@ -1139,7 +1103,7 @@ describe("client page routes", () => {
 							}),
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage({
@@ -1215,7 +1179,7 @@ describe("client page routes", () => {
 						},
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(pickRequest("Sample"));
@@ -1273,7 +1237,7 @@ describe("client page routes", () => {
 						},
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(pickRequest("Rotator"));
@@ -1343,7 +1307,7 @@ describe("client page routes", () => {
 							}),
 					},
 				});
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(pickRequest("sample"));
@@ -1407,7 +1371,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 				expect(view.targets).toEqual<unknown>([
@@ -1535,7 +1499,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 				expect(view.targets).toEqual<unknown>([
@@ -1617,7 +1581,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const submit = (requestId: string, packageId: string) =>
 					bridge.port.postMessage({
@@ -1718,7 +1682,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const loadsBefore = view.getNavigationLoads();
 
@@ -1753,7 +1717,7 @@ describe("client page routes", () => {
 				const pluginFrame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(pluginFrame);
+				const bridge = yield* connectReadyFrame(pluginFrame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const initialSrcDoc = pluginFrame.getAttribute("srcdoc");
 
@@ -1846,7 +1810,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const firstSrcDoc = frame.getAttribute("srcdoc");
 
@@ -1949,7 +1913,7 @@ describe("client page routes", () => {
 				const first = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(first);
+				const bridge = yield* connectReadyFrame(first);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const srcDoc = first.getAttribute("srcdoc");
 				const wrapper = first.closest("main > div");
@@ -2017,7 +1981,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const srcDoc = frame.getAttribute("srcdoc");
 
@@ -2066,7 +2030,7 @@ describe("client page routes", () => {
 				const first = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(first);
+				const bridge = yield* connectReadyFrame(first);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				expect(first.getAttribute("srcdoc")).toContain("<title>document-1</title>");
 				bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
@@ -2183,7 +2147,7 @@ describe("client page routes", () => {
 				const firstFrame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const firstBridge = connectFrame(firstFrame);
+				const firstBridge = yield* connectReadyFrame(firstFrame);
 				yield* Effect.promise(() => waitFor(() => expect(firstBridge.messages).toHaveLength(1)));
 
 				yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/two" }));
@@ -2222,7 +2186,7 @@ describe("client page routes", () => {
 					}),
 				);
 				expect(reloadedFrame).not.toBe(firstFrame);
-				const reloadedBridge = connectFrame(reloadedFrame);
+				const reloadedBridge = yield* connectReadyFrame(reloadedFrame);
 				reloadedBridge.port.postMessage({
 					input: null,
 					operationSlug: "mutate",
@@ -2249,7 +2213,7 @@ describe("client page routes", () => {
 		() =>
 			Effect.gen(function* () {
 				const view = mount({ entry: "/p/test/plugin-1?keep=1&dialog=open" });
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
@@ -2276,7 +2240,7 @@ describe("client page routes", () => {
 
 				view.unmount();
 				const searchView = mount({ entry: "/p/test/plugin-1?keep=1&dialog=open" });
-				const searchBridge = connectFrame(
+				const searchBridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				const searchLocations = () =>
@@ -2312,7 +2276,7 @@ describe("client page routes", () => {
 		() =>
 			Effect.gen(function* () {
 				const view = mount({ entry: "/p/test/plugin-1/items/new" });
-				const bridge = connectFrame(
+				const bridge = yield* connectReadyFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				const locations = () => bridge.messages.filter(Schema.is(PluginBridgeLocation));
@@ -2346,7 +2310,7 @@ describe("client page routes", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connectFrame(frame);
+				const bridge = yield* connectReadyFrame(frame);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 				expect(view.targets).toEqual([{ kind: "entity", entityId: EntityId.make("entity-1") }]);
@@ -2459,12 +2423,16 @@ const openPluginFrame = (view: ReturnType<typeof mount>) =>
 		const frame = yield* Effect.promise(() =>
 			screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 		);
-		const bridge = connectFrame(frame);
+		const bridge = yield* connectReadyFrame(frame);
 		yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 		return { view, frame, bridge };
 	});
 
-const screenResult = (bridge: ReturnType<typeof connectFrame>, type: string, value: unknown) =>
+const screenResult = (
+	bridge: Effect.Success<ReturnType<typeof connectReadyFrame>>,
+	type: string,
+	value: unknown,
+) =>
 	Effect.promise(() =>
 		waitFor(() =>
 			expect(bridge.messages).toContainEqual({
@@ -2598,7 +2566,7 @@ describe("collection host screens", () => {
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete collection" }));
 				expect(deleted).toEqual([]);
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Delete Favorites?" }),
+					screen.findByRole("alertdialog", { name: "Delete Favorites?" }),
 				);
 				fireEvent.click(within(confirmation).getByRole("button", { name: "Delete collection" }));
 
@@ -2664,7 +2632,7 @@ describe("collection host screens", () => {
 				);
 				fireEvent.click(within(reopened).getByRole("button", { name: "Remove from collection" }));
 				const confirmation = yield* Effect.promise(() =>
-					screen.findByRole("dialog", { name: "Remove from Favorites?" }),
+					screen.findByRole("alertdialog", { name: "Remove from Favorites?" }),
 				);
 				fireEvent.click(
 					within(confirmation).getByRole("button", { name: "Remove from collection" }),

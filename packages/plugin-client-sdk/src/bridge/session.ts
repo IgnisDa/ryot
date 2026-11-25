@@ -1026,14 +1026,12 @@ export const createPluginRuntime = (
 					);
 					return;
 				case "dismiss-overlay": {
-					let dismissed = false;
 					try {
-						dismissed = dismissOverlay();
+						dismissOverlay();
 					} catch {
 						// A failed overlay callback is acknowledged without taking down the document.
 					}
 					post({
-						dismissed,
 						requestId: message.requestId,
 						type: "dismiss-overlay-result",
 					} satisfies PluginBridgeDismissOverlayResult);

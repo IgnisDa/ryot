@@ -4,7 +4,10 @@ import type {
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/pages/schemas";
-import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
+import {
+	type PluginClientArtifactFile,
+	pluginExportSpecifier,
+} from "@ryot-app/plugin-client-contract";
 
 import { pageModule } from "./graph";
 import { kernelRendererModule } from "./kernel-renderers";
@@ -24,7 +27,7 @@ export const clientPageArtifactHashes = (identity: ClientPageCompositionIdentity
 ];
 
 export type ArtifactDescription = {
-	readonly files: ReadonlyArray<{ readonly name: string; readonly contentType: string }>;
+	readonly files: ReadonlyArray<Omit<PluginClientArtifactFile, "contents">>;
 };
 
 const missing = (specifier: string) =>

@@ -44,7 +44,6 @@ const button = (
 		kind="people"
 		aspect="square"
 		safeAreaTop={12}
-		purpose="profile"
 		input={{ entityId: "show-1" }}
 		title={catalogMessage("credits.cast-crew")}
 		unlinked={[{ role: "Writer", name: "Unlinked Writer" }]}
@@ -84,7 +83,6 @@ describe("credit lists", () => {
 							aspect="square"
 							safeAreaTop={0}
 							compact={compact}
-							purpose="profile"
 							query={movieQuery}
 							input={{ entityId: "movie-1" }}
 							title={catalogMessage("credits.cast-crew")}
@@ -154,7 +152,6 @@ describe("credit lists", () => {
 					},
 					<MediaCreditsButton
 						compact
-						purpose="logo"
 						aspect="square"
 						safeAreaTop={0}
 						kind="companies"
@@ -233,7 +230,6 @@ describe("credit lists", () => {
 						kind="people"
 						aspect="square"
 						safeAreaTop={0}
-						purpose="profile"
 						input={{ entityId: "show-1" }}
 						title={catalogMessage("credits.people")}
 					/>,

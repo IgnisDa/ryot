@@ -1,7 +1,7 @@
 import type { EntitySyncState } from "@ryot-app/plugin-client-sdk";
 import { fieldSyncState, isEnrichmentActive } from "@ryot-app/plugin-ui-sdk/sync";
 
-import type { MediaImageAsset } from "./image";
+import type { MediaImageAsset } from "../../shared/media-image";
 
 export type MediaSyncCounts = { readonly populating: number; readonly translating: number };
 

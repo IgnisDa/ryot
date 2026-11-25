@@ -9,7 +9,8 @@ schedule table. Calendar sources are display-only and do not notify.
 A schedule names its `signal`, a date `dueAt` field with `date` or `instant` precision, a text
 `occurrence` field, signal `properties` mapped to projected fields, an optional positive
 `delayDays`, optional `freshness` (a date `confirmedAt` field and `maxAgeHours`), and an optional
-`entitlement`. Manifest validation checks projected fields, the subject alias, that the
+`entitlement`. A date-precision schedule may also bind an `instantAt` field for rows with a known
+time. Manifest validation checks projected fields, the subject alias, that the
 signal is an actor-audience signal of the same plugin, and that the query reads only `entity`,
 `relationship` and `event` tables and never the clock. Installation validates the query with
 plugin-audience access and the field kinds; `self` references bind to the installed plugin. The query
@@ -20,7 +21,8 @@ owns eligibility through its `where` clause.
 The frequent cron evaluates effective schedules for users with an active subscription to the declared
 signal, leaving out schedules whose `entitlement` the deployment does not hold. Each user's
 reporting timezone defines their day. A row is due when `dueAt` plus `delayDays`
-falls in the local day or the two catch-up days before it; instants are bounded by now. Rows older
+falls in the local day or the two catch-up days before it. Rows with an instant use that value and
+are bounded by now. Rows older
 than the window are skipped, not sent late. A null `confirmedAt` has no freshness requirement; an
 older value defers the row until the owner refreshes the data.
 
@@ -42,8 +44,10 @@ when the window's end passes a known `dueAt` or when the data the query reads ch
 `signal_schedule_evaluation` keeps, per target, the PostgreSQL snapshot taken at the start of the
 run that evaluated it or last advanced it, the time zone and content language it used, and `next_due_at`: when the
 earliest fresh row at or after that window's end enters the window (`signalScheduleDueFrom`), null
-when there is none, or the evaluation time when the occurrence page limit cut it short. One recipe
-request returns the first page of due occurrences and that row. An evaluation is saved only when
+when there is none, or the evaluation time when the occurrence page limit cut it short. A schedule
+with `instantAt` also finds its earliest timed row at or after the instant window's end, and the
+earlier of the two entry times is kept. One recipe request returns the first page of due occurrences
+and those rows. An evaluation is saved only when
 every occurrence it found was delivered or already recorded.
 
 Statement triggers (`platform/db/data-changes.ts`) record each transaction that writes entities,

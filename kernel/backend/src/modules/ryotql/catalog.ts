@@ -665,6 +665,7 @@ const calendarSource: TableBinding<"calendarSource"> = {
 		pluginId: column("plugin_id"),
 		isHidden: column("is_hidden"),
 		precision: column("precision"),
+		instantAt: column("instant_at"),
 	},
 };
 

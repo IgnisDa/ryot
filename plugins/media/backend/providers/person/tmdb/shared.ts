@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { curateProviderImages } from "../../../../shared/media-image";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
@@ -11,15 +12,17 @@ import {
 	type CreditRole,
 	creditRoleProperties,
 } from "../../../lib/role-accumulator";
+import { mediaTranslationResult } from "../../../lib/translation-result";
 import {
 	firstTranslationValue,
-	getImageUrl,
-	getLocalizedImageUrl,
+	getLocalizedTmdbArtwork,
 	getTmdbAccessToken,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
+	tmdbArtworkCandidates,
 	tmdbGet,
 } from "../../../lib/vendors/tmdb";
+import { getImageUrl } from "../../../lib/vendors/tmdb-artwork";
 
 export const manifest = defineManifest({ name: "TMDB", kind: "provider", slug: "person.tmdb" });
 
@@ -56,7 +59,7 @@ export const search = defineProvider({
 						if (id === null || !name) {
 							return [];
 						}
-						const image = getImageUrl(person["profile_path"]);
+						const image = getImageUrl(person["profile_path"], "profile");
 						return [
 							{
 								title: name,
@@ -144,7 +147,9 @@ export const details = defineProvider({
 						tmdbGet(
 							host,
 							`/person/${input.externalId}`,
-							{ language: "en", append_to_response: "images" },
+							input.level === "base"
+								? { language: "en" }
+								: { language: "en", append_to_response: "images" },
 							token,
 						),
 						tmdbGet(
@@ -162,18 +167,13 @@ export const details = defineProvider({
 				if (!name) {
 					throw new Error("TMDB returned no name for this person");
 				}
-				const imageUrls = new Set<string>();
-				const mainProfile = getImageUrl(personData["profile_path"]);
-				if (mainProfile) {
-					imageUrls.add(mainProfile);
-				}
-				const images = asRecord(personData["images"]);
-				for (const profile of recordsValue(images?.["profiles"])) {
-					const url = getImageUrl(profile["file_path"]);
-					if (url) {
-						imageUrls.add(url);
-					}
-				}
+				const images = curateProviderImages(
+					tmdbArtworkCandidates(
+						personData["profile_path"],
+						"profile",
+						asRecord(personData["images"])?.["profiles"],
+					),
+				);
 				const genderValue = numberValue(personData["gender"]);
 				const genders: Readonly<Record<number, string>> = {
 					2: "Male",
@@ -191,6 +191,7 @@ export const details = defineProvider({
 					name,
 					properties: {
 						gender,
+						images,
 						alternateNames,
 						website: stringValue(personData["homepage"]),
 						birthDate: stringValue(personData["birthday"]),
@@ -198,11 +199,6 @@ export const details = defineProvider({
 						birthPlace: stringValue(personData["place_of_birth"]),
 						description: normalizePlainDescription(personData["biography"]),
 						sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
-						images: [...imageUrls].map((url) => ({
-							url,
-							type: "remote" as const,
-							purpose: "profile" as const,
-						})),
 					},
 					relatedEntityGroups: [
 						{
@@ -252,25 +248,8 @@ export const translate = defineProvider({
 				const description = normalizePlainDescription(
 					firstTranslationValue(candidates, (data) => data["biography"]),
 				);
-				const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
-				const properties: Record<
-					string,
-					string | Array<{ url: string; type: "remote"; purpose: "profile" }>
-				> = {};
-				if (description) {
-					properties["description"] = description;
-				}
-				if (imageUrl) {
-					properties["images"] = [{ url: imageUrl, type: "remote", purpose: "profile" }];
-				}
-				const result: { name?: string; properties?: typeof properties } = {};
-				if (name) {
-					result.name = name;
-				}
-				if (Object.keys(properties).length > 0) {
-					result.properties = properties;
-				}
-				return result;
+				const image = getLocalizedTmdbArtwork(imagesData, "profiles", langCode, "profile");
+				return mediaTranslationResult(name, description, image);
 			}),
 		);
 	},

@@ -135,7 +135,7 @@ it.live("manages collection memberships without closing after each change", () =
 		yield* detail.getByText("Updated note", { exact: true }).waitFor({ state: "visible" });
 		yield* detail.getByRole("button", { name: `Collection details for ${member.name}` }).click();
 		yield* membership.getByRole("button", { exact: true, name: "Remove from collection" }).click();
-		const confirmation = page.getByRole("dialog", {
+		const confirmation = page.getByRole("alertdialog", {
 			exact: true,
 			name: `Remove from ${collection.name}?`,
 		});
@@ -323,16 +323,16 @@ it.live("browses collection members with membership properties", () =>
 				.getByRole("button", { name: "Sort direction: Default" })
 				.getAttribute("disabled"),
 		).not.toBeNull();
-		yield* detail.getByRole("button", { name: "Sort by: Collection order" }).click();
-		yield* detail.getByRole("radio", { exact: true, name: "Name" }).click();
+		yield* detail.getByRole("combobox", { name: "Sort by: Collection order" }).click();
+		yield* detail.getByRole("option", { exact: true, name: "Name" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
 		yield* rows.nth(0).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
 		yield* rows.nth(1).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 		yield* detail.getByRole("button", { name: "Sort direction: A–Z" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* rows.nth(0).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
-		yield* detail.getByRole("button", { name: "Sort by: Name" }).click();
-		yield* detail.getByRole("radio", { exact: true, name: "Collection order" }).click();
+		yield* detail.getByRole("combobox", { name: "Sort by: Name" }).click();
+		yield* detail.getByRole("option", { exact: true, name: "Collection order" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === null);
 		expect(
 			yield* detail
@@ -372,14 +372,11 @@ it.live("filters collection members by type and keeps the filter across reload",
 
 		const filtersDialog = detail.getByRole("dialog", { exact: true, name: "Filters" });
 		yield* detail.getByRole("button", { name: /^Filters/ }).click();
-		yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
-		yield* detail.getByRole("radio", { exact: true, name: "Type" }).click();
-		yield* filtersDialog.getByRole("button", { name: /^Type values/ }).click();
-		yield* detail.getByRole("checkbox", { exact: true, name: "Collection" }).click();
-		yield* detail
-			.getByRole("dialog", { exact: true, name: "Type values" })
-			.getByRole("button", { exact: true, name: "Close options" })
-			.click();
+		yield* filtersDialog.getByRole("combobox", { name: /^Add filter/ }).click();
+		yield* detail.getByRole("option", { exact: true, name: "Type" }).click();
+		yield* filtersDialog.getByRole("combobox", { name: /^Type values/ }).click();
+		yield* detail.getByRole("option", { exact: true, name: "Collection" }).click();
+		yield* page.keyboard.press("Escape");
 		yield* page.keyboard.press("Escape");
 		yield* filtersDialog.waitFor({ state: "hidden" });
 

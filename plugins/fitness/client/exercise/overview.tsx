@@ -1,6 +1,7 @@
 import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	AssetArtWell,
 	type Text,
 	useFormatters,
 	useHostScreen,
@@ -12,7 +13,6 @@ import { useState } from "react";
 
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
-import { AssetArtWell } from "../asset-urls";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { useExerciseLabels, useFitnessMessages } from "../messages";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
@@ -156,7 +156,7 @@ function ExerciseImages(props: { readonly compact: boolean; readonly exercise: E
 		<div className="flex min-w-0 flex-col gap-3">
 			<AssetArtWell
 				fit="contain"
-				name={exercise.name}
+				monogram={exercise.name}
 				asset={images[selected]}
 				className={clsx("w-full", compact ? "aspect-4/3" : "aspect-16/10")}
 			/>
@@ -177,7 +177,12 @@ function ExerciseImages(props: { readonly compact: boolean; readonly exercise: E
 								index === selected ? "border-accent" : "border-border",
 							)}
 						>
-							<AssetArtWell fit="contain" asset={asset} className="size-16" name={exercise.name} />
+							<AssetArtWell
+								fit="contain"
+								asset={asset}
+								className="size-16"
+								monogram={exercise.name}
+							/>
 						</button>
 					))}
 				</div>

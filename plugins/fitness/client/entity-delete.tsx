@@ -78,6 +78,7 @@ export function DeleteFitnessEntity(
 	}, [client, deletion.data, kind.savedViewSlug]);
 	return (
 		<Dialog
+			kind="alert"
 			closeIcon={null}
 			onClose={props.onClose}
 			dismissible={!deletion.isPending}

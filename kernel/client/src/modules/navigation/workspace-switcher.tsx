@@ -5,13 +5,7 @@ import { useFormatters, useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
-import {
-	OverlayScope,
-	ShortcutHint,
-	useDismissOnOutside,
-	useShortcut,
-	useValueChange,
-} from "@ryot-app/plugin-ui-sdk";
+import { Menu, type MenuItem, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -19,7 +13,6 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
-import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { visibleWorkspaces, type WorkspaceTarget } from "#/modules/navigation/workspace-state";
 
@@ -59,82 +52,79 @@ export function workspacePickerSummary(
 export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const t = useT();
 	const formatters = useFormatters();
-	const menuId = useId();
-	const trigger = useRef<HTMLButtonElement>(null);
-	const container = useRef<HTMLDivElement>(null);
-	const items = useRef<Array<null | HTMLButtonElement>>([]);
 	const workspaces = visibleWorkspaces(props.catalog);
-	const menuLength = workspaces.length + (props.onCustomize === undefined ? 0 : 1);
-	const currentPluginId = props.current?.pluginId;
-	const initialIndex = Math.max(
-		0,
-		workspaces.findIndex((workspace) => workspace.pluginId === currentPluginId),
-	);
-	const [activeIndex, setActiveIndex] = useState(initialIndex);
-	const close = (restoreFocus: boolean) => {
-		props.onOpenChange(false);
-		if (restoreFocus) {
-			queueMicrotask(() => trigger.current?.focus());
-		}
-	};
-	const open = () => {
-		if (workspaces.length === 0) {
-			return;
-		}
-		setActiveIndex(initialIndex);
-		items.current[initialIndex]?.focus();
-		props.onOpenChange(true);
-	};
-	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, open, { enabled: props.showShortcut === true });
-	const select = (workspace: PluginClientCatalogEntry) => {
-		close(true);
-		if (workspace.pluginId !== props.current?.pluginId) {
-			queueMicrotask(() => void props.onSelect(workspace));
-		}
-	};
-	const customize = () => {
-		close(true);
-		queueMicrotask(() => props.onCustomize?.());
-	};
 
-	const openTarget = props.open
-		? JSON.stringify([currentPluginId ?? null, initialIndex])
-		: undefined;
-	useValueChange(openTarget, (target) => {
-		if (target !== undefined) {
-			setActiveIndex(initialIndex);
-		}
+	const items: MenuItem[] = workspaces.map((workspace) => {
+		const current = workspace.pluginId === props.current?.pluginId;
+		const label = t(workspace.name);
+		return {
+			label,
+			checked: current,
+			key: workspace.installationId,
+			title: `${workspace.packageId} · ${workspace.pluginId}`,
+			onSelect: () => {
+				if (!current) {
+					void props.onSelect(workspace);
+				}
+			},
+			accessibleLabel: t(
+				kernelMessage("client.navigation.workspace-switcher.switch", { name: label }),
+			),
+			content: (
+				<>
+					<span
+						className={clsx(
+							"flex size-8 shrink-0 items-center justify-center rounded-lg",
+							current ? "bg-accent text-accent-ink" : "bg-surface-2 text-text",
+						)}
+					>
+						<AppIcon size={17} name={workspace.icon} />
+					</span>
+					<span className="min-w-0 flex-1">
+						<span className="block truncate text-sm text-text">{label}</span>
+						<span className="block truncate text-xs text-text-muted">
+							{workspacePickerSummary(formatters, props.navigation, workspace.installationId, t)}
+						</span>
+					</span>
+					<AppIcon
+						size={15}
+						name={current ? "circle-check" : "chevron-right"}
+						className={current ? "text-accent-text" : "text-text-subtle"}
+					/>
+				</>
+			),
+		};
 	});
-	const focusInitialItem = useEffectEvent(() => items.current[initialIndex]?.focus());
-	useEffect(() => {
-		if (openTarget !== undefined) {
-			focusInitialItem();
-		}
-	}, [openTarget]);
-
-	useDismissOnOutside([container], () => props.onOpenChange(false), { enabled: props.open });
+	if (props.onCustomize !== undefined) {
+		items.push({
+			key: "customize",
+			icon: "sliders-horizontal",
+			onSelect: props.onCustomize,
+			accessibleLabel: t(kernelMessage("client.shell.customize.title")),
+			label: t(kernelMessage("client.navigation.workspace-switcher.customize")),
+		});
+	}
 
 	return (
-		<OverlayScope enabled={props.open} onEscape={() => close(true)}>
-			<WorkspaceShortcut onOpen={open} enabled={props.showShortcut === true} />
-			<div ref={container} className="relative">
+		<Menu
+			items={items}
+			align="start"
+			focusSelected
+			onSelectAfterClose
+			{...(props.showShortcut === true &&
+				workspaces.length > 0 && { shortcut: KERNEL_SHORTCUTS.workspaceSwitcher })}
+			open={props.open}
+			matchTriggerWidth
+			onOpenChange={props.onOpenChange}
+			label={t(kernelMessage("client.shell.section.workspaces"))}
+			trigger={
 				<button
 					type="button"
-					ref={trigger}
-					aria-haspopup="menu"
-					aria-controls={menuId}
-					aria-expanded={props.open}
 					disabled={workspaces.length === 0}
-					onClick={() => (props.open ? close(true) : open())}
 					aria-keyshortcuts={
 						props.showShortcut === true ? KERNEL_SHORTCUTS.workspaceSwitcher : undefined
 					}
 					className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left shadow-sm"
-					onPointerDown={(event) => {
-						if (props.open && event.button === 0) {
-							event.preventDefault();
-						}
-					}}
 					title={
 						props.current === null
 							? undefined
@@ -168,121 +158,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					)}
 					<AppIcon size={15} name="chevron-down" className="shrink-0 text-text-subtle" />
 				</button>
-
-				{props.open && (
-					<div
-						id={menuId}
-						role="menu"
-						aria-label={t(kernelMessage("client.shell.section.workspaces"))}
-						onBlur={(event) => {
-							if (!event.currentTarget.contains(event.relatedTarget)) {
-								close(false);
-							}
-						}}
-						className="absolute top-full left-0 z-50 mt-2 flex w-full flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card"
-						onKeyDown={(event) => {
-							let nextIndex: null | number = null;
-							if (event.key === "Home") {
-								nextIndex = 0;
-							}
-							if (event.key === "End") {
-								nextIndex = menuLength - 1;
-							}
-							if (event.key === "ArrowDown") {
-								nextIndex = (activeIndex + 1) % menuLength;
-							}
-							if (event.key === "ArrowUp") {
-								nextIndex = (activeIndex - 1 + menuLength) % menuLength;
-							}
-							if (nextIndex !== null) {
-								event.preventDefault();
-								setActiveIndex(nextIndex);
-								items.current[nextIndex]?.focus();
-							}
-						}}
-					>
-						{workspaces.map((workspace, index) => {
-							const isCurrent = workspace.pluginId === props.current?.pluginId;
-							return (
-								<button
-									type="button"
-									role="menuitemradio"
-									aria-checked={isCurrent}
-									key={workspace.installationId}
-									onClick={() => select(workspace)}
-									onFocus={() => setActiveIndex(index)}
-									tabIndex={index === activeIndex ? 0 : -1}
-									title={`${workspace.packageId} · ${workspace.pluginId}`}
-									ref={(item) => {
-										items.current[index] = item;
-									}}
-									aria-label={t(
-										kernelMessage("client.navigation.workspace-switcher.switch", {
-											name: t(workspace.name),
-										}),
-									)}
-									className={clsx(
-										"flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
-										isCurrent ? "bg-accent-soft" : "hover:bg-surface-2",
-									)}
-								>
-									<span
-										className={clsx(
-											"flex size-8 shrink-0 items-center justify-center rounded-lg",
-											isCurrent ? "bg-accent text-accent-ink" : "bg-surface-2 text-text",
-										)}
-									>
-										<AppIcon size={17} name={workspace.icon} />
-									</span>
-									<span className="min-w-0 flex-1">
-										<span className="block truncate text-sm text-text">{t(workspace.name)}</span>
-										<span className="block truncate text-xs text-text-muted">
-											{workspacePickerSummary(
-												formatters,
-												props.navigation,
-												workspace.installationId,
-												t,
-											)}
-										</span>
-									</span>
-									<AppIcon
-										size={15}
-										name={isCurrent ? "circle-check" : "chevron-right"}
-										className={clsx(isCurrent ? "text-accent-text" : "text-text-subtle")}
-									/>
-								</button>
-							);
-						})}
-						{props.onCustomize !== undefined && (
-							<>
-								<div role="none" className="my-1 h-px bg-border" />
-								<button
-									type="button"
-									role="menuitem"
-									onClick={customize}
-									onFocus={() => setActiveIndex(workspaces.length)}
-									tabIndex={activeIndex === workspaces.length ? 0 : -1}
-									aria-label={t(kernelMessage("client.shell.customize.title"))}
-									ref={(item) => {
-										items.current[workspaces.length] = item;
-									}}
-									className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:bg-surface"
-								>
-									<AppIcon size={16} name="sliders-horizontal" className="text-text-muted" />
-									<span className="text-sm font-medium text-text">
-										{t(kernelMessage("client.navigation.workspace-switcher.customize"))}
-									</span>
-								</button>
-							</>
-						)}
-					</div>
-				)}
-			</div>
-		</OverlayScope>
+			}
+		/>
 	);
-}
-
-function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
-	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
-	return null;
 }

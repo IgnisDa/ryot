@@ -374,6 +374,7 @@ describe("podcast.listennotes sandbox script", () => {
 								episodeNumber: 1,
 								publishDate: "2020-01-01",
 								description: "First episode.",
+								airingAt: "2020-01-01T00:00:00.000Z",
 								images: [{ type: "remote", purpose: "cover", url: "https://img/ep1.jpg" }],
 							},
 						},

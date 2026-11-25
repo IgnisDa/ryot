@@ -1,3 +1,4 @@
+import { acquireInChildScope, makeTestResourceScope } from "@ryot-app/testing/resource-scope";
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -9,7 +10,6 @@ import {
 	startApiProcess,
 	startCoreTestInfrastructure,
 } from "./provisioning";
-import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
 
 export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(function* (input: {
 	readonly label: string;

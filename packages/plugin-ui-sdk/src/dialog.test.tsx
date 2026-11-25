@@ -50,7 +50,7 @@ describe("Dialog sheet placement", () => {
 });
 
 describe("Dialog close button", () => {
-	it("shows a close button beside the backdrop by default and omits it for a null icon", () => {
+	it("renders the close control inside the dialog and omits it for a null icon", () => {
 		const closes: Array<string> = [];
 		const { rerender } = render(
 			<Dialog
@@ -60,7 +60,7 @@ describe("Dialog close button", () => {
 			/>,
 		);
 
-		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(2);
+		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(1);
 		fireEvent.click(
 			within(screen.getByRole("dialog")).getByRole("button", { name: "Close sheet" }),
 		);
@@ -74,6 +74,6 @@ describe("Dialog close button", () => {
 				closeLabel={testText("Close sheet")}
 			/>,
 		);
-		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(1);
+		expect(screen.queryByRole("button", { name: "Close sheet" })).toBeNull();
 	});
 });

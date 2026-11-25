@@ -1,4 +1,10 @@
-import { localDay, useDisplayText, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { localDateOf, UTC } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	AssetArtWell,
+	useDisplayText,
+	useRyotSchedule,
+	useUserPreferences,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, MenuButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
@@ -15,14 +21,12 @@ import { MediaEpisodeCreditsSection } from "./episode-credits";
 import type { MediaEpisodeLog, MediaEpisodeRender } from "./episodes";
 import {
 	type MediaEpisode,
-	mediaEpisodeAsset,
 	mediaEpisodeMetadataLabel,
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
-import { ManagedAssetImage } from "./managed-assets";
 import { MediaOwnershipControl } from "./ownership";
-import { MediaMarkdown } from "./primitives";
+import { MediaExternalLink, MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
 import { useMediaReminders } from "./reminders";
 
@@ -46,11 +50,12 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 		entityId: episode.id,
 		parentEntityId: props.log.parentEntityId,
 	});
-	const asset = mediaEpisodeAsset(episode, render.purpose);
+	const asset = episode.image ?? undefined;
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const stateMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const state = stateMessage === undefined ? undefined : copy.local(stateMessage);
-	const metadata = mediaEpisodeMetadataLabel(copy, episode);
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	const metadata = mediaEpisodeMetadataLabel(copy, episode, timeZone);
 	return (
 		<MediaDetailModal
 			compact={compact}
@@ -68,7 +73,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					!compact && "grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start py-2",
 				)}
 			>
-				<ManagedAssetImage
+				<AssetArtWell
 					asset={asset}
 					fit="contain"
 					monogram={episode.name}
@@ -87,6 +92,12 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					{metadata === "" ? null : (
 						<p className="text-sm text-text-muted tabular-nums">{metadata}</p>
 					)}
+					{episode.airingSourceUrl?.startsWith("https://www.tvmaze.com/episodes/") ? (
+						<MediaExternalLink
+							href={episode.airingSourceUrl}
+							label={`TVmaze · ${text("property.airing-at")}`}
+						/>
+					) : null}
 					{state === undefined ? null : (
 						<div className="flex">
 							<Badge dot variant={episode.state === "complete" ? "success" : "neutral"}>
@@ -150,7 +161,12 @@ function MediaEpisodeActions(props: {
 	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const { locked, log: mark } = useQuickLog(log.parentEntityId);
-	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
+	const timeZone = useUserPreferences().data?.timeZone ?? UTC;
+	const now = schedule.now();
+	const upcoming = episode.airingAt
+		? Date.parse(episode.airingAt) > now
+		: episode.publishDate !== null && episode.publishDate > localDateOf(now, timeZone);
+	if (upcoming) {
 		return null;
 	}
 	const { verb } = log.logger.copy;

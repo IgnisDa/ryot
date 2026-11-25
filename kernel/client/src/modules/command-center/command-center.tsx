@@ -33,13 +33,13 @@ type LibraryViewsState =
 	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
 
 type CommandCenterProps = {
+	readonly open: boolean;
 	readonly scope: ApiScope;
 	readonly onClose: () => void;
 	readonly runtime: ClientRuntime;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly onAsk: (text: string) => void;
-	readonly onInterceptBack: () => boolean;
 	readonly onNavigate: (href: string) => void;
 };
 
@@ -54,7 +54,7 @@ const recentOptions = (
 	recents.map((recent) => ({ ...recent, description: recent.group, id: `recent:${recent.href}` }));
 
 export function CommandCenter(props: CommandCenterProps) {
-	const { scope, runtime, catalog, navigation } = props;
+	const { open, scope, runtime, catalog, navigation } = props;
 	const t = useT();
 	const formatters = useFormatters();
 	const ryot = useRyot();
@@ -73,7 +73,7 @@ export function CommandCenter(props: CommandCenterProps) {
 	);
 
 	useEffect(() => {
-		if (viewsState.status !== "pending") {
+		if (!open || viewsState.status !== "pending") {
 			return undefined;
 		}
 		return schedule.run(
@@ -88,8 +88,11 @@ export function CommandCenter(props: CommandCenterProps) {
 				),
 			() => undefined,
 		);
-	}, [ryot, schedule, t, viewsState.status]);
+	}, [open, ryot, schedule, t, viewsState.status]);
 	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
 		const fiber = runtime.runFork(
 			Effect.flatMap(ClientStorage, (storage) => storage.getRecentDestinations(scope)).pipe(
 				Effect.tap((stored) => Effect.sync(() => setRecents(recentOptions(stored)))),
@@ -98,9 +101,9 @@ export function CommandCenter(props: CommandCenterProps) {
 		return () => {
 			fiber.interruptUnsafe();
 		};
-	}, [runtime, scope]);
+	}, [open, runtime, scope]);
 	useEffect(() => {
-		if (request.query === "" || viewsState.status !== "ready") {
+		if (!open || request.query === "" || viewsState.status !== "ready") {
 			return undefined;
 		}
 		return schedule.run(
@@ -112,7 +115,7 @@ export function CommandCenter(props: CommandCenterProps) {
 			}),
 			() => undefined,
 		);
-	}, [ryot, schedule, request, viewsState]);
+	}, [open, ryot, schedule, request, viewsState]);
 
 	const libraryFailed = viewsState.status === "failed";
 	const shown = useMemo(
@@ -158,15 +161,20 @@ export function CommandCenter(props: CommandCenterProps) {
 
 	return (
 		<CommandCenterDialog
+			open={open}
 			query={query}
 			onSelect={select}
 			onClose={props.onClose}
 			onFilterChange={setFilter}
 			results={searching ? results : idle}
-			onInterceptBack={props.onInterceptBack}
 			stale={searching && shown?.query !== trimmed}
 			pending={searching && (shown?.query !== trimmed || !shown.complete)}
 			ask={searching ? { text: trimmed, onAsk: () => props.onAsk(trimmed) } : undefined}
+			onClosed={() => {
+				setQuery("");
+				setFilter(ALL_FILTER);
+				setCommit(undefined);
+			}}
 			onQueryChange={(next) => {
 				setQuery(next);
 				if (next.trim() === "") {

@@ -6,7 +6,7 @@ import { fireEvent } from "@testing-library/dom";
 
 import { catalogMessage } from "../../shared/messages.generated";
 import { mountRyotClient } from "../../tests/client/test-support";
-import type { MediaPresentationSubject } from "./entity-presentation";
+import type { MediaSavedViewPresentationSubject } from "./entity-presentation";
 import { MediaEntityRailSection, MediaEntityTile, MediaRailFrame } from "./entity-rail";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -14,13 +14,13 @@ const noopAdapter = { query: () => Effect.succeed({}) };
 const subject = (
 	id: string,
 	name: string,
-): MediaPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
+): MediaSavedViewPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
 	id,
 	name,
 	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: `https://images.test/${id}-cover.jpg` }],
+	image: { type: "remote", url: `https://images.test/${id}-cover.jpg` },
 });
 
 const tileLink = (container: HTMLElement, name: string) => {

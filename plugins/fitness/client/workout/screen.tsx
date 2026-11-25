@@ -1,5 +1,6 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	type RyotQueryResult,
 	useDisplayText,
@@ -13,7 +14,6 @@ import { useMemo } from "react";
 import { countEquipmentOccurrences, countMuscleSets } from "../../shared/fitness-metrics";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
-import { managedAssetBatch } from "../asset-urls";
 import { DisplayPreferences } from "../display-preferences";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { useFitnessMessages } from "../messages";
@@ -60,7 +60,9 @@ export function WorkoutDetailsView(props: {
 	}, [workout]);
 	return (
 		<ManagedAssetProvider
-			assets={managedAssetBatch(workout.exercises.items.map((exercise) => exercise.images?.[0]))}
+			assets={collectManagedAssetLocators(
+				workout.exercises.items.map((exercise) => exercise.images?.[0]),
+			)}
 		>
 			<div className={clsx("mx-auto flex w-full max-w-6xl flex-col", compact ? "gap-5" : "gap-7")}>
 				<WorkoutHeader compact={compact} workout={workout} proAvailable={props.proAvailable} />

@@ -31,7 +31,7 @@ import {
 	type PluginAssetBridgeErrorReason,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
-	PluginBridgeInit,
+	type PluginBridgeInit,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
 	type PluginCollectionOutcome,
@@ -63,7 +63,7 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Fiber, Option, Schema } from "effect";
+import { Deferred, Effect, Fiber } from "effect";
 
 import {
 	bridgeCatalogNamespaces,
@@ -73,11 +73,10 @@ import {
 	type PluginBridgeLocaleState,
 	type PluginBridgeSession,
 } from "#/modules/pages/bridge/session";
+import { receiveBridgeInit } from "#/modules/pages/bridge/session.test-support";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 
 const rejection = { namespace: "fixture", key: "operation.rejected" };
-
-const decodeInit = Schema.decodeUnknownOption(PluginBridgeInit);
 
 const compositionHash = "composition-hash";
 const home: PluginRouteLocation = { path: "/", search: "", kind: "route" };
@@ -181,7 +180,7 @@ function deferred<T>(): PromiseWithResolvers<T> {
 
 const invalidDeviceRequest = { outcome: "failure", reason: "invalid-request" } as const;
 
-const connect = (
+const connect = Effect.fnUntraced(function* (
 	options: {
 		readonly timeoutMs?: number;
 		readonly page?: ClientPageContext;
@@ -212,23 +211,21 @@ const connect = (
 			typeof openPluginBridge
 		>[0]["onCalendarSourceVisibility"];
 	} = {},
-) => {
+) {
 	const backs: null[] = [];
 	const drawers: null[] = [];
 	const readies: null[] = [];
 	const failures: null[] = [];
-	const origins: string[] = [];
 	const received: unknown[] = [];
 	const messages: unknown[] = [];
 	const pageSearches: unknown[] = [];
 	const overlayStates: number[] = [];
-	let init: undefined | PluginBridgeInit;
 	const shortcuts: KernelShortcut[] = [];
 	const entityPicks: unknown[] = [];
 	const collectionEdits: unknown[] = [];
 	const collectionAdds: unknown[] = [];
 	const reminderScreens: ManageRemindersRequest[] = [];
-	let pluginPort: undefined | MessagePort;
+	const { port2: rawPort, port1: hostPort } = new MessageChannel();
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PageScreenReadiness[] = [];
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
@@ -239,6 +236,7 @@ const connect = (
 	}> = [];
 
 	const session = openPluginBridge({
+		port: hostPort,
 		compositionHash,
 		navigation: nav(),
 		theme: lightTheme,
@@ -313,30 +311,16 @@ const connect = (
 				});
 				return Effect.never;
 			}),
-		target: {
-			postMessage: (message, targetOrigin, transfer) => {
-				const [transferred] = transfer;
-				if (!(transferred instanceof MessagePort)) {
-					throw new Error("The bridge did not transfer a MessagePort.");
-				}
-				origins.push(targetOrigin);
-				init = Option.getOrUndefined(decodeInit(message));
-				transferred.addEventListener("message", (event) => {
-					messages.push(event.data);
-					received.push(event.data);
-				});
-				transferred.start();
-				ports.push(transferred);
-				pluginPort = transferred;
-			},
-		},
 	});
 	sessions.push(session);
+	ports.push(rawPort);
 
-	if (init === undefined || pluginPort === undefined) {
-		throw new Error("The bridge never transferred a port to the plugin document.");
-	}
-	const rawPort = pluginPort;
+	const init = yield* receiveBridgeInit(rawPort);
+	rawPort.addEventListener("message", (event) => {
+		messages.push(event.data);
+		received.push(event.data);
+	});
+	rawPort.start();
 	const testPort = {
 		close: () => rawPort.close(),
 		postMessage: (message: unknown) => {
@@ -355,7 +339,6 @@ const connect = (
 		init,
 		backs,
 		session,
-		origins,
 		readies,
 		drawers,
 		failures,
@@ -374,7 +357,7 @@ const connect = (
 		collectionEdits,
 		pluginPort: testPort,
 	};
-};
+});
 
 const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 	compositionHash,
@@ -391,7 +374,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onDevice: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
@@ -447,7 +430,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: PluginIosLiveActivityRequest[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onIosLiveActivity: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
@@ -478,7 +461,7 @@ describe("bridge page screens", () => {
 				expect(calls).toEqual<unknown>([{ pluginId: "other", action: "availability" }]);
 
 				const diagnostics: unknown[] = [];
-				const failed = connect({
+				const failed = yield* connect({
 					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
 					onIosLiveActivity: () => Effect.die(new Error("unexpected")),
 				});
@@ -514,7 +497,7 @@ describe("bridge page screens", () => {
 				const diagnostics: unknown[] = [];
 				const started: null[] = [];
 				const interrupted: null[] = [];
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
 					onIosLiveActivity: () =>
 						Effect.sync(() => started.push(null)).pipe(
@@ -543,7 +526,7 @@ describe("bridge page screens", () => {
 		"awaits a correlated persistence flush and retains failure as a blocked transition",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort, screenStates } = connect();
+				const { init, session, received, pluginPort, screenStates } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
 				pluginPort.postMessage({ enabled: true, type: "persistence-state" });
@@ -579,7 +562,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onExternalLink: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
@@ -626,7 +609,7 @@ describe("bridge page screens", () => {
 				const started: string[] = [];
 				const interrupted: string[] = [];
 				const result = deferred<{ readonly outcome: "success" }>();
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onExternalLink: (request) =>
 						Effect.sync(() => started.push(request.url)).pipe(
 							Effect.andThen(Effect.promise(() => result.promise)),
@@ -660,7 +643,7 @@ describe("bridge page screens", () => {
 		"delivers the latest document when navigation changes before handshake completes",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort } = connect();
+				const { init, session, received, pluginPort } = yield* connect();
 				const page = {
 					view: null,
 					settings: {},
@@ -696,16 +679,17 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				let aborted = false;
-				const { init, session, received, pluginPort, overlayStates, pageShortcuts } = connect({
-					onRyotQL: () =>
-						Effect.promise((signal) => {
-							signal.addEventListener("abort", () => {
-								aborted = true;
-							});
-							// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
-							return new Promise<never>(() => {});
-						}),
-				});
+				const { init, session, received, pluginPort, overlayStates, pageShortcuts } =
+					yield* connect({
+						onRyotQL: () =>
+							Effect.promise((signal) => {
+								signal.addEventListener("abort", () => {
+									aborted = true;
+								});
+								// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+								return new Promise<never>(() => {});
+							}),
+					});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 				pluginPort.postMessage({
@@ -752,7 +736,7 @@ describe("bridge page screens", () => {
 		"forwards provider search and sends one page refresh",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort, entityPicks } = connect();
+				const { init, session, received, pluginPort, entityPicks } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
@@ -805,7 +789,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const interrupted: null[] = [];
-				const { init, received, pluginPort, entityPicks } = connect({
+				const { init, received, pluginPort, entityPicks } = yield* connect({
 					onPickEntity: () =>
 						Effect.never.pipe(
 							Effect.onInterrupt(() =>
@@ -843,11 +827,15 @@ describe("bridge page screens", () => {
 		"dispatches ID-only collection screens and returns their minimal outcomes",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, failures, pluginPort, collectionAdds, collectionEdits } = connect({
-					onAddToCollection: () => Effect.succeed({ kind: "removed" as const }),
-					onEditCollection: () =>
-						Effect.succeed({ kind: "saved" as const, collectionId: EntityId.make("collection-2") }),
-				});
+				const { init, received, failures, pluginPort, collectionAdds, collectionEdits } =
+					yield* connect({
+						onAddToCollection: () => Effect.succeed({ kind: "removed" as const }),
+						onEditCollection: () =>
+							Effect.succeed({
+								kind: "saved" as const,
+								collectionId: EntityId.make("collection-2"),
+							}),
+					});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
@@ -891,7 +879,7 @@ describe("bridge page screens", () => {
 			Effect.gen(function* () {
 				const diagnostics: unknown[] = [];
 				const saved = { kind: "saved" as const, properties: { note: "x" } };
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onAddToCollection: () => Effect.succeed(saved),
 					onDiagnostic: (diagnostic) => diagnostics.push(diagnostic.type),
 				});
@@ -919,7 +907,7 @@ describe("bridge page screens", () => {
 		"returns changed and cancelled reminder screen outcomes",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort, reminderScreens } = connect({
+				const { init, received, pluginPort, reminderScreens } = yield* connect({
 					onManageReminders: ({ entityId }) =>
 						Effect.succeed<ManageRemindersOutcome>({
 							kind: entityId === "entity-1" ? "changed" : "cancelled",
@@ -975,7 +963,7 @@ describe("bridge page screens", () => {
 					{ collectionId: "collection-1", type: "add-to-collection-screen" },
 				]) {
 					const { init, received, failures, pluginPort, collectionAdds, collectionEdits } =
-						connect();
+						yield* connect();
 					pluginPort.postMessage(readyFor(init));
 					yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 					pluginPort.postMessage({ ...request, requestId: "screen-1" });
@@ -1001,7 +989,7 @@ describe("bridge page screens", () => {
 					collectionAdds,
 					collectionEdits,
 					reminderScreens,
-				} = connect({
+				} = yield* connect({
 					onEditCollection: () =>
 						Deferred.await(release).pipe(Effect.as({ kind: "deleted" as const })),
 				});
@@ -1081,7 +1069,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const interrupted: null[] = [];
-				const { init, received, pluginPort, reminderScreens } = connect({
+				const { init, received, pluginPort, reminderScreens } = yield* connect({
 					onManageReminders: () =>
 						Effect.never.pipe(
 							Effect.onInterrupt(() =>
@@ -1116,7 +1104,7 @@ describe("bridge page screens", () => {
 		() =>
 			Effect.gen(function* () {
 				const release = yield* Deferred.make<ManageRemindersOutcome>();
-				const { init, session, received, pluginPort, reminderScreens } = connect({
+				const { init, session, received, pluginPort, reminderScreens } = yield* connect({
 					onManageReminders: () => Effect.uninterruptible(Deferred.await(release)),
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -1162,7 +1150,7 @@ describe("bridge page screens", () => {
 				const interrupted: string[] = [];
 				const pendingScreen = (name: string) =>
 					Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => interrupted.push(name))));
-				const { init, received, pluginPort, collectionAdds, collectionEdits } = connect({
+				const { init, received, pluginPort, collectionAdds, collectionEdits } = yield* connect({
 					onEditCollection: () => pendingScreen("edit"),
 					onAddToCollection: () => pendingScreen("add"),
 				});
@@ -1198,15 +1186,18 @@ describe("bridge page screens", () => {
 			Effect.gen(function* () {
 				const interrupted: string[] = [];
 				const release = yield* Deferred.make<void>();
-				const { init, session, received, pluginPort, collectionAdds, collectionEdits } = connect({
-					onAddToCollection: () =>
-						Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => interrupted.push("add")))),
-					onEditCollection: () =>
-						Effect.uninterruptible(Deferred.await(release)).pipe(
-							Effect.as({ kind: "deleted" as const }),
-							Effect.onInterrupt(() => Effect.sync(() => interrupted.push("edit"))),
-						),
-				});
+				const { init, session, received, pluginPort, collectionAdds, collectionEdits } =
+					yield* connect({
+						onAddToCollection: () =>
+							Effect.never.pipe(
+								Effect.onInterrupt(() => Effect.sync(() => interrupted.push("add"))),
+							),
+						onEditCollection: () =>
+							Effect.uninterruptible(Deferred.await(release)).pipe(
+								Effect.as({ kind: "deleted" as const }),
+								Effect.onInterrupt(() => Effect.sync(() => interrupted.push("edit"))),
+							),
+					});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
@@ -1253,7 +1244,7 @@ describe("bridge page screens", () => {
 		"registers only allowlisted page shortcuts and sends presses back down",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort, pageShortcuts } = connect();
+				const { init, session, received, pluginPort, pageShortcuts } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
@@ -1299,7 +1290,7 @@ describe("bridge entity interest", () => {
 						},
 					}),
 				);
-				const bridge = connect({ watchEntities: client.entities.watch });
+				const bridge = yield* connect({ watchEntities: client.entities.watch });
 				bridge.pluginPort.postMessage(readyFor(bridge.init));
 				yield* Effect.promise(() => waitFor(() => expect(bridge.readies).toHaveLength(1)));
 				bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-watches" });
@@ -1370,7 +1361,7 @@ describe("bridge entity interest", () => {
 		() =>
 			Effect.gen(function* () {
 				let declarations = 0;
-				const bridge = connect({
+				const bridge = yield* connect({
 					watchEntities: () => {
 						declarations++;
 						throw new Error("offline");
@@ -1408,7 +1399,7 @@ describe("plugin bridge", () => {
 		"allows one acknowledged overlay dismissal at a time and preserves aggregate order",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort, overlayStates } = connect();
+				const { init, session, received, pluginPort, overlayStates } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 				pluginPort.postMessage({ count: 2, type: "overlay-state" });
@@ -1425,11 +1416,8 @@ describe("plugin bridge", () => {
 						).toHaveLength(1),
 					),
 				);
-				pluginPort.postMessage({
-					dismissed: true,
-					requestId: "overlay-1",
-					type: "dismiss-overlay-result",
-				});
+				pluginPort.postMessage({ requestId: "overlay-1", type: "dismiss-overlay-result" });
+				pluginPort.postMessage({ count: 1, type: "overlay-state" });
 				yield* Effect.promise(() => waitFor(() => expect(overlayStates.at(-1)).toBe(1)));
 
 				expect(session.requestOverlayDismiss()).toBe(true);
@@ -1447,7 +1435,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				let expire: undefined | (() => void);
-				const { init, session, failures, pluginPort } = connect({
+				const { init, session, failures, pluginPort } = yield* connect({
 					scheduleOverlayDismissTimeout: (onTimeout) => {
 						expire = onTimeout;
 						return () => {
@@ -1473,7 +1461,7 @@ describe("plugin bridge", () => {
 		"routes explicit plugin Back through an owned overlay before navigation",
 		() =>
 			Effect.gen(function* () {
-				const { init, backs, received, pluginPort } = connect();
+				const { init, backs, received, pluginPort } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				pluginPort.postMessage({ count: 1, type: "overlay-state" });
 				pluginPort.postMessage({ type: "navigate-back" });
@@ -1488,88 +1476,26 @@ describe("plugin bridge", () => {
 		testTimeout,
 	);
 
-	it("transfers exactly one port with the exact init markers and the resolved mode", () => {
-		const { init, origins } = connect();
-
-		expect(origins).toEqual(["*"]);
-		expect(init).toEqual({
-			...englishLocale,
-			mode: "light",
-			safeAreaTop: 0,
-			compositionHash,
-			safeAreaBottom: 0,
-			documentKey: "page-1",
-			sessionId: init.sessionId,
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		});
-		expect(init.sessionId).not.toBe("");
-	});
-
 	it.live(
-		"cleans up immediately when the initial port transfer fails",
+		"sends init on the supplied port with the exact markers and resolved mode",
 		() =>
 			Effect.gen(function* () {
-				const failures: null[] = [];
-				const session = openPluginBridge({
-					timeoutMs: 10,
-					compositionHash,
-					navigation: nav(),
-					theme: lightTheme,
-					onHeader: () => {},
-					locale: englishLocale,
-					documentKey: "page-1",
-					onReady: () => undefined,
-					onNavigate: () => undefined,
-					onAssets: () => Effect.never,
-					onRyotQL: () => Effect.never,
-					onUpload: () => Effect.never,
-					onStorage: () => Effect.never,
-					onPageSearch: () => undefined,
-					onOpenDrawer: () => undefined,
-					onAccount: () => Effect.never,
-					onScreenState: () => undefined,
-					onOverlayState: () => undefined,
-					onOperation: () => Effect.never,
-					onNavigateBack: () => undefined,
-					onCollection: () => Effect.never,
-					onEntitySave: () => Effect.never,
-					onPageShortcuts: () => undefined,
-					onEnrichment: () => Effect.never,
-					onKernelShortcut: () => undefined,
-					onUserSettings: () => Effect.never,
-					onExternalLink: () => Effect.never,
-					onFailure: () => failures.push(null),
-					onBackgroundOperation: () => Effect.never,
-					onCalendarSourceVisibility: () => Effect.never,
-					viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
-					onDevice: () => Effect.succeed(invalidDeviceRequest),
-					watchEntities: () => ({ update: () => {}, dispose: () => {} }),
-					onPickEntity: () => Effect.succeed({ kind: "cancelled" as const }),
-					onSharePublication: () => Effect.succeed({ kind: "closed" as const }),
-					onEditCollection: () => Effect.succeed({ kind: "cancelled" as const }),
-					onAddToCollection: () => Effect.succeed({ kind: "cancelled" as const }),
-					onManageCollectionReviews: () => Effect.succeed({ kind: "cancelled" as const }),
-					onChangeCollectionMembers: () => Effect.succeed({ kind: "cancelled" as const }),
-					onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
-					target: {
-						postMessage: () => {
-							throw new Error("transfer failed");
-						},
-					},
-					onIosLiveActivity: () =>
-						Effect.succeed<PluginIosLiveActivityOutcome>({
-							outcome: "success",
-							value: { status: "unsupported" },
-						}),
-				});
-				sessions.push(session);
+				const { init } = yield* connect();
 
-				expect(failures).toHaveLength(1);
-				yield* Effect.promise(() => delay(40));
-				expect(failures).toHaveLength(1);
+				expect(init).toEqual({
+					...englishLocale,
+					mode: "light",
+					safeAreaTop: 0,
+					compositionHash,
+					safeAreaBottom: 0,
+					documentKey: "page-1",
+					sessionId: init.sessionId,
+					format: CLIENT_ARTIFACT_FORMAT,
+					apiVersion: CLIENT_API_VERSION,
+					compilerVersion: CLIENT_COMPILER_VERSION,
+					bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+				});
+				expect(init.sessionId).not.toBe("");
 			}),
 		testTimeout,
 	);
@@ -1578,7 +1504,7 @@ describe("plugin bridge", () => {
 		"readies with the location as soon as the plugin reports ready",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, failures, messages, pluginPort } = connect();
+				const { init, readies, failures, messages, pluginPort } = yield* connect();
 
 				pluginPort.postMessage(readyFor(init));
 
@@ -1593,7 +1519,7 @@ describe("plugin bridge", () => {
 		"forwards matching active screen readiness without protocol policy",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, pluginPort, screenStates } = connect();
+				const { init, readies, pluginPort, screenStates } = yield* connect();
 
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
@@ -1617,7 +1543,7 @@ describe("plugin bridge", () => {
 		"dispatches semantic kernel shortcuts once ready",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, shortcuts, pluginPort } = connect();
+				const { init, readies, shortcuts, pluginPort } = yield* connect();
 
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
@@ -1635,7 +1561,7 @@ describe("plugin bridge", () => {
 		"ignores screen readiness that no longer matches the latest navigation",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, session, pluginPort, screenStates } = connect();
+				const { init, readies, session, pluginPort, screenStates } = yield* connect();
 
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
@@ -1666,7 +1592,7 @@ describe("plugin bridge", () => {
 		"does not process screen readiness before activation or after close",
 		() =>
 			Effect.gen(function* () {
-				const premature = connect();
+				const premature = yield* connect();
 				premature.pluginPort.postMessage({
 					index: 0,
 					key: "k0",
@@ -1675,7 +1601,7 @@ describe("plugin bridge", () => {
 				});
 				yield* Effect.promise(() => waitFor(() => expect(premature.failures).toHaveLength(1)));
 
-				const closed = connect();
+				const closed = yield* connect();
 				closed.pluginPort.postMessage(readyFor(closed.init));
 				yield* Effect.promise(() => waitFor(() => expect(closed.readies).toHaveLength(1)));
 				closed.session.close();
@@ -1697,11 +1623,11 @@ describe("plugin bridge", () => {
 		"fails a ready from another session or another artifact",
 		() =>
 			Effect.gen(function* () {
-				const other = connect();
+				const other = yield* connect();
 				other.pluginPort.postMessage({ ...readyFor(other.init), sessionId: "other-session" });
 				yield* Effect.promise(() => waitFor(() => expect(other.failures).toHaveLength(1)));
 
-				const mismatched = connect();
+				const mismatched = yield* connect();
 				mismatched.pluginPort.postMessage({
 					...readyFor(mismatched.init),
 					compositionHash: "other-composition",
@@ -1718,15 +1644,15 @@ describe("plugin bridge", () => {
 		"fails a malformed, wrong-version, or out-of-order first message",
 		() =>
 			Effect.gen(function* () {
-				const malformed = connect();
+				const malformed = yield* connect();
 				malformed.pluginPort.postMessage({ sessionId: malformed.init.sessionId });
 				yield* Effect.promise(() => waitFor(() => expect(malformed.failures).toHaveLength(1)));
 
-				const outdated = connect();
+				const outdated = yield* connect();
 				outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 0 });
 				yield* Effect.promise(() => waitFor(() => expect(outdated.failures).toHaveLength(1)));
 
-				const premature = connect();
+				const premature = yield* connect();
 				premature.pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
 				yield* Effect.promise(() => waitFor(() => expect(premature.failures).toHaveLength(1)));
 
@@ -1739,11 +1665,11 @@ describe("plugin bridge", () => {
 		"honors lifecycle closure before activation without replying with a failure",
 		() =>
 			Effect.gen(function* () {
-				const disposed = connect();
+				const disposed = yield* connect();
 				disposed.pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
 				yield* Effect.promise(() => waitFor(() => expect(disposed.failures).toHaveLength(1)));
 
-				const failed = connect();
+				const failed = yield* connect();
 				failed.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
 				yield* Effect.promise(() => waitFor(() => expect(failed.failures).toHaveLength(1)));
 
@@ -1757,7 +1683,7 @@ describe("plugin bridge", () => {
 		"fails when the plugin never completes the handshake",
 		() =>
 			Effect.gen(function* () {
-				const { readies, failures } = connect({ timeoutMs: 10 });
+				const { readies, failures } = yield* connect({ timeoutMs: 10 });
 
 				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
 				expect(readies).toEqual([]);
@@ -1769,7 +1695,7 @@ describe("plugin bridge", () => {
 		"stops the handshake timeout once the plugin is ready",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, failures, pluginPort } = connect({ timeoutMs: 10 });
+				const { init, readies, failures, pluginPort } = yield* connect({ timeoutMs: 10 });
 
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
@@ -1784,7 +1710,7 @@ describe("plugin bridge", () => {
 		"delivers only the latest pre-ready location, then every later location",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort } = connect();
+				const { init, session, received, pluginPort } = yield* connect();
 
 				session.sendLocation(nav(detail, 1));
 				session.sendLocation(nav({ kind: "route", path: "/details/2", search: "tab=stats" }, 2));
@@ -1816,7 +1742,7 @@ describe("plugin bridge", () => {
 		"sends an entity location from the kernel to the plugin",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort } = connect();
+				const { init, session, received, pluginPort } = yield* connect();
 
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
@@ -1832,7 +1758,7 @@ describe("plugin bridge", () => {
 		"latches a pre-ready theme change and sends later themes on the active channel",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, session, messages, pluginPort } = connect();
+				const { init, readies, session, messages, pluginPort } = yield* connect();
 
 				session.sendTheme(darkTheme);
 				pluginPort.postMessage(readyFor(init));
@@ -1858,7 +1784,7 @@ describe("plugin bridge", () => {
 		"latches a pre-ready locale change and sends later locales on the active channel",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, session, messages, pluginPort } = connect();
+				const { init, readies, session, messages, pluginPort } = yield* connect();
 				const pt = { ...englishLocale, locale: "pt" };
 				const ar: PluginBridgeLocaleState = { ...englishLocale, dir: "rtl", locale: "ar" };
 
@@ -1944,7 +1870,7 @@ describe("plugin bridge", () => {
 		"sends no theme when the pre-ready mode still matches init",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, session, messages, pluginPort } = connect();
+				const { init, readies, session, messages, pluginPort } = yield* connect();
 
 				session.sendTheme(darkTheme);
 				session.sendTheme(lightTheme);
@@ -1960,7 +1886,7 @@ describe("plugin bridge", () => {
 		"forwards decoded navigation requests once ready",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, failures, pluginPort, navigations } = connect();
+				const { init, readies, failures, pluginPort, navigations } = yield* connect();
 				const request = {
 					mode: "push",
 					type: "navigate",
@@ -1995,7 +1921,7 @@ describe("plugin bridge", () => {
 					},
 				] as const;
 				const calls: PluginAssetRequest[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onAssets: (request) => {
 						calls.push(request);
 						return Effect.succeed({ resolutions, outcome: "success" });
@@ -2023,7 +1949,7 @@ describe("plugin bridge", () => {
 			`round-trips an ${reason} asset bridge error without extra details`,
 			() =>
 				Effect.gen(function* () {
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						onAssets: () => Effect.succeed({ reason, outcome: "failure" }),
 					});
 					pluginPort.postMessage(readyFor(init));
@@ -2053,7 +1979,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: PluginAssetRequest[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onAssets: (request) => {
 						calls.push(request);
 						return Effect.succeed({ resolutions: [], outcome: "success" });
@@ -2084,7 +2010,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const signals: AbortSignal[] = [];
 				const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onAssets: () =>
 						Effect.promise((signal) => {
 							signals.push(signal);
@@ -2146,7 +2072,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				let signal: undefined | AbortSignal;
 				const call = deferred<PluginAssetOutcome>();
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onAssets: () =>
 						Effect.promise((requestSignal) => {
 							signal = requestSignal;
@@ -2176,11 +2102,11 @@ describe("plugin bridge", () => {
 		"sends only lifecycle close after teardown or a failed handshake",
 		() =>
 			Effect.gen(function* () {
-				const torndown = connect();
+				const torndown = yield* connect();
 				torndown.session.close();
 				torndown.session.sendLocation(nav(detail, 1));
 
-				const failed = connect({ timeoutMs: 10 });
+				const failed = yield* connect({ timeoutMs: 10 });
 				yield* Effect.promise(() => waitFor(() => expect(failed.failures).toHaveLength(1)));
 				failed.session.sendLocation(nav(detail, 1));
 
@@ -2196,7 +2122,7 @@ describe("plugin bridge", () => {
 		"stops delivering after teardown",
 		() =>
 			Effect.gen(function* () {
-				const { init, readies, session, failures, pluginPort } = connect();
+				const { init, readies, session, failures, pluginPort } = yield* connect();
 
 				session.close();
 				pluginPort.postMessage(readyFor(init));
@@ -2214,7 +2140,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				let signal: undefined | AbortSignal;
 				const call = deferred<PluginOperationOutcome>();
-				const { init, received, pluginPort, navigations } = connect({
+				const { init, received, pluginPort, navigations } = yield* connect({
 					onOperation: () =>
 						Effect.promise((requestSignal) => {
 							signal = requestSignal;
@@ -2248,7 +2174,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: PluginOperationRequest[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onOperation: (request) => {
 						calls.push(request);
 						return Effect.succeed({ value: "ok", outcome: "success", committed: { events: [] } });
@@ -2291,7 +2217,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onCalendarSourceVisibility: (request) => {
 						calls.push(request);
 						return Effect.succeed({ outcome: "success" as const });
@@ -2326,7 +2252,7 @@ describe("plugin bridge", () => {
 				const calls: PluginCollectionRequest[] = [];
 				let count = 0;
 				const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onCollection: (request) => {
 						calls.push(request);
 						count += 1;
@@ -2381,7 +2307,7 @@ describe("plugin bridge", () => {
 					},
 					{ outcome: "failure", reason: "collection-stale" },
 				];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onCollection: (request) => {
 						calls.push(request);
 						const outcome = outcomes.shift();
@@ -2444,7 +2370,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: EntityEditorSaveRequest[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onEntitySave: (request) => {
 						calls.push(request);
 						return Effect.succeed({
@@ -2495,7 +2421,7 @@ describe("plugin bridge", () => {
 					{ outcome: "success", settings: { limit: 3 } },
 					{ outcome: "success", settings: { limit: Number.NaN } },
 				];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onUserSettings: (request) => {
 						calls.push(request);
 						const outcome = outcomes.shift();
@@ -2544,7 +2470,7 @@ describe("plugin bridge", () => {
 					{ account, outcome: "success" },
 					{ outcome: "failure", reason: "transport" },
 				];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onAccount: () => {
 						const outcome = outcomes.shift();
 						return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
@@ -2583,7 +2509,7 @@ describe("plugin bridge", () => {
 					{ outcome: "success", enrichmentRequestId: "enrichment-job" },
 					{ outcome: "failure", reason: "invalid-request" },
 				];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onEnrichment: (request) => {
 						calls.push(request);
 						const outcome = outcomes.shift();
@@ -2636,7 +2562,7 @@ describe("plugin bridge", () => {
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
 					{ reason: "private", outcome: "failure" } as unknown as PluginStorageOutcome,
 				];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onStorage: (request) => {
 						calls.push(request);
 						const outcome = outcomes.shift();
@@ -2689,7 +2615,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const calls: PluginUploadRequest[] = [];
 				const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onUpload: (request) => {
 						calls.push(request);
 						return Effect.succeed({ token, outcome: "success", action: "temporary" });
@@ -2736,7 +2662,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const calls: PluginUploadRequest[] = [];
 				const asset = { type: "local", key: "permanent/items.csv" } as const;
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onUpload: (request) => {
 						calls.push(request);
 						return Effect.succeed({ asset, outcome: "success", action: "permanent" });
@@ -2796,7 +2722,7 @@ describe("plugin bridge", () => {
 					Reflect.set(storage, "value", badValue);
 					Reflect.set(upload, "token", badValue);
 					Reflect.set(ryotql, "response", badValue);
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						onAssets: () => Effect.succeed(asset),
 						onUpload: () => Effect.succeed(upload),
 						onRyotQL: () => Effect.succeed(ryotql),
@@ -2834,7 +2760,7 @@ describe("plugin bridge", () => {
 					let defects = false;
 					const reply = <A,>(value: A) =>
 						defects ? Effect.die(new Error("private defect")) : Effect.succeed(value);
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
 						onStorage: () => reply<PluginStorageOutcome>({ reason: "quota", outcome: "failure" }),
 						onAssets: () =>
@@ -2901,7 +2827,7 @@ describe("plugin bridge", () => {
 								}),
 							),
 						);
-					const { init, session, received, pluginPort } = connect({
+					const { init, session, received, pluginPort } = yield* connect({
 						onAssets: pendingWork,
 						onRyotQL: pendingWork,
 						onUpload: pendingWork,
@@ -2927,7 +2853,7 @@ describe("plugin bridge", () => {
 		"reports upload failures and rejects a source that is not a Blob",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onUpload: () => Effect.die("upload exploded"),
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -2969,7 +2895,7 @@ describe("plugin bridge", () => {
 		"maps synchronous operation and query failures to transport results",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onRyotQL: () => {
 						throw new Error("query failed synchronously");
 					},
@@ -3022,7 +2948,7 @@ describe("plugin bridge", () => {
 				};
 				// Model an untyped callback violating its declared return type at runtime.
 				Reflect.set(malformedOutcome, "value", () => undefined);
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onOperation: () => {
 						calls += 1;
 						return Effect.succeed(
@@ -3083,7 +3009,7 @@ describe("plugin bridge", () => {
 			`round-trips a ${reason} operation bridge error without extra details`,
 			() =>
 				Effect.gen(function* () {
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						onOperation: () =>
 							Effect.succeed({
 								reason,
@@ -3118,7 +3044,7 @@ describe("plugin bridge", () => {
 		"maps an invalid callback failure reason to transport",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onOperation: () =>
 						Effect.succeed(
 							// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
@@ -3153,7 +3079,9 @@ describe("plugin bridge", () => {
 		"reports a transport failure when onOperation rejects",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort } = connect({ onOperation: () => Effect.die("boom") });
+				const { init, received, pluginPort } = yield* connect({
+					onOperation: () => Effect.die("boom"),
+				});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
@@ -3184,7 +3112,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onOperation: () => {
 						const call = deferred<PluginOperationOutcome>();
 						calls.push(call);
@@ -3244,7 +3172,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onOperation: () => {
 						const call = deferred<PluginOperationOutcome>();
 						calls.push(call);
@@ -3294,7 +3222,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const signals: AbortSignal[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onRyotQL: () =>
 						Effect.promise((signal) => {
 							signals.push(signal);
@@ -3353,7 +3281,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				let signal: undefined | AbortSignal;
 				const call = deferred<PluginOperationOutcome>();
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onOperation: () =>
 						Effect.promise((requestSignal) => {
 							signal = requestSignal;
@@ -3394,7 +3322,7 @@ describe("plugin bridge", () => {
 		"fails an %s plugin navigation message",
 		([_label, target]) =>
 			Effect.gen(function* () {
-				const { init, received, failures, pluginPort, navigations } = connect();
+				const { init, received, failures, pluginPort, navigations } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
@@ -3415,7 +3343,7 @@ describe("plugin bridge", () => {
 				let querySignal: undefined | AbortSignal;
 				const operationCall = deferred<PluginOperationOutcome>();
 				const queryCall = deferred<PluginRyotQLOutcome>();
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onRyotQL: () =>
 						Effect.promise((signal) => {
 							querySignal = signal;
@@ -3471,7 +3399,7 @@ describe("plugin bridge", () => {
 		"fails the session before invoking an operation with extra identity fields",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, failures, pluginPort, operationCalls } = connect();
+				const { init, received, failures, pluginPort, operationCalls } = yield* connect();
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
@@ -3496,7 +3424,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				let signal: undefined | AbortSignal;
 				const call = deferred<PluginOperationOutcome>();
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onOperation: () =>
 						Effect.promise((requestSignal) => {
 							signal = requestSignal;
@@ -3530,7 +3458,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onRyotQL: () => {
 						const call = deferred<PluginRyotQLOutcome>();
 						calls.push(call);
@@ -3587,7 +3515,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const query = deferred<PluginRyotQLOutcome>();
 				const operationCalls: PluginOperationRequest[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onRyotQL: () => Effect.promise(() => query.promise),
 					onOperation: (request) => {
 						operationCalls.push(request);
@@ -3623,7 +3551,7 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: PluginRyotQLRequest[] = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onRyotQL: (request) => {
 						calls.push(request);
 						return Effect.succeed({ outcome: "success", response: { data: {} } });
@@ -3653,7 +3581,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				let signal: undefined | AbortSignal;
 				const call = deferred<PluginRyotQLOutcome>();
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onRyotQL: () =>
 						Effect.promise((requestSignal) => {
 							signal = requestSignal;
@@ -3686,7 +3614,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const signals: AbortSignal[] = [];
 				const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-				const { init, received, failures, pluginPort } = connect({
+				const { init, received, failures, pluginPort } = yield* connect({
 					onRyotQL: () =>
 						Effect.promise((signal) => {
 							signals.push(signal);
@@ -3747,7 +3675,7 @@ describe("plugin bridge", () => {
 		"never posts a Ryot credential, identity, or scope value to the plugin across a full session",
 		() =>
 			Effect.gen(function* () {
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onOperation: (request) =>
 						Effect.succeed(
 							request.operationSlug === "fail"
@@ -3851,7 +3779,7 @@ describe("bridge background submissions", () => {
 			Effect.gen(function* () {
 				const events: string[] = [];
 				const recorder = recordingReservation(events);
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onBackgroundOperation: recorder.handler,
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -3920,7 +3848,7 @@ describe("bridge background submissions", () => {
 			Effect.gen(function* () {
 				const events: string[] = [];
 				const release = yield* Deferred.make<void>();
-				const { init, session, received, pluginPort } = connect({
+				const { init, session, received, pluginPort } = yield* connect({
 					onBackgroundOperation: (request) =>
 						Deferred.await(release).pipe(
 							Effect.as({
@@ -3953,7 +3881,7 @@ describe("bridge background submissions", () => {
 		"returns a refused acceptance as a bridge failure",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onBackgroundOperation: () =>
 						Effect.succeed({ outcome: "failure" as const, reason: "operation-failed" as const }),
 				});
@@ -3976,7 +3904,7 @@ describe("bridge background submissions", () => {
 		"keeps the message of a foreground operation rejection",
 		() =>
 			Effect.gen(function* () {
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					onOperation: () =>
 						Effect.succeed({
 							message: rejection,
@@ -4055,7 +3983,7 @@ describe("page frame authority", () => {
 				Effect.gen(function* () {
 					const calls: PluginRyotQLRequest[] = [];
 					const operations: string[] = [];
-					const { init, received, pluginPort } = connect({
+					const { init, received, pluginPort } = yield* connect({
 						onRyotQL: (request) => {
 							calls.push(request);
 							return Effect.succeed({ outcome: "success", response: { data: {} } });
@@ -4127,7 +4055,7 @@ describe("page frame authority", () => {
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
-				const { init, received, pluginPort } = connect({
+				const { init, received, pluginPort } = yield* connect({
 					page: authoredPage("published", true),
 					onUserSettings: (request) => {
 						calls.push(request);
@@ -4158,7 +4086,7 @@ describe("page frame authority", () => {
 			() =>
 				Effect.gen(function* () {
 					const calls: PluginRyotQLRequest[] = [];
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						page: authoredPage(stage),
 						onRyotQL: (request) => {
 							calls.push(request);
@@ -4232,7 +4160,7 @@ describe("page frame authority", () => {
 			() =>
 				Effect.gen(function* () {
 					const operations: string[] = [];
-					const { init, received, failures, pluginPort } = connect({
+					const { init, received, failures, pluginPort } = yield* connect({
 						page: authoredPage(stage, grant),
 						onOperation: () => {
 							operations.push("invoke");
@@ -4293,7 +4221,7 @@ describe("page frame authority", () => {
 					collectionAdds,
 					collectionEdits,
 					reminderScreens,
-				} = connect({ page: authoredPage("published", true) });
+				} = yield* connect({ page: authoredPage("published", true) });
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 				for (const [index, request] of [

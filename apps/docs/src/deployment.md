@@ -207,3 +207,12 @@ account. If you deploy to ZopCloud, which needs no cloud account, use a PostgreS
 that you provide and that the deployment can reach. Set `DATABASE_URL` to its connection
 string, then set `SERVER_ADMIN_ACCESS_TOKEN` to a long random string before deploying. Open
 the address and create your first user via the web interface's registration page.
+
+## Simafri
+
+On a Simafri managed VPS, use Ryot's current [Docker Compose instructions](./index.md#installation)
+and check the [plugin runtime requirements](#plugin-runtime-requirements). Set `FRONTEND_URL` to
+your public HTTPS origin and follow the [reverse proxy requirements](#reverse-proxies).
+
+Simafri's guide covers Caddy and PostgreSQL backups, with installation steps written for Ryot
+10.5.8. [Simafri's managed VPS guide](https://www.simafri.com/en/guides/self-host-ryot/).

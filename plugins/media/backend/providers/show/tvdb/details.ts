@@ -23,6 +23,7 @@ import {
 	tvdbGetOptional,
 	type TvdbHost,
 } from "../../../lib/vendors/tvdb";
+import { enrichShowAirtimes } from "../../../lib/vendors/tvmaze";
 
 const buildSeason = (
 	parentShowExternalId: string,
@@ -86,7 +87,7 @@ const buildSeason = (
 
 export const getTvdbShowDetails = (
 	input: ProviderDetailsInput,
-	host: TvdbHost,
+	host: TvdbHost & Parameters<typeof enrichShowAirtimes>[0],
 	canonicalLanguage: string,
 ) => {
 	const full = input.level !== "base";
@@ -169,10 +170,15 @@ export const getTvdbShowDetails = (
 			})
 			.filter((season) => asRecord(season["type"])?.["type"] === "official")
 			.sort((a, b) => (numberValue(a["number"]) ?? 0) - (numberValue(b["number"]) ?? 0));
-		const childEntities = officialSeasons.flatMap((season) => {
+		const seasons = officialSeasons.flatMap((season) => {
 			const child = buildSeason(input.externalId, season);
 			return child ? [child] : [];
 		});
+		const childEntities = yield* enrichShowAirtimes(
+			host,
+			[{ kind: "thetvdb", id: input.externalId }],
+			seasons,
+		);
 		const totalEpisodes = childEntities.reduce(
 			(count, season) => count + (season.childEntities?.length ?? 0),
 			0,

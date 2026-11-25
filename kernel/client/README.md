@@ -39,8 +39,9 @@ runtimes and the iframe host that runs one frame, and `bridge` owns the port ses
 capability producers.
 
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
-connection is the `MessagePort` transferred by the kernel after both peers validate the bridge and
-artifact identity. Plugin requests cross that port as narrow, schema-checked capabilities; the kernel
+connection is the `MessagePort` offered by the frame. The shared host checks the iframe window and
+opaque origin, then matches the one-time nonce and embedded composition identity on the port before
+sending init. After ready, plugin requests cross the port as narrow, schema-checked capabilities. The kernel
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
@@ -189,14 +190,15 @@ throttled to one announcement per two seconds with bursts coalesced.
 
 ## Interface Language
 
-`modules/i18n` owns the shell's locale. `createI18nStore` starts with the bundled English catalog
-and requests the last interface locale preference remembered in `ClientStorage`, else the device
-locale negotiated against the kernel locales; other kernel catalogs load lazily and are published
-only once loaded. `KernelI18nProvider` sets the document's `lang` and `dir`. Inside the authenticated
-layout, `AuthenticatedMessages` applies the server preference (remembering it for the next start),
-loads the listed plugins' catalogs for the locale's fallback chain, retries failed loads on a
-bounded schedule, and reloads them when ingestion changes the catalog. First paint waits until the
-preference has settled and the kernel and plugin catalogs of its locale have loaded. Afterwards,
+`modules/i18n` owns the shell's locale. Before the authenticated preference loads, the shell uses
+the last account locale remembered in `ClientStorage` or the device locale. The full tag formats
+dates and numbers, while the selected kernel catalog supplies the document's `lang` and `dir`.
+Inside the authenticated layout, `AuthenticatedMessages` applies and remembers the saved locale.
+If an account has no locale, its first standard, non-impersonated session attempts to initialize
+it from the device. English is the account default until initialization succeeds. The store loads
+the listed plugins' catalogs for the locale's fallback chain, retries failed loads on a bounded
+schedule, and reloads them when ingestion changes the catalog. First paint waits until the
+preference and catalog loads settle. Afterwards,
 while plugin catalogs load or retry, missing plugin messages render the neutral `message.loading`
 text, and plugin documents receive the namespaces still loading as `pendingNamespaces`. A
 document's published screen title is display text that the shell renders, accepting messages only
@@ -206,8 +208,9 @@ Every error the shell shows goes through `formatError(t, error, fallback)` from
 `@ryot-app/plugin-client-sdk/react`: a contract error's `reason` message, found through wrapping
 `cause`s, or an operation's rejection message, else the caller's fallback. Host mutations therefore
 keep the API error instead of mapping it to a bare `RyotClientError`. The language picker labels
-each interface locale in its own language and hints its name in the current one; the `en-XA`
-pseudo-locale is listed only while it is the saved value.
+each interface locale in its own language and hints its name in the current one. **Use device
+locale** copies the current device locale into the account preference when saved. The `en-XA`
+pseudo-locale appears in the picker only when it is the saved value.
 
 Interface and content language are independent. Content language overrides are canonical BCP 47
 tags, including regions and scripts. With no override, content keeps each provider's canonical
@@ -328,9 +331,11 @@ Overlay dismissal follows ownership:
 - URL-state overlays push a history entry and close by popping it, with replace only for direct
   entry. They do not register an interceptor.
 
-Browser Back cannot be intercepted. All overlays make background content inert and use the UI SDK's
-focus, Escape, outside-dismiss, shortcut-scope, and scroll-lock primitives. Back interception remains
-kernel-owned; the UI SDK does not import the router or Capacitor.
+The UI SDK owns document-local focus, Escape, outside dismissal and shortcut scope. The kernel
+selects which document receives semantic Back, giving open shell overlays priority over the active
+iframe. The frame reports its open overlay count. A dismissal acknowledgment completes the request,
+and subsequent overlay state comes from the frame's registration lifecycle. Browser history Back
+uses its own navigation path.
 
 Every route has one `<main>`, one `<h1>`, and one `usePageTitle` owner, including pending, error,
 not-found, and plugin-ready branches. The root owns the skip link and route announcer.
@@ -396,6 +401,9 @@ Both platforms register only their variant's identifier as the deep-link scheme.
 `resolveDeepLinkHref` folds a custom scheme's authority into its path and accepts HTTP(S) paths;
 other schemes are ignored. Native launch URLs replace the current entry. Android hardware Back pops
 the global router history and exits only when no entry remains.
+
+On iOS, the bridge controller sizes the WebView with UIKit's keyboard layout guide. The shell and
+its iframes receive the same reduced layout height when the docked keyboard opens.
 
 OAuth connection returns are the routing exception: the live attempt's `DeepLinkClaims` claim
 receives them instead of the router. `/oauth/login`, its signed `oauth_query`, and its independence
@@ -479,14 +487,16 @@ and platform fixups; never hand-edit emitted `mipmap-*`, `drawable-*`, or `Asset
 
 ## Secure Storage
 
-`OAuthStorage` owns OAuth tokens and PKCE transactions. Web uses `localStorage`. Native uses the iOS
-Keychain or Android Keystore-backed AES-GCM storage, disables Android backup, disables iCloud Keychain
-synchronization, and uses this-device-only access after first unlock. A missing native storage plugin
-fails rather than falling back to plaintext.
+`OAuthStorage` holds pending web PKCE transactions in tab-scoped `sessionStorage`. Web uses an
+`HttpOnly` application session cookie. A noncredential storage event tells sibling tabs to reload
+when the browser session changes. Native uses the iOS Keychain or Android Keystore-backed AES-GCM
+storage for tokens and pending transactions, disables Android backup, disables iCloud Keychain
+synchronization, and uses this-device-only access after first unlock. A missing native storage
+plugin fails rather than falling back to plaintext.
 
 Native storage sets `setKeyPrefix("ryot_")` before use. The plugin strips that prefix when listing
-keys, so both web and native adapters expose the same logical `ryot:oauth:*` names used by pending
-transaction cleanup. The native adapter is dynamically imported and does not enter the web bundle.
+keys, so pending transaction cleanup can use the same logical `ryot:oauth:*` keys in both runtimes.
+The native adapter is dynamically imported.
 
 Malformed records are removed. A Keychain or Keystore read failure reports no session but retains the
 record, because a temporarily locked store must not delete a refresh token. Writes fail explicitly.

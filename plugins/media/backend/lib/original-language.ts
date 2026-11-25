@@ -1,6 +1,8 @@
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { canonicalLanguageCode } from "@ryot-app/plugin-kit/languages";
 
+import { canonicalTmdbLanguageCode } from "./vendors/tmdb-language";
+
 export const originalLanguageProperties = (
 	value: unknown,
 	source: "tmdb" | "tvdb",
@@ -14,11 +16,7 @@ export const originalLanguageProperties = (
 	if (value.trim() === "") {
 		return {};
 	}
-	const supplied = value.trim().toLowerCase();
-	const aliases: Readonly<Record<string, string>> = { cn: "yue", xx: "zxx" };
-	const code = canonicalLanguageCode(
-		source === "tmdb" ? (aliases[supplied] ?? supplied) : supplied,
-	);
+	const code = source === "tmdb" ? canonicalTmdbLanguageCode(value) : canonicalLanguageCode(value);
 	if (code === undefined) {
 		throw new Error(`Provider original language is not recognized: ${value}`);
 	}

@@ -3,16 +3,22 @@ import { describe, expect, it } from "bun:test";
 import { buildViewExpressions } from "./view-helpers";
 
 describe("buildViewExpressions", () => {
-	it("prefers cover artwork and falls back to the first image for the table thumbnail", () => {
+	it("prefers a localized cover, then the canonical cover, then the first image", () => {
 		expect(buildViewExpressions("movie").table.image).toMatchObject({
 			type: "coalesce",
 			values: [
 				{
-					type: "jsonFirst",
-					where: { right: { value: "cover" } },
-					array: { expr: { path: ["images"] } },
+					type: "coalesce",
+					values: [
+						{ type: "conditional" },
+						{
+							type: "jsonFirst",
+							where: { right: { value: "cover" } },
+							array: { expr: { path: ["images"] } },
+						},
+					],
 				},
-				{ path: [0], type: "jsonPath", expr: { expr: { path: ["images"] } } },
+				{ type: "cast", expr: { type: "jsonPath", path: ["images", 0] } },
 			],
 		});
 	});

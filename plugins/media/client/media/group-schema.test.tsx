@@ -126,7 +126,7 @@ describe("group detail screen", () => {
 	});
 
 	it("explains an overview with neither images nor credits", () => {
-		const { unmount, container } = renderBody(decodeGroupSummary({ memberImages: null }));
+		const { unmount, container } = renderBody(decodeGroupSummary({ memberImage: null }));
 		selectTab(container, "Overview");
 
 		expect(container.textContent).toContain("Nothing more to show");

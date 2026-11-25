@@ -183,7 +183,9 @@ const watch = (
 		occurredAt: utcDay(day + index / 1440),
 	}));
 
-layer(mediaDatabaseLayer("media_library_summary"))((test) => {
+const hours = (count: number) => new Date(Date.now() + count * 3_600_000);
+
+layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true })((test) => {
 	test.effect(
 		"presents stored show counts and next episodes equal to live ones through history, new episodes and airings",
 		() =>
@@ -356,6 +358,75 @@ layer(mediaDatabaseLayer("media_library_summary"))((test) => {
 				},
 			]);
 		}),
+	);
+
+	test.effect(
+		"presents stored counts equal to live ones while a timed episode dated today has not aired, and live ones once it airs",
+		() =>
+			Effect.gen(function* () {
+				const airingAt = hours(2);
+				yield* insertEpisodicTitle("tonight", "show", [
+					{ days: -5, id: "tonight-e1" },
+					{ days: 0, airingAt, id: "tonight-e2" },
+					{ days: 0, id: "tonight-e3", airingAt: hours(3) },
+					{ days: 7, id: "tonight-e4" },
+				]);
+				yield* linkToLibrary("owner", "in-media-library", ["tonight"]);
+				yield* insertEvents(watch("complete", "tonight", ["tonight-e1", "tonight-e3"], -4));
+				expect(yield* foldLibrarySummary("owner", "tonight", "show")).toMatchObject({
+					airedEpisodes: 1,
+					upcomingEpisodes: 3,
+					nextAiringAt: airingAt.toISOString(),
+					nextAiringDate: utcDay(7).toISOString(),
+				});
+				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
+					{
+						id: "tonight",
+						airedEpisodes: 1,
+						state: "caught_up",
+						watchedEpisodes: 1,
+						upcomingEpisodes: 3,
+						inProgressEpisodes: 0,
+					},
+				]);
+				expect(yield* expectNextUpLive("owner", "show", "tonight")).toBeNull();
+
+				yield* moveAiring({
+					user: "owner",
+					parentId: "tonight",
+					airingAt: hours(-1),
+					entityId: "tonight-e2",
+				});
+				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
+					{
+						id: "tonight",
+						airedEpisodes: 2,
+						watchedEpisodes: 1,
+						upcomingEpisodes: 2,
+						state: "in_progress",
+						inProgressEpisodes: 0,
+					},
+				]);
+				expect(yield* expectNextUpLive("owner", "show", "tonight")).toBe("tonight-e2");
+
+				yield* moveAiring({
+					tracked: true,
+					user: "owner",
+					parentId: "tonight",
+					airingAt: hours(-1),
+					entityId: "tonight-e3",
+				});
+				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
+					{
+						id: "tonight",
+						airedEpisodes: 3,
+						watchedEpisodes: 2,
+						upcomingEpisodes: 1,
+						state: "in_progress",
+						inProgressEpisodes: 0,
+					},
+				]);
+			}),
 	);
 
 	test.effect(

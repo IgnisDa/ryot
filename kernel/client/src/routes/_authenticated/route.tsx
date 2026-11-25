@@ -1,7 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { useT } from "@ryot-app/i18n/react";
-import type { KernelLocale } from "@ryot-app/kernel-messages/catalog";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Stream } from "effect";
@@ -10,6 +9,7 @@ import { useEffect, useMemo } from "react";
 import { PluginsApi } from "#/api/plugins";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { AuthService } from "#/modules/auth/service";
 import { BackgroundSubmissionsProvider } from "#/modules/background-submissions/tray";
 import { EntitlementsProvider } from "#/modules/entitlements/context";
 import { loadEntitlements } from "#/modules/entitlements/service";
@@ -116,6 +116,11 @@ function AuthenticatedLayout() {
 	const { catalog, navigation, entitlements, rememberedPluginId } = Route.useLoaderData();
 	const { ryot, i18n, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
+	const session = runtime.runSync(AuthService).session(serverUrl).getSnapshot();
+	const canInitializeLocale =
+		session.status === "authenticated" &&
+		session.accessClass === "standard" &&
+		session.impersonation === undefined;
 	useEffect(
 		() =>
 			runtime.runSync(
@@ -146,7 +151,7 @@ function AuthenticatedLayout() {
 			),
 		[runtime, serverUrl, userId],
 	);
-	const rememberInterfaceLocale = (preference: null | KernelLocale) =>
+	const rememberInterfaceLocale = (preference: null | string) =>
 		runtime.runSync(
 			Effect.flatMap(ClientStorage, (storage) => storage.setInterfaceLocale(preference)),
 		);
@@ -158,6 +163,7 @@ function AuthenticatedLayout() {
 						store={i18n}
 						load={loadPluginCatalogs}
 						fallback={<RestoringSession />}
+						canInitializeLocale={canInitializeLocale}
 						onInterfaceLocale={rememberInterfaceLocale}
 					>
 						<BackgroundSubmissionsProvider

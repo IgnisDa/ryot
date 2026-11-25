@@ -23,13 +23,12 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 
-import { SectionHeader } from "~/lib/components/SectionHeader";
-import { Badge } from "~/lib/components/ui/badge";
-import { Button } from "~/lib/components/ui/button";
-import { Card, CardContent } from "~/lib/components/ui/card";
-import { Carousel, CarouselContent, CarouselItem } from "~/lib/components/ui/carousel";
-import { ProBadge } from "~/lib/components/ui/pro-badge";
-import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
+import { SectionHeader } from "~/components/SectionHeader";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
+import { Carousel, CarouselContent, CarouselItem } from "~/components/ui/carousel";
+import { ProBadge } from "~/components/ui/pro-badge";
 import {
 	CARD_HOVER,
 	SECTION_CONTAINER,
@@ -44,8 +43,6 @@ export const meta = () => {
 };
 
 export default function Page() {
-	usePaddleInitialization();
-
 	return (
 		<div className="min-h-screen">
 			<section className={SECTION_Y_PADDING_LARGE}>

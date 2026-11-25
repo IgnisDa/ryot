@@ -24,7 +24,10 @@ export const IngestionPolicyReason = strictStruct({
 });
 export type IngestionPolicyReason = typeof IngestionPolicyReason.Type;
 
-export const IngestionReason = Schema.Union([IngestionPolicyReason, IngestionCodeReason]);
+export const IngestionReason = Schema.Union([
+	IngestionPolicyReason,
+	Schema.Struct({ ...IngestionCodeReason.fields, detail: Schema.optionalKey(Message) }),
+]);
 export type IngestionReason = typeof IngestionReason.Type;
 
 export const IngestionBlockReason = Schema.Struct(ingestionBlockReasonFields);

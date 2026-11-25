@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -19,7 +20,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 describe("Audiobookshelf integration", () => {
 	it.live("syncs in-progress Audiobookshelf audio and ignores unchanged polls", () =>

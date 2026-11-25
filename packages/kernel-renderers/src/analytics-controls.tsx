@@ -12,7 +12,7 @@ import {
 	usePeriodCaption,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { useEntitlement, useRyotSchedule, useT } from "@ryot-app/plugin-client-sdk/react";
-import { Button, entitlementActionLabel, MenuSelect, TextField } from "@ryot-app/plugin-ui-sdk";
+import { Button, entitlementActionLabel, Select, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type ReactNode, useId, useState } from "react";
 
@@ -126,14 +126,16 @@ export function AnalyticsControls({
 			<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
 				{leading}
 				<div className={`flex min-w-0 flex-wrap items-center gap-2 ${compact ? "" : "ml-auto"}`}>
-					<MenuSelect
+					<Select
+						variant="compact"
 						{...icons}
 						value={selectedRange}
 						onChange={changeRange}
 						choices={rangeChoices}
 						label={t(kernelMessage("renderer.analytics.range"))}
 					/>
-					<MenuSelect
+					<Select
+						variant="compact"
 						{...icons}
 						disabled={allTime}
 						choices={comparisonChoices}
@@ -141,7 +143,8 @@ export function AnalyticsControls({
 						label={t(kernelMessage("renderer.analytics.compare"))}
 						onChange={(value) => onSelectionChange({ ...selection, comparison: value })}
 					/>
-					<MenuSelect
+					<Select
+						variant="compact"
 						{...icons}
 						disabled={allTime}
 						choices={groupingChoices}

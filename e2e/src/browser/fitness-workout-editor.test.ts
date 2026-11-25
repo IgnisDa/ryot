@@ -31,7 +31,16 @@ const WORKOUT_DETAILS = "Workout details";
 const startWorkoutFromList = (frame: Playwright.FrameLocator) =>
 	frame.locator('button[aria-keyshortcuts="A"]').filter({ hasText: "Start workout" });
 
-it.live("dismisses a workout overlay with an edge swipe without leaving the draft", () =>
+const swipeBack = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
+		yield* page.use((raw) => raw.mouse.move(8, 400));
+		yield* page.use((raw) => raw.mouse.down());
+		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
+		yield* page.use((raw) => raw.mouse.up());
+	});
+
+it.live("dismisses a menu before its workout sheet and preserves the draft on Back", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
 		const page = yield* (yield* Playwright.Browser).newPage();
@@ -39,19 +48,43 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
 		yield* page.waitForURL(`${getFrontendUrl()}/p/ryot/fitness/workout-editor`);
-		yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
+		const detailsTrigger = frame.getByRole("button", {
+			exact: false,
+			name: "Edit workout details",
+		});
+		yield* detailsTrigger.click();
 		const details = frame.getByRole("dialog", { exact: true, name: WORKOUT_DETAILS });
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* details.waitFor({ state: "hidden" });
+		yield* detailsTrigger.waitForFunction(
+			(element) => element.ownerDocument.activeElement === element,
+		);
+		const workoutActions = frame.getByRole("button", { exact: true, name: "Workout actions" });
+		yield* workoutActions.click();
+		yield* frame.getByRole("menuitem", { exact: true, name: WORKOUT_DETAILS }).click();
+		yield* details.getByRole("button", { exact: true, name: "Close details" }).click();
+		yield* details.waitFor({ state: "hidden" });
+		yield* workoutActions.waitForFunction(
+			(element) => element.ownerDocument.activeElement === element,
+		);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = overlay(frame, "Add exercises");
 		yield* picker.waitFor({ state: "visible" });
-		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
-		yield* page.use((raw) => raw.mouse.move(8, 400));
-		yield* page.use((raw) => raw.mouse.down());
-		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
-		yield* page.use((raw) => raw.mouse.up());
+		const sort = picker.getByRole("button", { name: "Sort exercises" });
+		const menu = frame.getByRole("menu", { name: "Sort exercises" });
+		yield* sort.click();
+		yield* menu.waitFor({ state: "visible" });
+		yield* page.keyboard.press("Escape");
+		yield* menu.waitFor({ state: "hidden" });
+		yield* picker.waitFor({ state: "visible" });
+		yield* sort.waitForFunction((element) => element.ownerDocument.activeElement === element);
+		yield* sort.click();
+		yield* menu.waitFor({ state: "visible" });
+		yield* swipeBack(page);
+		yield* menu.waitFor({ state: "hidden" });
+		yield* picker.waitFor({ state: "visible" });
+		yield* swipeBack(page);
 		yield* picker.waitFor({ state: "hidden" });
 		yield* frame
 			.getByRole("button", { exact: true, name: "Edit workout details, Swipe recovery" })
@@ -156,9 +189,16 @@ it.live("retries a committed workout after a lost response and reload without du
 		}
 		yield* frame.getByRole("button", { exact: true, name: "Reorder" }).click();
 		const reorder = overlay(frame, "Reorder exercises");
+		yield* reorder.evaluate((element) => {
+			if (element instanceof HTMLElement) {
+				element.style.transitionDuration = "500ms";
+			}
+		});
 		yield* reorder.getByRole("button", { exact: true, name: `Reorder ${second}` }).press("ArrowUp");
-		yield* reorder.waitFor({ state: "hidden" });
-		yield* page.goto(`${getFrontendUrl()}/settings/import-data`);
+		yield* reorder.and(frame.locator("[data-ending-style]")).waitFor({ state: "attached" });
+		yield* reorder.waitFor({ state: "detached" });
+		yield* page.getByRole("link", { exact: true, name: "Open settings" }).click();
+		yield* page.waitForURL((url) => url.pathname === "/settings/preferences");
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
 		yield* draftHeading(frame, name).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
@@ -244,11 +284,17 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		yield* page.reload;
 		yield* draftHeading(frame, `${name} repeated`).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Complete set 1" }).click();
-		yield* saveDraft(page, frame, {
-			review: "Finish",
-			confirm: "Save workout",
-			name: `${name} repeated`,
+		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
+		const finish = overlay(frame, "Finish workout?");
+		yield* finish.evaluate((element) => {
+			if (element instanceof HTMLElement) {
+				element.style.transitionDuration = "500ms";
+			}
 		});
+		yield* finish.getByRole("button", { exact: true, name: "Save workout" }).click();
+		yield* finish.and(frame.locator("[data-ending-style]")).waitFor({ state: "attached" });
+		expect(new URL(page.url()).pathname).toBe("/p/ryot/fitness/workout-editor");
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
 		yield* frame
 			.getByRole("link", { exact: false, name: `Repeated from ${name}` })
 			.waitFor({ state: "visible" });

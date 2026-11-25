@@ -41,11 +41,7 @@ describe("company.tmdb sandbox script", () => {
 				expect(result).toMatchObject({
 					properties: {
 						images: [
-							{
-								type: "remote",
-								purpose: "logo",
-								url: "https://image.tmdb.org/t/p/original/logo.png",
-							},
+							{ type: "remote", purpose: "logo", url: "https://image.tmdb.org/t/p/w342/logo.png" },
 						],
 					},
 				});

@@ -5,12 +5,12 @@ import { Context, Duration, Effect, Layer, Match, Option, Redacted, Schema } fro
 import { HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig } from "#platform/config/service";
+import { EgressDenied, RequirePublicHttps } from "#platform/egress/http-client";
 
 const PROJECT_NAME = "Ryot";
 const HTTP_TIMEOUT_MS = 10_000;
 const PUSHOVER_DEFAULT_APP_TOKEN = "abd1semr21hv1i5j5kfkm23wf1kd4u";
-const AVATAR_URL =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
+const AVATAR_URL = "https://ryot.io/icon.png";
 
 const NotificationDeliveryOutcome = Schema.Literals(["failed", "unknown", "skipped"]);
 
@@ -101,7 +101,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const mailer = yield* NotificationMailer;
-			const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.followRedirects());
+			const httpClient = yield* HttpClient.HttpClient;
 
 			const sendHttp = Effect.fn("NotificationDeliveryService.sendHttp")(function* (input: {
 				provider: string;
@@ -114,6 +114,15 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 						message: `${input.provider} response could not be confirmed`,
 					});
 				const request = httpClient.execute(input.request).pipe(
+					Effect.provideService(RequirePublicHttps, true),
+					Effect.mapError((error) =>
+						error.reason.cause instanceof EgressDenied
+							? new NotificationDeliveryError({
+									outcome: "failed",
+									message: "Notification destination is blocked by the server's outbound policy",
+								})
+							: unknownOutcome(),
+					),
 					Effect.flatMap((response) => {
 						if (response.status < 200 || response.status >= 300) {
 							return Effect.fail(
@@ -191,9 +200,6 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 							}),
 						);
 					}),
-					Effect.mapError((error) =>
-						error instanceof NotificationDeliveryError ? error : unknownOutcome(),
-					),
 				);
 				yield* request.pipe(
 					Effect.timeout(Duration.millis(HTTP_TIMEOUT_MS)),
@@ -380,8 +386,12 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 								provider: "Telegram",
 								responseKind: "telegram",
 								request: jsonRequest({
-									body: { text: message, chat_id: specifics.chatId },
 									url: `https://api.telegram.org/bot${encodePathSegment(specifics.botToken)}/sendMessage`,
+									body: {
+										text: message,
+										chat_id: specifics.chatId,
+										message_thread_id: specifics.messageThreadId,
+									},
 								}),
 							}),
 						),

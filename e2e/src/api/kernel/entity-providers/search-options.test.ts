@@ -3,11 +3,13 @@ import {
 	stampAppSchema,
 } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { ProviderSearchOptionsResult } from "@ryot-app/plugin-backend-sdk/provider";
+import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
 	createAuthenticatedClient,
+	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	getApiClient,
@@ -16,7 +18,10 @@ import {
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import { manifestText } from "~/fixtures/kernel/manifest-text";
-import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import {
+	type InstalledTestProvider,
+	testProviderEntitySchema,
+} from "~/fixtures/kernel/sandbox-provider";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -146,6 +151,15 @@ describe("POST /entity-providers/search-options", () => {
 			expect(response.schema).toEqual(
 				stampAppSchema(staticProvider.pluginId, STATIC_SEARCH_OPTIONS_SCHEMA),
 			);
+			const catalog = yield* executeRyotQLRecipe(
+				providerClient,
+				providerSearchRecipe({ schema: testProviderEntitySchema(staticProvider) }),
+				{},
+			);
+			expect(
+				catalog.items.find(({ providerId }) => providerId === staticProvider.providerId)
+					?.searchOptionsSchema,
+			).toEqual(response.schema);
 		}),
 	);
 

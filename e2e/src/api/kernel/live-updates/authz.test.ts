@@ -1,4 +1,5 @@
 import { OAUTH_IMPERSONATION_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
 
 import {
@@ -12,7 +13,6 @@ import {
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("live updates authorization", () => {
 	it.live("ignores another user's private entity", () =>

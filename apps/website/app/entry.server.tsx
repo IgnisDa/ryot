@@ -3,8 +3,8 @@ import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { type EntryContext, ServerRouter } from "react-router";
 
-import { WebsiteFailure } from "~/lib/effect.server";
-import { runPromise } from "~/lib/runtime.server";
+import { WebsiteFailure } from "~/server/effect.server";
+import { runPromise } from "~/server/runtime.server";
 
 const ABORT_DELAY = 5_000;
 

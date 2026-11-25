@@ -50,8 +50,8 @@ it.live(
 				<MediaSummaryHeader
 					compact
 					settled={undefined}
-					artwork={{ purpose: "cover", aspect: "poster" }}
-					media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })}
+					artwork={{ aspect: "poster" }}
+					media={decodeFlatSummary(fixtureSummaryRecipe)}
 					detail={{
 						chips: [],
 						facts: [],
@@ -174,7 +174,9 @@ it.live(
 					waitFor(() => getByRole(document.body, "dialog")),
 				);
 				const rating = getByLabelText(dialog, "Rating (out of 100, optional)");
-				expect(document.activeElement).toBe(rating);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement === rating).toBe(true)),
+				);
 				expect(queryByRole(dialog, "switch", { name: "Contains spoilers" })).toBeNull();
 				input(getByLabelText(dialog, "Review (optional)"), "   ");
 				input(rating, "0");
