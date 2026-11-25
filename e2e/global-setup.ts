@@ -53,6 +53,11 @@ export default Effect.gen(function* () {
 						"--filter=@ryot-app/fitness-plugin",
 						"--filter=@ryot-app/fixture-plugin",
 						"--filter=@ryot-app/sandbox",
+						...(process.argv
+							.slice(2)
+							.some((file) => /(?:^|\/)api\/website\/.+\.test\.ts$/.test(file))
+							? ["--filter=@ryot-app/website"]
+							: []),
 					],
 					{ stdin: "inherit", stdout: "inherit", stderr: "inherit", cwd: repositoryRoot },
 				);

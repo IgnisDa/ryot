@@ -1,0 +1,1 @@
+{ "extends": ["//"], "tasks": { "test:e2e": { "dependsOn": ["build", "^transit"] } } }
