@@ -754,32 +754,26 @@ const showPositionIsAfterAnchor = (
 };
 
 /**
- * The parent's next episode as a limit-1 include, judged by display state over the required set:
- * the `in_progress` episode (lowest position for a show, newest for a podcast); otherwise, for a
- * show, the lowest untracked episode after the highest completed one - none without that anchor
- * or with nothing after it - and for a podcast the newest untracked episode.
+ * The parent's next episode, judged by display state over the required set: the `in_progress`
+ * episode (lowest position for a show, newest for a podcast); otherwise, for a show, the lowest
+ * untracked episode after the highest completed one - none without that anchor or with nothing after
+ * it - and for a podcast the newest untracked episode.
  */
-export const episodicNextUpInclude = <const Selection extends SelectedSelection>(
-	config: EpisodicKindConfig,
-	parent: TableReference,
-	selection: (episode: TableReference) => Selection,
-	alias = "nextUp",
-) => {
+const episodicNextUpQuery = (config: EpisodicKindConfig, parent: TableReference, alias: string) => {
 	const candidate = table("entity", `${alias}Candidate`);
 	const scope = episodicEpisodeQuery(config, parent, candidate, `${alias}Candidate`);
 	const state = episodeDisplayStateExpression(candidate, parent, `${alias}CandidateState`);
 	const isInProgress = eq(state, literal("in_progress"));
 	const isUntracked = eq(state, literal("untracked"));
 	const direction = config.kind === "show" ? ascending : descending;
-	return selectedInclude(candidate, {
-		limit: 1,
+	return {
+		candidate,
 		joins: scope.joins,
-		selection: selection(candidate),
 		orderBy: [
 			ascending(conditional(isInProgress, literal(0), literal(1))),
 			...scope.position.map((expression) => direction(expression)),
 			direction(column(candidate, "id")),
-		],
+		] as const,
 		where: and(
 			scope.where,
 			or(
@@ -789,5 +783,26 @@ export const episodicNextUpInclude = <const Selection extends SelectedSelection>
 					: isUntracked,
 			),
 		),
-	});
+	};
+};
+
+/** `episodicNextUpQuery` as a limit-1 include. */
+export const episodicNextUpInclude = <const Selection extends SelectedSelection>(
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	selection: (episode: TableReference) => Selection,
+	alias = "nextUp",
+) => {
+	const { candidate, ...query } = episodicNextUpQuery(config, parent, alias);
+	return selectedInclude(candidate, { ...query, limit: 1, selection: selection(candidate) });
+};
+
+/** The ID of the episode `episodicNextUpQuery` resolves, null when there is none. */
+export const episodicNextUpId = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+) => {
+	const { candidate, ...query } = episodicNextUpQuery(config, parent, alias);
+	return first(candidate, { ...query, select: column(candidate, "id") });
 };

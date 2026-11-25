@@ -46,6 +46,7 @@ import {
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
+	episodicNextUpId,
 	eventSlugIsOneOf,
 	lifecycleEventSlugs,
 	mediaLifecycleExpressions,
@@ -67,6 +68,11 @@ export const librarySummaryPropertiesSchema = {
 			type: "number" as const,
 			description: "Aired regular episodes",
 			label: catalogMessage("property.aired-episodes"),
+		},
+		nextUpEpisodeId: {
+			type: "string" as const,
+			label: catalogMessage("property.next-episode"),
+			description: "The episode the user watches next",
 		},
 		lifecycleState: {
 			type: "string" as const,
@@ -118,6 +124,7 @@ const SummaryRowSchema = {
 	nextAiringAt: Schema.NullOr(IsoDateString),
 	episodeCount: Schema.NullOr(Schema.Finite),
 	lastActivityAt: Schema.NullOr(IsoDateString),
+	nextUpEpisodeId: Schema.NullOr(Schema.String),
 	nextTrackedAiringAt: Schema.NullOr(IsoDateString),
 };
 
@@ -180,6 +187,7 @@ const noEpisodeCounts: EpisodicEpisodeCounts = {
 const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "other") {
 		return {
+			nextUp: literal(null),
 			activity: literal(null),
 			counts: noEpisodeCounts,
 			state: literal("untracked"),
@@ -190,6 +198,7 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	if (kind === "flat") {
 		const lifecycle = mediaLifecycleExpressions(entity, "summaryLifecycle");
 		return {
+			nextUp: literal(null),
 			state: lifecycle.state,
 			counts: noEpisodeCounts,
 			nextAiringAt: literal(null),
@@ -203,6 +212,7 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 		nextAiringAt: nextAiringAt(kind, entity),
 		activity: lifecycle.latestSignal.occurredAt,
 		nextTrackedAiringAt: nextTrackedAiringAt(kind, entity),
+		nextUp: episodicNextUpId(kind, entity, "summaryNextUp"),
 		counts: episodicEpisodeCounts(kind, entity, "summaryCount"),
 	};
 };
@@ -274,6 +284,7 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 					state: selectedField(lifecycle.state, SummaryRowSchema.state),
 					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
 					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
+					nextUpEpisodeId: selectedField(lifecycle.nextUp, SummaryRowSchema.nextUpEpisodeId),
 					airedEpisodes: selectedField(
 						lifecycle.counts.airedEpisodes,
 						SummaryRowSchema.episodeCount,
@@ -311,6 +322,7 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 			airedEpisodes: row.airedEpisodes,
 			lastActivityAt: row.lastActivityAt,
 			watchedEpisodes: row.watchedEpisodes,
+			nextUpEpisodeId: row.nextUpEpisodeId,
 			upcomingEpisodes: row.upcomingEpisodes,
 			inProgressEpisodes: row.inProgressEpisodes,
 			nextTrackedAiringAt: row.nextTrackedAiringAt,
@@ -439,4 +451,20 @@ export const libraryProgressSummaryValue = (
 export const currentLibrarySummaryValue = (entity: Table, name: string) =>
 	libraryMembershipValue(entity, (membership) =>
 		conditional(summaryNextAiringPassed(membership), literal(null), summaryRead(membership, name)),
+	);
+
+/**
+ * The ID of the episode the user watches next in the title `membership` links: the stored one
+ * until an episode the summary counted as upcoming airs, then resolved live.
+ */
+export const libraryNextUpEpisodeId = (
+	config: EpisodicKindConfig,
+	membership: Table,
+	parent: Table,
+	alias: string,
+) =>
+	conditional(
+		summaryNextAiringPassed(membership),
+		episodicNextUpId(config, parent, alias),
+		castText(summaryRead(membership, "nextUpEpisodeId")),
 	);
