@@ -37,8 +37,8 @@ const Layout = (props: LayoutProps) => (
 			<Body style={main} className="bg-white">
 				<Container className="my-0 mx-auto pt-5 px-0 pb-10 max-w-xl">
 					<Img
-						src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png"
 						alt="Ryot"
+						src="https://ryot.io/icon.png"
 						className="h-10 w-10 rounded-xl"
 					/>
 					<Heading className="text-2xl pt-4 px-0 font-normal text-brand-heading-gray tracking-tighter leading-3">
