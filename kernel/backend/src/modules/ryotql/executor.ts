@@ -49,6 +49,7 @@ import {
 	childScope,
 	conjuncts,
 	correlatedAliasScope,
+	firstGroupKey,
 	hasClosedRootOccursAtRange,
 	jsonKeyColumn,
 	kindResolver,
@@ -382,6 +383,18 @@ const fusedAggregate = (
 	return group && measure ? qualifiedIdentifier(group.alias, measure.alias) : undefined;
 };
 
+const fusedFirst = (
+	expr: Extract<ScalarExpression, { type: "first" }>,
+	ctx: Context,
+): undefined | SqlFragment => {
+	if (!ctx.fused) {
+		return undefined;
+	}
+	const group = ctx.scope.firsts.get(firstGroupKey(expr));
+	const value = group?.values.get(stableStringify(expr.select));
+	return group && value ? qualifiedIdentifier(group.alias, value.alias) : undefined;
+};
+
 const hoistedKey = (expr: ScalarExpression, ctx: Context): undefined | SqlFragment => {
 	const column = ctx.hoisted ? jsonKeyColumn(expr) : undefined;
 	if (!column) {
@@ -465,7 +478,10 @@ const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment =>
 		return fusedAggregate(expr, ctx) ?? compileAggregate(expr, ctx);
 	}
 	if (expr.type === "first") {
-		return compileFirst(expr, ctx, (childCtx) => compileExpression(expr.select, childCtx));
+		return (
+			fusedFirst(expr, ctx) ??
+			compileFirst(expr, ctx, (childCtx) => compileExpression(expr.select, childCtx))
+		);
 	}
 	if (expr.type === "jsonPath") {
 		return sql`NULLIF(jsonb_extract_path(${compileJsonValue(expr.expr, ctx)}, ${sql.join(
@@ -988,6 +1004,19 @@ const querySetSql = (
 		);
 		return sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx)}) ${identifier(group.alias)}`;
 	});
+	const firsts = [...scope.firsts].flatMap(([key, group]) => {
+		if (page?.groups !== undefined && !page.groups.has(key)) {
+			return [];
+		}
+		const groupCtx: Context = { ...ctx, fused: true, scope: group.scope };
+		const values = [...group.values.values()].map(
+			({ alias, select }) => sql`${compileExpression(select, groupCtx)} AS ${identifier(alias)}`,
+		);
+		const orders = appendPrimaryKeyOrders(group.query, group.scope, group.orderBy);
+		return [
+			sql`LEFT JOIN LATERAL (SELECT ${sql.join(values, sql`, `)} ${querySetSql(group.query, groupCtx)} ORDER BY ${expressionOrderSql(orders, groupCtx)} LIMIT 1) ${identifier(group.alias)} ON true`,
+		];
+	});
 	const conditions = [
 		...(query.where ? [condition(query.where, ctx)] : []),
 		...additionalConditions,
@@ -996,6 +1025,7 @@ const querySetSql = (
 		FROM ${rootSource} ${sql.raw(root.sqlAlias)}
 		${sql.join(joins, sql` `)}
 		${sql.join(aggregates, sql` `)}
+		${sql.join(firsts, sql` `)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
 };
@@ -1397,7 +1427,7 @@ const pagedRoot = (
 		plan,
 	);
 	const root = lookupTable(plan, query.from.alias);
-	if (groups.size === plan.groups.size || root.table.primaryKey.length === 0) {
+	if (groups.size === plan.groups.size + plan.firsts.size || root.table.primaryKey.length === 0) {
 		return undefined;
 	}
 	const keys = root.table.primaryKey.map((field) =>

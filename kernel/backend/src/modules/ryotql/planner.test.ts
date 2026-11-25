@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	and,
+	ascending,
 	castDate,
 	castNumber,
 	coalesce,
@@ -13,6 +14,7 @@ import {
 	eq,
 	exists,
 	field,
+	first,
 	gte,
 	join,
 	jsonPath,
@@ -67,6 +69,38 @@ it("fuses identical correlated query sets into one group per scope, except in jo
 		}),
 	);
 	expect([...planned.groups.values()].map((group) => group.measures.size)).toEqual([2]);
+	expect(planned.children.size).toBe(1);
+});
+
+it("fuses firsts sharing a query and ordering that a scope reads more than once, except lone, join-condition and JSON firsts", () => {
+	const latest = (select: Parameters<typeof first>[1]["select"]) =>
+		first(event, {
+			select,
+			where: correlation,
+			orderBy: [descending(column(event, "occurredAt"))],
+		});
+	const planned = plan(
+		rows(root, {
+			joins: [join("left", batch, eq(column(batch, "id"), latest(column(event, "entityId"))))],
+			fields: [
+				field("slug", latest(column(event, "eventSchemaSlug"))),
+				field("sameSlug", latest(column(event, "eventSchemaSlug"))),
+				field("session", latest(column(event, "sessionEntityId"))),
+				field("properties", latest(column(event, "properties"))),
+				field(
+					"earliest",
+					first(event, {
+						where: correlation,
+						select: column(event, "id"),
+						orderBy: [ascending(column(event, "occurredAt"))],
+					}),
+				),
+			],
+		}),
+	);
+	expect([...planned.firsts.values()].map((group) => [...group.values.values()].length)).toEqual([
+		2,
+	]);
 	expect(planned.children.size).toBe(1);
 });
 

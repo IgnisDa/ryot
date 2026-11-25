@@ -200,9 +200,9 @@ Ungrouped aggregates return one item without page info and accept no cursor. Gro
 
 `planner.ts` turns each validated named query into an immutable plan before any SQL is emitted; `executor.ts` only reads that plan. A plan scope exists for the root, every include, and every correlated query. It records each alias's generated SQL name and the catalog fields referenced anywhere in its subtree, so catalog sources add derived columns (such as event projections) only when needed.
 
-Correlated aggregates with an identical query set in the same scope are fused into one `CROSS JOIN LATERAL` that computes all their measures once per outer row; selections, ordering, and cursor predicates reference its columns. Aggregates inside join conditions or JSON element operators stay scalar subqueries.
+Correlated aggregates with an identical query set in the same scope are fused into one `CROSS JOIN LATERAL` that computes all their measures once per outer row; selections, ordering, and cursor predicates reference its columns. Aggregates inside join conditions or JSON element operators stay scalar subqueries. Likewise, a scope that reads `first` more than once with an identical query set and ordering selects all its distinct non-JSON values through one `LEFT JOIN LATERAL ... LIMIT 1`; a lone `first`, one inside a join condition, and a JSON-valued one stay scalar subqueries.
 
-A lateral aggregate runs once per row before PostgreSQL can filter, sort, or limit. When neither the filter nor the order reads one, a rows query first picks the page's root rows in a `ryotqlPage` CTE without it, and the full query runs over only those rows.
+A lateral aggregate or `first` runs once per row before PostgreSQL can filter, sort, or limit. When neither the filter nor the order reads one, a rows query first picks the page's root rows in a `ryotqlPage` CTE without it, and the full query runs over only those rows.
 
 Inside a fused aggregate with only inner table joins, a reference is hoisted into a materialized CTE evaluated once per statement when its own predicates form a closed date range, or when it does not depend on the outer row and joins another reference on typed JSON casts of its columns. The CTE applies those local predicates and precomputes the cast keys.
 

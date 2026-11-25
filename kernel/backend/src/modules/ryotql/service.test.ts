@@ -281,6 +281,49 @@ layer(makeServiceLayer())((test) => {
 	);
 
 	test.effect(
+		"reads the values of one correlated first through one lateral, after picking the page",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const latest = (select: Parameters<typeof first>[1]["select"]) =>
+					first(source, {
+						select,
+						orderBy: [descending(column(source, "occurredAt"))],
+						where: eq(column(source, "entityId"), column(subject, "id")),
+					});
+				yield* service.executeForUser("user-1", null, "plugin", {
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								latest: rows(subject, {
+									orderBy: [ascending(column(subject, "name"))],
+									fields: [
+										field("slug", latest(column(source, "eventSchemaSlug"))),
+										field("session", latest(column(source, "sessionEntityId"))),
+										field("sameSession", latest(column(source, "sessionEntityId"))),
+									],
+								}),
+							},
+						},
+					},
+				});
+				const statements = yield* (yield* RecordedStatements).statements;
+				const statement = statements.findLast((value) => value.includes('"ryotqlPage"'));
+				assert(statement);
+				const [page, outer] = statement.split('FROM "ryotqlPage"');
+				assert(page && outer);
+				expect(page).not.toContain("LEFT JOIN LATERAL");
+				expect(outer.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
+				expect(statement.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(statement).toMatch(/("first\d+_0"\."v1") AS "f1v", \1 AS "f2v"/);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"starts from the date only when a query closes an occursAt range",
 		() =>
 			Effect.gen(function* () {

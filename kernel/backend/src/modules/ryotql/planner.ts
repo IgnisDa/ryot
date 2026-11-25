@@ -51,16 +51,33 @@ export type AggregateGroup = {
 	>;
 };
 
+export type FirstGroup = {
+	readonly alias: string;
+	readonly scope: PlannedScope;
+	readonly query: CorrelatedQuerySet;
+	readonly orderBy: FirstExpression["orderBy"];
+	readonly values: ReadonlyMap<
+		string,
+		{ readonly alias: string; readonly select: ScalarExpression }
+	>;
+};
+
 export type PlannedScope = {
 	readonly id: number;
 	readonly execution: RyotQLExecutionScope;
 	readonly parent: undefined | PlannedScope;
 	readonly materializedRoot: string | undefined;
+	readonly firsts: ReadonlyMap<string, FirstGroup>;
 	readonly tables: ReadonlyMap<string, PlannedTable>;
 	readonly children: ReadonlyMap<string, PlannedScope>;
 	readonly groups: ReadonlyMap<string, AggregateGroup>;
 	readonly hoisted: ReadonlyMap<string, HoistedSource>;
 };
+
+type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
+
+export const firstGroupKey = (expr: FirstExpression) =>
+	stableStringify({ query: expr.query, orderBy: expr.orderBy });
 
 type Node = Predicate | ScalarExpression;
 
@@ -484,6 +501,16 @@ const planScope = (
 		string,
 		{ query: CorrelatedQuerySet; measures: Map<string, AggregationSpec> }
 	>();
+	const firsts = new Map<
+		string,
+		{ reads: number; expr: FirstExpression; values: Map<string, ScalarExpression> }
+	>();
+	const addCorrelated = (query: Correlated) => {
+		const key = stableStringify(query.query);
+		const child = correlated.get(key) ?? { extras: [], query: query.query };
+		child.extras.push(...query.extras);
+		correlated.set(key, child);
+	};
 	const visit = (node: Node, fusable: boolean): void => {
 		const { row, element, aggregate, correlated: query } = operands(node);
 		row.forEach((child) => visit(child, fusable));
@@ -491,16 +518,30 @@ const planScope = (
 		if (!query) {
 			return;
 		}
-		const key = stableStringify(query.query);
 		if (aggregate && fusable) {
+			const key = stableStringify(query.query);
 			const group = fused.get(key) ?? { query: query.query, measures: new Map() };
 			group.measures.set(stableStringify(aggregate), aggregate);
 			fused.set(key, group);
 			return;
 		}
-		const child = correlated.get(key) ?? { extras: [], query: query.query };
-		child.extras.push(...query.extras);
-		correlated.set(key, child);
+		if (
+			node.type === "first" &&
+			fusable &&
+			scalarExpressionKind(
+				node.select,
+				correlatedAliasScope(node.query, aliasScope),
+				kindResolver,
+			) !== "json"
+		) {
+			const key = firstGroupKey(node);
+			const group = firsts.get(key) ?? { reads: 0, expr: node, values: new Map() };
+			group.reads += 1;
+			group.values.set(stableStringify(node.select), node.select);
+			firsts.set(key, group);
+			return;
+		}
+		addCorrelated(query);
 	};
 	if (input.query.where) {
 		visit(input.query.where, true);
@@ -509,12 +550,22 @@ const planScope = (
 		visit(join.type === "jsonElements" ? join.expr : join.on, false);
 	}
 	input.nodes.forEach((node) => visit(node, true));
+	for (const [key, group] of firsts) {
+		if (group.reads < 2) {
+			firsts.delete(key);
+			addCorrelated({
+				query: group.expr.query,
+				extras: [group.expr.select, ...group.expr.orderBy.map((order) => order.expr)],
+			});
+		}
+	}
 	const scope: { -readonly [Key in keyof PlannedScope]: PlannedScope[Key] } = {
 		id,
 		parent,
 		tables,
 		execution,
 		groups: new Map(),
+		firsts: new Map(),
 		children: new Map(),
 		hoisted: hoist ? hoistSources(input.query, aliasScope, id) : new Map<string, HoistedSource>(),
 		materializedRoot:
@@ -584,10 +635,37 @@ const planScope = (
 			},
 		]),
 	);
+	scope.firsts = new Map(
+		[...firsts].map(([key, group], index) => [
+			key,
+			{
+				query: group.expr.query,
+				orderBy: group.expr.orderBy,
+				alias: `first${id}_${index}`,
+				values: new Map(
+					[...group.values].map(([valueKey, select], value) => [
+						valueKey,
+						{ select, alias: `v${value}` },
+					]),
+				),
+				scope: planScope(
+					planner,
+					{
+						includes: [],
+						query: group.expr.query,
+						nodes: [...group.values.values(), ...group.expr.orderBy.map((order) => order.expr)],
+					},
+					scope,
+					execution,
+					false,
+				),
+			},
+		]),
+	);
 	return scope;
 };
 
-// Fused aggregates a filter or ordering reads have to run before a page can be chosen.
+// Fused aggregates and firsts a filter or ordering reads have to run before a page can be chosen.
 export const referencedGroups = (nodes: readonly Node[], scope: PlannedScope) => {
 	const keys = new Set<string>();
 	const visit = (node: Node): void => {
@@ -596,6 +674,9 @@ export const referencedGroups = (nodes: readonly Node[], scope: PlannedScope) =>
 		const key = query ? stableStringify(query.query) : undefined;
 		if (key !== undefined && scope.groups.has(key)) {
 			keys.add(key);
+		}
+		if (node.type === "first" && scope.firsts.has(firstGroupKey(node))) {
+			keys.add(firstGroupKey(node));
 		}
 	};
 	nodes.forEach(visit);
@@ -652,4 +733,5 @@ export const planScopes = (scope: PlannedScope): PlannedScope[] => [
 	scope,
 	...[...scope.children.values()].flatMap(planScopes),
 	...[...scope.groups.values()].flatMap((group) => planScopes(group.scope)),
+	...[...scope.firsts.values()].flatMap((group) => planScopes(group.scope)),
 ];
