@@ -15,7 +15,10 @@ import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { stopTestProcess } from "@ryot-app/testing/process";
 import { randomUuid } from "@ryot-app/testing/random";
+import { makeTestResourceScope } from "@ryot-app/testing/resource-scope";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Option, Result, Schema } from "effect";
 import getPort from "get-port";
 
@@ -56,14 +59,7 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	startApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
-import { webRequest } from "~/support/web-request";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 
 const S3_BUCKET_NAME = "ryot-demo-access-test";
 const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
@@ -260,7 +256,7 @@ beforeAll(() =>
 					),
 				);
 
-				yield* stopApiProcess(apiProcess);
+				yield* stopTestProcess(apiProcess);
 				apiProcess = undefined;
 				yield* startApi({ USERS_ALLOW_REGISTRATION: "false", USERS_DEMO_ACCOUNT_ID: demoUserId });
 			}),

@@ -1,10 +1,9 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 import type { SecureRandom } from "effect/crypto";
-
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 export type AssistantProviderReply =
 	{ readonly text: string } | { readonly name: string; readonly arguments: JsonValue };

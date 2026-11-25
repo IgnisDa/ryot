@@ -1,4 +1,5 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import type { FakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { Duration, Effect, Option } from "effect";
 
 import {
@@ -12,7 +13,6 @@ import {
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 

@@ -1,3 +1,4 @@
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { Effect } from "effect";
 
 import {
@@ -8,7 +9,6 @@ import {
 	testNotificationChannels,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const METADATA_URL = "http://169.254.169.254/latest/meta-data/";
 

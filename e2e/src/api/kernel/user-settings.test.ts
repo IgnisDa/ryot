@@ -4,6 +4,7 @@ import {
 	API_KEY_NAME_MAX_LENGTH,
 } from "@ryot-app/contract/modules/account/schemas";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -17,7 +18,6 @@ import {
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("user settings", () => {
 	it.live("renames only the authenticated account and rejects invalid names", () =>

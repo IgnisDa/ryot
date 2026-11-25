@@ -1,5 +1,6 @@
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
 
 import {
@@ -23,7 +24,6 @@ import {
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { runFileOnIsolatedServer } from "~/support/isolated-harness";
-import { webRequest } from "~/support/web-request";
 
 runFileOnIsolatedServer("Compiled Package");
 

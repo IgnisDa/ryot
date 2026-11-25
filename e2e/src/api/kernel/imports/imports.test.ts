@@ -2,6 +2,7 @@ import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/p
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -29,7 +30,6 @@ import {
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 let fixtureImportPlugin: undefined | InstalledTestPlugin;
 let fixtureImportSourceReference: undefined | DeclarationReference;

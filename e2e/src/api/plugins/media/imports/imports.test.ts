@@ -1,4 +1,5 @@
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { Effect, Schema } from "effect";
 
 import {
@@ -17,7 +18,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 describe("Watcharr Show Import E2E (episode resolution)", () => {
 	it.live(

@@ -17,6 +17,7 @@ import {
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Result } from "effect";
 import { Base64 } from "effect/encoding";
 
@@ -43,7 +44,6 @@ import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const findEntityId = (
 	client: Parameters<typeof createEntityFixture>[0],

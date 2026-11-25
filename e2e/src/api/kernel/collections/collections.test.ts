@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -25,7 +26,6 @@ import { createGlobalBookEntityFixture } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const kernelCollection = {
 	owner: { kind: "kernel" as const },

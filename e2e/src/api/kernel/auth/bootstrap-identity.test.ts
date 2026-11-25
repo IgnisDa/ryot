@@ -2,6 +2,7 @@ import {
 	instanceAdminUsersRecipe,
 	userLifecycleOperationRecipe,
 } from "@ryot-app/ryotql-recipes/instance-admin";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Option, Queue, Schema } from "effect";
 
@@ -22,7 +23,6 @@ import {
 } from "~/fixtures/kernel/user-lifecycle";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 it.live("joins creation and reset bootstrap for each recreated account", () =>

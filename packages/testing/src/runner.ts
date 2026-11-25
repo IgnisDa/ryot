@@ -7,7 +7,7 @@ class TestRunError extends Schema.TaggedError<TestRunError, { readonly brand: un
 	{ exitCode: Schema.Finite },
 ) {}
 
-const parentEnvironment = { ...Bun.env };
+const parentEnvironment = { ...process.env };
 
 const TestWorkers = Schema.NumberFromString.check(Schema.isInt(), Schema.isGreaterThan(0));
 

@@ -13,11 +13,11 @@ import {
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Clock, Effect, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getSharedHarnessTarget } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 import { adminHeaders } from "./admin";
 import { type Client, type PendingOAuth, prepareOAuth, responseCookie } from "./auth";

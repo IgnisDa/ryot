@@ -54,6 +54,22 @@
 		"./process-memory": {
 			"types": "./src/process-memory.ts",
 			"default": "./src/process-memory.ts"
+		},
+		"./fake-http-server": {
+			"types": "./src/fake-http-server.ts",
+			"default": "./src/fake-http-server.ts"
+		},
+		"./resource-scope": {
+			"types": "./src/resource-scope.ts",
+			"default": "./src/resource-scope.ts"
+		},
+		"./process-readiness": {
+			"types": "./src/process-readiness.ts",
+			"default": "./src/process-readiness.ts"
+		},
+		"./web-request": {
+			"types": "./src/web-request.ts",
+			"default": "./src/web-request.ts"
 		}
 	},
 	"scripts": {

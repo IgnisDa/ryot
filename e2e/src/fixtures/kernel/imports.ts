@@ -20,11 +20,11 @@ import {
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Result, Schema } from "effect";
 
 import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
-import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { checkpointWaitSource } from "./checkpoint-wait";

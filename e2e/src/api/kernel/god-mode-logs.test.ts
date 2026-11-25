@@ -1,5 +1,6 @@
 import { gunzipSync } from "node:zlib";
 
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, FileSystem, Path } from "effect";
 import { unzipSync } from "fflate";
 
@@ -13,7 +14,6 @@ import { assertTaggedError } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { startIsolatedApiServer } from "~/support/isolated-harness";
-import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
 

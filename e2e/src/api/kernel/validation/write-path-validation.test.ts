@@ -1,3 +1,4 @@
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -13,7 +14,6 @@ import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a required field is missing", () =>

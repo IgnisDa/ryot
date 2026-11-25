@@ -1,9 +1,9 @@
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect } from "effect";
 
 import { getApiClient } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("Health endpoint", () => {
 	it.live("should return healthy status", () =>

@@ -1,5 +1,6 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -16,7 +17,6 @@ import { findBuiltinSchemaWithProviders } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const postEnqueue = (body: unknown) =>
 	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(body).pipe(

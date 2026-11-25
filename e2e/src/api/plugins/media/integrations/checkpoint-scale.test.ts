@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Console, Effect, Schema } from "effect";
 
@@ -15,7 +16,6 @@ import {
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const ITEM_COUNT = 101;
 const BUDGET_MS = 900_000;

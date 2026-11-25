@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -19,7 +20,6 @@ import {
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const ENTITY_SCHEMA_SLUG = "studio";
 const POPULATED_NAME = "E2E Recovered Studio";

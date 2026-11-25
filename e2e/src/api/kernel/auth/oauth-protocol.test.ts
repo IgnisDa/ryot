@@ -9,6 +9,7 @@ import {
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 
 import {
@@ -21,7 +22,6 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const OAUTH_REGISTER_PATH = "/api/auth/oauth2/register";
 const PLUGIN_EVENTS_PATH = "/plugins/events";

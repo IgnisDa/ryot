@@ -16,6 +16,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Result, Schema } from "effect";
 
@@ -44,7 +45,6 @@ import {
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const entity = table("entity", "namespaceGraph");
 const graphRecipe = (owner: Parameters<typeof pluginId>[0]) => {

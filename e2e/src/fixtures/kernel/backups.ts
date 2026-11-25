@@ -2,12 +2,12 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { BackupRunId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { backupRunRecipe } from "@ryot-app/ryotql-recipes/backups";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Option, Schema } from "effect";
 import { unzipSync } from "fflate";
 
 import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
-import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";

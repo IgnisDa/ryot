@@ -4,11 +4,11 @@ import {
 	type RequestHeaders,
 } from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
 
 import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
 	readonly userId?: UserId;

@@ -1,7 +1,6 @@
 import { Effect, Stream } from "effect";
 import { Cookies, FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
-/** Send raw protocol-test requests with Effect while retaining Web Response assertions. */
 export const webRequest = (url: URL | string, init?: RequestInit, options?: { stream?: boolean }) =>
 	Effect.gen(function* () {
 		const client = yield* HttpClient.HttpClient;

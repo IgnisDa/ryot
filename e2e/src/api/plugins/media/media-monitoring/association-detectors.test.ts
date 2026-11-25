@@ -1,5 +1,6 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import type { FakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -24,7 +25,6 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import type { FakeHttpServer } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const movieName = "Association E2E Movie";

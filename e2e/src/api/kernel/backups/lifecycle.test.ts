@@ -5,6 +5,7 @@ import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { webRequest } from "@ryot-app/testing/web-request";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -29,7 +30,6 @@ import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 describe("backup lifecycle", () => {
 	it.live("exports, isolates, downloads, and deletes a completed backup", () =>

@@ -1,4 +1,5 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { type FakeHttpServer, startFakeHttpServer } from "@ryot-app/testing/fake-http-server";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
@@ -30,7 +31,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 
 let httpServerUrl: string;
 let httpErrorServerUrl: string;

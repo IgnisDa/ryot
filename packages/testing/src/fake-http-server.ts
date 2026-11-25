@@ -2,7 +2,7 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Schema } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 
-import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
+import { acquireInChildScope, makeTestResourceScope } from "./resource-scope.js";
 
 export type FakeHttpServer = ScopedFakeHttpServer & { stop: () => Promise<void> };
 
@@ -24,7 +24,7 @@ export const startFakeHttpServerScoped = (
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
 				const reqUrl = new URL(request.url);
-				const body = yield* Effect.promise(() => request.text()).pipe(
+				const body = yield* Effect.promise(() => request.clone().text()).pipe(
 					Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))),
 					Effect.orElseSucceed(() => null),
 				);

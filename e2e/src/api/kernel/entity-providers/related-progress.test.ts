@@ -1,4 +1,5 @@
 import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Exit } from "effect";
 
@@ -25,7 +26,6 @@ import {
 import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 describe("related population progress", () => {
 	it.live("exposes partial pages, retains data on failure, and admits one new manual retry", () =>

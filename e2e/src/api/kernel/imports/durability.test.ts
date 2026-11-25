@@ -1,5 +1,6 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { EntitySchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
+import { stopTestProcess } from "@ryot-app/testing/process";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import getPort from "get-port";
@@ -21,12 +22,7 @@ import {
 import { checkpointWaitSource } from "~/fixtures/kernel/checkpoint-wait";
 import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { describe, expect, it } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	startApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-} from "~/support/provisioning";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 
 const CONFIG_KEY = "fixtureValue";
 const OLD_CONFIG_VALUE = "old-value";
@@ -371,7 +367,7 @@ describe("isolated import durability", () => {
 			);
 			expect((yield* getImportRun(client, nativeRunId, undefined, 10)).run?.status).toBe("running");
 
-			yield* stopApiProcess(processA);
+			yield* stopTestProcess(processA);
 			const processB = yield* startApi("Import Durability API B", NEW_CONFIG_VALUE);
 			expect(yield* pollImportRunUntilTerminal(client, nativeRunId)).toMatchObject({
 				status: "completed",
@@ -445,7 +441,7 @@ describe("isolated import durability", () => {
 				"running",
 			);
 
-			yield* stopApiProcess(processB);
+			yield* stopTestProcess(processB);
 			yield* startApi("Import Durability API C", NEW_CONFIG_VALUE);
 			yield* client.call((c) =>
 				c.imports.cancelRun({ params: { runId: ImportRunId.make(cancelledRun.id) } }),

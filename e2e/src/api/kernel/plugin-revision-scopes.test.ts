@@ -2,6 +2,7 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { entitySchemaRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Schema } from "effect";
 
@@ -25,7 +26,6 @@ import {
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { runFileOnIsolatedServer } from "~/support/isolated-harness";
 
 runFileOnIsolatedServer("Plugin Revision Scopes");

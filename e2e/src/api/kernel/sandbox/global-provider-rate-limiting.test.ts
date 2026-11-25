@@ -1,6 +1,9 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
+import { stopTestProcess } from "@ryot-app/testing/process";
 import { randomUuid } from "@ryot-app/testing/random";
+import { makeTestResourceScope } from "@ryot-app/testing/resource-scope";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
@@ -25,14 +28,7 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
-import {
-	buildApiEnv,
-	startApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 
 type PluginHttpRateLimit = PluginManifest["httpRateLimits"][number];
 
@@ -431,7 +427,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 			);
 			expect(requestTimestamps).toHaveLength(1);
 
-			yield* stopApiProcess(apiProcessA);
+			yield* stopTestProcess(apiProcessA);
 			apiProcessB = yield* resources.run(startApiProcess(apiEnvB, "Global Rate Limit API B"));
 			const clientB = makeSession(apiProcessB.target);
 			const secondJob = yield* enqueueSandboxAt(clientB, userB.userId, scriptId);
@@ -447,7 +443,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 			);
 			expect(pressure.sandbox.activeExecutions).toBe(0);
 
-			yield* stopApiProcess(apiProcessB);
+			yield* stopTestProcess(apiProcessB);
 			apiProcessA = yield* resources.run(
 				startApiProcess(apiEnvA, "Global Rate Limit API A Restart"),
 			);

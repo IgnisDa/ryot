@@ -1,6 +1,7 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { genericImportSealInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { Deferred, Effect, Schema } from "effect";
 
 import {
@@ -26,7 +27,6 @@ import {
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { runFileOnIsolatedServer } from "~/support/isolated-harness";
 
 runFileOnIsolatedServer("Plugin Package Conflicts");

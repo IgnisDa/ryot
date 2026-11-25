@@ -1,3 +1,4 @@
+import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
@@ -18,7 +19,6 @@ import {
 } from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const operationSource = (input: { readonly name: string; readonly slug: string }) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
