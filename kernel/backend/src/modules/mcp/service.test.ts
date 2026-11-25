@@ -75,9 +75,9 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 	};
 	const transport = yield* makeMcpTransport(
 		{
-			resolveRequestCredential: (headers, resource) =>
+			resolveRequestCredential: (headers, target) =>
 				Effect.gen(function* () {
-					expect(resource).toBe(getMcpOAuthResource(origin));
+					expect(target).toEqual({ resource: getMcpOAuthResource(origin) });
 					const key = headers.get("x-api-key");
 					if (!key || state.disabled) {
 						return yield* new AuthUnauthorized({ reason: { code: "authentication-required" } });

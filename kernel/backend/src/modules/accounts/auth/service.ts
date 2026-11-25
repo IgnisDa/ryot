@@ -859,6 +859,24 @@ export class AuthService extends Context.Service<AuthService>()(
 					Option.getOrNull(config.users.demoAccountId),
 					impersonationSessions,
 				);
+			const browserUser = (headers: Headers, method: string) =>
+				headers.has(BROWSER_SESSION_HEADER)
+					? browser
+							.read(headers, method)
+							.pipe(Effect.flatMap(({ grant }) => resolveBrowserAccount(grant)))
+					: Effect.fail(authenticationRequired());
+			const resolveRequestCredential = (
+				headers: Headers,
+				target: { readonly method: string } | { readonly resource?: string | undefined } = {},
+			) => {
+				const credential = credentialFromHeaders(headers);
+				if (credential) {
+					return authenticate(credential, "resource" in target ? target.resource : undefined);
+				}
+				return "method" in target
+					? browserUser(headers, target.method)
+					: Effect.fail(authenticationRequired());
+			};
 			const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 				Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
 					Effect.flatMap((context) =>
@@ -962,12 +980,14 @@ export class AuthService extends Context.Service<AuthService>()(
 				repository.revokeUserOAuthConsent(userId, connectedAppId);
 
 			return {
+				browserUser,
 				revokeUserApiKey,
 				createUserApiKey,
 				purgeApiKeyCaches,
 				revokeUserConnectedApp,
 				requestPasswordResetLink,
 				revokePasswordResetLinks,
+				resolveRequestCredential,
 				startUserImpersonation: handoffs.create,
 				updateAuthUserDisabled: repository.updateUserDisabled,
 				initializeInterfaceLocale: repository.initializeInterfaceLocale,
@@ -981,10 +1001,6 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.deleteUserSessions(userId),
 					).pipe(Effect.orDie),
-				browserUser: (headers: Headers, method: string) =>
-					browser
-						.read(headers, method)
-						.pipe(Effect.flatMap(({ grant }) => resolveBrowserAccount(grant))),
 				updateUserName: (userId: UserId, name: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { name }),
@@ -1017,18 +1033,6 @@ export class AuthService extends Context.Service<AuthService>()(
 							{ method: "admin" },
 						),
 					),
-				currentUser: (headers: Headers) => {
-					const credential = credentialFromHeaders(headers);
-					return credential
-						? authenticate(credential).pipe(Effect.map(({ user }) => user))
-						: Effect.fail(authenticationRequired());
-				},
-				resolveRequestCredential: (headers: Headers, resource?: string) => {
-					const credential = credentialFromHeaders(headers);
-					return credential
-						? authenticate(credential, resource)
-						: Effect.fail(authenticationRequired());
-				},
 			};
 		}),
 	},
@@ -1041,6 +1045,8 @@ export const makeAuthMiddleware = (
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 	browserUser?: AuthService["Service"]["browserUser"],
 ) => {
+	const resolveBrowserUser = (headers: Headers, method: string) =>
+		browserUser?.(headers, method) ?? Effect.fail(authenticationRequired());
 	const authenticate = <E, R>(
 		httpEffect: Effect.Effect<
 			HttpServerResponse.HttpServerResponse,
@@ -1097,12 +1103,9 @@ export const makeAuthMiddleware = (
 			const token = Redacted.value(credential);
 			const resolved = token
 				? auth.oauthUser(token)
-				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
-						const headers = new Headers(request.headers);
-						return browserUser && headers.has(BROWSER_SESSION_HEADER)
-							? browserUser(headers, request.method)
-							: auth.oauthUser(token);
-					});
+				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+						resolveBrowserUser(new Headers(request.headers), request.method),
+					);
 			return authenticate(httpEffect, resolved, endpoint);
 		},
 		apiKey: (
@@ -1121,9 +1124,7 @@ export const makeAuthMiddleware = (
 						if (requestCredential?.kind === "oauth") {
 							return auth.oauthUser(requestCredential.token);
 						}
-						return browserUser && headers.has(BROWSER_SESSION_HEADER)
-							? browserUser(headers, request.method)
-							: auth.apiKeyUser(key);
+						return resolveBrowserUser(headers, request.method);
 					});
 			return authenticate(httpEffect, resolved, endpoint);
 		},

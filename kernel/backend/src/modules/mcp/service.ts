@@ -251,7 +251,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 		const request = yield* HttpServerRequest.HttpServerRequest;
 		const { user, authorization } = yield* auth.resolveRequestCredential(
 			new globalThis.Headers(request.headers),
-			resource,
+			{ resource },
 		);
 		yield* entitlements.require("pro");
 		if (

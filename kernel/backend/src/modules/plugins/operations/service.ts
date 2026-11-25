@@ -157,7 +157,6 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			});
 
 			const invokeInternal = Effect.fn("OperationsService.invokeInternal")(function* (input: {
-				readonly resource?: string;
 				readonly payload: JsonValue;
 				readonly contentHash?: string;
 				readonly submittedAt?: string;
@@ -166,13 +165,19 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				readonly idempotencyKey?: string;
 				readonly packageId: PluginPackageId;
 				readonly pageAuthority?: PageOperationAuthority;
-				readonly identity:
-					{ readonly userId: UserId } | { readonly headers: PlatformHeaders.Headers };
 				readonly sourcePin?: {
 					readonly revisionId: string;
 					readonly installationId: string;
 					readonly configRevisionId: string;
 				};
+				readonly identity:
+					| { readonly userId: UserId }
+					| {
+							readonly headers: PlatformHeaders.Headers;
+							readonly credentialTarget?: Parameters<
+								AuthService["Service"]["resolveRequestCredential"]
+							>[1];
+					  };
 			}) {
 				if (input.submittedAt !== undefined) {
 					yield* requireOpenSubmission(input.submittedAt);
@@ -242,7 +247,10 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					| Effect.Error<ReturnType<typeof auth.resolveRequestCredential>>
 				> = "userId" in input.identity
 					? auth.resolveTrustedAccount(input.identity.userId)
-					: auth.resolveRequestCredential(new Headers(input.identity.headers), input.resource);
+					: auth.resolveRequestCredential(
+							new Headers(input.identity.headers),
+							input.identity.credentialTarget,
+						);
 				const authenticated = yield* credential.pipe(
 					Effect.map(Result.succeed),
 					Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
@@ -541,11 +549,15 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			});
 
 			type Input = Parameters<typeof invokeInternal>[0];
-			const invoke = (
-				input: Omit<Input, "identity"> & { readonly headers: PlatformHeaders.Headers },
-			) => invokeInternal({ ...input, identity: { headers: input.headers } });
+			const invoke = ({
+				headers,
+				credentialTarget,
+				...input
+			}: Omit<Input, "identity"> &
+				Extract<Input["identity"], { readonly headers: PlatformHeaders.Headers }>) =>
+				invokeInternal({ ...input, identity: { headers, credentialTarget } });
 			const invokeTrusted = (
-				input: { readonly userId: UserId } & Omit<Input, "identity" | "resource" | "pageAuthority">,
+				input: { readonly userId: UserId } & Omit<Input, "identity" | "pageAuthority">,
 			) => invokeInternal({ ...input, identity: { userId: input.userId } });
 			return { invoke, invokeTrusted };
 		}),

@@ -282,14 +282,17 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 						installationId: source.installationId,
 						configRevisionId: source.configRevisionId,
 					},
-					...(invocation.resource === undefined ? {} : { resource: invocation.resource }),
 					...(invocation.idempotencyKey === undefined
 						? {}
 						: { idempotencyKey: invocation.idempotencyKey }),
 				};
 				return yield* invocation.headers === undefined
 					? operations.invokeTrusted({ ...operationInput, userId: user.id })
-					: operations.invoke({ ...operationInput, headers: invocation.headers });
+					: operations.invoke({
+							...operationInput,
+							headers: invocation.headers,
+							credentialTarget: { resource: invocation.resource },
+						});
 			});
 			return { list, invoke, resolve };
 		}),
