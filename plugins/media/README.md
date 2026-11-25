@@ -402,7 +402,8 @@ seasons and episodes. `media-trending` declares `retention: root` while an item 
 parents offer **Add season**, **Add episode**, **Edit season**, and **Edit episode**; create routes
 carry `parent` plus starting `seasonNumber`/`episodeNumber` search values. Season numbers are
 immutable after creation, so episode season numbers match their season. Deletion is refused while
-an episode has history or a season has episodes.
+an episode has history or a season has episodes; a deleted child's container link is deleted with it,
+so its title refolds.
 
 The API-source before policy `media.custom-publish-year` derives a missing `publishYear` from a
 valid full `publishDate` on custom media creation and update, including direct API writes. An

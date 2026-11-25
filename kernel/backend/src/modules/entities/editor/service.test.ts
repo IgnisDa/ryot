@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/modules/entities/editor";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
+	AutomationHookSlug,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -132,6 +133,11 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 								operation: "delete",
 								resource: "relationship",
 								relationshipSchemaSlug: "item-part",
+							},
+							{
+								operation: "delete",
+								resource: "relationship",
+								relationshipSchemaSlug: "item-child",
 							},
 							{ operation: "emit", resource: "signal", signalSchemaSlug: "editor.signal" },
 						] as const,
@@ -1430,6 +1436,43 @@ describe("EntityEditorService", () => {
 				)).output,
 			).toEqual({ kind: "saved", entityId: partId });
 			expect(yield* incoming).toEqual([["item-child", "parent-a", userId]]);
+		}),
+	);
+
+	editorCase(
+		"deletes an entity's declared links as relationship deletes, so their hooks run",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			yield* insert("hooked-parent", item, userId);
+			const log = yield* dispatched;
+			const editor = yield* makeEditor({ execution: { dispatch: log.dispatch } });
+			const created = yield* submitEdit(
+				editor,
+				"hooked-child",
+				partSubmission(owner, {
+					target: { kind: "create" },
+					relationships: [childGroup("hooked-parent")],
+				}),
+			);
+			assert(created.output.kind === "saved");
+			const { entityId } = created.output;
+			const removal = {
+				owner,
+				entityId,
+				expectedUpdatedAt: (yield* storedExpected(entityId)).updatedAt,
+			};
+			expect((yield* submitDelete(editor, "hooked-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			const [, deleted] = yield* log.calls;
+			expect(deleted?.flatMap(({ runs }) => runs.map(({ hookSlug }) => hookSlug))).toEqual([
+				AutomationHookSlug.make("editor.notify"),
+			]);
+			expect(
+				(yield* tablesState).relationshipRows.some(
+					({ targetEntityId }) => targetEntityId === entityId,
+				),
+			).toBe(false);
 		}),
 	);
 

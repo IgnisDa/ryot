@@ -79,7 +79,8 @@ events. A delete carries its own key; an identical retry returns the stored resu
 
 Both actions commit through `ChangeSets.commitOnce` with the editor's idempotency key as the receipt:
 a save sends the entity and its relationship diff (`replace` upserts and deletes) as one change set,
-and a delete sends an entity delete with `preserveHistory`. The key is recorded in the commit
+and a delete sends an entity delete with `preserveHistory` and deletes of its declared links, so their
+relationship hooks run as they do when a save removes a link. The key is recorded in the commit
 transaction, so a retry that races the first commit replays once. The precondition rechecks
 availability and the relationship basis under lock; when it fails nothing is recorded, and a second
 availability check tells `invalid` from `stale`.

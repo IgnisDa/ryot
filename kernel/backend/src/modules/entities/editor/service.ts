@@ -538,23 +538,37 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					if (current.entity.updatedAt !== submission.expectedUpdatedAt) {
 						return { output: stale };
 					}
-					const links = yield* relationshipsRepository.listUserRelationshipsForEntity({
-						userId,
-						entityId,
-					});
-					const unmanaged = links.some((link) => {
-						const direction = authorization.directions.get(link.relationshipSchemaSlug);
-						return (
-							direction === undefined ||
-							link[`${relationshipEnds(direction).anchor}EntityId`] !== entityId
-						);
-					});
-					if (unmanaged) {
-						return { output: invalid(kernelMessage("error.entity-editor.has-links")) };
-					}
+				}
+				const links =
+					current === null
+						? []
+						: yield* relationshipsRepository.listUserRelationshipsForEntity({ userId, entityId });
+				const unmanaged = links.some((link) => {
+					const direction = authorization.directions.get(link.relationshipSchemaSlug);
+					return (
+						direction === undefined ||
+						link[`${relationshipEnds(direction).anchor}EntityId`] !== entityId
+					);
+				});
+				if (unmanaged) {
+					return { output: invalid(kernelMessage("error.entity-editor.has-links")) };
 				}
 				const committed = yield* changeSets.commitOnce(
-					{ userId, entities: { deletes: [{ entityId, entitySchema, preserveHistory: true }] } },
+					{
+						userId,
+						entities: { deletes: [{ entityId, entitySchema, preserveHistory: true }] },
+						relationships: {
+							deletes: links.map((link) => ({
+								source: { kind: "existing", entityId: link.sourceEntityId },
+								target: { kind: "existing", entityId: link.targetEntityId },
+								relationshipSchema: {
+									owner: entitySchema.owner,
+									slug: link.relationshipSchemaSlug,
+								},
+								itemIdentity: `relationship:${link.relationshipSchemaSlug}:${link.sourceEntityId}:${link.targetEntityId}:delete`,
+							})),
+						},
+					},
 					input.lifecycle,
 					editorReceipt(
 						keys,
