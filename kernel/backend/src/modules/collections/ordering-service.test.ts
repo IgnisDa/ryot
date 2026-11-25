@@ -22,7 +22,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Effect, Exit, Layer } from "effect";
 
 import { CollectionOrderingService } from "#modules/collections/ordering-service";
@@ -171,6 +171,14 @@ const orderRevision = Effect.fnUntraced(function* (
 	const revision = yield* collections.getOrderRevision(collectionId, userId);
 	assert(revision !== null);
 	return revision;
+});
+
+const collectionMembership = (collectionId: EntityId, sourceEntityId: EntityId, rank: number) => ({
+	sourceEntityId,
+	userId: ownerId,
+	targetEntityId: collectionId,
+	relationshipSchemaSlug: "member-of",
+	properties: { rank, note: `note-${rank}` },
 });
 
 const reorderInput = (
@@ -586,6 +594,76 @@ layer(orderingLayer())((test) => {
 					),
 					new CollectionConflict({ reason: { code: "order-stale" } }),
 				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"advances each collection's order revision once per membership statement",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const left = yield* makeFixture({ memberCount: 3, seededMemberCount: 0 });
+				const right = yield* makeFixture({ memberCount: 2, seededMemberCount: 0 });
+				const revisions = Effect.all([
+					orderRevision(left.collectionId),
+					orderRevision(right.collectionId),
+				]);
+				const [leftStart, rightStart] = yield* revisions;
+				yield* session.run((db) =>
+					db
+						.insert(tables.relationship)
+						.values([
+							...left.memberIds.map((id, index) =>
+								collectionMembership(left.collectionId, id, index),
+							),
+							...right.memberIds.map((id, index) =>
+								collectionMembership(right.collectionId, id, index),
+							),
+						]),
+				);
+				expect(yield* revisions).toEqual([leftStart + 1, rightStart + 1]);
+				const inLeft = eq(tables.relationship.targetEntityId, left.collectionId);
+				yield* session.run((db) =>
+					db
+						.update(tables.relationship)
+						.set({
+							properties: sql`jsonb_set(${tables.relationship.properties}, '{rank}', to_jsonb((${tables.relationship.properties} ->> 'rank')::bigint + 10))`,
+						})
+						.where(inLeft),
+				);
+				expect(yield* revisions).toEqual([leftStart + 2, rightStart + 1]);
+				yield* session.run((db) =>
+					db
+						.update(tables.relationship)
+						.set({ properties: sql`${tables.relationship.properties} || '{"note":"bulk"}'` })
+						.where(inLeft),
+				);
+				yield* session.run((db) =>
+					db.update(tables.relationship).set({ updatedAt: new Date() }).where(inLeft),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.relationship)
+						.values(
+							left.memberIds.map((sourceEntityId) => ({
+								sourceEntityId,
+								userId: ownerId,
+								properties: { rank: 1 },
+								targetEntityId: left.collectionId,
+								relationshipSchemaSlug: "fixture-link",
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.delete(tables.relationship)
+						.where(and(inLeft, eq(tables.relationship.relationshipSchemaSlug, "fixture-link"))),
+				);
+				expect(yield* revisions).toEqual([leftStart + 2, rightStart + 1]);
+				yield* session.run((db) => db.delete(tables.relationship).where(inLeft));
+				expect(yield* revisions).toEqual([leftStart + 3, rightStart + 1]);
+				expect(yield* membershipRows(left.collectionId)).toEqual([]);
 			}),
 		testTimeout,
 	);

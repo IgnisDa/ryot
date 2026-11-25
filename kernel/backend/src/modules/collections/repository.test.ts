@@ -246,7 +246,7 @@ layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)
 				const repository = yield* CollectionsRepository;
 				const userId = UserId.make("owner");
 				const shelf = EntityId.make("shelf");
-				expect(yield* repository.getOrderRevision(shelf, userId)).toBe(3);
+				expect(yield* repository.getOrderRevision(shelf, userId)).toBe(1);
 				expect(yield* repository.getOrderRevision(EntityId.make("empty"), userId)).toBe(0);
 				expect(yield* repository.getOrderRevision(shelf, UserId.make("recipient"))).toBeNull();
 				expect(

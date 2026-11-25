@@ -9,6 +9,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
+import { collectionOrderStatements } from "#platform/db/collection-order";
 import { dataChangeStatements } from "#platform/db/data-changes";
 import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
@@ -136,9 +137,11 @@ describe("immutable plugin revisions", () => {
 					const installed = yield* installRevisionPackage(revisionPackage("reinstall"), owner);
 					for (const statement of [
 						...immutableRevisionStatements,
+						...collectionOrderStatements,
 						...entityOccursAtStatements,
 						...dataChangeStatements,
 						...immutableRevisionStatements,
+						...collectionOrderStatements,
 						...entityOccursAtStatements,
 						...dataChangeStatements,
 					]) {
@@ -157,7 +160,9 @@ describe("immutable plugin revisions", () => {
 						),
 					);
 					expect(triggers).toEqual([
-						{ tables: 1, name: "collection_order_changed" },
+						{ tables: 1, name: "collection_order_delete" },
+						{ tables: 1, name: "collection_order_insert" },
+						{ tables: 1, name: "collection_order_update" },
 						{ tables: 8, name: "ryot_data_change_delete" },
 						{ tables: 8, name: "ryot_data_change_insert" },
 						{ tables: 8, name: "ryot_data_change_update" },

@@ -1,16 +1,30 @@
-export const collectionOrderStatements = [
-	`create or replace function collection_order_changed() returns trigger language plpgsql set search_path from current as $$
+const kernelMembership = (row: string) =>
+	`${row}.relationship_schema_slug = 'member-of' and ${row}.relationship_schema_plugin_id is null`;
+
+const changedCollections = {
+	insert: `select n.target_entity_id from new_rows n where ${kernelMembership("n")}`,
+	delete: `select o.target_entity_id from old_rows o where ${kernelMembership("o")}`,
+	update: `select n.target_entity_id from new_rows n join old_rows o on o.id = n.id
+		where ${kernelMembership("n")} and o.properties -> 'rank' is distinct from n.properties -> 'rank'`,
+};
+
+const referencing = {
+	insert: "new table as new_rows",
+	delete: "old table as old_rows",
+	update: "new table as new_rows old table as old_rows",
+};
+
+// Statement triggers advance each changed collection once per statement, so a bulk membership write
+// updates the collection row once rather than once per member. PostgreSQL allows transition tables
+// only on single-event triggers without a column list.
+export const collectionOrderStatements = (["insert", "delete", "update"] as const).flatMap(
+	(event) => [
+		`create or replace function collection_order_${event}() returns trigger language plpgsql set search_path from current as $$
 begin
-	if tg_op = 'DELETE' then
-		if old.relationship_schema_slug = 'member-of' and old.relationship_schema_plugin_id is null then
-			update entity set collection_order_revision = collection_order_revision + 1 where id = old.target_entity_id;
-		end if;
-	elsif new.relationship_schema_slug = 'member-of' and new.relationship_schema_plugin_id is null then
-		if tg_op = 'INSERT' or old.properties -> 'rank' is distinct from new.properties -> 'rank' then
-			update entity set collection_order_revision = collection_order_revision + 1 where id = new.target_entity_id;
-		end if;
-	end if;
+	update entity set collection_order_revision = collection_order_revision + 1
+	where id in (${changedCollections[event]});
 	return null;
 end $$`,
-	`create or replace trigger collection_order_changed after insert or delete or update of properties on relationship for each row execute function collection_order_changed()`,
-];
+		`create or replace trigger collection_order_${event} after ${event} on relationship referencing ${referencing[event]} for each statement execute function collection_order_${event}()`,
+	],
+);

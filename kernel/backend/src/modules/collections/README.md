@@ -22,8 +22,10 @@ rows use `NO KEY UPDATE`, compatible with entity reference locks. Rank allocatio
 hold a transaction across lifecycle policies or network calls.
 
 The database advances `entity.collection_order_revision` for committed membership insertion, deletion,
-or rank changes, including cascading deletion. Metadata-only changes do not advance it. This trigger
-does not alter the collection's content, timestamps, or content generation. A partial rank index serves
+or rank changes, including cascading deletion. Metadata-only changes do not advance it. Its statement
+triggers advance each affected collection once per statement, so a bulk membership write updates the
+collection row once. Readers only compare revisions. The triggers do not alter the collection's
+content, timestamps, or content generation. A partial rank index serves
 the RyotQL `relationship.collectionRank` field, ordered with the member's stable identity, not its title.
 
 ## Commands and reads
