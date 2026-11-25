@@ -1,9 +1,9 @@
 import { Effect } from "effect";
 
+import { getCustomerFromCookie } from "~/features/account/session.server";
 import type { ConfigData } from "~/lib/config";
-import { getPrices, getServerVariables } from "~/lib/config.server";
-import { runPromise } from "~/lib/runtime.server";
-import { getCustomerFromCookie } from "~/lib/utilities.server";
+import { getPrices, getServerVariables } from "~/server/config.server";
+import { runPromise } from "~/server/runtime.server";
 
 import type { Route } from "./+types/api.config";
 
@@ -13,10 +13,8 @@ export const loader = ({ request }: Route.LoaderArgs) =>
 			const serverVariables = getServerVariables();
 			const customer = yield* getCustomerFromCookie(request);
 			return {
-				prices: getPrices(),
 				isLoggedIn: !!customer,
-				isSandbox: !!serverVariables.PADDLE_SANDBOX,
-				clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
+				prices: getPrices(customer?.paymentProvider),
 				turnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
 			} satisfies ConfigData;
 		}),

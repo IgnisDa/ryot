@@ -1,7 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 
-import { SectionHeader } from "~/lib/components/SectionHeader";
-import { Card } from "~/lib/components/ui/card";
+import { SectionHeader } from "~/components/SectionHeader";
+import { Card } from "~/components/ui/card";
 
 export const meta = () => {
 	return [{ title: "Pricing Promise | Ryot" }];

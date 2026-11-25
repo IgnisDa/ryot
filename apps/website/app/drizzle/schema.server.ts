@@ -1,3 +1,4 @@
+import { isNull } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
@@ -5,6 +6,7 @@ import {
 	pgEnum,
 	pgSequence,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	uuid,
@@ -80,5 +82,26 @@ export const customerPurchase = pgTable(
 			table.providerProductId,
 			table.cancelledOn,
 		),
+	],
+);
+
+export const billingEvent = pgTable(
+	"billing_event",
+	{
+		notice: text("notice"),
+		id: text("id").notNull(),
+		provider: paymentProviders("provider").notNull(),
+		notifiedOn: timestamp("notified_on", { withTimezone: true }),
+		completedOn: timestamp("completed_on", { withTimezone: true }),
+		customerId: uuid("customer_id")
+			.notNull()
+			.references(() => customer.id),
+		createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.provider, table.id] }),
+		index("billing_event_pending_customer_idx")
+			.on(table.customerId)
+			.where(isNull(table.completedOn)),
 	],
 );
