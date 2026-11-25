@@ -174,7 +174,9 @@ it.live(
 		Effect.gen(function* () {
 			const page = mountDeleteEntity("workout", () => {});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("dialog", { name: "Delete workout?" })).toBeTruthy()),
+				waitFor(() =>
+					expect(screen.getByRole("alertdialog", { name: "Delete workout?" })).toBeTruthy(),
+				),
 			);
 			act(() => {
 				fireEvent.click(screen.getByRole("button", { name: "Delete workout" }));
