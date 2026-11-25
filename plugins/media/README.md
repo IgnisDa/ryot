@@ -754,9 +754,11 @@ lifecycle lists read the next-up episode, only while the link's projection statu
 background-lane write leaves the summary `pending` with its last output until its fold job writes,
 and a failed job leaves it `failed`, so while the summary is pending, failed or missing they are
 computed live. An airing changes them without a fold, so once the summary's next airing passes, the
-aired and upcoming counts and the next-up episode are computed live. The state and the completed and
-in-progress counts change only if the user has progress on the episode that airs, so they stay
-stored until the summary's next tracked airing passes.
+aired and upcoming counts and the next-up episode are computed live. The completed and in-progress
+counts change only when an episode the user has progress on airs, so they stay stored until the
+summary's next tracked airing passes. So does the state, except that a `caught_up` title turns
+`in_progress` when an episode without progress airs: once the summary's next airing passes, a stored
+`caught_up` reads as `in_progress`.
 Titles outside the library, and library titles whose stored state and counts do not apply, compute
 those live only when the user has an event the live computation reads: one in the title's session,
 or a progress or completion of one of its aired regular episodes. Otherwise they present as untracked

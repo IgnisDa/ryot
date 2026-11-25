@@ -449,8 +449,9 @@ const readyLibrarySummaryValue = (entity: Table, read: (membership: Table) => Sc
 /**
  * The user's own stored progress on `entity`, through its `in-media-library` link: the lifecycle
  * state, corrected like `librarySummary`, and the completed and in-progress episode counts. An airing
- * changes them only when the user has progress on the episode, so they hold until such an episode
- * airs; null outside the library, while the summary is pending or failed, and after that.
+ * changes them only when the user has progress on the episode or the state is `caught_up`, which
+ * `librarySummary` corrects, so they hold until an episode with progress airs; null outside the
+ * library, while the summary is pending or failed, and after that.
  */
 export const libraryProgressSummaryValue = (
 	entity: Table,
