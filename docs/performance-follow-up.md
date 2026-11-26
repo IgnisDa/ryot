@@ -157,16 +157,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
   - the sandbox's existing benchmarks in the git history (commits labelled `[sandbox-` or
     `benchmark`).
 
-### 2. Cover images in list rows (#13)
-
-- **Cost:** saved views select one preferred image, at 24–27 KB per 20 rows. The lifecycle rails still
-  select the whole images array: backlog-flat 137 KB / 71 KB, backlog-show 66 / 44 KB, upcoming 60 KB.
-  Movies and shows carry 220 images on average, up to 1,020.
-- **Fix (Media):** `lifecycle-list-recipes.ts` `listedMediaSelection` uses
-  `mediaPresentationImageSelection`, and its client consumers follow.
-- **Expected:** about 25 KB per 20 rows, constant per page.
-
-### 3. Analytics (#3): cheaper aggregation, then stored rollups
+### 2. Analytics (#3): cheaper aggregation, then stored rollups
 
 - **Cost (p50):**
 
@@ -202,7 +193,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
   statement. The design doc's item 11 says whether that was host contention or a plan change. If it is
   a plan change, fix it here first.
 
-### 4. Catalog relation estimates (#10)
+### 3. Catalog relation estimates (#10)
 
 - **Cost:** Fitness totals take 2.7 s and target ranking 1.6 s on the host. The plugin catalog's
   `installations` relation sequentially scans `plugin_revision` once per saved view (40–340 ms).
@@ -213,14 +204,14 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
   row count the planner knows, such as a `VALUES` list or a materialized relation with statistics.
 - **Expected:** hash joins, with Fitness rank and totals at about 0.1 s.
 
-### 5. Plugin catalog ETag (#12)
+### 4. Plugin catalog ETag (#12)
 
 - **Cost:** 545 KB on every refresh after #1878 (663 KB before), 98% of it Media `clientEntities`, at
   371–399 ms round trip. Its size is constant per refresh and doesn't grow with data.
 - **Fix (kernel + client):** serve it keyed by a content hash of the user's installation and revision
   set (an ETag), so an unchanged refresh returns 304.
 
-### 6. Fold drain throughput (#7)
+### 5. Fold drain throughput (#7)
 
 - **Cost:** 45 min per 1,200 fold jobs on `file.sql`, and 2 h on `file2` before #1878's fixes.
 - **Cause:**
@@ -235,7 +226,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
 - **Expected:** (a) cuts run time in proportion to the calls saved. (b) gives up to 2× throughput when
   there is no interactive load.
 
-### 7. Steady-state cron (#9)
+### 6. Steady-state cron (#9)
 
 - **(a) Integration providers, 282 ms per cron on `file2`.**
   - Cause: `prepareYankRuns` resolves providers per user, then `evaluateIntegration` resolves them again
@@ -256,7 +247,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
   - Cause: `listUserPlugins` reads every installation, including disabled users' (598).
   - Fix: filter disabled users and page by user in `signal-schedules/repository.ts`.
 
-### 8. Suggestions (#14)
+### 7. Suggestions (#14)
 
 - **Cost:** 626 ms of SQL on `file3`.
 - **Cause:**
@@ -268,7 +259,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
     `event_user_schema_occurred_at_idx`, scanned backward.
   - The kernel orders `NOT NULL` columns without `NULLS LAST`.
 
-### 9. Indexed projection keys (#4, including #1878's open 2b)
+### 8. Indexed projection keys (#4, including #1878's open 2b)
 
 - **Cost:**
   - Flat rails take 0.46–0.8 s, three pages of all movies 2.3 s, and the music view 4.4 s on the host.
@@ -282,7 +273,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
     and `plugins/media/shared/library-summary.ts`.
 - **Expected:** about 0.2 s for three pages.
 
-### 10. Statement overhead (#11, measure first)
+### 9. Statement overhead (#11, measure first)
 
 - **Cost:** time outside SQL execution for the largest recipes was 0.66–1.8 s on `file2`. PostgreSQL
   planning takes 170–470 ms on 135–192 KB statements.
@@ -297,7 +288,7 @@ The `#n` numbers are the measurement diagnoses' numbers, kept for cross-referenc
   - measure plan reuse for identical SQL text (named prepared statements per connection). Generic plans
     can mis-plan skewed parameters, so measure before adopting.
 
-### 11. Database settings documentation
+### 10. Database settings documentation
 
 - A 768 MiB database with `shared_buffers` at 128 MB and `effective_cache_size` at 4 GB makes the
   planner assume a cache that isn't there. Document settings sized to the container.
