@@ -124,7 +124,7 @@ const PolicyBatchPayload = Schema.Struct({
 	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	resource: Schema.Literals(["entity", "event", "relationship"]),
 });
-export type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
+type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
 
 type MatchedPolicyBatch = {
 	readonly trigger: AutomationTrigger;

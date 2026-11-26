@@ -51,17 +51,6 @@ export type AggregateGroup = {
 	>;
 };
 
-export type FirstGroup = {
-	readonly alias: string;
-	readonly scope: PlannedScope;
-	readonly query: CorrelatedQuerySet;
-	readonly orderBy: FirstExpression["orderBy"];
-	readonly values: ReadonlyMap<
-		string,
-		{ readonly alias: string; readonly select: ScalarExpression }
-	>;
-};
-
 export type PlannedScope = {
 	readonly id: number;
 	readonly execution: RyotQLExecutionScope;
@@ -75,6 +64,17 @@ export type PlannedScope = {
 };
 
 type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
+
+type FirstGroup = {
+	readonly alias: string;
+	readonly scope: PlannedScope;
+	readonly query: CorrelatedQuerySet;
+	readonly orderBy: FirstExpression["orderBy"];
+	readonly values: ReadonlyMap<
+		string,
+		{ readonly alias: string; readonly select: ScalarExpression }
+	>;
+};
 
 export const firstGroupKey = (expr: FirstExpression) =>
 	stableStringify({ query: expr.query, orderBy: expr.orderBy });

@@ -43,21 +43,6 @@ export type EntityReference =
 /** One event change a writer commits: a create by reference, or a kernel event mutation. */
 export type EventChange<Reference = EntityReference> =
 	EventCreateChange<Reference> | Exclude<EventMutation, { readonly kind: "create" }>;
-/** A signal emitted by `principal`; its trigger derives from `itemIdentity`. */
-export type SignalEmission = Pick<EmitSignalInput, "principal" | "properties"> & {
-	readonly itemIdentity: string;
-	readonly subjectEntityId?: EntityId;
-	readonly reference: SignalSchemaReference;
-};
-/** An event create naming its entity and session by reference, with properties the write validates. */
-export type EventCreateChange<Reference = EntityReference> = Omit<
-	EventCreate,
-	"entity" | "session" | "properties"
-> & {
-	readonly entity: Reference;
-	readonly properties: unknown;
-	readonly session?: undefined | Reference;
-};
 /** An existing entity, or one this change set upserts under `providerId`. */
 export type GlobalEntityReference =
 	| Extract<ChangeSetGlobalEntityReference, { readonly kind: "existing" }>
@@ -155,7 +140,6 @@ type UnknownProperties<T> = Omit<T, "properties"> & { readonly properties: unkno
 type ExpectedTarget<T extends { readonly target: unknown }> = {
 	readonly target: UnknownExpected<T["target"]>;
 };
-
 type RelationshipUpsert = KernelCollection &
 	UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
@@ -165,7 +149,6 @@ type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "ent
 /** Kernel writers pass properties and update baselines that the write validates. */
 type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> =
 	ExpectedTarget<T> & Omit<UnknownProperties<OwnedEntity<T>>, "target">;
-
 /** A clear or merge of user data; a kernel writer's `null` schema accepts the entity's own. */
 type UserDataEntity<T extends { readonly entitySchemaSlug: string }> = Omit<
 	OwnedEntity<T>,
@@ -187,6 +170,23 @@ type Keyed<T extends { readonly source: unknown; readonly target: unknown }> = O
 	T,
 	"source" | "target"
 > & { readonly source: EntityReference; readonly target: EntityReference };
+
+/** A signal emitted by `principal`; its trigger derives from `itemIdentity`. */
+type SignalEmission = Pick<EmitSignalInput, "principal" | "properties"> & {
+	readonly itemIdentity: string;
+	readonly subjectEntityId?: EntityId;
+	readonly reference: SignalSchemaReference;
+};
+
+/** An event create naming its entity and session by reference, with properties the write validates. */
+type EventCreateChange<Reference = EntityReference> = Omit<
+	EventCreate,
+	"entity" | "session" | "properties"
+> & {
+	readonly entity: Reference;
+	readonly properties: unknown;
+	readonly session?: undefined | Reference;
+};
 
 /**
  * A provider entity upsert. An existing entity its external ID names is updated when `updateExisting`

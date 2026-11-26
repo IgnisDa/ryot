@@ -48,19 +48,6 @@ import {
 
 export type FoldMode = "job" | "queue" | "inline";
 
-export type QueuedResults = ReadonlyArray<{
-	readonly prepared: Prepared;
-	readonly item: FoldSubjectOutput;
-}>;
-
-/** Subjects of one fold that a fold job runs together, built without locks. */
-export type QueuedRun = {
-	readonly userId: UserId;
-	readonly binding: Binding;
-	readonly pluginId: PluginId;
-	readonly subjects: ReadonlyArray<Prepared>;
-};
-
 export type ApplyFoldChanges = (
 	transaction: WriteTransaction,
 	input: {
@@ -72,6 +59,11 @@ export type ApplyFoldChanges = (
 
 type Binding = NonNullable<Effect.Success<ReturnType<FoldScripts["Service"]["resolve"]>>>;
 
+type QueuedResults = ReadonlyArray<{
+	readonly prepared: Prepared;
+	readonly item: FoldSubjectOutput;
+}>;
+
 type Target = {
 	readonly id: string;
 	readonly subjectEntityId: string;
@@ -82,6 +74,14 @@ type Changed = {
 	readonly subject: FoldSubject;
 	readonly command: DomainLifecycleCommand;
 	readonly changes: ReadonlyArray<EventMutation>;
+};
+
+/** Subjects of one fold that a fold job runs together, built without locks. */
+type QueuedRun = {
+	readonly userId: UserId;
+	readonly binding: Binding;
+	readonly pluginId: PluginId;
+	readonly subjects: ReadonlyArray<Prepared>;
 };
 
 /**

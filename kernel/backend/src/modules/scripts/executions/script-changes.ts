@@ -34,7 +34,7 @@ export type ScriptChangesInput = {
 };
 
 /** How a caller reports a rejection: the failure kind, a stable code and a diagnostic message. */
-export type ScriptChangesFailure =
+type ScriptChangesFailure =
 	| {
 			readonly message: string;
 			readonly code: "changes-rejected";

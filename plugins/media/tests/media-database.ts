@@ -21,7 +21,7 @@ import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 
 export const mediaPluginId = PluginId.make("media");
 export const mediaReference = { kind: "local", pluginId: mediaPluginId } as const;
-export const mediaUsers = ["owner", "other"] as const;
+const mediaUsers = ["owner", "other"] as const;
 export type MediaUser = (typeof mediaUsers)[number];
 
 const day = 86_400_000;
@@ -152,7 +152,7 @@ export const mediaDatabaseLayer = (prefix: string) =>
 		Layer.provide(makeAppConfigLayer()),
 	);
 
-export type MediaEntity = {
+type MediaEntity = {
 	readonly id: string;
 	readonly slug: string;
 	readonly name?: string;

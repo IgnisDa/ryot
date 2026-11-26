@@ -93,13 +93,13 @@ export type EnsureUserEntityItem = {
 export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "identity"> & {
 	command: DomainLifecycleCommand;
 };
+type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
 /** A prepared entity write with the request its policies receive. */
-export type EntityPolicyItem = {
+type EntityPolicyItem = {
 	readonly mutation: PreparedMutation;
 	readonly propertiesSchema: AppSchema;
 	readonly request: AutomationEntityRequestPayload;
 };
-type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
 
 type UpsertEntityInput = Scope & {
 	name: string;
@@ -211,12 +211,13 @@ export const entitySaveDraft = (
 export const entityDeleteEvents = (deletes: PreparedEntityDeletes) =>
 	deletes[preparedEntityDeletes].events;
 
+type EntityExpected = Pick<EntitySnapshotResult["entity"], "name" | "updatedAt" | "properties">;
 /**
  * An entity write in the user's scope or, without one, the global scope. A create with a provider
  * updates the entity its external ID already names when `updateExisting` or while that entity is an
  * unpopulated stub, and keeps it otherwise; a user entity names both or neither.
  */
-export type PrepareEntitySaveInput = {
+type PrepareEntitySaveInput = {
 	name: string;
 	properties: unknown;
 	scopeUserId: null | UserId;
@@ -233,7 +234,6 @@ export type PrepareEntitySaveInput = {
 				provider?: { updateExisting: boolean; providerId: SandboxProviderId };
 		  };
 };
-type EntityExpected = Pick<EntitySnapshotResult["entity"], "name" | "updatedAt" | "properties">;
 /** A create whose match found no entity when prepared finds one under the commit's lock. */
 export class EntityMatchAppeared extends Schema.TaggedError<
 	EntityMatchAppeared,

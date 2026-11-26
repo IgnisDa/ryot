@@ -36,14 +36,12 @@ export const PLUGIN_VALIDATION_WORKER_LIMITS = {
 	recycleMemoryBytes: 512 * MiB,
 };
 
-export type PluginValidationWorkerLimits = typeof PLUGIN_VALIDATION_WORKER_LIMITS;
-
 const invalidResult = new CompilerWorkerUnavailable({
 	message: "The plugin validation worker returned an invalid result",
 });
 
 export const makePluginValidationWorker = Effect.fnUntraced(function* (
-	limits: PluginValidationWorkerLimits,
+	limits: typeof PLUGIN_VALIDATION_WORKER_LIMITS,
 ) {
 	const pool = yield* makeCompilerWorkerPool({
 		...limits,

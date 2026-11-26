@@ -50,11 +50,6 @@ import {
 } from "./mutation-support";
 
 export type UserRelationshipMode = "merge" | "upsert" | "update" | "ensure";
-/** What a write expects of the relationship it changes: its target, and property values it holds. */
-export type RelationshipExpectation = {
-	readonly targetEntityId?: EntityId;
-	readonly properties?: Readonly<Record<string, unknown>>;
-};
 /**
  * A user relationship write validated before its commit, with the request its policies receive;
  * persistence revalidates it under locks. A null request writes nothing.
@@ -63,6 +58,11 @@ export type PreparedUserRelationship = {
 	readonly mutation: Mutation;
 	readonly before: null | AutomationRelationshipSnapshot;
 	readonly request: null | AutomationRelationshipRequestPayload;
+};
+/** What a write expects of the relationship it changes: its target, and property values it holds. */
+type RelationshipExpectation = {
+	readonly targetEntityId?: EntityId;
+	readonly properties?: Readonly<Record<string, unknown>>;
 };
 type RequestedRelationship = {
 	readonly mutation: Mutation;

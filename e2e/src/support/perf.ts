@@ -31,7 +31,7 @@ const StatementShapes = Schema.Array(
 	}),
 );
 
-export type StatementSnapshot = ReadonlyMap<string, Statement>;
+type StatementSnapshot = ReadonlyMap<string, Statement>;
 type Statement = { readonly rows: number; readonly calls: number; readonly execMs: number };
 
 export const percentile = (values: ReadonlyArray<number>, fraction: number) => {

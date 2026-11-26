@@ -18,7 +18,7 @@ export const FOLD_JOB_RERUNS = 2;
  * rechecks the subjects' revisions. A subject that changed meanwhile runs again, at most
  * `FOLD_JOB_RERUNS` times, and then folds under its lock.
  */
-export const foldQueued = Effect.fn("Folds.foldQueued")(function* (input: {
+const foldQueued = Effect.fn("Folds.foldQueued")(function* (input: {
 	readonly userId: UserId;
 	readonly entityIds: ReadonlyArray<EntityId>;
 }) {

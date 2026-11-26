@@ -61,7 +61,7 @@ const encodeItem = Schema.encodeEffect(Schema.fromJsonString(MediaHistoryItem));
 
 const encoder = new TextEncoder();
 
-export const buildHistoryParts = Effect.fn("buildHistoryParts")(function* (
+const buildHistoryParts = Effect.fn("buildHistoryParts")(function* (
 	rows: ReadonlyArray<StagedRow>,
 ) {
 	const items: Array<{

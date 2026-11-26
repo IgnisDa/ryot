@@ -160,16 +160,6 @@ export const ChangeSetFailure = Schema.Union([
 ]);
 
 /**
- * Durable state the commit consults: `check` runs before preparation and again in the commit
- * transaction, each time given that transaction's `WriteTransaction`, where false records an empty
- * result; `written` runs after every write of a commit that wrote anything, with what it wrote.
- */
-export type CommitPrecondition = {
-	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
-	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, DbError>;
-};
-
-/**
  * `verbatimIdentities` keeps each entity (global upserts included), event or relationship item's own
  * identity rather than prefixing it with the command's. `queueFolds` queues the folds the commit
  * marks whatever its lane.
@@ -189,6 +179,16 @@ type Writer =
 			readonly authority: ChangeSetAuthority;
 			readonly principal: ScriptExecutionPrincipal;
 	  };
+
+/**
+ * Durable state the commit consults: `check` runs before preparation and again in the commit
+ * transaction, each time given that transaction's `WriteTransaction`, where false records an empty
+ * result; `written` runs after every write of a commit that wrote anything, with what it wrote.
+ */
+type CommitPrecondition = {
+	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
+	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, DbError>;
+};
 
 const parts = (changes: ChangeSet) => [
 	changes.entity,
