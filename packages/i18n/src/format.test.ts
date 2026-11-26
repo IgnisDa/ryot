@@ -62,11 +62,16 @@ const catalogs = registry.reduce(
 );
 
 const expires = (locale: string) =>
-	format(catalogs, locale, {
-		namespace: "media",
-		key: "item.expires",
-		params: { at: { date: "2026-11-15T12:00:00.000Z" } },
-	});
+	format(
+		catalogs,
+		locale,
+		{
+			namespace: "media",
+			key: "item.expires",
+			params: { at: { date: "2026-11-15T13:07:00.000Z" } },
+		},
+		{ timeZone: "UTC" },
+	);
 
 const releasedIn = (timeZone: string) =>
 	format(
@@ -158,8 +163,8 @@ describe("format", () => {
 	});
 
 	it("renders preferred-hour skeletons in each locale's hour cycle", () => {
-		expect<string>(expires("en")).toMatch(/^Expires Nov 15, 2026 at \d{1,2}:\d{2}\s[AP]M$/);
-		expect<string>(expires("en-GB")).toMatch(/^Expires 15 Nov 2026 at \d{2}:\d{2}$/);
+		expect<string>(expires("en")).toMatch(/^Expires Nov 15, 2026(?:, | at )1:07\sPM$/);
+		expect<string>(expires("en-GB")).toMatch(/^Expires 15 Nov 2026(?:, | at )13:07$/);
 	});
 
 	it("renders nested messages recursively", () => {
