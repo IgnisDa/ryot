@@ -44,6 +44,21 @@ export const MediaArtworkCutoverLive = Layer.effectDiscard(
 				let cursor: null | string = null;
 				let count = 0;
 				for (;;) {
+					const page = yield* session.run((db) =>
+						db.execute<{ id: string }>(
+							sql`
+					SELECT id FROM "entity"
+					${cursor === null ? sql`` : sql`WHERE id > ${cursor}`}
+					ORDER BY id LIMIT 500
+				`,
+							"objects",
+						),
+					);
+					const pageEnd = page.at(-1);
+					if (pageEnd === undefined) {
+						break;
+					}
+					cursor = pageEnd.id;
 					const rows: typeof ArtworkRows.Type = yield* session
 						.run((db) =>
 							db.execute(
@@ -61,18 +76,12 @@ export const MediaArtworkCutoverLive = Layer.effectDiscard(
 					WHERE owner.package_id = ${PLUGIN_PACKAGE_ID} AND owner.owner_user_id IS NULL
 						AND provider.slug LIKE '%.tmdb'
 						AND (jsonb_typeof(entity.properties -> 'images') = 'array' OR artwork.localized <> '{}')
-						AND (${cursor}::text IS NULL OR entity.id > ${cursor})
-					ORDER BY entity.id LIMIT 500
+						AND entity.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(page.map(({ id }) => id))}::jsonb))
 				`,
 								"objects",
 							),
 						)
 						.pipe(Effect.flatMap(decodeArtworkRows));
-					const last = rows.at(-1);
-					if (last === undefined) {
-						break;
-					}
-					cursor = last.id;
 					const patches = rows.map(({ id, images, localized }) => ({
 						id,
 						images:

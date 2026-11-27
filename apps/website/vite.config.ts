@@ -8,6 +8,7 @@ import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+	tsconfig: "tsconfig.json",
 	server: { allowedHosts: true },
 	resolve: { tsconfigPaths: true },
 	plugins: [
