@@ -456,6 +456,112 @@ and its named tests, then its e2e files.
    episode logs 200 to 235 ms (the 69 KB fold state 235 ms against 212 and 223 ms before), one-exercise
    saves 197 ms and a 35-set, 9-exercise repeat 286 ms.
 
+11. **Real data at the merged head** (measured). `5cb1615d59` against `70935b1882`, before #1878's
+   performance fixes, on the measurement host: 2 shared cores (other tenants used 20–40% of a core),
+   app 2 GB, database 768 MiB, no egress. Three V1 dumps were restored unpatched. `file2` has 319
+   users, 175 with events; its largest library has 14.7k members and 302k events. It is a newer copy
+   of the 299-user dump measured before. `file3` has one user with 16.2k members, 198k events and
+   602 workouts. `file.sql` (one user, 29k members) was last measured at `4c64f50ae7`, before the
+   ultra-rewrite merge, and migrated at `13463d2959`; its numbers are in
+   [the follow-up plan](performance-follow-up.md).
+
+   | Dataset  | Legacy migration | Artwork cutover | Drain after listening |
+   | -------- | ---------------: | --------------: | --------------------: |
+   | file2    |  47.9 → 46.4 min |      2 h 21 min |   2 h 01 → 2 h 33 min |
+   | file3    |   8.6 → 12.9 min |          18 min |           66 → 72 min |
+   | file.sql |   11.4 → 4.1 min |         not run |                     – |
+
+   `file3`'s earlier migration ran on a copy patched after five aborts. The collection phase fell
+   from 201 to 79 s on `file2` and from 430 to 17 s on `file.sql`. The artwork cutover from the
+   ultra-rewrite merge runs in one transaction between the legacy migration and listening. It read
+   380,130 rows in 763 pages (9.5 s mean) on `file2` and 153,075 rows in 308 pages (2.8 s) on
+   `file3`. Each page index-scans every Media entity, with the id cursor only as a filter, and runs
+   the translation lateral for each remaining row, so the total is quadratic. ultra-rewrite
+   `7b09e6fc93` pages by primary key instead (0.15 ms per id page and 18 ms per page of artwork rows
+   on `file2`); #1878 picks it up at its next ultra-rewrite merge.
+
+   Folds drain on the single background sandbox slot: attempt time is 9,067 s of `file2`'s 9,193 s
+   drain. That drain includes a one-minute app restart, and it cost 3.9 CPU-seconds per fold job,
+   against 2.9 before. Each fold job made 52 host RyotQL calls at 44 ms, against 55 at 31.5 ms. The
+   regression found at `13463d2959` is gone: `file3` drained in 72 min instead of 6 h 52 min, at 2.2
+   CPU-seconds per fold job instead of 8.1.
+
+   One abort on `file2`'s newer dump: one of its 153 OIDC users has a name that is not an email. The
+   copy got a placeholder email, as the abort message asks. Without a Media provider token,
+   handed-off history waits: 12 users and 470 watches on `file2`, and one user with 1,306 watches
+   and one review on `file3`. With a placeholder token, `file.sql` admitted one import run and
+   recorded the provider failure as an import issue. The handoff table was dropped, and a second
+   restart changed nothing.
+
+   Reads, p50 round trip over 10 warm samples, before → after:
+
+   | Read                         |             file2 before → after |              file3 before → after |
+   | ---------------------------- | -------------------------------: | --------------------------------: |
+   | All shows / search           |    10,962 / 4,278 → 717 / 382 ms |          943 / 559 → 453 / 380 ms |
+   | Continue / backlog shows     |     7,014 / 1,941 → 660 / 693 ms |      2,290 / 1,813 → 516 / 543 ms |
+   | Show detail summary          |                   2,181 → 705 ms |                    1,540 → 624 ms |
+   | Continue / backlog podcasts  |         658 / 573 → 265 / 281 ms |        1,027 / 586 → 337 / 277 ms |
+   | Upcoming                     |             1,078 ms → over 30 s |                    915 → 8,689 ms |
+   | Show episode calendar        |               166 ms → over 30 s |                    274 → 4,158 ms |
+   | Analytics summary, all time  |                9,605 → 19,788 ms | 21,201 → 25,760 ms, some time out |
+   | Analytics records, all time  |               11,288 → 17,147 ms |                      573 → 560 ms |
+   | Analytics trend, all time    |                 7,339 → 9,205 ms |                11,564 → 11,754 ms |
+   | Analytics ranking / hours    | 3,552 / 5,785 → 8,364 / 7,685 ms |  7,534 / 2,252 → 8,928 / 2,420 ms |
+   | Fitness totals, all time     |                     765 → 778 ms |                    775 → 1,848 ms |
+
+   Show lists and details no longer grow with the library. List rows carry one preferred image
+   (ultra-rewrite `45a33088a1`). Backlog rows fell from 71.0 to 4.7 KB on `file2` and from 137.6 to
+   12.7 KB on `file3`. Backlog shows fell from 43.8 to 8.8 KB and from 66.4 to 19.9 KB, and
+   `file3`'s upcoming fell from 60.0 to 3.3 KB.
+
+   Upcoming and the show episode calendar regressed with the merged release-time airing. On `file3`,
+   the calendar looks up every episode of every library show to find the episodes airing in the
+   window: 187,190 entity lookups across 3,296 shows return 30 rows. Upcoming's statements make 65k
+   and 100k such lookups. Both reads are linear in the episodes of the user's library shows. On
+   `file2`'s largest library they exceed the 30 s RyotQL statement timeout, so the home page fails
+   its upcoming rail (page load 16.9 → 32.9 s; `file3` 10.4 → 17.2 s). At `4c64f50ae7` they took 463
+   and 103 ms on `file.sql`. Signal-schedule evaluation runs the same airing statements, so idle
+   cost grew too:
+   - `file2` database time per 5-minute cron: 0.7 s → 35 s right after the drain, and 5.7 s two
+     hours later;
+   - `file3`: 0.08 → 3.0 s.
+
+   On `file2`, some evaluations hit the statement timeout. `frequent-cron` logs them, and a schedule
+   worker run takes 30–40 s at p50 (18–20 s on `file3`). Idle app CPU stays at 3–4%.
+
+   Analytics trend went from 2.7 to 4.4 s on `file.sql` across #1878 with the same statement. That
+   was host I/O and cache state, not a plan change:
+   - The captured `file2` plans before and after have the same nodes and the same 24.4k entity
+     lookups, and read about as many blocks (122k → 113k).
+   - Only one hash join swapped its build side.
+   - The extra time is in reading the same uncached blocks: the event heap scan read 17k blocks in
+     1.0 s before and 4.1 s after.
+
+   Analytics summary and hours on `file2` show the same pattern. In the plan capture, ranking and
+   records ran at their earlier speed, so their slower probe p50s are the same host variance.
+   Analytics stays linear in history, as item 10 says. Some of `file3`'s all-time summaries now
+   exceed the 30 s timeout.
+
+   Warm writes, p50 over 20 samples, before → after. The median user is rank 24 of 49 users with
+   events before and rank 20 of 40 after, because the dumps differ.
+
+   | Write                          |     file2, largest library | file2, median user |                      file3 |
+   | ------------------------------ | -------------------------: | -----------------: | -------------------------: |
+   | Review delete, movie / show    | 549 / 774 → 600 / 1,020 ms |   – → 504 / 917 ms | 601 / 833 → 532 / 1,010 ms |
+   | Movie log                      |               793 → 745 ms |       772 → 735 ms |               807 → 743 ms |
+   | Show log, short history        |           1,165 → 1,362 ms |   1,106 → 1,368 ms |           1,165 → 1,385 ms |
+   | Show log, long history         |           1,441 → 2,291 ms |   1,213 → 1,417 ms |           1,236 → 1,673 ms |
+   | Show log, oversized fold state |           2,427 → 5,186 ms |                  – |           1,860 → 1,958 ms |
+   | Workout save, one exercise     |                          – |                  – |           1,034 → 1,007 ms |
+
+   A write still makes about 2.6 sandbox runs. Show logs' SQL grows with the library and the show's
+   history: on `file2`'s largest library it went from 232 to 803 ms at 2.8k events, and from 822 to
+   3,508 ms for the 1.9k-event oversized state. `file.sql` added 60–90 ms at 300–400 events. With
+   `file2`'s four largest users writing at once:
+   - p50 was 1.9–11.3 s and p95 reached 28.7 s, against 0.7–9.1 s and 15.1 s before;
+   - `reserveRun` waited p50 0.79 s, p95 3.3 s and at most 21 s, against 0.66 s, 2.4 s and 11.9 s;
+   - nothing was refused.
+
 ## Code placement
 
 Code shared by plugins lives in the plugin SDK or a package, and kernel code shared by features
