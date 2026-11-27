@@ -410,9 +410,9 @@ export const PluginEntitySchema = strictStruct({
 	fold: Schema.optional(PluginEntityFold),
 	editor: Schema.optional(PluginEntityEditor),
 	eventSchemas: Schema.Array(PluginEventSchema),
-	occursAtProperty: Schema.optional(Schema.String),
 	browse: Schema.optional(AuthoredEntitySchemaBrowse),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
+	occursAtProperties: Schema.optional(Schema.Array(Schema.String)),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
 	refreshIntervalDays: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 });

@@ -10,6 +10,7 @@ import {
 	column,
 	conditional,
 	count,
+	dateAdd,
 	descending,
 	divide,
 	eq,
@@ -24,6 +25,7 @@ import {
 	jsonPath,
 	literal,
 	localDate,
+	lt,
 	lte,
 	minimum,
 	multiply,
@@ -448,7 +450,10 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 export const publishDate = (episode: TableReference) =>
 	castDate(jsonPath(column(episode, "properties"), "publishDate"));
 
-/** `publishDate` as an indexed column. Date windows filter on this, not on the property. */
+/**
+ * The indexed release column: an episode's `airingAt` instant when it has one, otherwise its
+ * `publishDate`. Date windows filter on this, not on the properties.
+ */
 export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
 /** An episode's release: its known `airingAt` instant, otherwise its `occursAt` date. */
@@ -487,18 +492,46 @@ const dateHasArrived = (date: ScalarExpression) => lte(date, reportingToday);
 export const releaseHasArrived = (release: Release) =>
 	or(instantHasArrived(release.instant), dateHasArrived(release.date));
 
+/**
+ * `occursAt` holds an episode's release instant when it has one and its publish date otherwise, so
+ * it lies within a day of the reporting day the release falls on. A release before
+ * `releaseSettledBefore` has arrived and one from `releaseUnsettledUntil` has not, so only releases
+ * between them read `airingAt` from the properties.
+ */
+const releaseFloor = (day: ScalarExpression) => dateAdd(day, -2, "day");
+const releaseCeiling = (day: ScalarExpression) => dateAdd(day, 3, "day");
+const releaseSettledBefore = releaseFloor(reportingToday);
+const releaseUnsettledUntil = releaseCeiling(reportingToday);
+
+/** A closed `occursAt` range holding every release on a reporting day from `from` to `to`. */
+export const episodeReleaseCandidates = (
+	episode: TableReference,
+	from: ScalarExpression,
+	to: ScalarExpression,
+) => [gte(occursAt(episode), releaseFloor(from)), lt(occursAt(episode), releaseCeiling(to))];
+
 /** An episode with neither a date nor an instant counts as aired. */
 export const episodeHasAired = (episode: TableReference) => {
 	const { date, instant } = episodeReleaseTime(episode);
 	return or(
-		instantHasArrived(instant),
-		and(isNull(instant), or(isNull(date), dateHasArrived(date))),
+		lt(date, releaseSettledBefore),
+		and(
+			or(isNull(date), lt(date, releaseUnsettledUntil)),
+			or(instantHasArrived(instant), and(isNull(instant), or(isNull(date), dateHasArrived(date)))),
+		),
 	);
 };
 
 export const episodeIsUpcoming = (episode: TableReference) => {
 	const { date, instant } = episodeReleaseTime(episode);
-	return or(gt(instant, now()), and(isNull(instant), gt(date, reportingToday)));
+	return and(
+		gte(date, releaseSettledBefore),
+		or(
+			gte(date, releaseUnsettledUntil),
+			gt(instant, now()),
+			and(isNull(instant), gt(date, reportingToday)),
+		),
+	);
 };
 
 type EpisodeAiring = "any" | "aired" | "upcoming";

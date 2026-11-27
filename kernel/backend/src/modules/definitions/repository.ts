@@ -315,8 +315,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										browse: definition.browse ?? null,
 										userState: definition.userState ?? null,
 										propertiesSchema: definition.propertiesSchema,
-										occursAtProperty: definition.occursAtProperty ?? null,
 										mergeIdentityProperties: [...definition.mergeIdentityProperties],
+										occursAtProperties:
+											definition.occursAtProperties === undefined
+												? null
+												: [...definition.occursAtProperties],
 									})),
 								)
 								.returning({
@@ -557,9 +560,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												userState: definition.userState ?? null,
 												name: definitionText(null, definition.name),
 												propertiesSchema: definition.propertiesSchema,
-												occursAtProperty: definition.occursAtProperty ?? null,
 												refreshIntervalDays: definition.refreshIntervalDays ?? null,
 												mergeIdentityProperties: [...(definition.mergeIdentityProperties ?? [])],
+												occursAtProperties:
+													definition.occursAtProperties === undefined
+														? null
+														: [...definition.occursAtProperties],
 											})),
 										)
 										.onConflictDoUpdate({
@@ -576,7 +582,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												position: sql`excluded.position`,
 												userState: sql`excluded.user_state`,
 												propertiesSchema: sql`excluded.properties_schema`,
-												occursAtProperty: sql`excluded.occurs_at_property`,
+												occursAtProperties: sql`excluded.occurs_at_properties`,
 												refreshIntervalDays: sql`excluded.refresh_interval_days`,
 												mergeIdentityProperties: sql`excluded.merge_identity_properties`,
 											},

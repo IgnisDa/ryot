@@ -10319,11 +10319,11 @@
 		{
 			"schema": "public",
 			"table": "definition_entity_schema",
-			"name": "occurs_at_property",
+			"name": "occurs_at_properties",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
-			"dimensions": 0,
+			"dimensions": 1,
 			"default": null,
 			"generated": null,
 			"identity": null,

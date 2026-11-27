@@ -340,7 +340,7 @@ CREATE TABLE "definition_entity_schema" (
 	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
-	"occurs_at_property" text,
+	"occurs_at_properties" text[],
 	"refresh_interval_days" integer,
 	"fold" jsonb,
 	"browse" jsonb,

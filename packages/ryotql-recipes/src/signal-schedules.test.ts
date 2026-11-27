@@ -190,6 +190,8 @@ describe("signal schedule recipe", () => {
 			predicates: [
 				where,
 				objectContaining({ type: "or" }),
+				objectContaining({ left: dueAt, operator: "gte", type: "comparison" }),
+				objectContaining({ left: dueAt, operator: "lt", type: "comparison" }),
 				or(
 					and(
 						isNull(instant),
@@ -219,7 +221,13 @@ describe("signal schedule recipe", () => {
 			predicates: [
 				where,
 				objectContaining({ type: "or" }),
-				gte(instant, castDate(literal(instantEnd))),
+				{
+					type: "and",
+					predicates: [
+						objectContaining({ left: dueAt, operator: "gte", type: "comparison" }),
+						gte(instant, castDate(literal(instantEnd))),
+					],
+				},
 				freshness,
 			],
 		});

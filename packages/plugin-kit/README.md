@@ -399,7 +399,8 @@ caption: catalogRowText("calendar-source.releases.caption", { kind: "kind" }),
 
 `precision` is `date` for calendar days or `instant` for timed values. A date-precision source can
 also name a projected `instantAt` field. When that field is non-null it supplies the occurrence time,
-and otherwise the row uses `startAt` as a calendar day. The account reporting timezone determines
+and otherwise the row uses `startAt` as a calendar day. A row's `startAt` must lie within a day of its
+`instantAt`, because the window also bounds `startAt` to read fewer rows. The account reporting timezone determines
 how timed entries are grouped. `subject` names the query alias of the occurrence's entity and its schemas,
 as for entity-browser views. Installation validates the query with plugin-audience access, the field
 kinds, and that the subject alias is an entity table; `self` references bind to the installed plugin.
@@ -420,7 +421,8 @@ condition or the table's own left join condition), or a change to any global row
 schedule for every subscriber.
 `dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
 text key, and `properties` maps signal properties to projected fields (null values are omitted).
-An optional `instantAt` on a date-precision schedule supplies the due instant for timed rows.
+An optional `instantAt` on a date-precision schedule supplies the due instant for timed rows, and a
+row's `dueAt` must lie within a day of it.
 Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows
 whose `confirmedAt` is older than `maxAgeHours`; optional `entitlement` limits delivery to accounts
 holding that entitlement.
@@ -861,11 +863,12 @@ validation.
 `mergeIdentityProperties` names unique top-level entity properties whose persisted JSON values must
 match before user state can merge. Omission means no property-based merge restriction.
 
-`occursAtProperty` names one top-level string or datetime property as the entity's date. The kernel
-stores it as the indexed `occursAt` column of the `entity` table on every write, and a malformed or
-missing value stores null. A query whose root filters `occursAt` on both sides starts from that date
-range, so use the column instead of casting the property for date windows. A revision can add the
-declaration, which fills existing rows when it activates, but cannot change or remove it.
+`occursAtProperties` names top-level string or datetime properties, in order, as the entity's date.
+On every write the kernel stores the first one holding a valid timestamp as the indexed `occursAt`
+column of the `entity` table, or null when none does. A query whose root filters `occursAt` on both
+sides starts from that date range, so use the column instead of casting the property for date
+windows. A revision can add, change, or remove the declaration, and existing rows are recomputed
+when it activates.
 
 `editor: { relationships }` opts an entity schema into the kernel entity editor. Users can then
 create and edit their own entities of that schema, together with the listed outgoing relationships,

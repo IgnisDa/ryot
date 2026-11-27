@@ -68,11 +68,11 @@ export const EntitySchemaDefinition = Schema.Struct({
 	fold: Schema.optional(PluginEntityFold),
 	editor: Schema.optional(PluginEntityEditor),
 	browse: Schema.optional(EntitySchemaBrowse),
-	occursAtProperty: Schema.optional(Schema.String),
 	refreshIntervalDays: Schema.optional(Schema.Int),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
+	occursAtProperties: Schema.optional(Schema.Array(Schema.String)),
 });
 
 export type EntitySchemaDefinition = typeof EntitySchemaDefinition.Type;
@@ -318,8 +318,14 @@ const validateDefinitionSource = (
 				);
 			}
 		}
-		const occursAt = entitySchema.occursAtProperty;
-		if (occursAt !== undefined) {
+		const occursAtProperties = entitySchema.occursAtProperties ?? [];
+		if (entitySchema.occursAtProperties?.length === 0) {
+			throw new Error(`Entity schema ${entitySchema.slug} declares no occursAt properties`);
+		}
+		if (new Set(occursAtProperties).size !== occursAtProperties.length) {
+			throw new Error(`Entity schema ${entitySchema.slug} has duplicate occursAt properties`);
+		}
+		for (const occursAt of occursAtProperties) {
 			const field = entitySchema.propertiesSchema.fields[occursAt];
 			if (field?.type !== "string" && field?.type !== "datetime") {
 				throw new Error(

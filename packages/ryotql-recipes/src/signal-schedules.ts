@@ -12,6 +12,7 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
+	castDate,
 	coalesce,
 	column,
 	defineRecipe,
@@ -21,7 +22,7 @@ import {
 	or,
 	table,
 } from "@ryot-app/ryotql";
-import { parameters } from "@ryot-app/ryotql/authoring";
+import { dateAdd, parameters } from "@ryot-app/ryotql/authoring";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Option, Result, Schema } from "effect";
 
@@ -177,7 +178,10 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				: {
 						[NEXT_INSTANT_QUERY]: nextQuery(
 							instantAt,
-							gte(instantAt, recipeParameters.value("instantEnd")),
+							and(
+								gte(dueAt, dateAdd(castDate(recipeParameters.value("instantEnd")), -1, "day")),
+								gte(instantAt, recipeParameters.value("instantEnd")),
+							),
 						),
 					}),
 			[DUE_QUERY]: {

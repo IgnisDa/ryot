@@ -12,6 +12,7 @@ import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 import type { AuthoredAppSchema } from "@ryot-app/plugin-kit/schema";
 import { Effect, Layer, Result } from "effect";
 
+import { mediaEntitySchemas } from "../manifest/schemas/entity";
 import {
 	librarySummaryKind,
 	librarySummaryProperties,
@@ -55,8 +56,9 @@ const manifest: PluginManifest = {
 	metadata: { ...fixturePlugin.metadata, packageId: PLUGIN_PACKAGE_ID },
 };
 
-/** Schemas whose `occursAt` the kernel derives from `publishDate`, as Media declares. */
-const datedSchemaSlugs = ["show-episode", "podcast-episode", "movie", "anime", "book"];
+const datedSchemas = mediaEntitySchemas().filter(({ slug }) =>
+	["book", "movie", "anime", "show-episode", "podcast-episode"].includes(slug),
+);
 
 const seed = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
@@ -96,15 +98,18 @@ const seed = Effect.gen(function* () {
 			yield* db
 				.insert(tables.definitionEntitySchema)
 				.values(
-					datedSchemaSlugs.map((slug, position) => ({
-						slug,
+					datedSchemas.map((schema, position) => ({
 						position,
 						icon: "calendar",
+						slug: schema.slug,
 						mergeIdentityProperties: [],
-						occursAtProperty: "publishDate",
 						propertiesSchema: { fields: {} },
 						pluginRevisionId: "media-revision",
-						name: { key: slug, namespace: "media" },
+						name: { key: schema.slug, namespace: "media" },
+						occursAtProperties:
+							"occursAtProperties" in schema && schema.occursAtProperties
+								? [...schema.occursAtProperties]
+								: null,
 					})),
 				);
 			yield* db
