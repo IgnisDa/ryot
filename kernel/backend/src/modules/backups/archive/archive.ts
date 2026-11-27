@@ -1,0 +1,1463 @@
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { Cause, Effect, FileSystem, type PlatformError, type Schema, Stream } from "effect";
+import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate, ZipPassThrough } from "fflate";
+
+import { archiveEntryTooLarge, archiveError, BackupArchiveError } from "./error";
+import { collectReferencedPluginKeys } from "./references";
+import {
+	ARCHIVE_CODECS,
+	ARCHIVE_SECTION_PATHS,
+	type ArchiveAssetManifest,
+	type ArchiveBlobManifest,
+	ArchiveManifest,
+	ArchiveProfile,
+	type ArchiveRequiredPlugin,
+	type ArchiveSectionManifest,
+	type ArchiveSectionPath,
+} from "./schemas";
+import {
+	type ArchiveMetadata,
+	type ArchiveSectionInput,
+	type ArchiveSectionReader,
+	type ArchiveSections,
+	STREAMED_SECTION_PATHS,
+	type StreamedSectionPath,
+} from "./sections";
+import {
+	decodeArchiveJson,
+	decodeNdjson,
+	encodeArchiveJsonLine,
+	encodeNdjson,
+	IncrementalSha256,
+	NdjsonDecoder,
+} from "./streaming";
+
+const ZIP_EOCD_BYTES = 22;
+const MAX_ZIP_PATH_BYTES = 71;
+const ZIP_MAX_COMMENT_BYTES = 65_535;
+const ZIP_CENTRAL_HEADER_BYTES = 46;
+const DETERMINISTIC_MTIME = new Date("1980-01-01T00:00:00.000Z");
+const decoder = new TextDecoder("utf-8", { fatal: true });
+
+export const ARCHIVE_LIMITS = {
+	maxEntryCount: 4_096,
+	maxPluginRecords: 256,
+	maxRecordsPerSection: 250_000,
+	maxEntryBytes: 256 * 1024 * 1024,
+	maxMetadataEntryBytes: 32 * 1024 * 1024,
+	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
+} as const;
+
+export type ArchiveBinaryInput<A extends ArchiveBlobManifest | ArchiveAssetManifest> = {
+	readonly metadata: A;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
+export type CreateArchiveInput = {
+	readonly archiveId: string;
+	readonly createdAt: string;
+	readonly appVersion: string;
+	readonly records: ArchiveMetadata;
+	readonly redactions: ReadonlyArray<string>;
+	readonly compression?: "store" | "deflate";
+	readonly sections: ReadonlyArray<ArchiveSectionInput>;
+	readonly requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>;
+	readonly blobs?: ReadonlyArray<ArchiveBinaryInput<ArchiveBlobManifest>>;
+	readonly assets: ReadonlyArray<ArchiveBinaryInput<ArchiveAssetManifest>>;
+};
+
+type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
+
+type ZipEntryInput = {
+	readonly path: string;
+	readonly compression: "store" | "deflate";
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
+const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A) => number) => {
+	for (let index = 1; index < values.length; index += 1) {
+		const previous = values[index - 1];
+		const current = values[index];
+		if (previous !== undefined && current !== undefined && compare(previous, current) > 0) {
+			return [...values].sort(compare);
+		}
+	}
+	return values;
+};
+
+const sortArchiveMetadata = (records: ArchiveMetadata): ArchiveMetadata => ({
+	profile: records.profile,
+	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
+		left.key.localeCompare(right.key),
+	),
+	installations: sortedIfNeeded(records.installations, (left, right) =>
+		left.packageKey.localeCompare(right.packageKey),
+	),
+});
+
+type BoundedSectionPath = "installations.ndjson" | "private-plugins.ndjson";
+
+const profileChunk = (profile: ArchiveProfile) =>
+	encodeArchiveJsonLine(ArchiveProfile, profile, "profile.json");
+
+type ArchiveSection = {
+	readonly bytes: number;
+	readonly manifest: ArchiveSectionManifest;
+	readonly payload?: undefined | Uint8Array;
+};
+
+const bufferSection = (
+	path: ArchiveSectionPath,
+	chunks: Iterable<Uint8Array>,
+	count: number,
+	limit: number,
+): ArchiveSection => {
+	const buffered: Uint8Array[] = [];
+	const hash = new IncrementalSha256();
+	for (const chunk of chunks) {
+		hash.update(chunk);
+		if (hash.bytes > limit) {
+			throw archiveEntryTooLarge(path, hash.bytes, limit);
+		}
+		buffered.push(chunk);
+	}
+	const { bytes, sha256 } = hash.digest();
+	return { bytes, payload: concatChunks(buffered), manifest: { path, count, sha256 } };
+};
+
+const boundedSection = (
+	path: BoundedSectionPath,
+	records: ArchiveMetadata,
+	count: number,
+	limits: ArchiveLimits,
+) =>
+	bufferSection(
+		path,
+		path === "private-plugins.ndjson"
+			? encodeNdjson(records.privatePlugins, ARCHIVE_CODECS["private-plugins.ndjson"], path)
+			: encodeNdjson(records.installations, ARCHIVE_CODECS["installations.ndjson"], path),
+		count,
+		limits.maxMetadataEntryBytes,
+	);
+
+const validateArchiveMetadata = (records: ArchiveMetadata) => {
+	const installationKeys = new Set<string>();
+	for (const installation of records.installations) {
+		if (installationKeys.has(installation.packageKey)) {
+			throw archiveError(
+				"duplicate_record_id",
+				"Backup contains duplicate plugin installations",
+				"installations.ndjson",
+			);
+		}
+		installationKeys.add(installation.packageKey);
+		if (
+			installation.incompatibilityReason !== null &&
+			installation.lifecycleIntent !== "incompatible"
+		) {
+			throw archiveError(
+				"invalid_entry",
+				"Backup installation quarantine reason requires incompatible health",
+			);
+		}
+	}
+	const privateKeys = new Set<string>();
+	for (const plugin of records.privatePlugins) {
+		if (
+			privateKeys.has(plugin.key) ||
+			plugin.key !== pluginPackageKey({ scope: "user", packageId: plugin.packageId }) ||
+			plugin.manifest.metadata.packageId !== plugin.packageId
+		) {
+			throw archiveError("duplicate_record_id", "Invalid or duplicate private plugin key");
+		}
+		privateKeys.add(plugin.key);
+	}
+};
+
+const validateRequiredPlugins = (
+	plugins: ReadonlyArray<ArchiveRequiredPlugin>,
+	limit: number = ARCHIVE_LIMITS.maxPluginRecords,
+) => {
+	if (plugins.length > limit) {
+		throw archiveError(
+			"count_mismatch",
+			"Required plugin metadata record limit exceeded",
+			"manifest.json",
+			{ maxCount: limit, actualCount: plugins.length },
+		);
+	}
+	const packageIds = new Set<string>();
+	for (const plugin of plugins) {
+		if (packageIds.has(plugin.packageId)) {
+			throw archiveError(
+				"duplicate_record_id",
+				`Duplicate required plugin package '${plugin.packageId}'`,
+				"manifest.json",
+			);
+		}
+		packageIds.add(plugin.packageId);
+	}
+};
+
+const validatePluginKeys = (
+	records: ArchiveMetadata,
+	required: ReadonlyArray<ArchiveRequiredPlugin>,
+) => {
+	const declared = new Set([
+		...records.privatePlugins.map(({ key }) => key),
+		...required.map((plugin) => pluginPackageKey({ scope: "system", packageId: plugin.packageId })),
+	]);
+	const referenced = collectReferencedPluginKeys({
+		...records,
+		entities: [],
+		reminders: [],
+		foldValues: [],
+		savedViews: [],
+		integrations: [],
+		publications: [],
+		relationships: [],
+		entityDependencies: [],
+		calendarSourceOverrides: [],
+		notificationSubscriptions: [],
+	});
+	for (const key of referenced) {
+		if (!declared.has(key)) {
+			throw archiveError(
+				"missing_reference_mapping",
+				`Backup references undeclared plugin key '${key}'`,
+			);
+		}
+	}
+};
+
+const sortedRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
+	return [...plugins].sort((left, right) => left.packageId.localeCompare(right.packageId));
+};
+
+const buildManifest = (
+	input: CreateArchiveInput,
+	records: ArchiveMetadata,
+	limits: ArchiveLimits,
+) => {
+	validateArchiveMetadata(records);
+	validateRequiredPlugins(input.requiredPlugins, limits.maxPluginRecords);
+	validatePluginKeys(records, input.requiredPlugins);
+	const boundedCounts: ReadonlyArray<{
+		readonly count: number;
+		readonly path: BoundedSectionPath;
+	}> = [
+		{ path: "private-plugins.ndjson", count: records.privatePlugins.length },
+		{ path: "installations.ndjson", count: records.installations.length },
+	];
+	for (const { path, count } of boundedCounts) {
+		if (count > Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords)) {
+			throw archiveError("count_mismatch", "Section record limit exceeded", path, {
+				actualCount: count,
+				maxCount: Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords),
+			});
+		}
+	}
+	const streamedPaths = new Set<string>(STREAMED_SECTION_PATHS);
+	const sectionsByPath = new Map<string, ArchiveSection>();
+	for (const section of input.sections) {
+		if (!streamedPaths.has(section.path)) {
+			throw archiveError("unexpected_path", "Unexpected streamed section", section.path);
+		}
+		if (sectionsByPath.has(section.path)) {
+			throw archiveError("duplicate_path", "Duplicate streamed section summary", section.path);
+		}
+		if (!Number.isFinite(section.count) || !Number.isInteger(section.count) || section.count < 0) {
+			throw archiveError("count_mismatch", "Invalid section record count", section.path);
+		}
+		if (!Number.isFinite(section.bytes) || !Number.isInteger(section.bytes) || section.bytes < 0) {
+			throw archiveError("invalid_entry", "Invalid section byte count", section.path);
+		}
+		if (section.bytes > limits.maxEntryBytes) {
+			throw archiveEntryTooLarge(section.path, section.bytes, limits.maxEntryBytes);
+		}
+		sectionsByPath.set(section.path, {
+			bytes: section.bytes,
+			manifest: { path: section.path, count: section.count, sha256: section.sha256 },
+		});
+	}
+	for (const path of STREAMED_SECTION_PATHS) {
+		if (!sectionsByPath.has(path)) {
+			throw archiveError("missing_entry", "Streamed section summary is missing", path);
+		}
+	}
+	sectionsByPath.set(
+		"profile.json",
+		bufferSection("profile.json", [profileChunk(records.profile)], 1, limits.maxMetadataEntryBytes),
+	);
+	sectionsByPath.set(
+		"private-plugins.ndjson",
+		boundedSection("private-plugins.ndjson", records, records.privatePlugins.length, limits),
+	);
+	sectionsByPath.set(
+		"installations.ndjson",
+		boundedSection("installations.ndjson", records, records.installations.length, limits),
+	);
+	const sections = ARCHIVE_SECTION_PATHS.map((path) => {
+		const section = sectionsByPath.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Archive section summary is missing", path);
+		}
+		return section;
+	});
+	const declaredAssets = new Set<string>();
+	for (const asset of [...input.assets, ...(input.blobs ?? [])]) {
+		if (!binaryPathMatches(asset.metadata.path, asset.metadata.sha256)) {
+			throw archiveError(
+				"invalid_entry",
+				"Asset path does not match its SHA-256",
+				asset.metadata.path,
+			);
+		}
+		if (declaredAssets.has(asset.metadata.path)) {
+			throw archiveError("duplicate_path", "Duplicate asset path", asset.metadata.path);
+		}
+		if (asset.metadata.size > limits.maxEntryBytes) {
+			throw archiveEntryTooLarge(asset.metadata.path, asset.metadata.size, limits.maxEntryBytes);
+		}
+		declaredAssets.add(asset.metadata.path);
+	}
+	if (
+		sections.length + input.assets.length + (input.blobs?.length ?? 0) + 1 >
+		limits.maxEntryCount
+	) {
+		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded", undefined, {
+			maxCount: limits.maxEntryCount,
+			actualCount: sections.length + input.assets.length + (input.blobs?.length ?? 0) + 1,
+		});
+	}
+	const manifest = ArchiveManifest.make({
+		version: 1,
+		format: "ryot-backup",
+		createdAt: input.createdAt,
+		archiveId: input.archiveId,
+		appVersion: input.appVersion,
+		redactions: [...input.redactions].sort(),
+		sections: sections.map(({ manifest: section }) => section),
+		requiredPlugins: sortedRequiredPlugins(input.requiredPlugins),
+		assets: input.assets
+			.map(({ metadata }) => metadata)
+			.sort((a, b) => a.path.localeCompare(b.path)),
+		blobs: (input.blobs ?? [])
+			.map(({ metadata }) => metadata)
+			.sort((a, b) => a.path.localeCompare(b.path)),
+	});
+	const manifestPayload = encodeArchiveJsonLine(ArchiveManifest, manifest, "manifest.json");
+	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
+		throw archiveEntryTooLarge(
+			"manifest.json",
+			manifestPayload.byteLength,
+			limits.maxMetadataEntryBytes,
+		);
+	}
+	const totalBytes =
+		manifestPayload.byteLength +
+		sections.reduce((total, section) => total + section.bytes, 0) +
+		[...input.assets, ...(input.blobs ?? [])].reduce(
+			(total, asset) => total + asset.metadata.size,
+			0,
+		);
+	if (totalBytes > limits.maxTotalUncompressedBytes) {
+		throw archiveError("total_size_exceeded", "ZIP total size limit exceeded", undefined, {
+			actualBytes: totalBytes,
+			maxBytes: limits.maxTotalUncompressedBytes,
+		});
+	}
+	return { sections, manifestPayload };
+};
+
+const asyncIterator = <A>(values: Iterable<A> | AsyncIterable<A>): AsyncIterator<A> => {
+	if (Symbol.asyncIterator in values) {
+		return values[Symbol.asyncIterator]();
+	}
+	const iterator = values[Symbol.iterator]();
+	return {
+		next: () => Promise.resolve(iterator.next()),
+		return: () => Promise.resolve(iterator.return?.() ?? { done: true, value: undefined }),
+	};
+};
+
+class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
+	#ended = false;
+	readonly #zip: Zip;
+	readonly #output: Uint8Array[] = [];
+	#failure: null | BackupArchiveError = null;
+	readonly #entries: AsyncIterator<ZipEntryInput>;
+	#chunks: null | AsyncIterator<Uint8Array> = null;
+	#file: null | ZipDeflate | ZipPassThrough = null;
+
+	constructor(entries: Iterable<ZipEntryInput> | AsyncIterable<ZipEntryInput>) {
+		this.#entries = asyncIterator(entries);
+		this.#zip = new Zip((error, chunk) => {
+			if (error !== null) {
+				this.#failure = archiveError("invalid_archive", error.message);
+			} else if (chunk.byteLength > 0) {
+				this.#output.push(chunk);
+			}
+		});
+	}
+
+	[Symbol.asyncIterator]() {
+		return this;
+	}
+
+	next(): Promise<IteratorResult<Uint8Array, void>> {
+		return Effect.runPromise(this.#next());
+	}
+
+	return(): Promise<IteratorResult<Uint8Array, void>> {
+		this.#zip.terminate();
+		this.#ended = true;
+		this.#output.length = 0;
+		this.#file = null;
+		const closeChunks = this.#chunks?.return?.bind(this.#chunks);
+		const closeEntries = this.#entries.return?.bind(this.#entries);
+		this.#chunks = null;
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				for (const close of [closeChunks, closeEntries]) {
+					if (close !== undefined) {
+						yield* Effect.promise((): Promise<unknown> => close()).pipe(
+							Effect.catchCause((cause) =>
+								Effect.logWarning("backup ZIP input cleanup failed", cause),
+							),
+						);
+					}
+				}
+				return { done: true, value: undefined };
+			}),
+		);
+	}
+
+	#next(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
+		return Effect.suspend(() => {
+			const output = this.#output.shift();
+			if (output !== undefined) {
+				return Effect.succeed({ done: false, value: output });
+			}
+			if (this.#failure !== null) {
+				return Effect.fail(this.#failure);
+			}
+			if (this.#ended) {
+				return Effect.succeed({ done: true, value: undefined });
+			}
+			return this.#advance().pipe(
+				Effect.catchCause((cause) => {
+					const error = Cause.squash(cause);
+					const failure =
+						error instanceof BackupArchiveError
+							? error
+							: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`);
+					return Effect.promise(() => this.return()).pipe(Effect.andThen(Effect.fail(failure)));
+				}),
+			);
+		});
+	}
+
+	#advance(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
+		const chunks = this.#chunks;
+		if (chunks !== null && this.#file !== null) {
+			return Effect.promise(() => chunks.next()).pipe(
+				Effect.flatMap((next) => {
+					if (next.done) {
+						this.#file?.push(new Uint8Array(0), true);
+						this.#chunks = null;
+						this.#file = null;
+					} else {
+						this.#file?.push(next.value);
+					}
+					return this.#next();
+				}),
+			);
+		}
+		return Effect.promise(() => this.#entries.next()).pipe(
+			Effect.flatMap((next) => {
+				if (next.done) {
+					this.#zip.end();
+					this.#ended = true;
+					return this.#next();
+				}
+				this.#file =
+					next.value.compression === "store"
+						? new ZipPassThrough(next.value.path)
+						: new ZipDeflate(next.value.path, { level: 6 });
+				this.#file.mtime = DETERMINISTIC_MTIME;
+				this.#file.os = 0;
+				this.#zip.add(this.#file);
+				this.#chunks = asyncIterator(next.value.chunks);
+				return this.#next();
+			}),
+		);
+	}
+}
+
+export const zipChunks = (entries: Iterable<ZipEntryInput> | AsyncIterable<ZipEntryInput>) =>
+	new ZipChunkIterator(entries);
+
+type VerifiedEntry = {
+	readonly path: string;
+	readonly size: number;
+	readonly sha256: string;
+	readonly mismatch: string;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
+class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
+	readonly #limit: number;
+	readonly #entry: VerifiedEntry;
+	readonly #hash = new IncrementalSha256();
+	readonly #chunks: AsyncIterator<Uint8Array>;
+
+	constructor(entry: VerifiedEntry, limit: number) {
+		this.#limit = limit;
+		this.#entry = entry;
+		this.#chunks = asyncIterator(entry.chunks);
+	}
+
+	[Symbol.asyncIterator]() {
+		return this;
+	}
+
+	return(): Promise<IteratorResult<Uint8Array, void>> {
+		const close = this.#chunks.return?.bind(this.#chunks);
+		return close === undefined
+			? Promise.resolve({ done: true, value: undefined })
+			: Effect.runPromise(
+					Effect.promise(() => close()).pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("backup verified entry cleanup failed", cause),
+						),
+						Effect.as({ done: true, value: undefined }),
+					),
+				);
+	}
+
+	next(): Promise<IteratorResult<Uint8Array, void>> {
+		return Effect.runPromise(
+			Effect.promise(() => this.#chunks.next()).pipe(
+				Effect.flatMap(
+					(next): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> => {
+						if (!next.done) {
+							this.#hash.update(next.value);
+							if (this.#hash.bytes > this.#limit) {
+								return Effect.fail(
+									archiveEntryTooLarge(this.#entry.path, this.#hash.bytes, this.#limit),
+								);
+							}
+							return Effect.succeed(next);
+						}
+						const measured = this.#hash.digest();
+						if (measured.bytes !== this.#entry.size || measured.sha256 !== this.#entry.sha256) {
+							return Effect.fail(
+								archiveError("checksum_mismatch", this.#entry.mismatch, this.#entry.path),
+							);
+						}
+						return Effect.succeed(next);
+					},
+				),
+			),
+		);
+	}
+}
+
+const createArchive = (input: CreateArchiveInput, overrides: Partial<ArchiveLimits> = {}) => {
+	const limits = { ...ARCHIVE_LIMITS, ...overrides };
+	const records = sortArchiveMetadata(input.records);
+	const { sections, manifestPayload } = buildManifest(input, records, limits);
+	const compression = input.compression ?? "deflate";
+	const assets = [...input.assets, ...(input.blobs ?? [])].sort((left, right) =>
+		left.metadata.path.localeCompare(right.metadata.path),
+	);
+	const streamedSections = new Map<string, ArchiveSectionInput>();
+	for (const section of input.sections) {
+		streamedSections.set(section.path, section);
+	}
+	const entries: ZipEntryInput[] = [
+		{ compression, path: "manifest.json", chunks: [manifestPayload] },
+		...sections.map((section) => {
+			if (section.payload !== undefined) {
+				return { compression, chunks: [section.payload], path: section.manifest.path };
+			}
+			const streamed = streamedSections.get(section.manifest.path);
+			if (streamed === undefined) {
+				throw archiveError(
+					"missing_entry",
+					"Streamed section input is missing",
+					section.manifest.path,
+				);
+			}
+			return {
+				compression,
+				path: section.manifest.path,
+				chunks: new VerifiedEntryChunks(
+					{
+						size: streamed.bytes,
+						chunks: streamed.chunks,
+						sha256: streamed.sha256,
+						path: section.manifest.path,
+						mismatch: "Section stream does not match its manifest metadata",
+					},
+					limits.maxEntryBytes,
+				),
+			};
+		}),
+		...assets.map((asset) => ({
+			path: asset.metadata.path,
+			compression: "store" as const,
+			chunks: new VerifiedEntryChunks(
+				{
+					chunks: asset.chunks,
+					path: asset.metadata.path,
+					size: asset.metadata.size,
+					sha256: asset.metadata.sha256,
+					mismatch: "Asset stream does not match its manifest metadata",
+				},
+				limits.maxEntryBytes,
+			),
+		})),
+	];
+	return { sections, chunks: zipChunks(entries) };
+};
+
+export const createArchiveStream = (
+	input: CreateArchiveInput,
+	overrides: Partial<ArchiveLimits> = {},
+) =>
+	Stream.unwrap(
+		Effect.try({
+			try: () => createArchive(input, overrides),
+			catch: (error) =>
+				error instanceof BackupArchiveError
+					? error
+					: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
+		}).pipe(
+			Effect.tap(({ sections }) =>
+				Effect.forEach(
+					sections,
+					(section) =>
+						Effect.logInfo("backup archive section prepared").pipe(
+							Effect.annotateLogs({
+								bytes: section.bytes,
+								count: section.manifest.count,
+								section: section.manifest.path,
+							}),
+						),
+					{ discard: true },
+				),
+			),
+			Effect.map(({ chunks }) =>
+				Stream.fromAsyncIterable(chunks, (error) =>
+					error instanceof BackupArchiveError
+						? error
+						: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
+				),
+			),
+		),
+	);
+
+export type ValidatedArchiveBinary = (ArchiveBlobManifest | ArchiveAssetManifest) & {
+	readonly filePath: string;
+	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
+};
+
+type ExtractedEntry = {
+	readonly path: string;
+	readonly bytes: number;
+	readonly sha256: string;
+	readonly filePath?: string;
+	readonly compression: number;
+	chunks?: undefined | Uint8Array[];
+};
+
+type ValidatedArchive = {
+	readonly records: ArchiveMetadata;
+	readonly sections: ArchiveSections;
+	readonly manifest: ArchiveManifest;
+	readonly blobs: ReadonlyArray<ValidatedArchiveBinary>;
+	readonly assets: ReadonlyArray<ValidatedArchiveBinary>;
+};
+
+const validPath = (path: string) => {
+	if (path.startsWith("/") || path.startsWith("\\") || /^[A-Za-z]:/.test(path)) {
+		return false;
+	}
+	return !path.split(/[\\/]/).some((segment) => segment === "..");
+};
+
+const SECTION_PATHS = new Set<string>(ARCHIVE_SECTION_PATHS);
+const SPOOLED_SECTION_PATHS = new Set<string>(STREAMED_SECTION_PATHS);
+
+const binaryPathMatches = (path: string, hash: string) =>
+	path === `assets/${hash}` || path === `blobs/${hash}`;
+const isBinaryPath = (path: string) => /^(?:assets|blobs)\/[a-f0-9]{64}$/.test(path);
+
+const allowedPath = (path: string) =>
+	path === "manifest.json" || SECTION_PATHS.has(path) || isBinaryPath(path);
+
+const requireEntry = (entries: ReadonlyMap<string, ExtractedEntry>, path: string) => {
+	const entry = entries.get(path);
+	if (entry === undefined) {
+		throw archiveError("missing_entry", `Archive is missing ${path}`, path);
+	}
+	return entry;
+};
+
+const concatChunks = (chunks: ReadonlyArray<Uint8Array>) => {
+	const output = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
+	let offset = 0;
+	for (const chunk of chunks) {
+		output.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return output;
+};
+
+const takeChunks = (entry: ExtractedEntry) => {
+	const chunks = entry.chunks ?? [];
+	entry.chunks = undefined;
+	return chunks;
+};
+
+const decodeJson = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry) => {
+	const chunks = takeChunks(entry);
+	let value: unknown;
+	try {
+		value = JSON.parse(decoder.decode(concatChunks(chunks)));
+	} catch {
+		throw archiveError("invalid_entry", `Invalid ${entry.path}`, entry.path);
+	}
+	return decodeArchiveJson(codec, value, entry.path);
+};
+
+const decodeRecords = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry, limit: number) => {
+	const records: A[] = [];
+	for (const record of decodeNdjson(takeChunks(entry), codec, entry.path)) {
+		records.push(record);
+		if (records.length > limit) {
+			throw archiveError("count_mismatch", "Section record limit exceeded", entry.path, {
+				maxCount: limit,
+				actualCount: records.length,
+			});
+		}
+	}
+	return records;
+};
+
+const validateSectionIntegrity = (
+	path: ArchiveSectionPath,
+	entry: ExtractedEntry,
+	declared: ArchiveSectionManifest,
+) => {
+	if (entry.sha256 !== declared.sha256) {
+		throw archiveError("checksum_mismatch", `Section checksum mismatch`, path);
+	}
+};
+
+const validateSectionCount = (
+	path: ArchiveSectionPath,
+	declared: ArchiveSectionManifest,
+	count: number,
+) => {
+	if (count !== declared.count) {
+		throw archiveError("count_mismatch", `Section count mismatch`, path);
+	}
+};
+
+const manifestSections = (sections: ReadonlyArray<ArchiveSectionManifest>) => {
+	const byPath = new Map<string, ArchiveSectionManifest>();
+	for (const section of sections) {
+		if (byPath.has(section.path)) {
+			throw archiveError("duplicate_path", "Duplicate manifest section path", section.path);
+		}
+		byPath.set(section.path, section);
+	}
+	for (const path of ARCHIVE_SECTION_PATHS) {
+		if (!byPath.has(path)) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+	}
+	for (const [index, section] of sections.entries()) {
+		if (section.path !== ARCHIVE_SECTION_PATHS[index]) {
+			throw archiveError(
+				"invalid_entry",
+				"Manifest sections are not in path order",
+				"manifest.json",
+			);
+		}
+	}
+	return byPath;
+};
+
+class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
+	#count = 0;
+	#offset = 0;
+	#ended = false;
+	#pending: A[] = [];
+	readonly #path: string;
+	readonly #declared: number;
+	readonly #decoder: NdjsonDecoder<A, I>;
+	readonly #chunks: AsyncIterator<Uint8Array>;
+
+	constructor(
+		chunks: AsyncIterable<Uint8Array>,
+		codec: Schema.Codec<A, I>,
+		path: string,
+		declared: number,
+	) {
+		this.#path = path;
+		this.#declared = declared;
+		this.#chunks = asyncIterator(chunks);
+		this.#decoder = new NdjsonDecoder(codec, path);
+	}
+
+	[Symbol.asyncIterator]() {
+		return this;
+	}
+
+	next(): Promise<IteratorResult<A, void>> {
+		return Effect.runPromise(this.#next());
+	}
+
+	return(): Promise<IteratorResult<A, void>> {
+		this.#ended = true;
+		this.#pending = [];
+		const close = this.#chunks.return?.bind(this.#chunks);
+		return Effect.runPromise(
+			(close === undefined
+				? Effect.void
+				: Effect.promise(() => close()).pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("backup record input cleanup failed", cause),
+						),
+					)
+			).pipe(Effect.as({ done: true, value: undefined })),
+		);
+	}
+
+	#next(): Effect.Effect<IteratorResult<A, void>, BackupArchiveError> {
+		return Effect.suspend(() => {
+			const value = this.#pending[this.#offset];
+			if (value !== undefined) {
+				this.#count += 1;
+				this.#offset += 1;
+				return Effect.succeed({ value, done: false });
+			}
+			if (this.#ended) {
+				return Effect.succeed({ done: true, value: undefined });
+			}
+			return Effect.promise(() => this.#chunks.next()).pipe(
+				Effect.flatMap((next) => {
+					if (next.done) {
+						this.#ended = true;
+						this.#decoder.end();
+						if (this.#count !== this.#declared) {
+							return Effect.fail(
+								archiveError("count_mismatch", "Section count mismatch", this.#path),
+							);
+						}
+					} else {
+						this.#offset = 0;
+						this.#pending = [...this.#decoder.push(next.value)];
+					}
+					return this.#next();
+				}),
+			);
+		});
+	}
+}
+
+const spooledSectionReader = <A, I>(
+	fs: FileSystem.FileSystem,
+	filePath: string,
+	path: StreamedSectionPath,
+	count: number,
+	sha256: string,
+	codec: Schema.Codec<A, I>,
+): ArchiveSectionReader<A> => ({
+	count,
+	sha256,
+	read: () =>
+		Stream.fromAsyncIterable(
+			new SpooledRecords(Stream.toAsyncIterable(fs.stream(filePath)), codec, path, count),
+			(error) =>
+				error instanceof BackupArchiveError
+					? error
+					: archiveError("invalid_entry", `Could not read ${path}`, path),
+		),
+});
+
+const validateExtracted = (
+	entries: ReadonlyMap<string, ExtractedEntry>,
+	fs: FileSystem.FileSystem,
+	limits: ArchiveLimits,
+): ValidatedArchive => {
+	const manifestEntry = entries.get("manifest.json");
+	if (manifestEntry === undefined) {
+		throw archiveError("missing_entry", "Archive is missing manifest.json", "manifest.json");
+	}
+	let manifest: ArchiveManifest;
+	try {
+		manifest = decodeJson(ArchiveManifest, manifestEntry);
+	} catch (error) {
+		throw error instanceof BackupArchiveError && error.reason === "invalid_entry"
+			? archiveError("unsupported_format", "Unsupported backup format or version", "manifest.json")
+			: error;
+	}
+	validateRequiredPlugins(manifest.requiredPlugins, limits.maxPluginRecords);
+	const sections = manifestSections(manifest.sections);
+	for (const path of ARCHIVE_SECTION_PATHS) {
+		const entry = requireEntry(entries, path);
+		const section = sections.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+		validateSectionIntegrity(path, entry, section);
+	}
+	const profileEntry = requireEntry(entries, "profile.json");
+	const profileSection = sections.get("profile.json");
+	if (profileSection === undefined) {
+		throw archiveError("missing_entry", "Manifest section is missing", "profile.json");
+	}
+	const profile = decodeJson(ArchiveProfile, profileEntry);
+	validateSectionCount("profile.json", profileSection, 1);
+
+	const readMetadataSection = <A, I>(path: BoundedSectionPath, codec: Schema.Codec<A, I>) => {
+		const entry = requireEntry(entries, path);
+		const section = sections.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+		const records = decodeRecords(
+			codec,
+			entry,
+			Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords),
+		);
+		validateSectionCount(path, section, records.length);
+		return records;
+	};
+	const privatePlugins = readMetadataSection(
+		"private-plugins.ndjson",
+		ARCHIVE_CODECS["private-plugins.ndjson"],
+	);
+	const installations = readMetadataSection(
+		"installations.ndjson",
+		ARCHIVE_CODECS["installations.ndjson"],
+	);
+	const records: ArchiveMetadata = { profile, installations, privatePlugins };
+	validateArchiveMetadata(records);
+	validatePluginKeys(records, manifest.requiredPlugins);
+	const createSectionReader = <A, I>(
+		path: StreamedSectionPath,
+		codec: Schema.Codec<A, I>,
+	): ArchiveSectionReader<A> => {
+		const entry = requireEntry(entries, path);
+		const section = sections.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+		const filePath = entry.filePath;
+		if (filePath === undefined) {
+			throw archiveError("invalid_entry", "Streamed section was not spooled", path);
+		}
+		return spooledSectionReader(fs, filePath, path, section.count, section.sha256, codec);
+	};
+	const streamedSections: ArchiveSections = {
+		"pages.ndjson": createSectionReader("pages.ndjson", ARCHIVE_CODECS["pages.ndjson"]),
+		"events.ndjson": createSectionReader("events.ndjson", ARCHIVE_CODECS["events.ndjson"]),
+		"entities.ndjson": createSectionReader("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
+		"assistant.ndjson": createSectionReader("assistant.ndjson", ARCHIVE_CODECS["assistant.ndjson"]),
+		"reminders.ndjson": createSectionReader("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
+		"fold-values.ndjson": createSectionReader(
+			"fold-values.ndjson",
+			ARCHIVE_CODECS["fold-values.ndjson"],
+		),
+		"saved-views.ndjson": createSectionReader(
+			"saved-views.ndjson",
+			ARCHIVE_CODECS["saved-views.ndjson"],
+		),
+		"integrations.ndjson": createSectionReader(
+			"integrations.ndjson",
+			ARCHIVE_CODECS["integrations.ndjson"],
+		),
+		"publications.ndjson": createSectionReader(
+			"publications.ndjson",
+			ARCHIVE_CODECS["publications.ndjson"],
+		),
+		"relationships.ndjson": createSectionReader(
+			"relationships.ndjson",
+			ARCHIVE_CODECS["relationships.ndjson"],
+		),
+		"entity-dependencies.ndjson": createSectionReader(
+			"entity-dependencies.ndjson",
+			ARCHIVE_CODECS["entity-dependencies.ndjson"],
+		),
+		"calendar-source-overrides.ndjson": createSectionReader(
+			"calendar-source-overrides.ndjson",
+			ARCHIVE_CODECS["calendar-source-overrides.ndjson"],
+		),
+		"notification-subscriptions.ndjson": createSectionReader(
+			"notification-subscriptions.ndjson",
+			ARCHIVE_CODECS["notification-subscriptions.ndjson"],
+		),
+	};
+
+	const declaredAssets = new Map<string, ArchiveBlobManifest | ArchiveAssetManifest>();
+	for (const asset of [...manifest.assets, ...manifest.blobs]) {
+		if (!binaryPathMatches(asset.path, asset.sha256) || declaredAssets.has(asset.path)) {
+			throw archiveError("invalid_entry", `Invalid or duplicate asset declaration`, asset.path);
+		}
+		declaredAssets.set(asset.path, asset);
+	}
+	for (const [path, entry] of entries) {
+		if (!isBinaryPath(path)) {
+			continue;
+		}
+		const declared = declaredAssets.get(path);
+		if (declared === undefined) {
+			throw archiveError("undeclared_asset", `Asset is not declared by the manifest`, path);
+		}
+		if (entry.bytes !== declared.size || entry.sha256 !== declared.sha256) {
+			throw archiveError("checksum_mismatch", `Asset checksum or size mismatch`, path);
+		}
+	}
+	for (const path of declaredAssets.keys()) {
+		if (!entries.has(path)) {
+			throw archiveError("missing_entry", `Declared asset is missing`, path);
+		}
+	}
+	const assets = [...declaredAssets.values()].map((asset) => {
+		const filePath = requireEntry(entries, asset.path).filePath;
+		if (filePath === undefined) {
+			throw archiveError("invalid_entry", "Asset was not spooled", asset.path);
+		}
+		return Object.assign({}, asset, { filePath, stream: fs.stream(filePath) });
+	});
+	return {
+		records,
+		manifest,
+		sections: streamedSections,
+		blobs: assets.filter(({ path }) => path.startsWith("blobs/")),
+		assets: assets.filter(({ path }) => path.startsWith("assets/")),
+	};
+};
+
+class BoundedTail {
+	#length = 0;
+	#position = 0;
+	readonly #buffer: Uint8Array;
+
+	constructor(capacity: number) {
+		this.#buffer = new Uint8Array(capacity);
+	}
+
+	bytes() {
+		const output = new Uint8Array(this.#length);
+		const start =
+			(this.#position - this.#length + this.#buffer.byteLength) % this.#buffer.byteLength;
+		const first = Math.min(this.#length, this.#buffer.byteLength - start);
+		output.set(this.#buffer.subarray(start, start + first));
+		output.set(this.#buffer.subarray(0, this.#length - first), first);
+		return output;
+	}
+
+	update(chunk: Uint8Array) {
+		if (chunk.byteLength >= this.#buffer.byteLength) {
+			this.#buffer.set(chunk.subarray(chunk.byteLength - this.#buffer.byteLength));
+			this.#length = this.#buffer.byteLength;
+			this.#position = 0;
+			return;
+		}
+		let offset = 0;
+		while (offset < chunk.byteLength) {
+			const size = Math.min(chunk.byteLength - offset, this.#buffer.byteLength - this.#position);
+			this.#buffer.set(chunk.subarray(offset, offset + size), this.#position);
+			this.#position = (this.#position + size) % this.#buffer.byteLength;
+			this.#length = Math.min(this.#length + size, this.#buffer.byteLength);
+			offset += size;
+		}
+	}
+}
+
+const zipSignatureAt = (view: DataView, offset: number, signature: number) =>
+	offset >= 0 && offset + 4 <= view.byteLength && view.getUint32(offset, true) === signature;
+
+const validateZipStructure = (
+	tail: Uint8Array,
+	archiveBytes: number,
+	entries: ReadonlyMap<string, ExtractedEntry>,
+	limits: ArchiveLimits,
+) => {
+	const view = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
+	let eocd = -1;
+	for (let offset = tail.byteLength - ZIP_EOCD_BYTES; offset >= 0; offset -= 1) {
+		if (
+			zipSignatureAt(view, offset, 0x06054b50) &&
+			offset + ZIP_EOCD_BYTES + view.getUint16(offset + 20, true) === tail.byteLength
+		) {
+			eocd = offset;
+			break;
+		}
+	}
+	if (eocd < 0) {
+		throw archiveError("invalid_archive", "ZIP end of central directory is missing or truncated");
+	}
+	if (zipSignatureAt(view, eocd - 20, 0x07064b50)) {
+		throw archiveError("unsupported_format", "Zip64 archives are not supported");
+	}
+	const disk = view.getUint16(eocd + 4, true);
+	const centralDisk = view.getUint16(eocd + 6, true);
+	const diskEntries = view.getUint16(eocd + 8, true);
+	const entryCount = view.getUint16(eocd + 10, true);
+	const centralBytes = view.getUint32(eocd + 12, true);
+	const centralOffset = view.getUint32(eocd + 16, true);
+	if (disk !== 0 || centralDisk !== 0 || diskEntries !== entryCount) {
+		throw archiveError("unsupported_format", "Multidisk ZIP archives are not supported");
+	}
+	if (entryCount === 0xffff || centralBytes === 0xffffffff || centralOffset === 0xffffffff) {
+		throw archiveError("unsupported_format", "Zip64 archives are not supported");
+	}
+	if (entryCount > limits.maxEntryCount) {
+		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded", undefined, {
+			actualCount: entryCount,
+			maxCount: limits.maxEntryCount,
+		});
+	}
+	if (centralBytes > entryCount * (ZIP_CENTRAL_HEADER_BYTES + MAX_ZIP_PATH_BYTES)) {
+		throw archiveError("invalid_archive", "ZIP central directory is too large");
+	}
+	const tailOffset = archiveBytes - tail.byteLength;
+	const eocdOffset = tailOffset + eocd;
+	if (centralOffset + centralBytes !== eocdOffset || centralOffset < tailOffset) {
+		throw archiveError("invalid_archive", "ZIP central directory offset or boundary is invalid");
+	}
+	let offset = centralOffset - tailOffset;
+	const centralEnd = offset + centralBytes;
+	const offsets: Array<{
+		readonly offset: number;
+		readonly dataEnd: number;
+		readonly hasDescriptor: boolean;
+	}> = [];
+	const paths = new Set<string>();
+	for (let index = 0; index < entryCount; index += 1) {
+		if (
+			!zipSignatureAt(view, offset, 0x02014b50) ||
+			offset + ZIP_CENTRAL_HEADER_BYTES > centralEnd
+		) {
+			throw archiveError("invalid_archive", "ZIP central directory entry is truncated");
+		}
+		const flags = view.getUint16(offset + 8, true);
+		const compression = view.getUint16(offset + 10, true);
+		const compressedSize = view.getUint32(offset + 20, true);
+		const uncompressedSize = view.getUint32(offset + 24, true);
+		const nameBytes = view.getUint16(offset + 28, true);
+		const extraBytes = view.getUint16(offset + 30, true);
+		const commentBytes = view.getUint16(offset + 32, true);
+		const startDisk = view.getUint16(offset + 34, true);
+		const localOffset = view.getUint32(offset + 42, true);
+		const entryEnd = offset + ZIP_CENTRAL_HEADER_BYTES + nameBytes + extraBytes + commentBytes;
+		if (entryEnd > centralEnd) {
+			throw archiveError("invalid_archive", "ZIP central directory entry is truncated");
+		}
+		if (extraBytes !== 0 || commentBytes !== 0 || nameBytes > MAX_ZIP_PATH_BYTES) {
+			throw archiveError("unsupported_format", "ZIP entry extras or comments are not supported");
+		}
+		if (startDisk !== 0) {
+			throw archiveError("unsupported_format", "Multidisk ZIP archives are not supported");
+		}
+		if (
+			compressedSize === 0xffffffff ||
+			uncompressedSize === 0xffffffff ||
+			localOffset === 0xffffffff
+		) {
+			throw archiveError("unsupported_format", "Zip64 archives are not supported");
+		}
+		if ((flags & 1) !== 0 || (compression !== 0 && compression !== 8)) {
+			throw archiveError("unsupported_compression", "Unsupported ZIP compression or encryption");
+		}
+		let path: string;
+		try {
+			path = decoder.decode(
+				tail.subarray(
+					offset + ZIP_CENTRAL_HEADER_BYTES,
+					offset + ZIP_CENTRAL_HEADER_BYTES + nameBytes,
+				),
+			);
+		} catch {
+			throw archiveError("invalid_path", "ZIP entry path is not valid UTF-8");
+		}
+		const extracted = entries.get(path);
+		if (extracted === undefined || paths.has(path)) {
+			throw archiveError(
+				"invalid_archive",
+				"ZIP central directory does not match extracted entries",
+				path,
+			);
+		}
+		if (extracted.bytes !== uncompressedSize || extracted.compression !== compression) {
+			throw archiveError(
+				"invalid_archive",
+				"ZIP central directory method or size does not match entry",
+				path,
+			);
+		}
+		paths.add(path);
+		offsets.push({
+			offset: localOffset,
+			hasDescriptor: (flags & 8) !== 0,
+			dataEnd: localOffset + 30 + nameBytes + compressedSize,
+		});
+		offset = entryEnd;
+	}
+	if (offset !== centralEnd || paths.size !== entries.size) {
+		throw archiveError("invalid_archive", "ZIP central directory count or size is invalid");
+	}
+	offsets.sort((left, right) => left.offset - right.offset);
+	if (offsets[0]?.offset !== 0) {
+		throw archiveError("invalid_archive", "ZIP first local entry offset is invalid");
+	}
+	for (const [index, entry] of offsets.entries()) {
+		const boundary = offsets[index + 1]?.offset ?? centralOffset;
+		const descriptorBytes = boundary - entry.dataEnd;
+		if (
+			entry.offset >= boundary ||
+			(entry.hasDescriptor
+				? descriptorBytes !== 12 && descriptorBytes !== 16
+				: descriptorBytes !== 0)
+		) {
+			throw archiveError("invalid_archive", "ZIP local entry offsets or boundaries are invalid");
+		}
+	}
+};
+
+const extractArchive = Effect.fn(function* <E>(
+	chunks: Stream.Stream<Uint8Array, E>,
+	directory: string,
+	fs: FileSystem.FileSystem,
+	limits: ArchiveLimits,
+) {
+	const entries = new Map<string, ExtractedEntry>();
+	const pendingWrites: Promise<unknown>[] = [];
+	let totalBytes = 0;
+	let archiveBytes = 0;
+	let failure: null | BackupArchiveError = null;
+	let entryCount = 0;
+	const tail = new BoundedTail(
+		limits.maxEntryCount * (ZIP_CENTRAL_HEADER_BYTES + MAX_ZIP_PATH_BYTES) +
+			ZIP_EOCD_BYTES +
+			ZIP_MAX_COMMENT_BYTES,
+	);
+	const unzip = new Unzip((file) => {
+		entryCount += 1;
+		const path = file.name;
+		if (entryCount > limits.maxEntryCount) {
+			failure = archiveError("entry_count_exceeded", "ZIP entry limit exceeded", path, {
+				actualCount: entryCount,
+				maxCount: limits.maxEntryCount,
+			});
+			return;
+		}
+		if (!validPath(path)) {
+			failure = archiveError("invalid_path", "ZIP entry path is unsafe", path);
+			return;
+		}
+		if (path.endsWith("/") || path.endsWith("\\")) {
+			failure = archiveError("unexpected_path", "ZIP directories are not allowed", path);
+			return;
+		}
+		if (!allowedPath(path)) {
+			failure = archiveError("unexpected_path", "Unexpected ZIP entry", path);
+			return;
+		}
+		if (entries.has(path)) {
+			failure = archiveError("duplicate_path", "Duplicate ZIP entry path", path);
+			return;
+		}
+		if (file.compression !== 0 && file.compression !== 8) {
+			failure = archiveError("unsupported_compression", "Unsupported ZIP compression", path);
+			return;
+		}
+		const isAsset = isBinaryPath(path);
+		const isSpooled = isAsset || SPOOLED_SECTION_PATHS.has(path);
+		const entryLimit = isSpooled ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
+		if (file.originalSize !== undefined && file.originalSize > entryLimit) {
+			failure = archiveEntryTooLarge(path, file.originalSize, entryLimit);
+			return;
+		}
+		const hash = new IncrementalSha256();
+		const buffered: Uint8Array[] = [];
+		const spoolName = isAsset ? path.replace("/", "-") : path;
+		const filePath = isSpooled ? `${directory}/${spoolName}` : undefined;
+		const writer = filePath === undefined ? undefined : Bun.file(filePath).writer();
+		entries.set(path, {
+			path,
+			bytes: 0,
+			sha256: "",
+			chunks: buffered,
+			compression: file.compression,
+			...(filePath ? { filePath } : {}),
+		});
+		file.ondata = (error, data, final) => {
+			if (failure !== null) {
+				return;
+			}
+			if (error !== null) {
+				failure = archiveError("invalid_archive", error.message, path);
+				return;
+			}
+			hash.update(data);
+			if (hash.bytes > entryLimit) {
+				failure = archiveEntryTooLarge(path, hash.bytes, entryLimit);
+				file.terminate();
+				return;
+			}
+			totalBytes += data.byteLength;
+			if (totalBytes > limits.maxTotalUncompressedBytes) {
+				failure = archiveError("total_size_exceeded", "ZIP total size limit exceeded", path, {
+					actualBytes: totalBytes,
+					maxBytes: limits.maxTotalUncompressedBytes,
+				});
+				file.terminate();
+				return;
+			}
+			if (writer === undefined) {
+				buffered.push(data.slice());
+			} else {
+				const write = writer.write(data);
+				if (write instanceof Promise) {
+					pendingWrites.push(write);
+				}
+			}
+			if (final) {
+				const completed = hash.digest();
+				if (writer === undefined) {
+					entries.set(path, {
+						path,
+						...completed,
+						chunks: buffered,
+						compression: file.compression,
+					});
+				} else if (filePath === undefined) {
+					failure = archiveError("invalid_archive", "Entry spool path is missing", path);
+					return;
+				} else {
+					entries.set(path, { path, ...completed, filePath, compression: file.compression });
+				}
+				const ended = writer?.end();
+				if (ended instanceof Promise) {
+					pendingWrites.push(ended);
+				}
+			}
+		};
+		file.start();
+	});
+	unzip.register(UnzipPassThrough);
+	unzip.register(UnzipInflate);
+	const flushWrites = () => {
+		const writes = pendingWrites.splice(0);
+		return writes.length === 0
+			? Effect.void
+			: Effect.tryPromise({
+					try: () => Promise.all(writes),
+					catch: () => archiveError("invalid_archive", "Could not spool backup archive entry"),
+				}).pipe(Effect.asVoid);
+	};
+	const checkFailure = () => (failure === null ? Effect.void : Effect.fail(failure));
+	yield* Stream.runForEach(chunks, (chunk) =>
+		Effect.try({
+			catch: () => archiveError("invalid_archive", "Invalid ZIP archive"),
+			try: () => {
+				archiveBytes += chunk.byteLength;
+				tail.update(chunk);
+				unzip.push(chunk);
+			},
+		}).pipe(
+			Effect.andThen(Effect.suspend(flushWrites)),
+			Effect.andThen(Effect.suspend(checkFailure)),
+		),
+	).pipe(
+		Effect.mapError((error) =>
+			error instanceof BackupArchiveError
+				? error
+				: archiveError("invalid_archive", "Could not read ZIP archive"),
+		),
+	);
+	yield* Effect.try({
+		try: () => unzip.push(new Uint8Array(0), true),
+		catch: () => archiveError("invalid_archive", "Invalid or truncated ZIP archive"),
+	});
+	yield* flushWrites();
+	yield* checkFailure();
+	yield* Effect.try({
+		try: () => validateZipStructure(tail.bytes(), archiveBytes, entries, limits),
+		catch: (error) =>
+			error instanceof BackupArchiveError
+				? error
+				: archiveError("invalid_archive", "ZIP structure validation failed"),
+	});
+	const validated = yield* Effect.try({
+		try: () => validateExtracted(entries, fs, limits),
+		catch: (error) =>
+			error instanceof BackupArchiveError
+				? error
+				: archiveError("invalid_archive", "Backup archive validation failed"),
+	});
+	for (const section of validated.manifest.sections) {
+		yield* Effect.logInfo("backup archive section validated").pipe(
+			Effect.annotateLogs({
+				count: section.count,
+				section: section.path,
+				bytes: entries.get(section.path)?.bytes,
+			}),
+		);
+	}
+	return validated;
+});
+
+type ValidateArchiveOptions = {
+	readonly directory?: string | undefined;
+	readonly limits?: undefined | Partial<ArchiveLimits>;
+};
+
+// The spool directory backs the streamed sections and assets the caller consumes, so it is owned
+// by the caller's scope: it survives every read and is removed on success, failure, and interruption
+// alike. Removal never fails the caller, so a committed restore stays committed.
+export const validateArchiveStream = Effect.fn(function* <E>(
+	stream: Stream.Stream<Uint8Array, E>,
+	options: ValidateArchiveOptions = {},
+) {
+	const fs = yield* FileSystem.FileSystem;
+	if (options.directory !== undefined) {
+		yield* fs.makeDirectory(options.directory, { recursive: true });
+	}
+	const directory = yield* fs.makeTempDirectory({
+		prefix: "ryot-backup-",
+		...(options.directory === undefined ? {} : { directory: options.directory }),
+	});
+	yield* Effect.addFinalizer(() =>
+		fs
+			.remove(directory, { force: true, recursive: true })
+			.pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("backup archive spool cleanup failed", cause),
+				),
+			),
+	);
+	const limits = { ...ARCHIVE_LIMITS, ...options.limits };
+	return yield* extractArchive(stream, directory, fs, limits);
+});
+
+export const validateArchive = Effect.fn(function* (
+	chunks: AsyncIterable<Uint8Array>,
+	options: ValidateArchiveOptions = {},
+) {
+	return yield* validateArchiveStream(
+		Stream.fromAsyncIterable(chunks, () =>
+			archiveError("invalid_archive", "Could not read archive"),
+		),
+		options,
+	);
+});

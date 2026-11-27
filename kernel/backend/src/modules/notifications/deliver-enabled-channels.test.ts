@@ -1,0 +1,792 @@
+import { expect } from "bun:test";
+
+import { DbError } from "@ryot-app/contract/errors";
+import {
+	NotificationAdmissionConflictError,
+	NotificationAdmissionUnavailableError,
+} from "@ryot-app/contract/modules/notifications/schemas";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { unavailableMessage } from "@ryot-app/i18n/message";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
+import { eq } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Ref } from "effect";
+import { TestClock } from "effect/testing";
+
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { resolveEntityMessage } from "#modules/entities/localization/message";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { RyotQLService } from "#modules/ryotql/service";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
+import { MessageRegistry } from "#platform/messages";
+import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
+import { user } from "#schema/tables/auth";
+import { entity, entityTranslation } from "#schema/tables/combined";
+import { job } from "#schema/tables/jobs";
+import { makeAppConfigLayer } from "#testing/effect";
+
+import { NotificationAdmissions } from "./admission";
+import { deliverEnabledChannels } from "./deliver-enabled-channels";
+import {
+	NotificationDeliveryError,
+	NotificationDeliveryService,
+	type NotificationText,
+} from "./delivery";
+import { NotificationDeliveryJob, runNotificationDelivery } from "./delivery-job";
+import { NotificationDeliveryRepository } from "./delivery-repository";
+import type { NotificationAdmission } from "./ledger";
+import { NOTIFICATION_CHANNEL_LIMIT } from "./ledger";
+import { NotificationsRepository } from "./repository";
+import { NotificationSourcePolicy } from "./source-policy";
+
+const owner = UserId.make("owner");
+const accountUserId = owner;
+const admissionInput = (sourceKey: string): NotificationAdmission => ({
+	sourceKey,
+	userId: owner,
+	accountUserId,
+	sourceRunId: "run-1",
+	sourceSubmittedAt: null,
+	request: { kind: "message", message: kernelMessage("notification.title") },
+});
+
+const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
+	const session = yield* DatabaseSession;
+	const id = UserId.make(yield* randomUuid);
+	yield* session.run((db) =>
+		db.insert(user).values({ id, name: "Recipient", email: `${id}@example.test` }),
+	);
+	return { ...admissionInput(sourceKey), userId: id, accountUserId: id };
+});
+
+class DeliveryEvidence extends Context.Service<
+	DeliveryEvidence,
+	{
+		readonly sent: Effect.Effect<ReadonlyArray<string>>;
+		readonly texts: Effect.Effect<ReadonlyArray<NotificationText>>;
+	}
+>()(
+	"@ryot-app/kernel-backend/modules/notifications/deliver-enabled-channels.test/DeliveryEvidence",
+) {}
+
+const recordingTransports = Layer.effectContext(
+	Effect.gen(function* () {
+		const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+		const texts = yield* Ref.make<ReadonlyArray<NotificationText>>([]);
+		const send = ({
+			text,
+			channelSpecifics,
+		}: Parameters<NotificationDeliveryService["Service"]["prepare"]>[0]) =>
+			Effect.gen(function* () {
+				yield* Ref.update(sent, (all) => [...all, channelSpecifics.kind]);
+				yield* Ref.update(texts, (all) => [...all, text]);
+				if (channelSpecifics.kind === "telegram") {
+					return yield* new NotificationDeliveryError({ outcome: "failed", message: "Rejected" });
+				}
+				return yield* Effect.void;
+			});
+		return Context.make(NotificationDeliveryService, {
+			prepare: (input) => Effect.succeed({ execute: send(input) }),
+		}).pipe(Context.add(DeliveryEvidence, { sent: Ref.get(sent), texts: Ref.get(texts) }));
+	}),
+);
+
+const dependencies = Layer.mergeAll(
+	NotificationDeliveryRepository.layer,
+	NotificationsRepository.layer,
+	AuthRepository.layer,
+	RyotQLService.layer,
+	kernelMessageRegistryLayer,
+	JobQueue.layer,
+	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
+const services = NotificationAdmissions.layer.pipe(
+	Layer.provideMerge(dependencies),
+	Layer.provideMerge(recordingTransports),
+	Layer.provideMerge(makeAppConfigLayer()),
+);
+
+layer(services)((test) => {
+	test.effect(
+		"resolves nested entity arguments with recipient visibility and fresh content translations",
+		() =>
+			Effect.gen(function* () {
+				const recipient = yield* freshInput("entity-messages");
+				const other = yield* freshInput("foreign-entity-messages");
+				const session = yield* DatabaseSession;
+				const id = yield* randomUuid;
+				const privateId = yield* randomUuid;
+				yield* session.run((db) =>
+					db.insert(entity).values([
+						{
+							id,
+							name: "Canonical",
+							contentGeneration: 2,
+							userId: recipient.userId,
+							entitySchemaSlug: "collection",
+						},
+						{
+							id: privateId,
+							name: "Private",
+							userId: other.userId,
+							entitySchemaSlug: "collection",
+						},
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(entityTranslation)
+						.values({ entityId: id, language: "fr", name: "Traduit", sourceContentGeneration: 2 }),
+				);
+				const message = kernelMessage("notification.reminder-due", {
+					timeZone: "UTC",
+					message: "Authored",
+					entityTitle: { entityId: id },
+					dueAt: { timeZone: "UTC", date: yield* DateTime.nowAsDate },
+				});
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, "fr")).params?.["entityTitle"],
+				).toBe("Traduit");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: recipient.userId,
+					channelSpecifics: { kind: "ntfy", topic: "localized" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit({
+					...recipient,
+					request: { message, kind: "message" },
+				});
+				yield* session.run((db) =>
+					db
+						.update(user)
+						.set({ preferences: { ...defaultUserPreferences, contentLanguage: "fr" } })
+						.where(eq(user.id, recipient.userId)),
+				);
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: recipient.userId,
+				});
+				expect((yield* (yield* DeliveryEvidence).texts).at(-1)?.body).toStartWith(
+					"Traduit: Authored",
+				);
+
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, null)).params?.["entityTitle"],
+				).toBe("Canonical");
+				yield* session.run((db) =>
+					db.update(entity).set({ contentGeneration: 3 }).where(eq(entity.id, id)),
+				);
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, "fr")).params?.["entityTitle"],
+				).toBe("Canonical");
+				const nested = kernelMessage("notification.integration-disabled", {
+					provider: {
+						...message,
+						params: { ...message.params, entityTitle: { entityId: privateId } },
+					},
+				});
+				expect(yield* resolveEntityMessage(nested, recipient.userId, "fr")).toEqual(
+					kernelMessage("notification.integration-disabled", {
+						provider: {
+							...message,
+							params: { ...message.params, entityTitle: kernelMessage("message.unavailable") },
+						},
+					}),
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"queues one delivery job for an admission with channels and none without",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const admissions = yield* NotificationAdmissions;
+				const submission = yield* freshInput("queued");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* admissions.admit(submission);
+				yield* admissions.admit(submission);
+				const empty = yield* freshInput("unqueued");
+				yield* admissions.admit(empty);
+				const queued = yield* session.run((db) =>
+					db.select().from(job).where(eq(job.kind, NotificationDeliveryJob.name)),
+				);
+				expect(
+					queued
+						.filter((row) => row.userId === submission.userId || row.userId === empty.userId)
+						.map((row) => row.payload),
+				).toEqual([{ notificationId: admitted.id, accountUserId: submission.accountUserId }]);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"defers capacity overflow without consuming the source identity",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("capacity");
+				const channels = yield* NotificationsRepository;
+				const selected = yield* Effect.forEach(
+					Array.from({ length: NOTIFICATION_CHANNEL_LIMIT + 1 }, (_, index) => index),
+					(index) =>
+						channels.createForUser({
+							isDisabled: false,
+							userId: submission.userId,
+							channelSpecifics: { kind: "ntfy", topic: `topic-${index}` },
+						}),
+					{ concurrency: 4 },
+				);
+				const admissions = yield* NotificationAdmissions;
+				const result = yield* admissions.admit(submission).pipe(Effect.exit);
+				assertExitFails(
+					result,
+					new NotificationAdmissionUnavailableError({
+						reason: { code: "channel-capacity", limit: NOTIFICATION_CHANNEL_LIMIT },
+					}),
+				);
+				const last = selected.at(-1);
+				if (last) {
+					yield* channels.updateForUser({
+						channelId: last.id,
+						userId: submission.userId,
+						body: { isDisabled: true },
+					});
+				}
+				const admitted = yield* admissions.admit(submission);
+				expect(yield* (yield* NotificationDeliveryRepository).deliveries(admitted.id)).toHaveLength(
+					NOTIFICATION_CHANNEL_LIMIT,
+				);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"records a definite preparation failure without a Sending claim",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("preparation-failure");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "email", recipient: "test@example.test" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				}).pipe(
+					Effect.provideService(NotificationDeliveryService, {
+						prepare: () =>
+							Effect.fail(
+								new NotificationDeliveryError({
+									outcome: "failed",
+									message: "SMTP is not configured",
+								}),
+							),
+					}),
+				);
+				const ledger = yield* NotificationDeliveryRepository;
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("failed");
+				expect((yield* ledger.deliveries(admitted.id))[0]).toMatchObject({
+					attemptId: null,
+					status: "failed",
+					reason: "preparation-failed",
+				});
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"preserves partial success across independent channels",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("partial");
+				const channels = yield* NotificationsRepository;
+				yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { chatId: "chat", kind: "telegram", botToken: "secret" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				});
+				const ledger = yield* NotificationDeliveryRepository;
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("partial");
+				expect((yield* ledger.deliveries(admitted.id)).map(({ status }) => status).sort()).toEqual([
+					"accepted",
+					"failed",
+				]);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"skips disabled and deleted channels while preserving historical channel identity",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("removed-channels");
+				const channels = yield* NotificationsRepository;
+				const disabled = yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const deleted = yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { chatId: "chat", kind: "telegram", botToken: "secret" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				yield* channels.updateForUser({
+					channelId: disabled.id,
+					userId: submission.userId,
+					body: { isDisabled: true },
+				});
+				yield* channels.deleteForUser({ channelId: deleted.id, userId: submission.userId });
+				const before = (yield* (yield* DeliveryEvidence).sent).length;
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				});
+				const ledger = yield* NotificationDeliveryRepository;
+				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("not-sent");
+				const results = yield* ledger.deliveries(admitted.id);
+				expect(results.find((row) => row.channelId === disabled.id)).toMatchObject({
+					attemptId: null,
+					status: "skipped",
+					reason: "channel-disabled",
+				});
+				expect(results.find((row) => row.channelId === deleted.id)).toMatchObject({
+					attemptId: null,
+					status: "skipped",
+					reason: "channel-deleted",
+					description: deleted.description,
+				});
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"sends when a disabled channel is re-enabled before its claim",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("reenabled-before-claim");
+				const channels = yield* NotificationsRepository;
+				const channel = yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				yield* channels.updateForUser({
+					channelId: channel.id,
+					userId: submission.userId,
+					body: { isDisabled: true },
+				});
+				const evidence = yield* DeliveryEvidence;
+				const before = (yield* evidence.sent).length;
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				}).pipe(
+					Effect.provideService(NotificationsRepository, {
+						...channels,
+						findForUser: (input) =>
+							Effect.gen(function* () {
+								const captured = yield* channels.findForUser(input);
+								if (captured?.isDisabled) {
+									yield* channels.updateForUser({
+										userId: input.userId,
+										channelId: input.channelId,
+										body: { isDisabled: false },
+									});
+								}
+								return captured;
+							}),
+					}),
+				);
+				const ledger = yield* NotificationDeliveryRepository;
+				expect((yield* evidence.sent).length - before).toBe(1);
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
+				expect((yield* ledger.deliveries(admitted.id))[0]?.status).toBe("accepted");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"marks server-disabled delivery Not sent instead of Accepted",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("server-disabled");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				const before = (yield* (yield* DeliveryEvidence).sent).length;
+				const config = yield* AppConfig;
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				}).pipe(
+					Effect.provideService(AppConfig, {
+						...config,
+						server: { ...config.server, disableNotifications: true },
+					}),
+				);
+				const ledger = yield* NotificationDeliveryRepository;
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("not-sent");
+				expect((yield* ledger.deliveries(admitted.id))[0]).toMatchObject({
+					attemptId: null,
+					status: "skipped",
+					reason: "server-disabled",
+				});
+				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"deduplicates concurrent admissions, rejects changed content, and preserves the selected channel set",
+		() =>
+			Effect.gen(function* () {
+				const admissions = yield* NotificationAdmissions;
+				const channels = yield* NotificationsRepository;
+				const ledger = yield* NotificationDeliveryRepository;
+				const submission = yield* freshInput("concurrent");
+				const first = yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const results = yield* Effect.all(
+					[admissions.admit(submission), admissions.admit(submission)],
+					{ concurrency: 2 },
+				);
+				expect(results[0]).toEqual(results[1]);
+				const admitted = results[0];
+				yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { chatId: "chat", kind: "telegram", botToken: "secret" },
+				});
+				expect((yield* ledger.deliveries(admitted.id)).map((row) => row.channelId)).toEqual([
+					first.id,
+				]);
+				const conflict = yield* admissions
+					.admit({
+						...submission,
+						request: { kind: "message", message: kernelMessage("notification.email.heading") },
+					})
+					.pipe(Effect.exit);
+				assertExitFails(
+					conflict,
+					new NotificationAdmissionConflictError({ reason: { code: "source-content-conflict" } }),
+				);
+				const before = (yield* (yield* DeliveryEvidence).sent).length;
+				yield* Effect.all(
+					[
+						deliverEnabledChannels({
+							notificationId: admitted.id,
+							accountUserId: submission.accountUserId,
+						}),
+						deliverEnabledChannels({
+							notificationId: admitted.id,
+							accountUserId: submission.accountUserId,
+						}),
+					],
+					{ concurrency: 2 },
+				);
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				});
+				expect((yield* (yield* DeliveryEvidence).sent).slice(before)).toEqual(["ntfy"]);
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"retries a failed outcome write without repeating the provider request",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* freshInput("persist-retry");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				const ledger = yield* NotificationDeliveryRepository;
+				const writes = yield* Ref.make(0);
+				const before = (yield* (yield* DeliveryEvidence).sent).length;
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				}).pipe(
+					Effect.provideService(NotificationDeliveryRepository, {
+						...ledger,
+						finishAttempt: (input) =>
+							Effect.gen(function* () {
+								const attempt = yield* Ref.getAndUpdate(writes, (count) => count + 1);
+								if (attempt === 0) {
+									return yield* new DbError({ message: "Persistence temporarily unavailable" });
+								}
+								return yield* ledger.finishAttempt(input);
+							}),
+					}),
+					TestClock.withLive,
+				);
+				expect(yield* Ref.get(writes)).toBe(2);
+				expect((yield* (yield* DeliveryEvidence).sent).length - before).toBe(1);
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"settles no-channel work as Not sent without inventing a successful send",
+		() =>
+			Effect.gen(function* () {
+				const admissions = yield* NotificationAdmissions;
+				const ledger = yield* NotificationDeliveryRepository;
+				const result = yield* admissions.admit(yield* freshInput("empty"));
+				expect((yield* ledger.find(result.id))?.outcome).toBe("not-sent");
+				expect(yield* ledger.deliveries(result.id)).toEqual([]);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"does not reuse an existing Sending claim and marks only expired attempts Unknown",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const admissions = yield* NotificationAdmissions;
+				const channels = yield* NotificationsRepository;
+				const ledger = yield* NotificationDeliveryRepository;
+				const submission = yield* freshInput("interrupted");
+				const account = submission.accountUserId;
+				const channel = yield* channels.createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "interrupted" },
+				});
+				const admitted = yield* admissions.admit(submission);
+				const now = yield* DateTime.nowAsDate;
+				const claim = yield* session.transaction(
+					ledger.claim({
+						now,
+						disabled: false,
+						channelId: channel.id,
+						attemptId: "original",
+						sourceAuthorized: true,
+						notificationId: admitted.id,
+					}),
+				);
+				expect(claim).not.toBeNull();
+				const before = (yield* (yield* DeliveryEvidence).sent).length;
+				assertExitFails(
+					yield* runNotificationDelivery(
+						{ accountUserId: account, notificationId: admitted.id },
+						{ id: "job", attempt: 1 },
+					).pipe(Effect.exit),
+					new DbError({ message: "Notification has an unsettled Sending claim" }),
+				);
+				expect((yield* ledger.deliveries(admitted.id))[0]?.status).toBe("sending");
+				yield* TestClock.adjust("61 seconds");
+				yield* runNotificationDelivery(
+					{ accountUserId: account, notificationId: admitted.id },
+					{ id: "job", attempt: 1 },
+				);
+				expect((yield* ledger.find(admitted.id))?.outcome).toBe("unknown");
+				yield* deliverEnabledChannels({ accountUserId: account, notificationId: admitted.id });
+				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
+				yield* session.transaction(
+					ledger.finishAttempt({
+						diagnostic: null,
+						status: "accepted",
+						channelId: channel.id,
+						attemptId: "original",
+						notificationId: admitted.id,
+						now: yield* DateTime.nowAsDate,
+					}),
+				);
+				expect((yield* ledger.deliveries(admitted.id))[0]?.status).toBe("unknown");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"keeps compact source evidence when detailed diagnostics expire",
+		() =>
+			Effect.gen(function* () {
+				const ledger = yield* NotificationDeliveryRepository;
+				const session = yield* DatabaseSession;
+				const submission = yield* freshInput("retention");
+				const channel = yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
+				const now = yield* DateTime.nowAsDate;
+				yield* session.transaction(
+					ledger.claim({
+						now,
+						disabled: false,
+						channelId: channel.id,
+						attemptId: "retained",
+						sourceAuthorized: true,
+						notificationId: admitted.id,
+					}),
+				);
+				yield* session.transaction(
+					ledger.finishAttempt({
+						now,
+						status: "unknown",
+						channelId: channel.id,
+						attemptId: "retained",
+						diagnostic: "Unknown",
+						notificationId: admitted.id,
+					}),
+				);
+				yield* session.transaction(ledger.settle(admitted.id, now));
+				yield* TestClock.adjust("31 days");
+				yield* ledger.pruneDiagnostics(yield* DateTime.nowAsDate);
+				expect((yield* ledger.deliveries(admitted.id))[0]).toMatchObject({
+					diagnostic: null,
+					status: "unknown",
+					attemptId: "retained",
+				});
+				expect((yield* (yield* NotificationAdmissions).admit(submission)).id).toBe(admitted.id);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"renders each notification in the recipient's interface locale",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const admissions = yield* NotificationAdmissions;
+				const messages = yield* MessageRegistry;
+				const deliver = Effect.fnUntraced(function* (
+					submission: NotificationAdmission,
+					interfaceLocale: null | string,
+				) {
+					yield* session.run((db) =>
+						db
+							.update(user)
+							.set({ preferences: { ...defaultUserPreferences, interfaceLocale } })
+							.where(eq(user.id, submission.userId)),
+					);
+					yield* (yield* NotificationsRepository).createForUser({
+						isDisabled: false,
+						userId: submission.userId,
+						channelSpecifics: { kind: "ntfy", topic: "topic" },
+					});
+					const admitted = yield* admissions.admit(submission);
+					yield* deliverEnabledChannels({
+						notificationId: admitted.id,
+						accountUserId: submission.accountUserId,
+					});
+					return (yield* (yield* DeliveryEvidence).texts).at(-1);
+				});
+				const disabled = kernelMessage("notification.integration-disabled", { provider: "kodi" });
+				const { render: pseudo } = yield* messages.renderer("en-XA", []);
+				expect(
+					yield* deliver(
+						{ ...(yield* freshInput("pseudo")), request: { kind: "message", message: disabled } },
+						"en-XA",
+					),
+				).toEqual({
+					locale: "en-XA",
+					direction: "ltr",
+					body: pseudo(disabled),
+					title: pseudo(kernelMessage("notification.title")),
+					email: {
+						heading: pseudo(kernelMessage("notification.email.heading")),
+						preview: pseudo(kernelMessage("notification.email.preview")),
+						subject: pseudo(kernelMessage("notification.email.subject")),
+					},
+				});
+				expect(pseudo(disabled)).not.toBe(
+					"Integration kodi has been disabled due to too many errors",
+				);
+				const reminder = yield* deliver(
+					{
+						...(yield* freshInput("australian")),
+						request: {
+							kind: "message",
+							message: kernelMessage("notification.reminder-due", {
+								message: "Read",
+								timeZone: "UTC",
+								entityTitle: "Dune",
+								dueAt: {
+									timeZone: "UTC",
+									date: DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-15T12:00:00.000Z")),
+								},
+							}),
+						},
+					},
+					"en-AU",
+				);
+				expect(reminder?.locale).toBe("en");
+				expect(reminder?.body).toContain("Scheduled for 15 Nov 2026");
+				const { render: english } = yield* messages.renderer("en", []);
+				const uninstalled = { namespace: "uninstalled", key: "notification.removed" };
+				expect(
+					(yield* deliver(
+						{
+							...(yield* freshInput("unavailable")),
+							request: { kind: "message", message: uninstalled },
+						},
+						null,
+					))?.body,
+				).toBe(english(unavailableMessage));
+				expect(
+					(yield* deliver({ ...(yield* freshInput("test")), request: { kind: "test" } }, null))
+						?.body,
+				).toBe(Text("This is a test notification sent through ntfy."));
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"rejects delivery once its account is being retired",
+		() =>
+			Effect.gen(function* () {
+				const admissions = yield* NotificationAdmissions;
+				const submission = yield* freshInput("retired");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: submission.userId,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const admitted = yield* admissions.admit(submission);
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.update(user).set({ retiringAt: new Date() }).where(eq(user.id, submission.userId)),
+				);
+				const result = yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: submission.accountUserId,
+				}).pipe(Effect.exit);
+				assertExitFails(
+					result,
+					new DbError({ message: "Mutation command account is being retired" }),
+				);
+			}),
+		testTimeout,
+	);
+});

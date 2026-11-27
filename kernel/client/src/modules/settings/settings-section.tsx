@@ -1,0 +1,20 @@
+import type { Text } from "@ryot-app/i18n/text";
+import type { ReactNode } from "react";
+
+type SettingsSectionProps = {
+	readonly title: Text;
+	readonly detail: Text;
+	readonly children: ReactNode;
+};
+
+export function SettingsSection(props: SettingsSectionProps) {
+	return (
+		<section className="flex flex-col gap-3">
+			<div className="flex flex-col gap-0.5">
+				<h2 className="text-heading font-semibold text-text">{props.title}</h2>
+				<p className="text-sm text-text-muted">{props.detail}</p>
+			</div>
+			{props.children}
+		</section>
+	);
+}

@@ -1,0 +1,59 @@
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
+
+import {
+	episodicEpisodesRecipe,
+	episodicParentCoverageQuery,
+	mediaEpisodicRecipes,
+} from "../../../shared/episodic-recipes";
+import { podcastEpisodicKindConfig } from "../../../shared/lifecycle-expressions";
+
+const EPISODE_RELATIONSHIP = "podcast-to-podcast-episode";
+
+export const episodicFixtureRecipes = mediaEpisodicRecipes({
+	slug: "podcast",
+	alias: "fixture",
+	orderProperties: [],
+	summaryFields: () => ({}),
+	episodeFields: () => ({}),
+	presentationFields: () => ({}),
+	extraOverviewQueries: () => ({}),
+	config: podcastEpisodicKindConfig,
+	activityEpisode: (row) => ({
+		id: row.episodeId,
+		name: row.episodeName,
+		runtime: row.episodeRuntime,
+		episodeNumber: row.episodeNumber,
+	}),
+	coverageQuery: episodicParentCoverageQuery({
+		slug: "podcast",
+		alias: "fixture",
+		episodeSchemaSlug: "podcast-episode",
+		relationshipSlug: EPISODE_RELATIONSHIP,
+	}),
+});
+
+export const episodicFixtureEpisodesRecipe = episodicEpisodesRecipe({
+	order: "desc",
+	alias: "fixtureEpisode",
+	extraFields: () => ({}),
+	episodeSchemaSlug: "podcast-episode",
+	relationshipSlug: EPISODE_RELATIONSHIP,
+});
+
+export type EpisodicFixtureSummaryResult = Recipe.Success<
+	ReturnType<typeof episodicFixtureRecipes.summaryRecipe>
+>;
+export type EpisodicFixtureActivityResult = Recipe.Success<
+	ReturnType<typeof episodicFixtureRecipes.activityRecipe>
+>;
+export type EpisodicFixtureOverviewResult = Recipe.Success<
+	ReturnType<typeof episodicFixtureRecipes.overviewRecipe>
+>;
+export type EpisodicFixtureEpisode = Recipe.Success<
+	ReturnType<typeof episodicFixtureEpisodesRecipe>
+>["items"][number];
+export type EpisodicFixturePresentationData =
+	typeof episodicFixtureRecipes.presentationSource extends SelectedRowsSource<infer Data>
+		? Data
+		: never;

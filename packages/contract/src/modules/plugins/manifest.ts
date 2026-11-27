@@ -1,0 +1,1847 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
+import { Result, Schema, SchemaGetter } from "effect";
+
+import { PluginPackageId, SignalSchemaSlug } from "../../schema/brands";
+import { Entitlement } from "../../schema/entitlement";
+import { JsonValue } from "../../schema/json";
+import {
+	type AppPropertyDefinition,
+	type AppSchema,
+	appSchemaTexts,
+} from "../../schema/property-schema";
+import { HttpUrl, strictStruct } from "../../schema/utils";
+import { isSupportedUploadFileExtension } from "../assets/upload-policy";
+import {
+	AutomationAfterInputProjection,
+	AutomationPolicyInputProjection,
+	AutomationRetryPolicy,
+	AutomationSource,
+} from "../automations/lifecycle";
+import { authoredBrowseFieldTexts, AuthoredEntitySchemaBrowse } from "../filters/browse";
+import { relationshipEnds } from "../relationships/orientation";
+import {
+	FieldSelection,
+	Include,
+	mapScalarExpression,
+	pluginIdentityReferences,
+	PluginRyotQLDocument,
+} from "../ryotql/authored";
+import { OutputFieldKey } from "../ryotql/language";
+import {
+	AuthoredRowText,
+	rowSourceAliases,
+	rowSourceDocument,
+	RowSourcePrecision,
+	rowSourceProjectedKeys,
+	RowSourceQuery,
+} from "../ryotql/row-source";
+import {
+	AuthoredSavedViewSubject,
+	authoredSavedViewTexts,
+	withAuthoredSavedViewConfig,
+} from "../saved-views/schemas";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
+import { PluginEventGroup } from "./event-groups";
+import {
+	hasReachableExternalEffects,
+	hasValidExecutableDependencies,
+	SourcePlan,
+} from "./execution";
+import { SandboxExecutionMetadata } from "./execution-metadata";
+import { AuthoredAppSchema, type AuthoredSchemaText, ManifestText } from "./manifest-text";
+import { pluginConfigEnvironmentKey } from "./plugin-config";
+import { presentationDeclarationIssue } from "./presentation";
+import { ProviderRelatedInputs, ProviderTranslationInputs } from "./provider-inputs";
+import {
+	AuthoredEventSchemaReference,
+	AuthoredRelationshipSchemaReference,
+	KernelDefinitionOwner,
+	type PluginIdentityReference,
+	PluginPackageReference,
+} from "./references";
+
+export const CLIENT_API_VERSION = 1 as const;
+
+export const comparePluginRoutePaths = (left: string, right: string) => {
+	const leftSegments = left.split("/");
+	const rightSegments = right.split("/");
+	for (let index = 0; index < Math.max(leftSegments.length, rightSegments.length); index += 1) {
+		const leftSegment = leftSegments[index] ?? "";
+		const rightSegment = rightSegments[index] ?? "";
+		const dynamicOrder = Number(leftSegment.startsWith("$")) - Number(rightSegment.startsWith("$"));
+		if (dynamicOrder !== 0) {
+			return dynamicOrder;
+		}
+		const segmentOrder = leftSegment.localeCompare(rightSegment);
+		if (segmentOrder !== 0) {
+			return segmentOrder;
+		}
+	}
+	return left.localeCompare(right);
+};
+
+export const pluginManifestSlug = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a plugin manifest slug",
+		),
+	),
+);
+
+const PluginClientSourceEntry = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((entry) =>
+			canonicalRelativePosixPathIssue(entry) === null &&
+			entry.startsWith("client/") &&
+			(entry.endsWith(".ts") || entry.endsWith(".tsx"))
+				? true
+				: "Expected a canonical client/**/*.ts or client/**/*.tsx entry",
+		),
+	),
+);
+
+const hasDynamicChoices = (property: AppPropertyDefinition<unknown>): boolean => {
+	if (
+		(property.type === "enum" || property.type === "enum-array") &&
+		property.choices.kind === "dynamic"
+	) {
+		return true;
+	}
+	if (property.type === "array") {
+		return hasDynamicChoices(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasDynamicChoices);
+	}
+	return false;
+};
+
+const hasUploadFormat = (property: AppPropertyDefinition<unknown>): boolean => {
+	if (property.type === "string") {
+		return property.format?.kind === "upload";
+	}
+	if (property.type === "array") {
+		return hasUploadFormat(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasUploadFormat);
+	}
+	return false;
+};
+
+const unsupportedUploadFileExtension = (
+	property: AppPropertyDefinition<unknown>,
+): string | undefined => {
+	if (property.type === "string" && property.format?.kind === "upload") {
+		return property.format.allowedFileExtensions.find(
+			(extension) => !isSupportedUploadFileExtension(extension),
+		);
+	}
+	if (property.type === "array") {
+		return unsupportedUploadFileExtension(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties)
+			.map(unsupportedUploadFileExtension)
+			.find((extension) => extension !== undefined);
+	}
+	return undefined;
+};
+
+const hasOAuthConnectionFormat = (property: AppPropertyDefinition<unknown>): boolean => {
+	if (property.type === "string") {
+		return property.format?.kind === "oauth-connection";
+	}
+	if (property.type === "array") {
+		return hasOAuthConnectionFormat(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasOAuthConnectionFormat);
+	}
+	return false;
+};
+
+const rejectsOAuthConnectionFormats = Schema.makeFilter(
+	(schema: AppSchema<unknown>) =>
+		Object.values(schema.fields).every((property) => !hasOAuthConnectionFormat(property)) ||
+		"OAuth connection fields are only supported by integration provider settings schemas",
+);
+
+const AppSchemaWithoutUploads = Schema.toType(AuthoredAppSchema).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every((property) => !hasUploadFormat(property)) ||
+				"Upload fields are only supported by import input schemas",
+		),
+	),
+);
+
+const PluginAppSchema = AppSchemaWithoutUploads.pipe(Schema.check(rejectsOAuthConnectionFormats));
+
+const hasSecretField = (property: AppPropertyDefinition<unknown>): boolean =>
+	property.secret === true ||
+	(property.type === "array" && hasSecretField(property.items)) ||
+	(property.type === "object" && Object.values(property.properties).some(hasSecretField));
+
+const isUserSettingsProperty = (property: AppPropertyDefinition<unknown>): boolean => {
+	if (property.type === "object") {
+		return false;
+	}
+	if (property.type === "array") {
+		return ["number", "string", "boolean", "integer"].includes(property.items.type);
+	}
+	if (property.type === "enum" || property.type === "enum-array") {
+		return property.choices.kind === "static";
+	}
+	return true;
+};
+
+export const PluginUserSettingsSchema = PluginAppSchema.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every((property) => !hasSecretField(property)) ||
+				"Plugin user settings cannot contain secret fields",
+		),
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every(isUserSettingsProperty) ||
+				"Plugin user settings require primitive fields, primitive arrays, or static choices",
+		),
+	),
+);
+
+const IntegrationSettingsSchema = AppSchemaWithoutUploads.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every(
+					(property) => property.type === "string" || !hasOAuthConnectionFormat(property),
+				) || "OAuth connection fields must be top-level string settings",
+		),
+	),
+);
+
+const PluginClientExportFields = {
+	entry: PluginClientSourceEntry,
+	automaticEntityPresentations: Schema.Boolean,
+};
+
+export const PluginClientExport = Schema.Union([
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("component") }),
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("analytics-section") }),
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("presentation") }),
+	strictStruct({
+		...PluginClientExportFields,
+		kind: Schema.Literal("page"),
+		settingsSchema: PluginAppSchema,
+	}),
+]);
+
+export type PluginClientExport = Schema.Schema.Type<typeof PluginClientExport>;
+
+const isPluginManifestSlug = Schema.is(pluginManifestSlug);
+
+const pluginManifestSlugKeys = Schema.makeFilter((record: Readonly<Record<string, unknown>>) =>
+	Object.keys(record).every(isPluginManifestSlug) ? true : "Expected plugin manifest slug keys",
+);
+
+const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pipe(
+	Schema.check(pluginManifestSlugKeys),
+);
+
+export const PluginDependencies = Schema.Record(Schema.String, PluginPackageReference).pipe(
+	Schema.check(pluginManifestSlugKeys),
+);
+
+export const PluginEntityPresentation = strictStruct({
+	owner: Schema.Array(FieldSelection),
+	entity: Schema.Array(FieldSelection),
+	settings: Schema.optional(Schema.Boolean),
+	ownerIncludes: Schema.optional(Schema.NonEmptyArray(Include)),
+});
+export type PluginEntityPresentation = typeof PluginEntityPresentation.Type;
+
+export const PluginClientEntities = Schema.Record(
+	pluginManifestSlug,
+	strictStruct({
+		createRoute: Schema.optional(Schema.String),
+		detailPage: Schema.optional(pluginManifestSlug),
+		gridPresentation: Schema.optional(pluginManifestSlug),
+		listPresentation: Schema.optional(pluginManifestSlug),
+		presentation: Schema.optional(PluginEntityPresentation),
+	}),
+);
+
+const COLLECTION_PAGE_ROUTE_PARAM = "$collectionId";
+
+export const PluginClientCollectionPages = Schema.Record(
+	pluginManifestSlug,
+	strictStruct({
+		label: ManifestText,
+		route: Schema.String,
+		icon: Schema.NonEmptyString,
+		entitySchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+	}),
+);
+
+export const collectionPagePath = (route: string, collectionId: string) =>
+	route
+		.split("/")
+		.map((segment) =>
+			segment === COLLECTION_PAGE_ROUTE_PARAM ? encodeURIComponent(collectionId) : segment,
+		)
+		.join("/");
+
+export const PLUGIN_ASSISTANT_STARTERS_MAX = 3;
+export const PluginAssistantStarters = Schema.Array(ManifestText).check(
+	Schema.isMaxLength(PLUGIN_ASSISTANT_STARTERS_MAX),
+);
+
+const PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH = 2_000;
+
+export const PluginClientEntry = strictStruct({
+	homeView: Schema.NullOr(pluginManifestSlug),
+	exports: Schema.optional(PluginClientExports),
+	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+	entities: Schema.optional(PluginClientEntities),
+	notFoundPage: Schema.optional(pluginManifestSlug),
+	assistantStarters: Schema.optional(PluginAssistantStarters),
+	collectionPages: Schema.optional(PluginClientCollectionPages),
+	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
+	assistantInstructions: Schema.optional(
+		Schema.NonEmptyString.check(Schema.isMaxLength(PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH)),
+	),
+	analyticsSections: Schema.optional(
+		Schema.Record(
+			pluginManifestSlug,
+			strictStruct({
+				name: ManifestText,
+				sortOrder: Schema.Finite,
+				icon: Schema.NonEmptyString,
+				exportName: pluginManifestSlug,
+			}),
+		),
+	),
+});
+
+export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
+
+export const PluginMetadata = strictStruct({
+	name: ManifestText,
+	icon: Schema.String,
+	version: Schema.String,
+	description: ManifestText,
+	packageId: PluginPackageId,
+});
+
+export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
+
+export const PluginProjection = strictStruct({ propertiesSchema: PluginAppSchema });
+
+export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
+
+export const PluginEventSchema = strictStruct({
+	name: ManifestText,
+	slug: pluginManifestSlug,
+	propertiesSchema: PluginAppSchema,
+	eventGroup: Schema.optional(PluginEventGroup),
+	projection: Schema.optional(PluginProjection),
+});
+
+export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
+
+export const PluginEntityUserStatePolicy = strictStruct({
+	deniedOperations: Schema.Array(Schema.Literals(["clear", "merge"])),
+	relationships: Schema.optional(Schema.Array(AuthoredRelationshipSchemaReference)),
+	evidence: Schema.optional(
+		Schema.Array(
+			strictStruct({
+				subjectProperty: Schema.NonEmptyString,
+				eventSchema: AuthoredEventSchemaReference,
+				transient: Schema.optional(Schema.Boolean),
+			}),
+		),
+	),
+	children: Schema.optional(
+		Schema.Array(
+			strictStruct({
+				entitySchemaSlug: pluginManifestSlug,
+				matchName: Schema.optional(Schema.Boolean),
+				path: Schema.NonEmptyArray(pluginManifestSlug),
+				identityProperties: Schema.NonEmptyArray(Schema.NonEmptyString),
+			}),
+		),
+	),
+});
+
+export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;
+
+export const PluginEntityEditorRelationship = strictStruct({
+	slug: Schema.NonEmptyString,
+	direction: Schema.Literals(["outgoing", "incoming", "parent"]),
+});
+
+export type PluginEntityEditorRelationship = Schema.Schema.Type<
+	typeof PluginEntityEditorRelationship
+>;
+
+export const PluginEntityEditor = strictStruct({
+	deletable: Schema.optional(Schema.Boolean),
+	relationships: Schema.Array(PluginEntityEditorRelationship),
+});
+
+export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
+
+export const PluginEntityFold = strictStruct({
+	scriptSlug: Schema.NonEmptyString,
+	eventSchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+});
+
+export type PluginEntityFold = Schema.Schema.Type<typeof PluginEntityFold>;
+
+export const PluginEntitySchema = strictStruct({
+	name: ManifestText,
+	icon: Schema.String,
+	slug: pluginManifestSlug,
+	propertiesSchema: PluginAppSchema,
+	fold: Schema.optional(PluginEntityFold),
+	editor: Schema.optional(PluginEntityEditor),
+	eventSchemas: Schema.Array(PluginEventSchema),
+	browse: Schema.optional(AuthoredEntitySchemaBrowse),
+	userState: Schema.optional(PluginEntityUserStatePolicy),
+	occursAtProperties: Schema.optional(Schema.Array(Schema.String)),
+	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
+	refreshIntervalDays: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+});
+
+export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;
+
+export const PluginRelationshipUserWritePolicy = Schema.Literal("source-owner");
+
+export type PluginRelationshipUserWritePolicy = Schema.Schema.Type<
+	typeof PluginRelationshipUserWritePolicy
+>;
+
+export const PluginRelationshipRetention = Schema.Literals(["root", "composition"]);
+
+export type PluginRelationshipRetention = Schema.Schema.Type<typeof PluginRelationshipRetention>;
+
+export const PluginRelationshipSchema = strictStruct({
+	name: ManifestText,
+	slug: pluginManifestSlug,
+	propertiesSchema: PluginAppSchema,
+	keyed: Schema.optional(Schema.Literal(true)),
+	projection: Schema.optional(PluginProjection),
+	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
+	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
+	retention: Schema.optional(PluginRelationshipRetention),
+	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
+});
+
+export type PluginRelationshipSchema = Schema.Schema.Type<typeof PluginRelationshipSchema>;
+
+export const PluginSignalAudiencePolicy = Schema.Union([
+	strictStruct({ kind: Schema.Literal("actor") }),
+	strictStruct({
+		kind: Schema.Literal("related_users"),
+		relationshipSchemaSlug: Schema.String,
+		subjectSide: Schema.Literals(["source", "target"]),
+	}),
+]);
+
+export type PluginSignalAudiencePolicy = Schema.Schema.Type<typeof PluginSignalAudiencePolicy>;
+
+export const PluginSignalSchema = strictStruct({
+	name: ManifestText,
+	slug: pluginManifestSlug,
+	propertiesSchema: PluginAppSchema,
+	notificationHookSlug: pluginManifestSlug,
+	audiencePolicy: PluginSignalAudiencePolicy,
+	catalogState: Schema.Literals(["active", "hidden"]),
+});
+
+export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
+
+export const PluginSavedView = withAuthoredSavedViewConfig({
+	name: ManifestText,
+	icon: Schema.String,
+	slug: pluginManifestSlug,
+	sortOrder: Schema.Finite,
+});
+
+export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
+
+export const PluginCalendarSource = strictStruct({
+	name: ManifestText,
+	icon: Schema.String,
+	startAt: OutputFieldKey,
+	slug: pluginManifestSlug,
+	precision: RowSourcePrecision,
+	subject: AuthoredSavedViewSubject,
+	art: Schema.optional(OutputFieldKey),
+	query: Schema.toType(RowSourceQuery),
+	done: Schema.optional(OutputFieldKey),
+	caption: Schema.optional(AuthoredRowText),
+	instantAt: Schema.optional(OutputFieldKey),
+});
+
+export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;
+
+const positiveInt = Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)));
+
+export const PluginSignalSchedule = strictStruct({
+	dueAt: OutputFieldKey,
+	slug: pluginManifestSlug,
+	signal: SignalSchemaSlug,
+	occurrence: OutputFieldKey,
+	precision: RowSourcePrecision,
+	subject: AuthoredSavedViewSubject,
+	query: Schema.toType(RowSourceQuery),
+	delayDays: Schema.optional(positiveInt),
+	entitlement: Schema.optional(Entitlement),
+	instantAt: Schema.optional(OutputFieldKey),
+	properties: Schema.Record(Schema.String, OutputFieldKey),
+	freshness: Schema.optional(
+		strictStruct({ maxAgeHours: positiveInt, confirmedAt: OutputFieldKey }),
+	),
+});
+
+export type PluginSignalSchedule = Schema.Schema.Type<typeof PluginSignalSchedule>;
+
+const sandboxManifestString = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			value.length > 0 && value === value.trim()
+				? true
+				: "Expected a non-empty string without surrounding whitespace",
+		),
+	),
+);
+
+const sandboxManifestSlug = pluginManifestSlug;
+
+const normalizeHttpOrigin = (value: string) => {
+	const parsed = Result.try(() => new URL(value));
+	if (Result.isFailure(parsed)) {
+		return null;
+	}
+	const url = parsed.success;
+	if (
+		(url.protocol !== "http:" && url.protocol !== "https:") ||
+		url.href !== `${url.origin}/` ||
+		url.hostname.includes("*")
+	) {
+		return null;
+	}
+	return url.origin;
+};
+
+const httpOrigin = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			normalizeHttpOrigin(value) === null ? "Expected an HTTP(S) URL origin" : true,
+		),
+	),
+	Schema.decode({
+		decode: SchemaGetter.transform((value) => normalizeHttpOrigin(value) ?? value),
+		encode: SchemaGetter.transform((value) => normalizeHttpOrigin(value) ?? value),
+	}),
+);
+const safePositiveInteger = Schema.Finite.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			Number.isSafeInteger(value) && value > 0 ? true : "Expected a safe positive integer",
+		),
+	),
+);
+const safeBatchMaxItems = safePositiveInteger.pipe(Schema.check(Schema.isLessThanOrEqualTo(1_000)));
+
+export const PluginHttpRateLimit = strictStruct({
+	key: sandboxManifestSlug,
+	requests: safePositiveInteger,
+	intervalMs: safePositiveInteger,
+	origins: Schema.Array(httpOrigin).pipe(
+		Schema.check(
+			Schema.makeFilter((origins) =>
+				origins.length > 0 ? true : "Expected at least one HTTP(S) URL origin",
+			),
+		),
+	),
+});
+
+export type PluginHttpRateLimit = Schema.Schema.Type<typeof PluginHttpRateLimit>;
+
+const PluginHttpRateLimits = Schema.Array(PluginHttpRateLimit).pipe(
+	Schema.check(
+		Schema.makeFilter((declarations) => {
+			const keys = declarations.map(({ key }) => key);
+			const origins = declarations.flatMap((declaration) => declaration.origins);
+			return new Set(keys).size === keys.length && new Set(origins).size === origins.length
+				? true
+				: "Expected unique HTTP rate limit keys and origins";
+		}),
+	),
+);
+
+const pluginConfigFieldTypes = new Set(["enum", "string", "number", "integer", "boolean"]);
+
+export const PluginConfigSchema = PluginAppSchema.pipe(
+	Schema.check(
+		Schema.makeFilter((schema) =>
+			schema.unknownKeys === "strict" &&
+			schema.rules === undefined &&
+			Object.values(schema.fields).every(
+				(field) =>
+					pluginConfigFieldTypes.has(field.type) &&
+					field.translatable === undefined &&
+					((field.type !== "number" && field.type !== "integer") || field.normalize === undefined),
+			)
+				? true
+				: "Expected a strict, top-level plugin config schema without translation, normalization, or rules",
+		),
+	),
+);
+
+export type PluginConfigSchema = Schema.Schema.Type<typeof PluginConfigSchema>;
+
+const PluginScriptFields = {
+	...SandboxExecutionMetadata.fields,
+	entry: Schema.String,
+	slug: sandboxManifestSlug,
+	name: sandboxManifestString,
+};
+
+export const PluginProviderOperation = Schema.Literals([
+	"details",
+	"search",
+	"search-options",
+	"related",
+	"resolve",
+	"translate",
+]);
+
+export type PluginProviderOperation = Schema.Schema.Type<typeof PluginProviderOperation>;
+
+export const PluginProviderInformation = strictStruct({
+	source: sandboxManifestString,
+	canonicalLanguage: Schema.optional(sandboxManifestString),
+});
+
+export type PluginProviderInformation = Schema.Schema.Type<typeof PluginProviderInformation>;
+
+export const PluginProvider = strictStruct({
+	name: ManifestText,
+	slug: sandboxManifestSlug,
+	rootEntitySchemaSlug: Schema.String,
+	information: PluginProviderInformation,
+});
+
+export type PluginProvider = Schema.Schema.Type<typeof PluginProvider>;
+
+export const PluginScript = Schema.Union([
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("script"),
+		providerSlug: Schema.optional(sandboxManifestSlug),
+	}),
+	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
+	strictStruct({
+		...PluginScriptFields,
+		capabilities: Schema.Tuple([]),
+		kind: Schema.Literal("workflow"),
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("automation"),
+		inputProjection: AutomationAfterInputProjection,
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("policy"),
+		inputProjection: AutomationPolicyInputProjection,
+		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
+	}),
+	Schema.Union([
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			providerOperation: Schema.Literal("search"),
+			searchOptionsSchema: Schema.optional(PluginAppSchema),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			translationInputs: ProviderTranslationInputs,
+			providerOperation: Schema.Literal("translate"),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			providerOperation: Schema.Literal("related"),
+			relatedInputs: Schema.optional(ProviderRelatedInputs),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			providerOperation: Schema.Literals(["details", "resolve", "search-options"]),
+		}),
+	]),
+]);
+
+export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
+
+const PluginCronFields = {
+	slug: sandboxManifestSlug,
+	description: sandboxManifestString,
+	schedule: Schema.Union([
+		strictStruct({ cron: sandboxManifestString }),
+		strictStruct({ tier: Schema.Literal("infrequent") }),
+	]),
+};
+
+export const PluginCron = strictStruct({ ...PluginCronFields, scriptSlug: sandboxManifestSlug });
+
+export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
+
+export const PluginUserBootstrapEntity = strictStruct({
+	name: sandboxManifestString,
+	entitySchemaSlug: sandboxManifestSlug,
+	properties: Schema.Record(Schema.String, JsonValue),
+});
+
+export type PluginUserBootstrapEntity = Schema.Schema.Type<typeof PluginUserBootstrapEntity>;
+
+export const PluginUserBootstrap = Schema.Union([
+	strictStruct({
+		slug: sandboxManifestSlug,
+		scriptSlug: sandboxManifestSlug,
+		description: sandboxManifestString,
+	}),
+	strictStruct({
+		slug: sandboxManifestSlug,
+		description: sandboxManifestString,
+		entities: Schema.Array(PluginUserBootstrapEntity).pipe(Schema.check(Schema.isMinLength(1))),
+	}),
+]);
+
+export type PluginUserBootstrap = Schema.Schema.Type<typeof PluginUserBootstrap>;
+
+export const PluginMembership = strictStruct({
+	slug: sandboxManifestSlug,
+	relationshipSchemaSlug: sandboxManifestSlug,
+	targetEntitySchemaSlug: sandboxManifestSlug,
+	silentEventProperty: Schema.optional(Schema.String),
+	recordEventSchemaSlug: Schema.optional(sandboxManifestSlug),
+	memberEntitySchemaSlugs: Schema.Array(sandboxManifestSlug).pipe(
+		Schema.check(Schema.isMinLength(1)),
+	),
+	join: strictStruct({
+		events: Schema.Boolean,
+		providerImport: Schema.Boolean,
+		kernelCollectionAdd: Schema.Boolean,
+		entityCreate: Schema.Array(sandboxManifestSlug),
+	}),
+});
+
+export type PluginMembership = Schema.Schema.Type<typeof PluginMembership>;
+
+export const PluginOperationAuth = Schema.Literals(["user", "integration"]);
+
+export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
+
+export const PluginOperationJsonSchema = Schema.Record(Schema.String, JsonValue);
+
+export type PluginOperationJsonSchema = Schema.Schema.Type<typeof PluginOperationJsonSchema>;
+
+export const PluginOperationHints = strictStruct({
+	readOnly: Schema.Boolean,
+	idempotent: Schema.Boolean,
+	destructive: Schema.Boolean,
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(hints) =>
+				!hints.readOnly ||
+				(!hints.destructive && hints.idempotent) ||
+				"Read-only operations must be non-destructive and idempotent",
+		),
+	),
+);
+
+export type PluginOperationHints = Schema.Schema.Type<typeof PluginOperationHints>;
+
+const PluginOperationFields = {
+	slug: sandboxManifestSlug,
+	hints: PluginOperationHints,
+	title: sandboxManifestString,
+	scriptSlug: sandboxManifestSlug,
+	input: PluginOperationJsonSchema,
+	output: PluginOperationJsonSchema,
+	description: sandboxManifestString,
+	entitlement: Schema.optional(Entitlement),
+};
+
+export const PluginOperation = Schema.Union([
+	strictStruct({
+		...PluginOperationFields,
+		auth: Schema.Literal("user"),
+		demoAccess: Schema.Literals(["allowed", "protected"]),
+	}),
+	strictStruct({ ...PluginOperationFields, auth: Schema.Literal("integration") }),
+]);
+
+export type PluginOperation = Schema.Schema.Type<typeof PluginOperation>;
+
+export const PluginWorkflow = strictStruct({
+	slug: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
+});
+
+export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
+
+const PluginIntegrationProviderFields = {
+	name: ManifestText,
+	slug: sandboxManifestSlug,
+	description: ManifestText,
+	settingsSchema: IntegrationSettingsSchema,
+	entitlement: Schema.optional(Entitlement),
+};
+
+export const PluginIntegrationProvider = Schema.Union([
+	strictStruct({
+		...PluginIntegrationProviderFields,
+		scriptSlug: sandboxManifestSlug,
+		plan: Schema.optional(SourcePlan),
+		lot: Schema.Literals(["yank", "sink"]),
+	}),
+	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
+]);
+
+export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
+
+const reservedOAuthAuthorizeParameters = [
+	"scope",
+	"state",
+	"client_id",
+	"redirect_uri",
+	"response_type",
+	"code_challenge",
+	"code_challenge_method",
+];
+
+const httpsUrlIssue = (value: string, reservedParameters: ReadonlyArray<string>) => {
+	const parsed = Result.try(() => new URL(value));
+	if (Result.isFailure(parsed)) {
+		return "Expected an HTTPS URL";
+	}
+	const url = parsed.success;
+	if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.hash !== "") {
+		return "Expected an HTTPS URL without credentials or fragment";
+	}
+	return reservedParameters.some((parameter) => url.searchParams.has(parameter))
+		? "Expected a URL without reserved OAuth parameters"
+		: true;
+};
+
+const httpsUrl = (reservedParameters: ReadonlyArray<string> = []) =>
+	Schema.String.pipe(
+		Schema.check(Schema.makeFilter((value) => httpsUrlIssue(value, reservedParameters))),
+	);
+
+const oauthScope = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			/^[\x21\x23-\x5B\x5D-\x7E]+$/.test(value) ? true : "Expected an OAuth scope",
+		),
+	),
+);
+
+export const PluginOAuthProvider = strictStruct({
+	name: ManifestText,
+	tokenUrl: httpsUrl(),
+	slug: sandboxManifestSlug,
+	scopes: Schema.Array(oauthScope),
+	issuer: Schema.optional(httpsUrl()),
+	pkce: Schema.Literals(["S256", "none"]),
+	clientIdConfigKey: sandboxManifestString,
+	clientSecretConfigKey: sandboxManifestString,
+	authorizeUrl: httpsUrl(reservedOAuthAuthorizeParameters),
+	accessTokenLifetimeSeconds: Schema.optional(safePositiveInteger),
+	tokenEndpointAuth: Schema.Literals(["client_secret_basic", "client_secret_post"]),
+});
+
+export type PluginOAuthProvider = Schema.Schema.Type<typeof PluginOAuthProvider>;
+
+const PluginImportSourceFields = {
+	name: ManifestText,
+	slug: sandboxManifestSlug,
+	description: ManifestText,
+	workflowSlug: sandboxManifestSlug,
+	plan: Schema.optional(SourcePlan),
+};
+
+const ImportInputSchema = Schema.toType(AuthoredAppSchema).pipe(
+	Schema.check(
+		Schema.makeFilter((schema) => {
+			const extension = Object.values(schema.fields)
+				.map(unsupportedUploadFileExtension)
+				.find((value) => value !== undefined);
+			return extension === undefined
+				? true
+				: `Unsupported import upload file extension: ${extension}`;
+		}),
+	),
+	Schema.check(rejectsOAuthConnectionFormats),
+	Schema.check(
+		Schema.makeFilter((schema) =>
+			schema.unknownKeys === "strict" &&
+			Object.values(schema.fields).every((property) => !hasDynamicChoices(property)) &&
+			Object.values(schema.fields).every(
+				(property) => property.type === "string" || !hasUploadFormat(property),
+			)
+				? true
+				: "Expected a strict import input schema with static choices and only top-level uploads",
+		),
+	),
+);
+
+export const PluginImportExportHelp = strictStruct({
+	docsUrl: Schema.optional(HttpUrl),
+	steps: Schema.optional(Schema.Array(ManifestText).pipe(Schema.check(Schema.isMinLength(1)))),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				value.docsUrl !== undefined ||
+				value.steps !== undefined ||
+				"Expected import export help documentation or steps",
+		),
+	),
+);
+
+export const PluginImportSource = strictStruct({
+	...PluginImportSourceFields,
+	inputSchema: ImportInputSchema,
+	exportHelp: Schema.optional(PluginImportExportHelp),
+});
+
+export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
+
+export const PluginLifecycleOperation = Schema.Literals(["create", "delete", "update"]);
+
+export type PluginLifecycleOperation = Schema.Schema.Type<typeof PluginLifecycleOperation>;
+
+const PluginLocalHookTarget = Schema.Union([
+	strictStruct({
+		resource: Schema.Literal("entity"),
+		operation: PluginLifecycleOperation,
+		entitySchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		resource: Schema.Literal("event"),
+		operation: PluginLifecycleOperation,
+		eventSchemaSlug: pluginManifestSlug,
+		entitySchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		operation: PluginLifecycleOperation,
+		resource: Schema.Literal("relationship"),
+		relationshipSchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		entitySchemaSlug: pluginManifestSlug,
+		operation: Schema.Literal("complete"),
+		resource: Schema.Literal("provider-entity-import"),
+	}),
+	strictStruct({
+		operation: Schema.Literal("emit"),
+		resource: Schema.Literal("signal"),
+		signalSchemaSlug: pluginManifestSlug,
+	}),
+]);
+export const KernelCollectionEventHookTarget = strictStruct({
+	owner: KernelDefinitionOwner,
+	resource: Schema.Literal("event"),
+	operation: PluginLifecycleOperation,
+	entitySchemaSlug: Schema.Literal("collection"),
+	eventSchemaSlug: Schema.Literals([
+		"review",
+		"add-entity-to-collection",
+		"remove-entity-from-collection",
+	]),
+});
+export type KernelCollectionEventHookTarget = typeof KernelCollectionEventHookTarget.Type;
+export const PluginHookTarget = Schema.Union([
+	...PluginLocalHookTarget.members,
+	KernelCollectionEventHookTarget,
+]);
+export type PluginHookTarget = typeof PluginHookTarget.Type;
+const hookFields = {
+	slug: pluginManifestSlug,
+	name: sandboxManifestString,
+	scriptSlug: sandboxManifestSlug,
+	metadata: Schema.optional(JsonValue),
+	targets: Schema.Array(PluginHookTarget).pipe(Schema.check(Schema.isMinLength(1))),
+	causationSources: Schema.optional(
+		Schema.Array(AutomationSource).pipe(Schema.check(Schema.isMinLength(1))),
+	),
+};
+export const PluginBeforeHook = strictStruct({
+	...hookFields,
+	stage: Schema.Literal("before"),
+	batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
+	targets: Schema.Array(PluginLocalHookTarget).pipe(Schema.check(Schema.isMinLength(1))),
+	position: Schema.optional(
+		Schema.Finite.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(hook) =>
+				(hook.targets.every(
+					(target) => target.resource !== "signal" && target.resource !== "provider-entity-import",
+				) &&
+					(hook.batchFrequency === undefined ||
+						hook.targets.every((target) => target.resource === "event"))) ||
+				"Before hooks require mutation targets; batch frequency requires only event targets",
+		),
+	),
+);
+export const PluginHook = Schema.Union([
+	PluginBeforeHook,
+	strictStruct({
+		...hookFields,
+		stage: Schema.Literal("after"),
+		retry: Schema.optional(AutomationRetryPolicy),
+		delivery: Schema.Literals(["required", "async"]),
+		batchMaxItems: Schema.optional(safeBatchMaxItems),
+		frequency: Schema.optional(Schema.Literals(["item", "batch"])),
+		executionScope: Schema.optional(Schema.Literals(["user", "global"])),
+	}).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(hook) =>
+					!hook.targets.some((target) => "owner" in target) ||
+					hook.executionScope !== "global" ||
+					"Kernel collection observers require user execution scope",
+			),
+			Schema.makeFilter((hook) =>
+				hook.batchMaxItems !== undefined && hook.frequency !== "batch"
+					? "batchMaxItems requires batch frequency"
+					: hook.frequency !== "batch" ||
+						hook.targets.every(
+							(target) =>
+								target.resource === "entity" ||
+								target.resource === "event" ||
+								target.resource === "relationship",
+						) ||
+						"Batch hooks require entity, event or relationship targets",
+			),
+		),
+	),
+]);
+export type PluginHook = typeof PluginHook.Type;
+export const DEFAULT_POLICY_HOOK_POSITION = 1_000;
+
+const PluginManifestAuthoredFields = {
+	metadata: PluginMetadata,
+	hooks: Schema.Array(PluginHook),
+	crons: Schema.Array(PluginCron),
+	configSchema: PluginConfigSchema,
+	httpRateLimits: PluginHttpRateLimits,
+	workflows: Schema.Array(PluginWorkflow),
+	providers: Schema.Array(PluginProvider),
+	savedViews: Schema.Array(PluginSavedView),
+	operations: Schema.Array(PluginOperation),
+	client: Schema.optional(PluginClientEntry),
+	entitySchemas: Schema.Array(PluginEntitySchema),
+	signalSchemas: Schema.Array(PluginSignalSchema),
+	importSources: Schema.Array(PluginImportSource),
+	userBootstrap: Schema.Array(PluginUserBootstrap),
+	dependencies: Schema.optional(PluginDependencies),
+	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
+	memberships: Schema.optional(Schema.Array(PluginMembership)),
+	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
+	integrationProviders: Schema.Array(PluginIntegrationProvider),
+	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
+	calendarSources: Schema.optional(Schema.Array(PluginCalendarSource)),
+	signalSchedules: Schema.optional(Schema.Array(PluginSignalSchedule)),
+	queries: Schema.optional(
+		Schema.Record(
+			Schema.NonEmptyString,
+			strictStruct({
+				title: Schema.NonEmptyString,
+				document: PluginRyotQLDocument,
+				description: Schema.NonEmptyString,
+				entitlement: Schema.optional(Entitlement),
+			}),
+		),
+	),
+};
+
+const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);
+
+const PluginManifestFields = strictStruct({
+	...PluginManifestAuthoredFields,
+	scripts: Schema.Array(PluginScript),
+});
+
+const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type) => {
+	if (new Set(manifest.hooks.map(({ slug }) => slug)).size !== manifest.hooks.length) {
+		return false;
+	}
+	for (const hook of manifest.hooks) {
+		for (const target of hook.targets) {
+			if ("owner" in target) {
+				if (hook.stage !== "after") {
+					return false;
+				}
+				continue;
+			}
+			switch (target.resource) {
+				case "event":
+					if (
+						!manifest.entitySchemas.some(
+							(entity) =>
+								entity.slug === target.entitySchemaSlug &&
+								entity.eventSchemas.some(({ slug }) => slug === target.eventSchemaSlug),
+						)
+					) {
+						return false;
+					}
+					break;
+				case "entity":
+				case "provider-entity-import":
+					if (!manifest.entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
+						return false;
+					}
+					break;
+				case "relationship":
+					if (
+						!manifest.relationshipSchemas.some(({ slug }) => slug === target.relationshipSchemaSlug)
+					) {
+						return false;
+					}
+					break;
+				case "signal":
+					if (!manifest.signalSchemas.some(({ slug }) => slug === target.signalSchemaSlug)) {
+						return false;
+					}
+			}
+		}
+	}
+	return manifest.signalSchemas.every((signal) =>
+		manifest.hooks.some(
+			(hook) =>
+				hook.slug === signal.notificationHookSlug &&
+				hook.stage === "after" &&
+				hook.targets.some(
+					(target) => target.resource === "signal" && target.signalSchemaSlug === signal.slug,
+				),
+		),
+	);
+};
+
+const authoredPackageReferences = (
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"queries" | "savedViews" | "entitySchemas" | "calendarSources" | "signalSchedules"
+	>,
+) => {
+	const references: PluginPackageReference[] = [];
+	const collect = (reference: PluginIdentityReference) => {
+		if (reference.kind === "package") {
+			references.push(reference);
+		}
+		return reference;
+	};
+	const documents = [
+		...Object.values(manifest.queries ?? {}).map(({ document }) => document),
+		...manifest.savedViews.flatMap(({ dataSources }) =>
+			dataSources === null ? [] : [dataSources],
+		),
+		...[...(manifest.calendarSources ?? []), ...(manifest.signalSchedules ?? [])].map(({ query }) =>
+			rowSourceDocument(query),
+		),
+	];
+	for (const document of documents) {
+		pluginIdentityReferences(document).forEach(collect);
+	}
+	for (const { browse } of manifest.entitySchemas) {
+		for (const field of browse?.fields ?? []) {
+			if (field.kind === "value" || field.kind === "sort") {
+				mapScalarExpression(field.expression, { reference: collect });
+			}
+		}
+	}
+	return references;
+};
+
+const declaredDependencies = Schema.makeFilter(
+	(
+		manifest: Parameters<typeof authoredPackageReferences>[0] &
+			Pick<typeof AuthoredPluginManifestFields.Type, "dependencies">,
+	) => {
+		const declared = Object.values(manifest.dependencies ?? {});
+		const undeclared = authoredPackageReferences(manifest).find(
+			({ scope, packageId }) =>
+				!declared.some(
+					(dependency) => dependency.packageId === packageId && dependency.scope === scope,
+				),
+		);
+		return (
+			undeclared === undefined ||
+			`Referenced ${undeclared.scope} package '${undeclared.packageId}' must be a declared dependency`
+		);
+	},
+);
+
+const hasValidClientManifestReferences = (
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"client" | "metadata" | "savedViews" | "entitySchemas" | "userSettingsSchema"
+	>,
+) => {
+	const clientExports = manifest.client?.exports ?? {};
+	for (const section of Object.values(manifest.client?.analyticsSections ?? {})) {
+		if (clientExports[section.exportName]?.kind !== "analytics-section") {
+			return false;
+		}
+	}
+	if (manifest.client !== undefined && Object.keys(clientExports).length === 0) {
+		return false;
+	}
+	const entitySchemaSlugs = new Set(manifest.entitySchemas.map(({ slug }) => slug));
+	for (const [entitySchemaSlug, registrations] of Object.entries(manifest.client?.entities ?? {})) {
+		if (
+			registrations.presentation !== undefined &&
+			(presentationDeclarationIssue(registrations.presentation) !== null ||
+				(registrations.presentation.settings && manifest.userSettingsSchema === undefined))
+		) {
+			return false;
+		}
+		if (
+			(registrations.gridPresentation !== undefined ||
+				registrations.listPresentation !== undefined) &&
+			registrations.presentation === undefined
+		) {
+			return false;
+		}
+		if (!entitySchemaSlugs.has(entitySchemaSlug)) {
+			return false;
+		}
+		if (
+			registrations.detailPage !== undefined &&
+			clientExports[registrations.detailPage]?.kind !== "page"
+		) {
+			return false;
+		}
+		if (
+			registrations.createRoute !== undefined &&
+			manifest.client?.routes?.[registrations.createRoute] === undefined
+		) {
+			return false;
+		}
+		for (const exportName of [registrations.gridPresentation, registrations.listPresentation]) {
+			if (exportName !== undefined && clientExports[exportName]?.kind !== "presentation") {
+				return false;
+			}
+		}
+	}
+	for (const page of Object.values(manifest.client?.collectionPages ?? {})) {
+		if (
+			manifest.client?.routes?.[page.route] === undefined ||
+			!page.route.split("/").includes(COLLECTION_PAGE_ROUTE_PARAM) ||
+			!page.entitySchemaSlugs.every((slug) => entitySchemaSlugs.has(slug))
+		) {
+			return false;
+		}
+	}
+	for (const exportName of [
+		...Object.values(manifest.client?.routes ?? {}),
+		...(manifest.client?.notFoundPage === undefined ? [] : [manifest.client.notFoundPage]),
+	]) {
+		if (clientExports[exportName]?.kind !== "page") {
+			return false;
+		}
+	}
+	if (
+		manifest.client !== undefined &&
+		manifest.client.homeView !== null &&
+		!manifest.savedViews.some((view) => view.slug === manifest.client?.homeView)
+	) {
+		return false;
+	}
+	for (const view of manifest.savedViews) {
+		if (
+			view.renderer.kind === "plugin" &&
+			clientExports[view.renderer.exportName]?.kind !== "page"
+		) {
+			return false;
+		}
+	}
+	return true;
+};
+
+const hasValidOAuthProviderReferences = (
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"configSchema" | "oauthProviders" | "integrationProviders"
+	>,
+) => {
+	const oauthProviders = manifest.oauthProviders ?? [];
+	const oauthProviderSlugs = new Set(oauthProviders.map(({ slug }) => slug));
+	if (oauthProviderSlugs.size !== oauthProviders.length) {
+		return false;
+	}
+	for (const provider of oauthProviders) {
+		const clientId = manifest.configSchema.fields[provider.clientIdConfigKey];
+		const clientSecret = manifest.configSchema.fields[provider.clientSecretConfigKey];
+		if (
+			provider.clientIdConfigKey === provider.clientSecretConfigKey ||
+			clientId?.type !== "string" ||
+			clientSecret?.type !== "string" ||
+			clientSecret.secret !== true
+		) {
+			return false;
+		}
+	}
+	return manifest.integrationProviders.every((integrationProvider) =>
+		Object.values(integrationProvider.settingsSchema.fields).every(
+			(field) =>
+				field.type !== "string" ||
+				field.format?.kind !== "oauth-connection" ||
+				oauthProviderSlugs.has(field.format.provider),
+		),
+	);
+};
+
+const uniqueSlugs = (declarations: readonly { readonly slug: string }[]) =>
+	new Set(declarations.map(({ slug }) => slug)).size === declarations.length;
+
+const hasValidCalendarSource = ({
+	art,
+	done,
+	query,
+	caption,
+	startAt,
+	subject,
+}: PluginCalendarSource) => {
+	const projected = rowSourceProjectedKeys(query);
+	return (
+		rowSourceAliases(query).has(subject.entityAlias) &&
+		[startAt, art, done, ...Object.values(caption?.params ?? {})].every(
+			(key) => key === undefined || projected.has(key),
+		)
+	);
+};
+
+const hasValidSignalSchedule = (
+	{ query, dueAt, signal, subject, freshness, occurrence, properties }: PluginSignalSchedule,
+	signalSchemas: ReadonlyArray<PluginSignalSchema>,
+) => {
+	const projected = rowSourceProjectedKeys(query);
+	return (
+		rowSourceAliases(query).has(subject.entityAlias) &&
+		signalSchemas.some(
+			({ slug, audiencePolicy }) => slug === signal && audiencePolicy.kind === "actor",
+		) &&
+		[dueAt, occurrence, freshness?.confirmedAt, ...Object.values(properties)].every(
+			(key) => key === undefined || projected.has(key),
+		)
+	);
+};
+
+const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields.Type) => {
+	const calendarSources = manifest.calendarSources ?? [];
+	const signalSchedules = manifest.signalSchedules ?? [];
+	if (
+		![
+			manifest.entitySchemas,
+			manifest.relationshipSchemas,
+			manifest.signalSchemas,
+			manifest.savedViews,
+			calendarSources,
+			signalSchedules,
+			manifest.operations,
+			manifest.crons,
+		].every(uniqueSlugs) ||
+		!calendarSources.every(hasValidCalendarSource) ||
+		!signalSchedules.every((schedule) => hasValidSignalSchedule(schedule, manifest.signalSchemas))
+	) {
+		return false;
+	}
+	const entities = new Set(manifest.entitySchemas.map(({ slug }) => slug));
+	const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
+	const hasValidEditor = ({ slug, editor }: PluginEntitySchema) =>
+		editor === undefined ||
+		(new Set(editor.relationships.map((relationship) => relationship.slug)).size ===
+			editor.relationships.length &&
+			editor.relationships.every((declared) =>
+				manifest.relationshipSchemas.some(
+					(relationship) =>
+						relationship.slug === declared.slug &&
+						relationship[`${relationshipEnds(declared.direction).anchor}EntitySchemaSlug`] === slug,
+				),
+			));
+	return (
+		manifest.entitySchemas.every(hasValidEditor) &&
+		manifest.entitySchemas.every(({ eventSchemas }) => uniqueSlugs(eventSchemas)) &&
+		manifest.providers.every(({ rootEntitySchemaSlug }) => entities.has(rootEntitySchemaSlug)) &&
+		manifest.relationshipSchemas.every(
+			({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) =>
+				(sourceEntitySchemaSlug === null || entities.has(sourceEntitySchemaSlug)) &&
+				(targetEntitySchemaSlug === null || entities.has(targetEntitySchemaSlug)),
+		) &&
+		manifest.signalSchemas.every(
+			({ audiencePolicy }) =>
+				audiencePolicy.kind === "actor" || relationships.has(audiencePolicy.relationshipSchemaSlug),
+		)
+	);
+};
+
+const hasValidAuthoredPluginManifestReferences = (
+	manifest: typeof AuthoredPluginManifestFields.Type,
+) => {
+	if (
+		!hasValidLocalDeclarations(manifest) ||
+		!hasValidClientManifestReferences(manifest) ||
+		!hasValidHookTargets(manifest) ||
+		!hasValidOAuthProviderReferences(manifest)
+	) {
+		return false;
+	}
+	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
+	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+	const configEnvironmentKeys = [...configKeys].map((key) =>
+		pluginConfigEnvironmentKey(manifest.metadata.packageId, key),
+	);
+	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+		return false;
+	}
+	if (new Set(manifest.providers.map(({ slug }) => slug)).size !== manifest.providers.length) {
+		return false;
+	}
+	if (workflowSlugs.size !== manifest.workflows.length) {
+		return false;
+	}
+	if (
+		new Set(manifest.userBootstrap.map(({ slug }) => slug)).size !== manifest.userBootstrap.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.importSources.map(({ slug }) => slug)).size !== manifest.importSources.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+		manifest.integrationProviders.length
+	) {
+		return false;
+	}
+	return manifest.importSources.every(({ workflowSlug }) => workflowSlugs.has(workflowSlug));
+};
+
+export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
+	Schema.check(declaredDependencies),
+	Schema.check(
+		Schema.makeFilter(
+			(manifest) =>
+				hasValidAuthoredPluginManifestReferences(manifest) ||
+				"Expected valid plugin config, provider, workflow, and import-source references",
+		),
+	),
+);
+
+export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifest>;
+
+const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
+	if (
+		!hasValidLocalDeclarations(manifest) ||
+		!hasValidClientManifestReferences(manifest) ||
+		!hasValidHookTargets(manifest) ||
+		!hasValidOAuthProviderReferences(manifest)
+	) {
+		return false;
+	}
+	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
+	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
+	const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+	const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
+	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+	const configEnvironmentKeys = [...configKeys].map((key) =>
+		pluginConfigEnvironmentKey(manifest.metadata.packageId, key),
+	);
+	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+		return false;
+	}
+	const requiredConfigKeys = [
+		...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+		...manifest.scripts.flatMap(({ optionalPluginConfigKeys }) => optionalPluginConfigKeys),
+	];
+	if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
+		return false;
+	}
+	if (scriptSlugs.size !== manifest.scripts.length) {
+		return false;
+	}
+	if (providerSlugs.size !== manifest.providers.length) {
+		return false;
+	}
+	if (workflowSlugs.size !== manifest.workflows.length) {
+		return false;
+	}
+	if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
+		return false;
+	}
+	if (
+		new Set(manifest.importSources.map(({ slug }) => slug)).size !== manifest.importSources.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+		manifest.integrationProviders.length
+	) {
+		return false;
+	}
+	if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
+		return false;
+	}
+	if (
+		manifest.workflows.some(
+			(workflow) =>
+				manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow",
+		)
+	) {
+		return false;
+	}
+	if (
+		manifest.userBootstrap.some(
+			(entry) =>
+				"scriptSlug" in entry &&
+				manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
+		)
+	) {
+		return false;
+	}
+	if (
+		manifest.hooks.some((hook) => {
+			const script = manifest.scripts.find(({ slug }) => slug === hook.scriptSlug);
+			if (script?.kind !== "automation") {
+				return true;
+			}
+			const externalEffects = hasReachableExternalEffects(manifest, script.slug);
+			if (hook.stage === "before") {
+				return (
+					script.automationType !== "policy" ||
+					hook.targets.some((target) => {
+						if (
+							target.resource !== "entity" &&
+							target.resource !== "event" &&
+							target.resource !== "relationship"
+						) {
+							return true;
+						}
+						return script.inputProjection[target.resource] === undefined;
+					}) ||
+					script.capabilities.some(
+						(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+					)
+				);
+			}
+			return (
+				script.automationType !== "automation" ||
+				hook.targets.some((target) => {
+					const projectionKey =
+						target.resource === "provider-entity-import" ? "providerEntityImport" : target.resource;
+					return script.inputProjection[projectionKey] === undefined;
+				}) ||
+				((hook.retry?.maxAttempts ?? 1) > 1 &&
+					externalEffects !== false &&
+					hook.retry?.externalIdempotency !== "run-id")
+			);
+		})
+	) {
+		return false;
+	}
+
+	if (
+		manifest.scripts.some(
+			(script) =>
+				"providerSlug" in script &&
+				script.providerSlug !== undefined &&
+				!providerSlugs.has(script.providerSlug),
+		)
+	) {
+		return false;
+	}
+	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+	const declaresProperties = (schemaSlug: string, keys: ReadonlyArray<string>) => {
+		const entitySchema = manifest.entitySchemas.find(({ slug }) => slug === schemaSlug);
+		return (
+			entitySchema !== undefined &&
+			keys.every((key) => Object.hasOwn(entitySchema.propertiesSchema.fields, key))
+		);
+	};
+	for (const script of providerScripts) {
+		if (
+			script.providerOperation === "translate" &&
+			!Object.entries(script.translationInputs).every(([schemaSlug, keys]) =>
+				declaresProperties(schemaSlug, keys),
+			)
+		) {
+			return false;
+		}
+		if (script.providerOperation !== "related" || script.relatedInputs === undefined) {
+			continue;
+		}
+		const provider = manifest.providers.find(({ slug }) => slug === script.providerSlug);
+		for (const [schemaSlug, input] of Object.entries(script.relatedInputs)) {
+			if (
+				schemaSlug === provider?.rootEntitySchemaSlug ||
+				!declaresProperties(schemaSlug, input.properties) ||
+				!input.groups.every((group) =>
+					manifest.relationshipSchemas.some(
+						(relationship) =>
+							relationship.slug === group.relationshipSchemaSlug &&
+							relationship[`${relationshipEnds(group.direction).anchor}EntitySchemaSlug`] ===
+								schemaSlug,
+					),
+				)
+			) {
+				return false;
+			}
+		}
+	}
+
+	if (
+		new Set(
+			providerScripts.map(
+				({ providerSlug, providerOperation }) => `${providerSlug}:${providerOperation}`,
+			),
+		).size !== providerScripts.length
+	) {
+		return false;
+	}
+
+	if (
+		manifest.providers.some(
+			(provider) =>
+				!providerScripts.some(
+					(script) =>
+						script.providerSlug === provider.slug && script.providerOperation === "details",
+				),
+		)
+	) {
+		return false;
+	}
+	if (
+		providerScripts.some(
+			(script) =>
+				script.providerOperation === "search" &&
+				script.searchOptionsSchema !== undefined &&
+				Object.values(script.searchOptionsSchema.fields).some(hasDynamicChoices) &&
+				!providerScripts.some(
+					(candidate) =>
+						candidate.providerSlug === script.providerSlug &&
+						candidate.providerOperation === "search-options",
+				),
+		)
+	) {
+		return false;
+	}
+
+	const referencedScriptSlugs = [
+		...manifest.userBootstrap.flatMap((entry) => ("scriptSlug" in entry ? [entry.scriptSlug] : [])),
+		...manifest.crons.map(({ scriptSlug }) => scriptSlug),
+		...manifest.operations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
+		...manifest.hooks.map(({ scriptSlug }) => scriptSlug),
+		...manifest.integrationProviders.flatMap((provider) =>
+			provider.lot === "push" ? [] : [provider.scriptSlug],
+		),
+	];
+
+	return (
+		referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+		hasValidExecutableDependencies(manifest)
+	);
+};
+
+export const PluginManifest = PluginManifestFields.pipe(
+	Schema.check(declaredDependencies),
+	Schema.check(
+		Schema.makeFilter(
+			(manifest) =>
+				hasValidPluginManifestReferences(manifest) ||
+				"Expected valid plugin config, provider, and script references",
+		),
+	),
+);
+
+export type PluginManifest = Schema.Schema.Type<typeof PluginManifest>;
+
+export const definePlugin = <const Manifest extends AuthoredPluginManifest>(
+	manifest: Manifest & Record<Exclude<keyof Manifest, keyof AuthoredPluginManifest>, never>,
+) => manifest;
+
+/** A kernel message embedded by a kernel-provided AppSchema building block. */
+export type ManifestKernelMessageUse = { readonly path: string; readonly message: Message };
+
+/** Compiled manifests add sandbox scripts, whose provider search options carry display text. */
+export type ManifestTextSource = AuthoredPluginManifest & {
+	readonly scripts?: PluginManifest["scripts"];
+};
+
+/** A manifest text and the argument names its message must declare exactly, none when absent. */
+export type ManifestTextUse = {
+	readonly path: string;
+	readonly text: ManifestText;
+	readonly arguments?: ReadonlyArray<string>;
+};
+
+type AuthoredTextUse = {
+	readonly path: string;
+	readonly text: AuthoredSchemaText;
+	readonly arguments?: ReadonlyArray<string>;
+};
+
+const schemaTexts = (path: string, schema: undefined | AuthoredAppSchema) =>
+	schema === undefined
+		? []
+		: appSchemaTexts(schema).map((use) => ({ text: use.text, path: `${path}.${use.path}` }));
+
+/** Every display text of a manifest with its path, so builds and ingestion can check catalog keys. */
+const manifestTextUses = (manifest: ManifestTextSource): ReadonlyArray<AuthoredTextUse> => [
+	{ path: "metadata.name", text: manifest.metadata.name },
+	...schemaTexts("configSchema", manifest.configSchema),
+	...schemaTexts("userSettingsSchema", manifest.userSettingsSchema),
+	{ path: "metadata.description", text: manifest.metadata.description },
+	...manifest.entitySchemas.flatMap((entitySchema) => [
+		{ text: entitySchema.name, path: `entitySchemas.${entitySchema.slug}.name` },
+		...schemaTexts(
+			`entitySchemas.${entitySchema.slug}.propertiesSchema`,
+			entitySchema.propertiesSchema,
+		),
+		...entitySchema.eventSchemas.flatMap((eventSchema) => {
+			const path = `entitySchemas.${entitySchema.slug}.eventSchemas.${eventSchema.slug}`;
+			return [
+				{ path: `${path}.name`, text: eventSchema.name },
+				...schemaTexts(`${path}.propertiesSchema`, eventSchema.propertiesSchema),
+				...schemaTexts(
+					`${path}.projection.propertiesSchema`,
+					eventSchema.projection?.propertiesSchema,
+				),
+			];
+		}),
+		...(entitySchema.browse?.fields ?? []).flatMap((field) =>
+			authoredBrowseFieldTexts(field).map(({ path, text }) => ({
+				text,
+				path: `entitySchemas.${entitySchema.slug}.browse.fields.${field.key}.${path}`,
+			})),
+		),
+	]),
+	...manifest.relationshipSchemas.flatMap(({ slug, name, projection, propertiesSchema }) => [
+		{ text: name, path: `relationshipSchemas.${slug}.name` },
+		...schemaTexts(`relationshipSchemas.${slug}.propertiesSchema`, propertiesSchema),
+		...schemaTexts(
+			`relationshipSchemas.${slug}.projection.propertiesSchema`,
+			projection?.propertiesSchema,
+		),
+	]),
+	...manifest.signalSchemas.flatMap(({ slug, name, propertiesSchema }) => [
+		{ text: name, path: `signalSchemas.${slug}.name` },
+		...schemaTexts(`signalSchemas.${slug}.propertiesSchema`, propertiesSchema),
+	]),
+	...(manifest.scripts ?? []).flatMap((script) =>
+		script.kind === "provider" && script.providerOperation === "search"
+			? schemaTexts(`scripts.${script.slug}.searchOptionsSchema`, script.searchOptionsSchema)
+			: [],
+	),
+	...manifest.savedViews.flatMap((view) => [
+		{ text: view.name, path: `savedViews.${view.slug}.name` },
+		...authoredSavedViewTexts(view).map(({ path, text }) => ({
+			text,
+			path: `savedViews.${view.slug}.${path}`,
+		})),
+		...schemaTexts(`savedViews.${view.slug}.dataSources.parameters`, view.dataSources?.parameters),
+	]),
+	...Object.entries(manifest.queries ?? {}).flatMap(([name, { document }]) =>
+		schemaTexts(`queries.${name}.document.parameters`, document.parameters),
+	),
+	...(manifest.calendarSources ?? []).map(({ slug, name }) => ({
+		text: name,
+		path: `calendarSources.${slug}.name`,
+	})),
+	...(manifest.calendarSources ?? []).flatMap(({ slug, caption }) =>
+		caption === undefined
+			? []
+			: [
+					{
+						text: caption.text,
+						arguments: Object.keys(caption.params),
+						path: `calendarSources.${slug}.caption.text`,
+					},
+				],
+	),
+	...manifest.providers.map(({ slug, name }) => ({ text: name, path: `providers.${slug}.name` })),
+	...manifest.integrationProviders.flatMap(({ slug, name, description, settingsSchema }) => [
+		{ text: name, path: `integrationProviders.${slug}.name` },
+		{ text: description, path: `integrationProviders.${slug}.description` },
+		...schemaTexts(`integrationProviders.${slug}.settingsSchema`, settingsSchema),
+	]),
+	...(manifest.oauthProviders ?? []).map(({ slug, name }) => ({
+		text: name,
+		path: `oauthProviders.${slug}.name`,
+	})),
+	...manifest.importSources.flatMap(({ slug, name, exportHelp, inputSchema, description }) => [
+		{ text: name, path: `importSources.${slug}.name` },
+		{ text: description, path: `importSources.${slug}.description` },
+		...schemaTexts(`importSources.${slug}.inputSchema`, inputSchema),
+		...(exportHelp?.steps ?? []).map((text, index) => ({
+			text,
+			path: `importSources.${slug}.exportHelp.steps.${index}`,
+		})),
+	]),
+	...Object.entries(manifest.client?.exports ?? {}).flatMap(([name, entry]) =>
+		entry.kind === "page"
+			? schemaTexts(`client.exports.${name}.settingsSchema`, entry.settingsSchema)
+			: [],
+	),
+	...Object.entries(manifest.client?.collectionPages ?? {}).map(([slug, { label }]) => ({
+		text: label,
+		path: `client.collectionPages.${slug}.label`,
+	})),
+	...Object.entries(manifest.client?.analyticsSections ?? {}).map(([slug, { name }]) => ({
+		text: name,
+		path: `client.analyticsSections.${slug}.name`,
+	})),
+	...(manifest.client?.assistantStarters ?? []).map((text, index) => ({
+		text,
+		path: `client.assistantStarters.${index}`,
+	})),
+];
+
+export const manifestTexts = (manifest: ManifestTextSource): ReadonlyArray<ManifestTextUse> =>
+	manifestTextUses(manifest).flatMap((use) =>
+		"namespace" in use.text ? [] : [{ ...use, text: use.text }],
+	);
+
+export const manifestKernelMessages = (
+	manifest: ManifestTextSource,
+): ReadonlyArray<ManifestKernelMessageUse> =>
+	manifestTextUses(manifest).flatMap(({ path, text }) =>
+		"namespace" in text ? [{ path, message: text }] : [],
+	);

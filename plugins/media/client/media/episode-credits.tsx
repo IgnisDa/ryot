@@ -1,0 +1,126 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import {
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+
+import type { mediaEpisodeCreditsRecipe } from "../../shared/media-recipes";
+import { useMediaCopy } from "../messages";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import { createMediaEntityQuery } from "./detail-queries";
+import type { MediaEpisode } from "./episodes-state";
+import {
+	MediaOverviewBody,
+	type MediaOverviewRelationsRender,
+	MediaPeopleSection,
+} from "./overview";
+import { mapMediaOverview, mediaPersonAsset } from "./overview-state";
+
+type MediaEpisodeCreditRows = Recipe.Success<
+	ReturnType<ReturnType<typeof mediaEpisodeCreditsRecipe>>
+>;
+
+type MediaEpisodeCreditCopy = {
+	readonly crew: LocalMessage;
+	readonly title: LocalMessage;
+	readonly loading: LocalMessage;
+	readonly guestStars: LocalMessage;
+	readonly fullCredits: LocalMessage;
+};
+
+/** An episode descriptor's credit queries and sections; the full credit list opens from the first section. */
+export const createMediaEpisodeCredits = (input: {
+	readonly copy: MediaEpisodeCreditCopy;
+	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly overviewRecipe: ReturnType<typeof mediaEpisodeCreditsRecipe>;
+	};
+}) => {
+	const { copy, recipes } = input;
+	const peopleQuery = createMediaCreditsQuery(
+		recipes.peopleRecipe,
+		({ entityId }) => ({ entityId }),
+		"people",
+	);
+	function Relations(props: {
+		readonly compact: boolean;
+		readonly entityId: string;
+		readonly safeAreaTop: number;
+		readonly overview: MediaEpisodeCreditRows;
+	}) {
+		const { compact, entityId, overview, safeAreaTop } = props;
+		const { local } = useMediaCopy();
+		const sections = [
+			{ title: local(copy.guestStars), people: overview.guestStars.items },
+			{ title: local(copy.crew), people: overview.crew.items },
+		].filter(({ people }) => people.length > 0);
+		return (
+			<ManagedAssetProvider
+				assets={collectManagedAssetLocators(
+					sections.flatMap(({ people }) => people.map(mediaPersonAsset)),
+				)}
+			>
+				<div className="grid grid-cols-[minmax(0,1fr)] gap-8">
+					{sections.map(({ title, people }, index) => (
+						<MediaPeopleSection
+							key={title}
+							title={title}
+							people={people}
+							compact={compact}
+							action={
+								index === 0 ? (
+									<MediaCreditsButton
+										aspect="square"
+										compact={compact}
+										title={copy.title}
+										query={peopleQuery}
+										input={{ entityId }}
+										label={copy.fullCredits}
+										safeAreaTop={safeAreaTop}
+									/>
+								) : null
+							}
+						/>
+					))}
+				</div>
+			</ManagedAssetProvider>
+		);
+	}
+	return {
+		copy,
+		relations: ((slot) => (
+			<Relations {...slot} />
+		)) satisfies MediaOverviewRelationsRender<MediaEpisodeCreditRows>,
+		query: createMediaEntityQuery(recipes.overviewRecipe, (data) =>
+			[...data.guestStars.items, ...data.crew.items].map(({ id }) => id),
+		),
+	};
+};
+
+export type MediaEpisodeCredits = ReturnType<typeof createMediaEpisodeCredits>;
+
+/** An episode's credits, populated from its provider while the episode is open. */
+export function MediaEpisodeCreditsSection(props: {
+	readonly compact: boolean;
+	readonly safeAreaTop: number;
+	readonly episode: MediaEpisode;
+	readonly credits: MediaEpisodeCredits;
+}) {
+	const { episode, credits } = props;
+	const result = useRyotQuery(credits.query, { entityId: episode.id });
+	return (
+		<MediaOverviewBody
+			entityId={episode.id}
+			compact={props.compact}
+			refresh={result.refetch}
+			relations={credits.relations}
+			safeAreaTop={props.safeAreaTop}
+			noticeTitle={credits.copy.title}
+			state={mapMediaOverview(result)}
+			loadingDetail={credits.copy.loading}
+			related={episode.relatedPopulationStatus}
+		/>
+	);
+}

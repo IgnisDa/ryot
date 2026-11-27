@@ -1,0 +1,506 @@
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { canonicalLanguageCode } from "@ryot-app/plugin-kit/languages";
+
+import type { CreditRoleCode } from "../../../shared/credit-roles";
+import { curateProviderImages } from "../../../shared/media-image";
+import type { WatchProviderOffer } from "../../../shared/watch-provider";
+import type { MediaTrendingProviderOutput } from "../../contracts/workflows";
+import { mediaFailureMessage } from "../error-message";
+import { MediaSandboxError } from "../failures";
+import {
+	decodeJsonResponse,
+	numberValue,
+	recordsValue,
+	stringValue,
+	type UnknownRecord,
+} from "../records";
+import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
+import { getImageUrl, tmdbArtwork, type TmdbImagePurpose } from "./tmdb-artwork";
+import { canonicalTmdbLanguageCode, tmdbLanguageCode } from "./tmdb-language";
+
+export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
+export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+
+export const getTmdbAccessToken = (host: TmdbHost) =>
+	host.getPluginConfig({ required: ["tmdbAccessToken"] }).pipe(
+		Effect.map(({ tmdbAccessToken }) => tmdbAccessToken),
+		Effect.flatMap((value) => {
+			const token = stringValue(value);
+			if (!token) {
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"TMDB access token is not configured. Set tmdbAccessToken in the plugin configuration.",
+					}),
+				);
+			}
+			return Effect.succeed(token);
+		}),
+	);
+
+export const tmdbGet = (
+	host: TmdbHost,
+	path: string,
+	params: Readonly<Record<string, string>>,
+	token: string,
+) => {
+	const query = new URLSearchParams(params);
+	return host
+		.httpCall("GET", `${TMDB_BASE_URL}${path}?${query.toString()}`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+		.pipe(
+			Effect.mapError((error) => ({
+				...error,
+				message: error.message || `TMDB request failed: ${path}`,
+			})),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "TMDB")),
+			Effect.flatMap((response) => {
+				const payload = asRecord(response);
+				if (!payload) {
+					return Effect.fail(
+						new MediaSandboxError({ message: "TMDB returned an invalid response object" }),
+					);
+				}
+				const statusCode = numberValue(payload["status_code"]);
+				if (statusCode !== null && statusCode !== 1) {
+					return Effect.fail(
+						new MediaSandboxError({
+							message:
+								stringValue(payload["status_message"]) ?? `TMDB API error (status ${statusCode})`,
+						}),
+					);
+				}
+				return Effect.succeed(payload);
+			}),
+		);
+};
+
+const recordLanguage = (record: undefined | UnknownRecord) => {
+	const code = stringValue(record?.["iso_639_1"]);
+	return code === null ? undefined : canonicalTmdbLanguageCode(code);
+};
+
+export const tmdbArtworkCandidates = (
+	path: unknown,
+	purpose: TmdbImagePurpose,
+	alternatives?: unknown,
+) => {
+	const records = recordsValue(alternatives);
+	const primary = records.find((record) => record["file_path"] === path);
+	return [
+		tmdbArtwork(path, purpose, recordLanguage(primary)),
+		...records.map((record) => tmdbArtwork(record["file_path"], purpose, recordLanguage(record))),
+	].filter((image) => image !== undefined);
+};
+
+export const collectImages = (
+	posterPath: unknown,
+	backdropPath: unknown,
+	posters: unknown,
+	backdrops: unknown,
+) =>
+	curateProviderImages([
+		...tmdbArtworkCandidates(posterPath, "cover", posters),
+		...tmdbArtworkCandidates(backdropPath, "backdrop", backdrops),
+	]);
+
+export const tmdbArtworkInventory = (
+	host: TmdbHost,
+	path: string,
+	language: string,
+	token: string,
+) => {
+	const { langCode } = parseTranslationLanguage(language);
+	return tmdbGet(
+		host,
+		`${path}/images`,
+		{ include_image_language: `${tmdbLanguageCode(langCode)},null` },
+		token,
+	);
+};
+
+export const tmdbLocalizedImages = (
+	host: TmdbHost,
+	path: string,
+	langCode: string,
+	token: string,
+) => tmdbGet(host, path, { include_image_language: tmdbLanguageCode(langCode) }, token);
+
+export const collectGenres = (genres: unknown) => {
+	if (genres === undefined || genres === null) {
+		return null;
+	}
+	if (!Array.isArray(genres)) {
+		throw new MediaSandboxError({ message: "TMDB genres must be an array" });
+	}
+	return genres.flatMap((genre) => {
+		const name = stringValue(asRecord(genre)?.["name"]);
+		return name ? [name] : [];
+	});
+};
+
+type TmdbWatchProvider = { name: string; image: null | string; offers: WatchProviderOffer[] };
+type TmdbWatchProviderCountry = {
+	country: string;
+	link: null | string;
+	providers: TmdbWatchProvider[];
+};
+
+const tmdbOfferKeys: ReadonlyArray<readonly [string, WatchProviderOffer]> = [
+	["flatrate", "stream"],
+	["free", "free"],
+	["ads", "ads"],
+	["rent", "rent"],
+	["buy", "buy"],
+];
+
+const collectCountryWatchProviders = (countryOffers: UnknownRecord) => {
+	const providers = new Map<string, TmdbWatchProvider>();
+	for (const [key, offer] of tmdbOfferKeys) {
+		for (const entry of recordsValue(countryOffers[key])) {
+			const name = stringValue(entry["provider_name"]);
+			if (!name) {
+				continue;
+			}
+			const provider = providers.get(name) ?? {
+				name,
+				offers: [],
+				image: getImageUrl(entry["logo_path"], "logo"),
+			};
+			providers.set(name, provider);
+			if (!provider.offers.includes(offer)) {
+				provider.offers.push(offer);
+			}
+		}
+	}
+	return [...providers.values()];
+};
+
+export const collectWatchProviders = (payload: unknown) => {
+	const results = asRecord(asRecord(payload)?.["results"]);
+	if (!results) {
+		return [];
+	}
+	const countries: TmdbWatchProviderCountry[] = [];
+	for (const country of Object.keys(results).sort()) {
+		const countryOffers = asRecord(results[country]);
+		if (!countryOffers) {
+			continue;
+		}
+		const providers = collectCountryWatchProviders(countryOffers);
+		if (providers.length > 0) {
+			countries.push({ country, providers, link: stringValue(countryOffers["link"]) });
+		}
+	}
+	return countries;
+};
+
+export const collectSuggestions = (
+	results: unknown,
+	options: { readonly providerSlug: string; readonly nameKeys: readonly string[] },
+) => {
+	const suggestions = new Map<string, ProviderDetailsRelatedEntity>();
+	for (const result of recordsValue(results)) {
+		const id = numberValue(result["id"]);
+		const name = options.nameKeys.reduce<null | string>(
+			(value, key) => value ?? stringValue(result[key]),
+			null,
+		);
+		if (id === null || !name) {
+			continue;
+		}
+		const externalId = String(Math.trunc(id));
+		suggestions.set(`${options.providerSlug}:${externalId}`, {
+			name,
+			externalId,
+			providerSlug: options.providerSlug,
+		});
+	}
+	return [...suggestions.values()];
+};
+
+export const collectPeople = (
+	cast: unknown,
+	crew: unknown,
+	createdBy?: unknown,
+	options: {
+		/** An episode's own guest stars, credited after its cast. */
+		readonly guestStars?: unknown;
+		readonly guestStarInventoryComplete?: boolean;
+		readonly currentRegularCast?: ReadonlySet<string>;
+		readonly guestStarAppearances?: ReadonlyMap<string, number>;
+	} = {},
+) => {
+	const related = createRoleAccumulator();
+	const addPerson = (
+		person: UnknownRecord,
+		role: null | CreditRole,
+		creditOptions: {
+			readonly isGuest?: boolean;
+			readonly order?: null | number;
+			readonly character?: null | string;
+			readonly department?: null | string;
+			readonly creditKind?: "cast" | "crew";
+		} = {},
+	) => {
+		const name = stringValue(person["name"]) ?? "Loading...";
+		const id = numberValue(person["id"]);
+		if (id === null) {
+			return;
+		}
+		const character = stringValue(creditOptions.character);
+		const externalId = String(Math.trunc(id));
+		related.add({
+			name,
+			externalId,
+			providerSlug: "person.tmdb",
+			relationshipProperties: {
+				...creditRoleProperties(role),
+				...(character === null ? {} : { character }),
+				...(creditOptions.order === null || creditOptions.order === undefined
+					? {}
+					: { order: Math.trunc(creditOptions.order) }),
+				...(creditOptions.creditKind === undefined
+					? {}
+					: { creditKinds: [creditOptions.creditKind] }),
+				...(creditOptions.department ? { departments: [creditOptions.department] } : {}),
+				...(creditOptions.isGuest === undefined ? {} : { isGuest: creditOptions.isGuest }),
+				...(character === null ? {} : { isUncredited: /\(uncredited\)\s*$/i.test(character) }),
+			},
+		});
+	};
+
+	for (const creator of recordsValue(createdBy)) {
+		addPerson(creator, { code: "creator" }, { creditKind: "crew" });
+	}
+	for (const [index, member] of recordsValue(cast).entries()) {
+		const id = numberValue(member["id"]);
+		const externalId = id === null ? null : String(Math.trunc(id));
+		const order = numberValue(member["order"]);
+		const aggregateRoles = recordsValue(member["roles"]);
+		const roles = aggregateRoles.length > 0 ? aggregateRoles : [member];
+		for (const castRole of roles) {
+			const character = stringValue(castRole["character"]) ?? stringValue(member["character"]);
+			const totalEpisodeCount = numberValue(member["total_episode_count"]);
+			const guestCount = externalId
+				? (options.guestStarAppearances?.get(externalId) ??
+					(options.guestStarInventoryComplete ? 0 : undefined))
+				: undefined;
+			const isRegular = externalId ? options.currentRegularCast?.has(externalId) === true : false;
+			let isGuest: boolean | undefined;
+			if (isRegular) {
+				isGuest = false;
+			} else if (totalEpisodeCount !== null && totalEpisodeCount > 0 && guestCount !== undefined) {
+				if (guestCount >= totalEpisodeCount) {
+					isGuest = true;
+				} else if (options.guestStarInventoryComplete) {
+					isGuest = false;
+				}
+			}
+			const guestClassification =
+				isGuest ?? (externalId && options.guestStarAppearances === undefined ? false : undefined);
+			addPerson(
+				member,
+				{ code: "actor" },
+				{
+					character,
+					creditKind: "cast",
+					department: "Acting",
+					order: order ?? index,
+					...(guestClassification === undefined ? {} : { isGuest: guestClassification }),
+				},
+			);
+		}
+	}
+	const castCount = recordsValue(cast).length;
+	for (const [index, guest] of recordsValue(options.guestStars).entries()) {
+		addPerson(
+			guest,
+			{ code: "actor" },
+			{
+				isGuest: true,
+				creditKind: "cast",
+				department: "Acting",
+				character: stringValue(guest["character"]),
+				order: castCount + (numberValue(guest["order"]) ?? index),
+			},
+		);
+	}
+	for (const member of recordsValue(crew)) {
+		const listedJobs = recordsValue(member["jobs"]);
+		const jobs = listedJobs.length > 0 ? listedJobs : [member];
+		for (const crewJob of jobs) {
+			const job = stringValue(crewJob["job"]);
+			addPerson(member, job === null ? null : { name: job }, {
+				creditKind: "crew",
+				department: stringValue(member["department"]) ?? stringValue(crewJob["department"]),
+			});
+		}
+	}
+	return related.entities;
+};
+
+export const collectCompanies = (
+	companyGroups: ReadonlyArray<readonly [unknown, CreditRoleCode]>,
+) => {
+	const related = createRoleAccumulator();
+	for (const [companiesList, code] of companyGroups) {
+		for (const company of recordsValue(companiesList)) {
+			const id = numberValue(company["id"]);
+			if (id === null) {
+				continue;
+			}
+			related.add({
+				providerSlug: "company.tmdb",
+				externalId: String(Math.trunc(id)),
+				name: stringValue(company["name"]) ?? "Loading...",
+				relationshipProperties: { roles: [], roleCodes: [code] },
+			});
+		}
+	}
+	return related.entities;
+};
+
+const fetchTrendingItems = (
+	host: TmdbHost,
+	path: string,
+	language: string,
+	token: string,
+	options: { readonly providerSlug: string; readonly nameKeys: readonly string[] },
+) =>
+	Effect.gen(function* () {
+		const results: unknown[] = [];
+		for (const page of [1, 2, 3]) {
+			const data = yield* tmdbGet(host, path, { language, page: String(page) }, token);
+			results.push(...asArray(data["results"]));
+		}
+		return collectSuggestions(results, options).map(({ name, externalId }) => ({
+			name,
+			externalId,
+		}));
+	});
+
+export const runTmdbTrending = (
+	host: TmdbTrendingHost,
+	options: {
+		readonly path: string;
+		readonly language: string;
+		readonly providerSlug: string;
+		readonly entitySchemaSlug: string;
+		readonly nameKeys: readonly string[];
+	},
+) =>
+	Effect.gen(function* () {
+		const items = yield* getTmdbAccessToken(host).pipe(
+			Effect.flatMap((token) =>
+				fetchTrendingItems(host, options.path, options.language, token, {
+					nameKeys: options.nameKeys,
+					providerSlug: options.providerSlug,
+				}),
+			),
+			Effect.catch((error) =>
+				host
+					.log([
+						{
+							level: "warning",
+							message: "trending provider skipped",
+							attributes: { error: mediaFailureMessage(error), providerSlug: options.providerSlug },
+						},
+					])
+					.pipe(
+						Effect.orElseSucceed(() => null),
+						Effect.as(null),
+					),
+			),
+		);
+		if (items === null) {
+			return { status: "failed" } satisfies typeof MediaTrendingProviderOutput.Type;
+		}
+		const results = yield* host.upsertGlobalEntities(
+			items.map(({ name, externalId }) => ({
+				name,
+				externalId,
+				properties: {},
+				populatedAt: null,
+				entitySchemaSlug: options.entitySchemaSlug,
+			})),
+		);
+		return {
+			status: "fetched",
+			entityIds: [
+				...new Set(
+					results.flatMap((result) => (result.status === "upserted" ? [result.entityId] : [])),
+				),
+			],
+		} satisfies typeof MediaTrendingProviderOutput.Type;
+	});
+
+export const parseTranslationLanguage = (language: string) => {
+	const locale = new Intl.Locale(language);
+	const langCode = canonicalLanguageCode(locale.language) ?? locale.language;
+	const maximized = new Intl.Locale(langCode, {
+		...(locale.region === undefined ? {} : { region: locale.region }),
+		...(locale.script === undefined ? {} : { script: locale.script }),
+	}).maximize();
+	return {
+		langCode,
+		script: maximized.script,
+		region: locale.region ?? (locale.script ? maximized.region : null) ?? null,
+	};
+};
+
+export const orderedTranslationCandidates = (
+	translationsData: UnknownRecord,
+	langCode: string,
+	region: null | string,
+	script: string | undefined,
+) => {
+	const candidates = recordsValue(translationsData["translations"]).filter((entry) => {
+		if (recordLanguage(entry) !== langCode) {
+			return false;
+		}
+		const country = stringValue(entry["iso_3166_1"]);
+		return (
+			new Intl.Locale(langCode, country ? { region: country } : {}).maximize().script === script
+		);
+	});
+	const regionMatch = region
+		? candidates.find((entry) => stringValue(entry["iso_3166_1"])?.toUpperCase() === region)
+		: null;
+	return regionMatch
+		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+		: candidates;
+};
+
+export const firstTranslationValue = (
+	candidates: readonly UnknownRecord[],
+	extract: (data: UnknownRecord) => unknown,
+) => {
+	for (const entry of candidates) {
+		const data = asRecord(entry["data"]);
+		const value = data ? stringValue(extract(data)) : null;
+		if (value) {
+			return value;
+		}
+	}
+	return null;
+};
+
+export const getLocalizedTmdbArtwork = (
+	imagesData: UnknownRecord,
+	imageKey: string,
+	langCode: string,
+	purpose: TmdbImagePurpose,
+) => {
+	const localizedImage = recordsValue(imagesData[imageKey]).find(
+		(image) =>
+			recordLanguage(image) === langCode && stringValue(image["file_path"])?.startsWith("/"),
+	);
+	return tmdbArtwork(localizedImage?.["file_path"], purpose, langCode);
+};

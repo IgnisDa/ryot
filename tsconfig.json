@@ -2,32 +2,37 @@
 	"files": [],
 	"extends": "./tsconfig.options.json",
 	"references": [
-		{
-			"path": "apps/browser-extension"
-		},
-		{
-			"path": "apps/docs"
-		},
-		{
-			"path": "apps/frontend"
-		},
-		{
-			"path": "apps/website"
-		},
-		{
-			"path": "libs/generated"
-		},
-		{
-			"path": "libs/graphql"
-		},
-		{
-			"path": "libs/transactional"
-		},
-		{
-			"path": "libs/ts-utils"
-		},
-		{
-			"path": "tests"
-		}
+		{ "path": "e2e" },
+		{ "path": "apps/docs" },
+		{ "path": "apps/server" },
+		{ "path": "apps/website" },
+		{ "path": "packages/cli" },
+		{ "path": "plugins/media" },
+		{ "path": "kernel/client" },
+		{ "path": "kernel/backend" },
+		{ "path": "kernel/sandbox" },
+		{ "path": "plugins/fitness" },
+		{ "path": "plugins/fixture" },
+		{ "path": "packages/config" },
+		{ "path": "packages/ryotql" },
+		{ "path": "packages/testing" },
+		{ "path": "packages/ts-utils" },
+		{ "path": "packages/contract" },
+		{ "path": "packages/instance-contract" },
+		{ "path": "packages/languages" },
+		{ "path": "packages/plugin-kit" },
+		{ "path": "packages/plugin-ui-sdk" },
+		{ "path": "packages/vite-compiler" },
+		{ "path": "apps/browser-extension" },
+		{ "path": "packages/plugin-archive" },
+		{ "path": "packages/ryotql-recipes" },
+		{ "path": "packages/email-templates" },
+		{ "path": "packages/kernel-renderers" },
+		{ "path": "packages/plugin-client-sdk" },
+		{ "path": "packages/plugin-backend-sdk" },
+		{ "path": "packages/typescript-compiler" },
+		{ "path": "packages/plugin-client-compiler" },
+		{ "path": "packages/plugin-client-contract" },
+		{ "path": "packages/plugin-backend-compiler" }
 	]
 }

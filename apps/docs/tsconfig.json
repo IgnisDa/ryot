@@ -1,10 +1,13 @@
 {
-	"include": ["**/*"],
+	"include": ["**/*", "../server/tooling/shipped-plugins.ts"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"noEmit": true,
+		"rootDir": "..",
 		"outDir": "dist",
-		"module": "NodeNext",
-		"moduleResolution": "nodenext"
+		"module": "ESNext",
+		"types": ["bun-types"],
+		"lib": ["ESNext", "DOM"],
+		"moduleResolution": "bundler"
 	}
 }

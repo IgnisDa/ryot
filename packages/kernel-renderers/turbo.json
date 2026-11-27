@@ -1,0 +1,11 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"build": {
+			"outputs": ["src/sources.generated.ts"],
+			"inputs": ["$TURBO_DEFAULT$", "!src/**/*.generated.ts"]
+		}
+	}
+}

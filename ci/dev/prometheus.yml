@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: ryot
+    static_configs:
+      - targets: [ryot-otel-collector:8889]

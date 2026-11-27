@@ -1,0 +1,117 @@
+import type {
+	AuthoredPluginManifest,
+	PluginClientEntry,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
+import { derivePluginSandboxScripts } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import {
+	clientArtifactMetadata,
+	clientDeclarationHash,
+	type PluginClientArtifact,
+} from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
+import { compilePluginCatalog } from "@ryot-app/plugin-kit/testing";
+import { Effect, FileSystem, Schema, Stream } from "effect";
+
+import type { PluginSource } from "./packages/types";
+
+export class PluginSourceError extends Schema.TaggedError<
+	PluginSourceError,
+	{ readonly brand: unique symbol }
+>()("PluginSourceError", { message: Schema.String }) {}
+
+export const withCatalogs = <Source extends { readonly manifest: AuthoredPluginManifest }>(
+	source: Source,
+) => ({ ...source, catalogs: manifestCatalogs(source.manifest) });
+
+export const fixtureClientArtifact = (
+	packageId: PluginPackageId,
+	client: PluginClientEntry,
+): PluginClientArtifact => {
+	const files = [
+		{
+			staticImports: [],
+			name: "index.html",
+			contentType: "text/html; charset=utf-8",
+			contents: new TextEncoder().encode("<!doctype html><html></html>"),
+		},
+		{
+			name: "plugin.js",
+			staticImports: [],
+			contentType: "text/javascript; charset=utf-8",
+			contents: new TextEncoder().encode("export {};"),
+		},
+	];
+	return {
+		...clientArtifactMetadata(packageId, files, {
+			imports: [],
+			clientDeclarationHash: clientDeclarationHash(client),
+		}),
+		files,
+	};
+};
+
+const pluginSourcePaths = (packageRoot: string) =>
+	Stream.fromAsyncIterable(
+		new Bun.Glob("**/*.ts").scan({ onlyFiles: true, cwd: packageRoot, followSymlinks: false }),
+		(error) => new PluginSourceError({ message: String(error) }),
+	).pipe(
+		Stream.filter((path) => !path.endsWith(".test.ts") && path !== CATALOG_MESSAGES_MODULE),
+		Stream.runCollect,
+	);
+
+export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(function* (
+	packageRoot: string,
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const paths = yield* pluginSourcePaths(packageRoot);
+	const entries = yield* Effect.forEach(paths, (path) =>
+		fs
+			.readFile(`${packageRoot}/${path}`)
+			.pipe(
+				Effect.mapBoth({
+					onSuccess: (contents) => [path, contents] as const,
+					onFailure: (error) => new PluginSourceError({ message: String(error) }),
+				}),
+			),
+	);
+	const files = Object.fromEntries(entries);
+	const catalog = yield* compilePluginCatalog(packageRoot);
+	return yield* derivePluginSandboxScripts(
+		Object.fromEntries(
+			Object.entries(files)
+				.filter(([path]) => path.startsWith("backend/") || path.startsWith("shared/"))
+				.map(([path, contents]) => [
+					path,
+					new TextDecoder("utf-8", { fatal: true }).decode(contents),
+				]),
+		),
+		catalog,
+	);
+});
+
+export const loadPluginSource = (packageRoot: string, manifest: PluginManifest) =>
+	Effect.gen(function* () {
+		const outputs = yield* loadPluginSandboxScripts(packageRoot);
+		const byEntry = new Map(outputs.map((output) => [output.script.entry, output]));
+		const compiledScripts = manifest.scripts.flatMap(({ entry }) => {
+			const output = byEntry.get(entry);
+			return output
+				? [{ entry, format: output.compiled.format, javascript: output.compiled.javascript }]
+				: [];
+		});
+		const scripts = manifest.scripts.map((script) => {
+			const output = byEntry.get(script.entry);
+			return output ? { ...script, runtimeImports: output.script.runtimeImports } : script;
+		});
+		return {
+			compiledScripts,
+			manifest: { ...manifest, scripts },
+			catalogs: manifestCatalogs(manifest),
+			...(manifest.client
+				? { compiledClient: fixtureClientArtifact(manifest.metadata.packageId, manifest.client) }
+				: {}),
+		} satisfies PluginSource;
+	});

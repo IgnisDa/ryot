@@ -20,7 +20,7 @@ pub async fn set_trigger_result(
     error: Option<String>,
     integration: &integration::Model,
 ) -> Result<()> {
-    set_trigger_result_with_partial_success(ss, error, integration, false, None).await
+    set_trigger_result_with_partial_success(ss, error, integration, false).await
 }
 
 pub async fn set_trigger_result_with_partial_success(
@@ -28,7 +28,6 @@ pub async fn set_trigger_result_with_partial_success(
     error: Option<String>,
     integration: &integration::Model,
     partial_success: bool,
-    details: Option<String>,
 ) -> Result<()> {
     let finished_at = Utc::now();
     let last_success = match error.is_none() || partial_success {
@@ -39,11 +38,7 @@ pub async fn set_trigger_result_with_partial_success(
     if new_trigger_result.len() >= 20 {
         new_trigger_result.pop_back();
     }
-    new_trigger_result.push_front(IntegrationTriggerResult {
-        error,
-        details,
-        finished_at,
-    });
+    new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
     let should_disable = integration.extra_settings.disable_on_continuous_errors
         && has_continuous_errors(&new_trigger_result, last_success);
 
@@ -119,7 +114,6 @@ mod tests {
         (1..=count)
             .rev()
             .map(|offset| IntegrationTriggerResult {
-                details: None,
                 error: Some("Provider lookup failed".into()),
                 finished_at: start + Duration::seconds(offset),
             })

@@ -82,7 +82,7 @@ pub async fn yank_integrations_data_for_user(
         };
     }
     for (integration, progress_updates) in progress_updates.into_iter() {
-        integration_progress_update(ss, integration, progress_updates, None)
+        integration_progress_update(ss, integration, progress_updates)
             .await
             .trace_ok();
     }
@@ -168,7 +168,7 @@ async fn sync_integrations_data_to_owned_collection_for_user(
         };
     }
     for (integration, progress_updates) in progress_updates.into_iter() {
-        integration_progress_update(ss, integration, progress_updates, None)
+        integration_progress_update(ss, integration, progress_updates)
             .await
             .trace_ok();
     }

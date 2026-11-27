@@ -1,11 +1,10 @@
 # Sonarr
 
 ::: info
-Please read the [Radarr](./radarr.md) documentation to understand how to get values for
-the input fields.
+Use the [Radarr procedure](./radarr.md) to find profile, root-folder, and tag values.
 :::
 
-Events: `Item added to collection`
+**Trigger:** item added to a selected collection.
 
-1. Obtain your Sonarr API key by going to the Sonarr general settings page.
-2. Fill the inputs in the integration settings page with the correct details.
+1. Get the API key from Sonarr general settings.
+2. Under **Settings > Integrations**, create a Sonarr integration and select its Ryot collections.

@@ -1,41 +1,39 @@
 {
 	"$schema": "https://turbo.build/schema.json",
+	"globalDependencies": ["tsconfig.options.json", "bunfig.toml"],
 	"tasks": {
+		"transit": { "dependsOn": ["^transit"] },
+		"dev": { "cache": false, "persistent": true },
+		"check:references": { "outputLogs": "errors-only" },
+		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test", "messages"] },
 		"build": {
-			"dependsOn": ["^build"],
-			"outputs": ["build/**", ".vitepress/dist/**", "dist/**", "out/**"]
+			"env": ["RYOT_VERSION"],
+			"outputLogs": "errors-only",
+			"dependsOn": ["^build", "messages"],
+			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
-		"build-chrome": {
-			"dependsOn": ["^build"],
-			"outputs": ["dist/chrome-mv3/**", "dist/*-chrome.zip"]
+		"check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "messages"],
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json", "$TURBO_ROOT$/ci/oxlint/**"]
 		},
-		"build-firefox": {
-			"dependsOn": ["^build"],
-			"outputs": [
-				"dist/firefox-mv2/**",
-				"dist/*-sources.zip",
-				"dist/*-firefox.zip"
+		"messages": {
+			"outputLogs": "errors-only",
+			"outputs": ["shared/messages.generated.ts"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"!shared/messages.generated.ts",
+				"$TURBO_ROOT$/packages/cli/src/**",
+				"$TURBO_ROOT$/packages/i18n/src/**"
 			]
-		},
-		"typecheck": {},
-		"lint": {},
-		"test": {
-			"dependsOn": ["^build"]
-		},
-		"@ryot/tests#test": {
-			"dependsOn": ["^build", "@ryot/frontend#test:unit"]
-		},
-		"test:unit": {},
-		"dev": {
-			"cache": false,
-			"persistent": true
-		},
-		"test-watch": {
-			"cache": false,
-			"persistent": true
-		},
-		"backend-graphql": {
-			"cache": false
 		}
-	}
+	},
+	"globalPassThroughEnv": [
+		"CARGO_HOME",
+		"RUSTUP_HOME",
+		"DOCKER_HOST",
+		"TEST_DATABASE_URL",
+		"TESTCONTAINERS_HOST_OVERRIDE",
+		"TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
+	]
 }

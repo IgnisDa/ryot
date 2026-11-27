@@ -1,0 +1,32 @@
+import { expect } from "bun:test";
+
+import { SubmissionExpired } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
+import { Effect } from "effect";
+import { TestClock } from "effect/testing";
+
+import { requireOpenSubmission } from "./submission-window";
+
+const now = Date.parse("2026-10-28T00:00:00.000Z");
+const days = (count: number) => new Date(now + count * 86_400_000).toISOString();
+const expired = new SubmissionExpired({
+	reason: kernelMessage("error.mutations.submission-expired"),
+});
+
+it.effect(
+	"accepts submissions within seven days of the server clock in either direction",
+	() =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(now);
+			for (const submittedAt of [days(-7), days(0), days(7)]) {
+				expect(yield* requireOpenSubmission(submittedAt)).toBeUndefined();
+			}
+			for (const submittedAt of [days(-7.01), days(7.01)]) {
+				assertExitFails(yield* Effect.exit(requireOpenSubmission(submittedAt)), expired);
+			}
+		}),
+	testTimeout,
+);

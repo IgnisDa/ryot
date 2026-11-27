@@ -22,24 +22,9 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"email": {
-					"name": "email",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"message": {
-					"name": "message",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"is_spam": {
-					"name": "is_spam",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": false
-				},
+				"email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
+				"message": { "name": "message", "type": "text", "primaryKey": false, "notNull": true },
+				"is_spam": { "name": "is_spam", "type": "boolean", "primaryKey": false, "notNull": false },
 				"is_addressed": {
 					"name": "is_addressed",
 					"type": "boolean",
@@ -72,12 +57,7 @@
 					"notNull": true,
 					"default": "gen_random_uuid()"
 				},
-				"email": {
-					"name": "email",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
+				"email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
 				"created_on": {
 					"name": "created_on",
 					"type": "timestamp with time zone",
@@ -111,12 +91,7 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"renew_on": {
-					"name": "renew_on",
-					"type": "date",
-					"primaryKey": false,
-					"notNull": false
-				},
+				"renew_on": { "name": "renew_on", "type": "date", "primaryKey": false, "notNull": false },
 				"unkey_key_id": {
 					"name": "unkey_key_id",
 					"type": "text",
@@ -189,9 +164,5 @@
 	"roles": {},
 	"policies": {},
 	"views": {},
-	"_meta": {
-		"columns": {},
-		"schemas": {},
-		"tables": {}
-	}
+	"_meta": { "columns": {}, "schemas": {}, "tables": {} }
 }

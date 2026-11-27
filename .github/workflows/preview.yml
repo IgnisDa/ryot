@@ -1,0 +1,84 @@
+name: Publish PR Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "Open PR number with a successful PR Validation run"
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+cache-mode: none
+
+concurrency:
+  group: preview-${{ inputs.pr-number }}
+  queue: max
+
+jobs:
+  publish:
+    if: github.ref_protected && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    environment: preview
+    env:
+      PR_NUMBER: ${{ inputs.pr-number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Identify the validated PR artifacts
+        id: source
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { findPreviewSource } = require("./ci/images/preview-source.cjs");
+            const source = await findPreviewSource(github, context, process.env.PR_NUMBER);
+            core.setOutput("revision", source.revision);
+            core.setOutput("run-id", source.runId);
+            core.setOutput("artifact-ids", source.artifactIds.join(","));
+            core.setOutput("tag", `pr-${source.number}`);
+            const repository = `ghcr.io/${process.env.GITHUB_REPOSITORY.toLowerCase()}-preview`;
+            core.setOutput("repository", repository);
+            core.exportVariable("IMAGE_REPOSITORIES", repository);
+      - name: Download the two validated OCI archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run-id }}
+          artifact-ids: ${{ steps.source.outputs.artifact-ids }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/images
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Extract metadata for Docker
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.source.outputs.repository }}
+          tags: type=raw,value=${{ steps.source.outputs.tag }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Confirm the PR still has the same merge revision
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_REVISION: ${{ steps.source.outputs.revision }}
+        with:
+          script: |
+            const { currentPreviewRevision } = require("./ci/images/preview-source.cjs");
+            const source = await currentPreviewRevision(github, context, process.env.PR_NUMBER);
+            if (source.revision !== process.env.EXPECTED_REVISION) {
+              throw new Error("The PR changed while preparing the preview");
+            }
+      - name: Log in to the preview registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ vars.PREVIEW_GHCR_USERNAME }}
+          password: ${{ secrets.PREVIEW_GHCR_TOKEN }}
+      - name: Publish the preview images by digest
+        env:
+          REVISION: ${{ steps.source.outputs.revision }}
+        run: bash ci/images/promote.sh "$RUNNER_TEMP/images" "$REVISION"

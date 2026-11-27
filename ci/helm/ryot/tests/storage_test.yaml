@@ -1,0 +1,80 @@
+suite: persistent application storage and safe upgrades
+release:
+  name: ryot
+  namespace: default
+set:
+  secret.adminAccessToken.value: token
+  postgres.auth.password: password
+tests:
+  - it: retains a dedicated claim for permanent uploads
+    templates: [templates/pvc.yaml]
+    asserts:
+      - equal:
+          path: metadata.name
+          value: ryot-storage
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
+          path: spec.resources.requests.storage
+          value: 8Gi
+
+  - it: mounts uploads with group access and stops the old backend before upgrading
+    templates: [templates/deployment.yaml]
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 1001
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: storage
+              mountPath: /home/ryot/storage
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: ryot-storage
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.tcpSocket.port
+          value: http
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 180
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /api/system/health
+
+  - it: reuses an existing application claim without creating another
+    templates: [templates/pvc.yaml]
+    set:
+      persistence.existingClaim: retained-uploads
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: mounts the requested existing claim
+    templates: [templates/deployment.yaml]
+    set:
+      persistence.existingClaim: retained-uploads
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: retained-uploads
+
+  - it: allows S3 without mounting a local permanent volume
+    templates: [templates/deployment.yaml]
+    set:
+      persistence.enabled: false
+      config.extraEnv.FILE_STORAGE_S3_URL: https://s3.example.com
+      config.extraEnv.FILE_STORAGE_S3_BUCKET_NAME: ryot
+      secretEnv.FILE_STORAGE_S3_ACCESS_KEY_ID: key
+      secretEnvFrom.FILE_STORAGE_S3_SECRET_ACCESS_KEY:
+        existingSecret: object-storage
+        key: secret-key
+    asserts:
+      - notExists:
+          path: spec.template.spec.volumes
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts

@@ -1,0 +1,16 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"test:memory": { "outputLogs": "errors-only", "dependsOn": ["check", "build"] },
+		"build": {
+			"inputs": ["$TURBO_DEFAULT$", "!src/**/*.generated.ts"],
+			"outputs": [
+				"src/modules/definitions/*.generated.ts",
+				"src/modules/definitions/kernel-scripts/shared/messages.generated.ts",
+				"src/modules/agent-tools/*.generated.ts"
+			]
+		}
+	}
+}

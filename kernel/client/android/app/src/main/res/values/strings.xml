@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name" translatable="false">Ryot</string>
+    <string name="title_activity_main" translatable="false">Ryot</string>
+    <string name="package_name" translatable="false">io.ryot.app</string>
+    <string name="custom_url_scheme" translatable="false">io.ryot.app</string>
+</resources>

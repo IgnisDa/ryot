@@ -1,0 +1,375 @@
+import {
+	localDay,
+	useBackgroundSubmission,
+	useFormatters,
+	usePluginIdentity,
+	usePluginUserSettings,
+	useRyotQuery,
+	useRyotSchedule,
+	useUserPreferences,
+} from "@ryot-app/plugin-client-sdk/react";
+import {
+	ActionForm,
+	Button,
+	Dialog,
+	DurationField,
+	Field,
+	FieldMessage,
+	Select,
+	StatusMessage,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { type RefObject, useState } from "react";
+
+import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
+import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
+import { mediaActivityPatchableKeys } from "../../../shared/media-activity-fields";
+import { catalogMessage } from "../../../shared/messages.generated";
+import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
+import { useMediaMessages } from "../../messages";
+import type { MediaActivityEventRef } from "../activity-timeline";
+import { EpisodeChoice } from "../episode-picker";
+import {
+	activityLogContextQuery,
+	showEpisodeSeasonQuery,
+	updateActivitySubmission,
+} from "./queries";
+import { FlatProgress, PositionProgress, SourceField, WhenField } from "./sheet";
+import {
+	type ActivityDraft,
+	activityDraftErrors,
+	activityEditDraft,
+	type ActivityEditIntent,
+	activityEditPatch,
+	activityRuntimeHint,
+	consumedOnSuggestions,
+	eventPrecondition,
+	hasActivityErrors,
+	type MediaActivityLogger,
+} from "./state";
+
+type EditSheetProps = {
+	readonly compact: boolean;
+	readonly onClose: () => void;
+	readonly intent: ActivityEditIntent;
+	readonly logger: MediaActivityLogger;
+	readonly record: MediaActivityEventRef;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+};
+
+/** Edits one stored completion or progress update with the Log activity fields. */
+export function MediaActivityEditSheet(props: EditSheetProps & { readonly entityId: string }) {
+	const text = useMediaMessages();
+	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
+	const preferences = useUserPreferences();
+	const failed = result.isError || preferences.isError;
+	if (result.data === undefined || result.data === null || preferences.data === undefined) {
+		let message = text("common.status.loading");
+		if (result.data === null) {
+			message = text("log.edit.not-editable");
+		} else if (failed) {
+			message = text("log.load.failed");
+		}
+		return (
+			<Dialog
+				onClose={props.onClose}
+				triggerRef={props.triggerRef}
+				title={text("log.edit.title")}
+				closeLabel={text("log.edit.close")}
+				placement={props.compact ? "sheet" : "center"}
+			>
+				<StatusMessage
+					tone={failed ? "error" : "pending"}
+					action={
+						failed
+							? {
+									label: text("common.action.try-again"),
+									onClick: () => {
+										result.refetch();
+										preferences.refetch();
+									},
+								}
+							: undefined
+					}
+				>
+					{message}
+				</StatusMessage>
+			</Dialog>
+		);
+	}
+	return <EditForm {...props} context={result.data} timeZone={preferences.data.timeZone} />;
+}
+
+function EpisodeField(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly onChange: (episodeId: string) => void;
+}) {
+	return props.family === "show" ? (
+		<ShowEpisodeField {...props} />
+	) : (
+		<EpisodePicker {...props} initialSeason={undefined} />
+	);
+}
+
+function ShowEpisodeField(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly onChange: (episodeId: string) => void;
+}) {
+	const text = useMediaMessages();
+	const [currentId] = useState(props.episodeId);
+	const season = useRyotQuery(showEpisodeSeasonQuery, { episodeEntityId: currentId });
+	if (season.data === undefined) {
+		return <StatusMessage tone="pending">{text("log.edit.episode-loading")}</StatusMessage>;
+	}
+	return <EpisodePicker {...props} initialSeason={season.data ?? undefined} />;
+}
+
+function EpisodePicker(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly initialSeason: number | undefined;
+	readonly onChange: (episodeId: string) => void;
+}) {
+	const text = useMediaMessages();
+	const [seasonNumber, setSeasonNumber] = useState(props.initialSeason);
+	return (
+		<EpisodeChoice
+			family={props.family}
+			entityId={props.entityId}
+			onSelect={props.onChange}
+			seasonNumber={seasonNumber}
+			selectedId={props.episodeId}
+			emptyMessage={text("log.edit.episodes-none")}
+			onSeason={(season) => setSeasonNumber(season.seasonNumber)}
+		/>
+	);
+}
+
+function EditForm(
+	props: EditSheetProps & { readonly timeZone: string; readonly context: MediaActivityLogContext },
+) {
+	const { logger, record, context } = props;
+	const text = useMediaMessages();
+	const schedule = useRyotSchedule();
+	const today = localDay(schedule.now());
+	const update = useBackgroundSubmission(updateActivitySubmission);
+	const [initial] = useState(() =>
+		activityEditDraft({
+			today,
+			logger,
+			context,
+			ref: record,
+			intent: props.intent,
+			timeZone: props.timeZone,
+		}),
+	);
+	const [draft, setDraft] = useState(initial);
+	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
+	const settingKey = consumedOnSettingKey(context.schemaSlug);
+	const suggestions = consumedOnSuggestions(
+		settingKey === undefined ? undefined : settings.data?.[settingKey],
+		context.consumedOn,
+	);
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
+	const patchAt = (submittedAt: string) =>
+		activityEditPatch({ draft, logger, initial, context, submittedAt, ref: record });
+	const unchanged = patchAt(new Date(schedule.now()).toISOString()) === undefined;
+	const save = () => {
+		const patch = patchAt(new Date(schedule.now()).toISOString());
+		if (patch === undefined || hasActivityErrors(errors) || update.isSending) {
+			return;
+		}
+		update.submit(
+			{
+				patch,
+				eventId: record.id,
+				label: catalogMessage("log.edit.title"),
+				expected: eventPrecondition(record, mediaActivityPatchableKeys),
+			},
+			{ onAccepted: props.onClose },
+		);
+	};
+	return (
+		<Dialog
+			onClose={props.onClose}
+			triggerRef={props.triggerRef}
+			title={text("log.edit.title")}
+			dismissible={!update.isSending}
+			closeLabel={text("log.edit.close")}
+			placement={props.compact ? "sheet" : "center"}
+			footer={
+				<>
+					<Button variant="secondary" onClick={props.onClose} disabled={update.isSending}>
+						{text("common.action.cancel")}
+					</Button>
+					<Button
+						onClick={save}
+						loading={update.isSending}
+						disabled={unchanged || hasActivityErrors(errors)}
+					>
+						{text("log.edit.save")}
+					</Button>
+				</>
+			}
+		>
+			<ActionForm onSubmit={save} label={text("log.edit.title")} className="flex flex-col gap-4">
+				<fieldset disabled={update.isSending} className="flex min-w-0 flex-col gap-4">
+					<EditFields
+						draft={draft}
+						today={today}
+						logger={logger}
+						context={context}
+						suggestions={suggestions}
+						ownProgress={record.entityId === context.id}
+						onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+					/>
+				</fieldset>
+				{update.error === null ? null : (
+					<StatusMessage tone="error">{text("log.save-failed")}</StatusMessage>
+				)}
+			</ActionForm>
+		</Dialog>
+	);
+}
+
+function EditFields(props: {
+	readonly today: string;
+	readonly draft: ActivityDraft;
+	readonly ownProgress: boolean;
+	readonly logger: MediaActivityLogger;
+	readonly suggestions: readonly string[];
+	readonly context: MediaActivityLogContext;
+	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+}) {
+	const { draft, today, logger, context } = props;
+	const text = useMediaMessages();
+	const formatters = useFormatters();
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
+	const item = draft.item;
+	return (
+		<>
+			{draft.episodeId !== undefined &&
+			(logger.family === "show" || logger.family === "podcast") ? (
+				<EpisodeField
+					entityId={context.id}
+					family={logger.family}
+					episodeId={draft.episodeId}
+					onChange={(episodeId) => props.onChange({ episodeId })}
+				/>
+			) : null}
+			{item !== undefined && logger.family === "positional" ? (
+				<>
+					<Select
+						value={item.unit}
+						label={text("log.edit.item-unit")}
+						checkIcon={<AppIcon size={16} name="check" />}
+						chevronIcon={<AppIcon size={16} name="chevron-down" />}
+						choices={logger.units.map((unit) => ({
+							value: unit,
+							label: text("log.unit.label", { unit }),
+						}))}
+						onChange={(value) => {
+							const unit = logger.units.find((candidate) => candidate === value);
+							if (unit !== undefined) {
+								props.onChange({ item: { unit, position: item.position } });
+							}
+						}}
+					/>
+					<Field label={text("log.edit.item-number")}>
+						{(control) => (
+							<TextField
+								min={0}
+								type="number"
+								id={control.id}
+								step={item.unit === "episodes" ? 1 : "any"}
+								value={Number.isFinite(item.position) ? String(item.position) : ""}
+								onChange={(event) =>
+									props.onChange({
+										item: {
+											...item,
+											position: event.target.value === "" ? Number.NaN : Number(event.target.value),
+										},
+									})
+								}
+							/>
+						)}
+					</Field>
+					{item.unit === "chapters" && logger.itemContext === true ? (
+						<Field label={text("property.volume-context")}>
+							{(control) => (
+								<TextField
+									min={0}
+									step="any"
+									type="number"
+									id={control.id}
+									value={item.volume === undefined ? "" : String(item.volume)}
+									onChange={(event) =>
+										props.onChange({
+											item: {
+												unit: item.unit,
+												position: item.position,
+												...(event.target.value === ""
+													? {}
+													: { volume: Number(event.target.value) }),
+											},
+										})
+									}
+								/>
+							)}
+						</Field>
+					) : null}
+					{errors.position === undefined ? null : <FieldMessage>{errors.position}</FieldMessage>}
+				</>
+			) : null}
+			{draft.intent === "progress" && logger.family === "positional" && props.ownProgress ? (
+				<PositionProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.position}
+					onChange={props.onChange}
+				/>
+			) : null}
+			{draft.intent === "progress" && !(logger.family === "positional" && props.ownProgress) ? (
+				<FlatProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.percent}
+					onChange={props.onChange}
+				/>
+			) : null}
+
+			<WhenField
+				today={today}
+				draft={draft}
+				logger={logger}
+				error={errors.when}
+				onChange={props.onChange}
+				kinds={["date", "unknown"]}
+			/>
+
+			{draft.intent === "finished" || draft.intent === "progress" ? (
+				<DurationField
+					value={draft}
+					error={errors.time}
+					onChange={props.onChange}
+					label={text("log.time-cumulative")}
+					hint={activityRuntimeHint(text, formatters, context.runtime)}
+				/>
+			) : null}
+			<SourceField
+				logger={logger}
+				value={draft.consumedOn}
+				suggestions={props.suggestions}
+				onChange={(consumedOn) => props.onChange({ consumedOn })}
+			/>
+		</>
+	);
+}

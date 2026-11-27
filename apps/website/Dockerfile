@@ -1,33 +1,33 @@
-ARG NODE_BASE_IMAGE=node:24.22.1-bookworm-slim
-
-FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS website-build-base
+FROM oven/bun:1.4.4-debian AS base
 WORKDIR /app
-RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
 
-FROM website-build-base AS website-pruner
-WORKDIR /app
-# Use the exact version from the root package.json
-RUN npm install -g turbo@2.8.10
+FROM base AS pruner
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --global "turbo@$(bun -p 'require("./package.json").devDependencies.turbo')"
 COPY . .
-RUN turbo prune @ryot/website --docker
+RUN turbo prune @ryot-app/website --docker
 
-FROM website-build-base AS website-builder
-WORKDIR /app
-COPY --from=website-pruner /app/out/json/ .
-RUN yarn install
-COPY --from=website-pruner /app/out/full/ .
-COPY --from=website-pruner /app/tsconfig.options.json .
-RUN yarn turbo run build --filter=@ryot/website
-RUN yarn workspaces focus @ryot/website --production
+FROM base AS builder
+COPY --from=pruner /app/out/json/ .
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
+COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/tsconfig.options.json /app/bunfig.toml ./
+RUN bun run turbo build --filter=@ryot-app/website
 
-FROM $NODE_BASE_IMAGE
-RUN apt-get update && apt-get install -y --no-install-recommends wget curl && rm -rf /var/lib/apt/lists/*
+FROM base AS runtime-deps
+COPY --from=pruner /app/out/json/ .
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --filter @ryot-app/website --production --linker hoisted --ignore-scripts --frozen-lockfile
+
+FROM base
 ENV NODE_ENV=production
 RUN useradd -m -u 1001 ryot
-WORKDIR /home/ryot
-COPY --from=website-builder --chown=ryot:ryot /app/apps/website/node_modules ./node_modules
-COPY --from=website-builder --chown=ryot:ryot /app/apps/website/package.json ./package.json
-COPY --from=website-builder --chown=ryot:ryot /app/apps/website/build ./build
-COPY --chown=ryot:ryot apps/website/app/drizzle/migrations app/drizzle/migrations
+COPY --from=runtime-deps /app/ ./
+COPY --from=pruner /app/out/full/packages ./packages
+WORKDIR /app/apps/website
+COPY --from=builder /app/apps/website/build ./build
+COPY apps/website/app/drizzle/migrations app/drizzle/migrations
+RUN mkdir tmp && chown ryot:ryot tmp
 USER ryot
-CMD ["sh", "-c", "mkdir -p tmp && exec npx react-router-serve ./build/server/index.js"]
+CMD ["bun", "--bun", "run", "react-router-serve", "./build/server/index.js"]

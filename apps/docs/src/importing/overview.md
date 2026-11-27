@@ -1,24 +1,47 @@
 # Importing
 
-Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
-the same source twice will create duplicates. I recommend you to make a
-[database backup](../exporting.md#exporting-the-entire-database)
-before starting an import.
+Open **Settings > Import data** to start an import.
 
-An import can fail at various steps for a specific item. Ryot creates a report when an
-import completes/fails. You can see them in the "Import" tab of the imports and exports page.
+Imports continue if you close Ryot or restart the server. Each import uses the plugin and
+configuration that were active when it started, so later configuration changes apply only to new
+imports. If an administrator changes an environment variable, cancel the current import and start
+a new one to use the new value.
 
-## Notes
+::: warning
+Imports are one-time operations. A repeated import can create duplicates. Make a
+[whole-server backup](../backups.md#whole-server-backups) first.
+:::
 
-- This will only import items that have been completed. To import items that are in
-  progress, you need to set up an [integration](../integrations/overview.md) or update
-  the progress manually.
-- Imports are very difficult to have 100% success rate. Though we try our best,
-  you might have to manually import some data from your previous provider.
-- Imports might take a long time since Ryot needs to fetch all metadata from the sources
-  before it can start importing progress. Estimated finish time is displayed in the UI.
-- I recommend turning on debug logging for the duration of the import using the
-  `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
-  progress in the docker logs.
-- If your importing goes wrong, you can always reset the user data from the user settings.
-  Keep in mind that this will delete ALL data for that user.
+## Limitations
+
+- Most imports add completed items only. Use an [integration](../integrations/overview.md) or update
+  progress manually for in-progress items.
+- Provider data cannot always be matched. Review the report after the import and add failed items
+  manually.
+- Metadata requests can make large imports slow.
+- Set `SERVER_LOG_LEVEL=debug` temporarily to show import progress in file or OTLP logs.
+
+## Import reports
+
+Each import shows its progress step by step. A percentage appears only when Ryot knows the exact
+total. Results separate created, updated, unchanged, skipped, and failed records. Reading the source
+or fetching provider data does not mean your history was saved yet.
+
+Warnings and errors show which record failed and why. Use **Download issues** to save the full list,
+including why the import stopped. The download does not include your uploaded data or credentials.
+
+Deleting an import report removes its details, not the data the import added.
+
+## Cancel an import
+
+Open the active import in **Settings > Import data**, open **Import actions**, and select **Cancel
+import**. The import may show **Cancelling** for a short time while current work stops and temporary
+files are cleaned up.
+
+Cancellation stops future work. Items already added remain in your library, and the import record
+keeps its partial counts and failures.
+
+::: danger
+Resetting user data can recover from a bad import, but it permanently deletes all data for that
+user.
+:::

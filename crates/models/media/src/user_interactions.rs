@@ -29,7 +29,6 @@ pub struct PersonStateChanges {
 )]
 pub struct IntegrationTriggerResult {
     pub error: Option<String>,
-    pub details: Option<String>,
     pub finished_at: DateTimeUtc,
 }
 

@@ -1,0 +1,36 @@
+import { describe, expect, it } from "bun:test";
+
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+
+import { testMessage } from "#/modules/i18n/provider.test-support";
+import { selectPreferredProvider } from "#/modules/provider-add/preferred-provider";
+import type { ProviderSearchSummary } from "#/modules/provider-add/service";
+
+const provider = (id: string): ProviderSearchSummary => ({
+	providerSlug: id,
+	searchOptionsSchema: null,
+	providerName: testMessage("Provider"),
+	providerId: SandboxProviderId.make(id),
+	rootEntitySchemaSlug: EntitySchemaSlug.make("item"),
+});
+
+describe("selectPreferredProvider", () => {
+	it("returns the remembered provider when it is available", () => {
+		const providers = [provider("provider-1"), provider("provider-2")];
+
+		expect(selectPreferredProvider(providers, providers[1].providerId)).toBe(providers[1]);
+	});
+
+	it("falls back to the first provider for a missing or null remembered provider", () => {
+		const providers = [provider("provider-1"), provider("provider-2")];
+
+		expect(selectPreferredProvider(providers, SandboxProviderId.make("provider-missing"))).toBe(
+			providers[0],
+		);
+		expect(selectPreferredProvider(providers, null)).toBe(providers[0]);
+	});
+
+	it("returns undefined when there are no providers", () => {
+		expect(selectPreferredProvider([], null)).toBeUndefined();
+	});
+});

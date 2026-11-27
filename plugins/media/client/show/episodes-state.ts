@@ -1,0 +1,139 @@
+import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+
+import { catalogMessage } from "../../shared/messages.generated";
+import type {
+	showOrderEpisodesRecipe,
+	showOrderGroupCoverageRecipe,
+	showSeasonEpisodesRecipe,
+	showSeasonsRecipe,
+} from "../../shared/show-recipes";
+import { seasonLabel } from "../media/activity-log/state";
+import { optionalText } from "../media/activity-timeline";
+import { mediaDateLabel } from "../media/episodes-state";
+import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
+import { mediaEpisodicAiredLabel } from "../media/summary-state";
+import type { MediaText } from "../messages";
+
+export type ShowSeason = ShowSeasons["seasons"]["items"][number];
+
+export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
+
+export type ShowSeasonsResult = Recipe.Success<ReturnType<typeof showSeasonsRecipe>>;
+
+export type ShowOrderEpisode = Recipe.Success<ReturnType<typeof showOrderEpisodesRecipe>>[number];
+
+export type ShowOrderGroupCoverage = Recipe.Success<
+	ReturnType<typeof showOrderGroupCoverageRecipe>
+>;
+
+export type ShowEpisode = Recipe.Success<
+	ReturnType<typeof showSeasonEpisodesRecipe>
+>["items"][number];
+
+export type ShowSeasonsState = MappedRyotQueryState<
+	| { readonly status: "empty" }
+	| {
+			readonly status: "ready";
+			readonly seasonTotal: number;
+			readonly seasons: ShowSeasonList;
+			readonly lastSeasonNumber: null | number;
+			readonly episodeOrders: ShowSeasons["episodeOrders"];
+	  }
+>;
+
+type ShowSeasons = NonNullable<ShowSeasonsResult>;
+
+type ShowEpisodeCoverage = Pick<ShowSeason, "episodeTotal" | "watchedTotal" | "upcomingTotal">;
+
+type ShowSeasonsFailure = Pick<
+	Extract<ShowSeasonsState, { status: "malformed" | "transport-error" }>,
+	"status"
+>;
+
+const SPECIALS_SEASON_NUMBER = 0;
+
+type SeasonNumbered = { readonly seasonNumber: number };
+
+export const isSpecialsSeason = (season: SeasonNumbered) =>
+	season.seasonNumber === SPECIALS_SEASON_NUMBER;
+
+export const seasonOrder = (season: SeasonNumbered) =>
+	isSpecialsSeason(season) ? Number.MAX_SAFE_INTEGER : season.seasonNumber;
+
+export const showSeasonOriginLabel = (text: MediaText, season: SeasonNumbered) =>
+	seasonLabel(text, season.seasonNumber);
+
+const orderShowSeasons = (seasons: readonly ShowSeason[]) =>
+	[...seasons].sort((left, right) => seasonOrder(left) - seasonOrder(right));
+
+export const mapShowSeasons = (result: RyotQueryResult<ShowSeasonsResult>): ShowSeasonsState => {
+	const state = classifyRyotQueryResult(result);
+	if (state.status !== "ready") {
+		return state;
+	}
+	const [first, ...rest] = orderShowSeasons(state.value?.seasons.items ?? []);
+	return first === undefined || state.value === null
+		? { status: "empty" }
+		: {
+				status: "ready",
+				seasons: [first, ...rest],
+				seasonTotal: state.value.seasonTotal,
+				episodeOrders: state.value.episodeOrders,
+				lastSeasonNumber: state.value.lastSeasonNumber,
+			};
+};
+
+export const showSeasonsError = (text: MediaText, state: ShowSeasonsFailure) => ({
+	title: text("show.seasons-error-title"),
+	detail:
+		state.status === "transport-error"
+			? text("show.seasons-error-transport")
+			: text("show.seasons-error-malformed"),
+});
+
+export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: null | string) =>
+	seasons.find((season) => season.id === seasonId) ??
+	seasons.find((season) => !isSpecialsSeason(season)) ??
+	seasons[0];
+
+export const showSeasonLabel = (text: MediaText, season: ShowSeason) => {
+	if (isSpecialsSeason(season)) {
+		return seasonLabel(text, season.seasonNumber);
+	}
+	return season.name.trim() === "" ? showSeasonOriginLabel(text, season) : season.name;
+};
+
+export const showCoverageCompletionPercent = (coverage: ShowEpisodeCoverage) =>
+	coverage.episodeTotal === 0
+		? undefined
+		: Math.min(Math.round((coverage.watchedTotal / coverage.episodeTotal) * 100), 100);
+
+export const showCoverageAiredLabel = (text: MediaText, coverage: ShowEpisodeCoverage) =>
+	mediaEpisodicAiredLabel(text, {
+		aired: coverage.episodeTotal,
+		watched: coverage.watchedTotal,
+		upcoming: coverage.upcomingTotal,
+	});
+
+export const showSeasonDescription = (season: ShowSeason) => optionalText(season.description);
+
+export const showSeasonReleaseLabel = (formatters: Formatters, season: ShowSeason) =>
+	mediaDateLabel(formatters, season.releaseDate);
+
+export const showEpisodeOriginLabel = (episode: {
+	readonly seasonNumber: number;
+	readonly episodeNumber: number;
+}) =>
+	isSpecialsSeason(episode)
+		? catalogMessage("show.episode-origin-specials", { episode: episode.episodeNumber })
+		: catalogMessage("show.episode-origin", {
+				season: episode.seasonNumber,
+				episode: episode.episodeNumber,
+			});
+
+export const showSeasonAsset = (season: ShowSeason) => season.image ?? undefined;
+
+export const showSeasonsManagedAssets = (seasons: ShowSeasonList) =>
+	collectManagedAssetLocators(seasons.map(showSeasonAsset));

@@ -556,9 +556,6 @@ pub struct AppConfig {
     /// Whether to disable telemetry.
     #[setting(default = false, env = "DISABLE_TELEMETRY")]
     pub disable_telemetry: bool,
-    /// Allow all users to send HTTP notifications to private networks.
-    #[setting(default = false, env = "NOTIFICATIONS_ALLOW_PRIVATE_NETWORKS")]
-    pub notifications_allow_private_networks: bool,
 }
 
 pub fn load_app_config() -> Result<AppConfig> {

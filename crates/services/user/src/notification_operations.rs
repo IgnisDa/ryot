@@ -65,18 +65,13 @@ pub async fn test_user_notification_platforms(
         )
         .all(&ss.db)
         .await?;
-    let mut all_sent = true;
     for platform in notifications {
         let msg = format!("This is a test notification for platform: {}", platform.lot);
-        if send_notification(&msg, &ss.config, platform.platform_specifics)
+        send_notification(&msg, &ss.config, platform.platform_specifics)
             .await
-            .trace_ok()
-            .is_none()
-        {
-            all_sent = false;
-        }
+            .trace_ok();
     }
-    Ok(all_sent)
+    Ok(true)
 }
 
 pub async fn create_user_notification_platform(

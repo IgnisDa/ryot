@@ -1,0 +1,25 @@
+import type { Text } from "@ryot-app/i18n/text";
+import clsx from "clsx";
+import type { ReactNode } from "react";
+
+export function ActionDock(props: {
+	readonly label: Text;
+	readonly children: ReactNode;
+	readonly safeAreaBottom: number;
+	readonly className?: string | undefined;
+}) {
+	return (
+		<div
+			role="region"
+			aria-label={props.label}
+			data-scroll-obstruction="bottom"
+			style={{ bottom: Math.max(12, props.safeAreaBottom + 8) }}
+			className={clsx(
+				"absolute inset-x-2.5 z-20 rounded-xl border border-border bg-raised p-2.5 text-text shadow-modal",
+				props.className,
+			)}
+		>
+			{props.children}
+		</div>
+	);
+}

@@ -1,0 +1,23 @@
+{
+	"name": "@ryot-app/instance-contract",
+	"private": true,
+	"exports": {
+		"./account-admin": "./src/account-admin.ts",
+		"./admin-auth": "./src/admin-auth.ts",
+		"./client": "./src/client.ts",
+		"./pro-key": "./src/pro-key.ts",
+		"./user": "./src/user.ts"
+	},
+	"scripts": {
+		"test": "bun ../../packages/testing/src/run-tests.ts",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"effect": "4.1.2"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
+	}
+}

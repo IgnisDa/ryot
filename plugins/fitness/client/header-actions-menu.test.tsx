@@ -1,0 +1,158 @@
+import { expect } from "bun:test";
+
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
+import { createTestRyotClock, TestI18nProvider } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
+import { Deferred } from "effect";
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+
+import { fitnessCatalogs } from "../tests/client/test-text";
+import { HeaderActionsMenu } from "./header-actions-menu";
+
+const mount = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
+	const { runtime, dispose } = createTestRyotClock({
+		pluginIdentity: () => ({ kind: "local", pluginId: PluginId.make("fitness") }),
+		...adapter,
+	});
+	const container = document.createElement("div");
+	document.body.append(container);
+	const root = createRoot(container);
+	act(() =>
+		root.render(
+			<TestI18nProvider catalogs={fitnessCatalogs}>
+				<RyotProvider runtime={runtime}>{children}</RyotProvider>
+			</TestI18nProvider>,
+		),
+	);
+	return {
+		container,
+		unmount: () => {
+			act(() => root.unmount());
+			container.remove();
+			void dispose();
+		},
+	};
+};
+
+const menu = (name: string) => within(getByRole(document.body, "menu", { name }));
+
+it.live(
+	"opens reminders from the menu and disables only that item while pending",
+	() =>
+		Effect.gen(function* () {
+			const release = yield* Deferred.make<void>();
+			const requests: unknown[] = [];
+			const mounted = mount(
+				{
+					manageReminders: (request) =>
+						Effect.gen(function* () {
+							requests.push(request);
+							yield* Deferred.await(release);
+							return { kind: "cancelled" };
+						}),
+				},
+				<HeaderActionsMenu
+					entityId="exercise-1"
+					label={testText("More exercise actions")}
+					items={[{ key: "other", onSelect: () => undefined, label: testText("Other action") }]}
+				/>,
+			);
+
+			try {
+				expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
+				const trigger = getByRole(mounted.container, "button", { name: "More exercise actions" });
+				act(() => trigger.click());
+				act(() =>
+					menu("More exercise actions").getByRole("menuitem", { name: "Reminders" }).click(),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							queryByRole(document.body, "menu", { name: "More exercise actions" }),
+						).toBeNull(),
+					),
+				);
+				act(() => trigger.click());
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							menu("More exercise actions")
+								.getByRole("menuitem", { name: "Reminders" })
+								.getAttribute("aria-disabled"),
+						).toBe("true"),
+					),
+				);
+				expect(
+					menu("More exercise actions")
+						.getByRole("menuitem", { name: "Other action" })
+						.getAttribute("aria-disabled"),
+				).toBeNull();
+				expect(requests).toEqual([{ entityId: "exercise-1" }]);
+				yield* Deferred.succeed(release, undefined);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							menu("More exercise actions")
+								.getByRole("menuitem", { name: "Reminders" })
+								.getAttribute("aria-disabled"),
+						).toBeNull(),
+					),
+				);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"reports a reminder screen failure",
+	() =>
+		Effect.gen(function* () {
+			const requests: unknown[] = [];
+			const mounted = mount(
+				{
+					manageReminders: (request) =>
+						Effect.sync(() => requests.push(request)).pipe(
+							Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
+						),
+				},
+				<HeaderActionsMenu
+					items={[]}
+					entityId="workout-1"
+					label={testText("More workout actions")}
+				/>,
+			);
+
+			try {
+				act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
+				act(() =>
+					menu("More workout actions").getByRole("menuitem", { name: "Reminders" }).click(),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(getByRole(mounted.container, "alert").textContent).toBe(
+							"Unable to open reminders. Try again.",
+						),
+					),
+				);
+				expect(requests).toEqual([{ entityId: "workout-1" }]);
+				act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
+				expect(
+					menu("More workout actions")
+						.getByRole("menuitem", { name: "Reminders" })
+						.getAttribute("aria-disabled"),
+				).toBeNull();
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
+);

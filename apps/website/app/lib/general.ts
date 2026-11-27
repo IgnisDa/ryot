@@ -2,7 +2,8 @@ import { initializePaddle } from "@paddle/paddle-js";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
-import type { TPrices } from "./config.server";
+
+import { configDataSchema } from "./config";
 
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
@@ -11,12 +12,12 @@ export const logoUrl = "/icon.png";
 export const initializePaddleForApplication = (
 	clientToken: string,
 	isSandbox: boolean,
-	paddleCustomerId?: string | null,
+	paddleCustomerId?: null | string,
 ) =>
 	initializePaddle({
 		token: clientToken,
 		environment: isSandbox ? "sandbox" : undefined,
-		pwCustomer: { id: paddleCustomerId || undefined },
+		pwCustomer: { id: paddleCustomerId ?? undefined },
 	});
 
 export const queryClient = new QueryClient({
@@ -26,15 +27,12 @@ export const queryClient = new QueryClient({
 export const useConfigData = () =>
 	useQuery({
 		queryKey: ["websiteConfig"],
+		// oxlint-disable-next-line effecttsgo/async-function -- TanStack Query owns the Promise-returning queryFn contract.
 		queryFn: async () => {
 			const response = await fetch("/api/config");
-			if (!response.ok) throw new Error("Failed to fetch config");
-			return response.json() as Promise<{
-				prices: TPrices;
-				isSandbox: boolean;
-				clientToken: string;
-				isLoggedIn: boolean;
-				turnstileSiteKey: string;
-			}>;
+			if (!response.ok) {
+				throw new Error("Failed to fetch config");
+			}
+			return configDataSchema.parse(await response.json());
 		},
 	});

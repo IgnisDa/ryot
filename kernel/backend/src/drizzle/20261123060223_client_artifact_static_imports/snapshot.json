@@ -1,0 +1,37 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "c9f9b9bd-df23-4480-a8f6-0f9832d74acc",
+	"prevIds": ["347cd475-2a36-445d-b64f-cb00bf4faf50"],
+	"footprints": [
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "client_artifact_file", "static_imports"],
+			"writes": [
+				"s|col|public.client_artifact_file.static_imports",
+				"n|col|public.client_artifact_file.static_imports",
+				"e|col|public.client_artifact_file.static_imports"
+			],
+			"reads": ["n|tbl|public.client_artifact_file", "n|sch|public"]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "client_artifact_file",
+				"name": "static_imports",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "'[]'",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		}
+	]
+}
