@@ -67,8 +67,8 @@ export const definitionEntitySchema = snakeCase.table(
 	{
 		...definitionColumns(),
 		icon: text().notNull(),
-		occursAtProperty: text(),
 		refreshIntervalDays: integer(),
+		occursAtProperties: text().array(),
 		fold: jsonb().$type<PluginEntityFold>(),
 		browse: jsonb().$type<EntitySchemaBrowse>(),
 		editor: jsonb().$type<PluginEntityEditor>(),

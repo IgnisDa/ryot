@@ -10,11 +10,13 @@ import {
 	column,
 	conditional,
 	count,
+	dateAdd,
 	descending,
 	divide,
 	eq,
 	first,
 	gt,
+	gte,
 	inArray,
 	isNotNull,
 	isNull,
@@ -22,6 +24,7 @@ import {
 	jsonPath,
 	literal,
 	localDate,
+	lt,
 	lte,
 	multiply,
 	neq,
@@ -420,7 +423,10 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 export const publishDate = (episode: TableReference) =>
 	castDate(jsonPath(column(episode, "properties"), "publishDate"));
 
-/** `publishDate` as an indexed column. Date windows filter on this, not on the property. */
+/**
+ * The indexed release column: an episode's `airingAt` instant when it has one, otherwise its
+ * `publishDate`. Date windows filter on this, not on the properties.
+ */
 export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
 export const episodeReleaseTime = (episode: TableReference) => ({
@@ -447,14 +453,43 @@ export const episodeReleaseOrder = (episode: TableReference) => {
 export const releaseHasArrived = (date: ScalarExpression, instant: ScalarExpression) =>
 	or(lte(instant, now()), and(isNull(instant), lte(date, reportingToday)));
 
+/**
+ * `occursAt` holds an episode's release instant when it has one and its publish date otherwise, so
+ * it lies within a day of the reporting day the release falls on. A release before
+ * `releaseSettledBefore` has arrived and one from `releaseUnsettledUntil` has not, so only releases
+ * between them read `airingAt` from the properties.
+ */
+const releaseFloor = (day: ScalarExpression) => dateAdd(day, -2, "day");
+const releaseCeiling = (day: ScalarExpression) => dateAdd(day, 3, "day");
+const releaseSettledBefore = releaseFloor(reportingToday);
+const releaseUnsettledUntil = releaseCeiling(reportingToday);
+
+/** A closed `occursAt` range holding every release on a reporting day from `from` to `to`. */
+export const episodeReleaseCandidates = (
+	episode: TableReference,
+	from: ScalarExpression,
+	to: ScalarExpression,
+) => [gte(occursAt(episode), releaseFloor(from)), lt(occursAt(episode), releaseCeiling(to))];
+
 export const episodeHasAired = (episode: TableReference) => {
 	const { date, instant } = episodeReleaseTime(episode);
-	return or(and(isNull(date), isNull(instant)), releaseHasArrived(date, instant));
+	return or(
+		and(isNull(date), isNull(instant)),
+		lt(date, releaseSettledBefore),
+		and(lt(date, releaseUnsettledUntil), releaseHasArrived(date, instant)),
+	);
 };
 
 export const episodeIsUpcoming = (episode: TableReference) => {
 	const { date, instant } = episodeReleaseTime(episode);
-	return or(gt(instant, now()), and(isNull(instant), gt(date, reportingToday)));
+	return and(
+		gte(date, releaseSettledBefore),
+		or(
+			gte(date, releaseUnsettledUntil),
+			gt(instant, now()),
+			and(isNull(instant), gt(date, reportingToday)),
+		),
+	);
 };
 
 type EpisodeAiring = "any" | "aired" | "upcoming";

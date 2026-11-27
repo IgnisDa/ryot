@@ -55,6 +55,7 @@ import {
 import { libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	episodeDisplayStateExpression,
+	episodeReleaseCandidates,
 	episodeReleaseDay,
 	episodeReleaseOrder,
 	episodeReleaseTime,
@@ -133,6 +134,7 @@ const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 		],
 		where: and(
 			scope.where,
+			...episodeReleaseCandidates(episode, reportingToday, lastDay),
 			inDateWindow(episodeReleaseDay(episode)),
 			entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 			or(

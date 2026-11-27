@@ -200,7 +200,9 @@ library through the subject's `in-media-library` link:
 - `show-episodes` and `podcast-episodes` share a release-time projection. A known `airingAt` is a UTC
   instant and displays on the account reporting day. Otherwise `publishDate` displays as a calendar
   date. Season-0 specials appear in Calendar, art falls back to the parent, and completion follows
-  the episode display state.
+  the episode display state. Episodes declare `occursAtProperties: ["airingAt", "publishDate"]`, so
+  the indexed `occursAt` bounds Calendar, Upcoming, and release schedule windows without reading
+  the properties.
 - `anime-airings` expands `airingSchedule` with a `jsonElements` join. The entry at UTC midnight of
   the anime's `publishDate` is the release row, not an airing. An episode is done when the anime is
   complete or the latest progress/list-state `position` reaches it.

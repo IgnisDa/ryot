@@ -1,0 +1,25 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "b9babb62-f823-4128-b72c-94ddddc9d8ba",
+	"prevIds": ["83f4ab0f-0e00-4f28-b0a6-3454fa42de8d"],
+	"footprints": [
+		{
+			"statementType": "drop_column",
+			"statementTarget": ["column", "public", "definition_entity_schema", "occurs_at_property"],
+			"writes": [
+				"s|col|public.definition_entity_schema.occurs_at_property",
+				"n|col|public.definition_entity_schema.occurs_at_property",
+				"e|col|public.definition_entity_schema.occurs_at_property"
+			],
+			"reads": ["n|tbl|public.definition_entity_schema", "n|sch|public"]
+		}
+	],
+	"deltas": [
+		{
+			"op": "drop",
+			"key": "columns\u0000[\"public\",\"definition_entity_schema\",\"occurs_at_property\"]"
+		}
+	]
+}

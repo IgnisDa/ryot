@@ -162,6 +162,38 @@ describe("Upcoming", () => {
 		}),
 	);
 
+	it.live("places a timed episode at its airtime, however far that is from its publish date", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadSchemas(client);
+			const timedShow = (publishDate: string, airingAt: string) =>
+				seedShow(client, {
+					properties: { productionStatus: "Continuing" },
+					seasons: [
+						{
+							seasonNumber: 1,
+							episodes: [
+								{ episodeNumber: 1, publishDate: AIRED },
+								{ publishDate, episodeNumber: 2, properties: { airingAt } },
+							],
+						},
+					],
+				});
+			const [delayed, aired] = yield* Effect.all([
+				timedShow(dayOffset(-10), instant(5, "20:00:00")),
+				timedShow(dayOffset(3), instant(-10, "20:00:00")),
+			]);
+			for (const show of [delayed, aired]) {
+				yield* complete(client, schemas.episodeComplete, show.episodeId(1, 1));
+			}
+			yield* Effect.forEach([delayed, aired], ({ show }) => waitForLibrarySummary(client, show.id));
+
+			expect(summarize(yield* upcoming(client, schemas))).toEqual([
+				[delayed.show.id, 1, [instant(5, "20:00:00")]],
+			]);
+		}),
+	);
+
 	it.live("lists anime airings after the watched episode and monitored releases by date", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

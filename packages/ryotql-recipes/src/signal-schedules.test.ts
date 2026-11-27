@@ -135,6 +135,8 @@ describe("signal schedule recipe", () => {
 			predicates: [
 				{},
 				{},
+				{ left: dueAt, operator: "gte", type: "comparison" },
+				{ left: dueAt, operator: "lt", type: "comparison" },
 				or(
 					and(
 						isNull(instant),

@@ -16,12 +16,14 @@ import {
 } from "./revision.test-support";
 import type { NormalizedPlugin } from "./types";
 
+type Declared = null | readonly string[];
+
 const withDate = (
 	schema: NormalizedPlugin["manifest"]["entitySchemas"][number],
-	declared: boolean,
+	declared: Declared,
 ) => ({
 	...schema,
-	...(declared ? { occursAtProperty: "date" } : {}),
+	...(declared === null ? {} : { occursAtProperties: declared }),
 	propertiesSchema: {
 		...schema.propertiesSchema,
 		fields: {
@@ -31,6 +33,11 @@ const withDate = (
 				label: { key: "test.date" },
 				description: "When it happens",
 			},
+			at: {
+				type: "datetime" as const,
+				label: { key: "test.at" },
+				description: "The instant it happens, when known",
+			},
 		},
 	},
 });
@@ -39,7 +46,7 @@ const datedPackage = (
 	slug: string,
 	version: string,
 	packageId: ReturnType<typeof testPluginPackageId>,
-	declared: boolean,
+	declared: Declared,
 ) => {
 	const base = revisionPackage(slug, version, `${slug}-entity`, packageId);
 	const [schema, ...others] = base.manifest.entitySchemas;
@@ -50,7 +57,12 @@ const datedPackage = (
 	};
 };
 
-const insertEntity = (id: string, pluginId: string, slug: string, date: unknown) =>
+const insertEntity = (
+	id: string,
+	pluginId: string,
+	slug: string,
+	properties: Readonly<Record<string, unknown>>,
+) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		yield* session.run((db) =>
@@ -59,7 +71,7 @@ const insertEntity = (id: string, pluginId: string, slug: string, date: unknown)
 				.values({
 					id,
 					name: id,
-					properties: { date },
+					properties,
 					entitySchemaPluginId: pluginId,
 					entitySchemaSlug: `${slug}-entity`,
 				}),
@@ -84,12 +96,12 @@ layer(revisionDatabaseLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const { pluginId } = yield* installRevisionPackage(
-				datedPackage("dated", "v1", testPluginPackageId(), true),
+				datedPackage("dated", "v1", testPluginPackageId(), ["date"]),
 			);
-			yield* insertEntity("dated-1", pluginId, "dated", "2026-09-04");
-			yield* insertEntity("dated-malformed", pluginId, "dated", "soon");
-			yield* insertEntity("dated-infinite", pluginId, "dated", "infinity");
-			yield* insertEntity("dated-missing", pluginId, "dated", null);
+			yield* insertEntity("dated-1", pluginId, "dated", { date: "2026-09-04" });
+			yield* insertEntity("dated-malformed", pluginId, "dated", { date: "soon" });
+			yield* insertEntity("dated-infinite", pluginId, "dated", { date: "infinity" });
+			yield* insertEntity("dated-missing", pluginId, "dated", { date: null });
 
 			expect(yield* occursAtOf("dated-1")).toBe("2026-09-04T00:00:00.000Z");
 			expect(yield* occursAtOf("dated-malformed")).toBeNull();
@@ -109,9 +121,9 @@ layer(revisionDatabaseLayer)((test) => {
 	test.effect("leaves a schema without a declaration empty", () =>
 		Effect.gen(function* () {
 			const { pluginId } = yield* installRevisionPackage(
-				datedPackage("undated", "v1", testPluginPackageId(), false),
+				datedPackage("undated", "v1", testPluginPackageId(), null),
 			);
-			yield* insertEntity("undated-1", pluginId, "undated", "2026-09-04");
+			yield* insertEntity("undated-1", pluginId, "undated", { date: "2026-09-04" });
 
 			expect(yield* occursAtOf("undated-1")).toBeNull();
 		}),
@@ -121,14 +133,53 @@ layer(revisionDatabaseLayer)((test) => {
 		Effect.gen(function* () {
 			const packageId = testPluginPackageId();
 			const { pluginId } = yield* installRevisionPackage(
-				datedPackage("late", "v1", packageId, false),
+				datedPackage("late", "v1", packageId, null),
 			);
-			yield* insertEntity("late-1", pluginId, "late", "2026-09-04");
+			yield* insertEntity("late-1", pluginId, "late", { date: "2026-09-04" });
 			expect(yield* occursAtOf("late-1")).toBeNull();
 
-			yield* installRevisionPackage(datedPackage("late", "v2", packageId, true));
+			yield* installRevisionPackage(datedPackage("late", "v2", packageId, ["date"]));
 
 			expect(yield* occursAtOf("late-1")).toBe("2026-09-04T00:00:00.000Z");
+		}),
+	);
+
+	test.effect("stores the first declared property that holds a valid timestamp", () =>
+		Effect.gen(function* () {
+			const { pluginId } = yield* installRevisionPackage(
+				datedPackage("timed", "v1", testPluginPackageId(), ["at", "date"]),
+			);
+			yield* insertEntity("timed-instant", pluginId, "timed", {
+				date: "2026-09-04",
+				at: "2026-09-04T22:30:00.000Z",
+			});
+			yield* insertEntity("timed-malformed", pluginId, "timed", {
+				at: "tonight",
+				date: "2026-09-05",
+			});
+			yield* insertEntity("timed-date", pluginId, "timed", { date: "2026-09-06" });
+
+			expect(yield* occursAtOf("timed-instant")).toBe("2026-09-04T22:30:00.000Z");
+			expect(yield* occursAtOf("timed-malformed")).toBe("2026-09-05T00:00:00.000Z");
+			expect(yield* occursAtOf("timed-date")).toBe("2026-09-06T00:00:00.000Z");
+		}),
+	);
+
+	test.effect("recomputes existing rows when a revision changes the declaration", () =>
+		Effect.gen(function* () {
+			const packageId = testPluginPackageId();
+			const { pluginId } = yield* installRevisionPackage(
+				datedPackage("moved", "v1", packageId, ["date"]),
+			);
+			yield* insertEntity("moved-1", pluginId, "moved", {
+				date: "2026-09-04",
+				at: "2026-09-04T22:30:00.000Z",
+			});
+			expect(yield* occursAtOf("moved-1")).toBe("2026-09-04T00:00:00.000Z");
+
+			yield* installRevisionPackage(datedPackage("moved", "v2", packageId, ["at", "date"]));
+
+			expect(yield* occursAtOf("moved-1")).toBe("2026-09-04T22:30:00.000Z");
 		}),
 	);
 });
