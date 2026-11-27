@@ -478,7 +478,7 @@ and its named tests, then its e2e files.
    `file3`. Each page index-scans every Media entity, with the id cursor only as a filter, and runs
    the translation lateral for each remaining row, so the total is quadratic. ultra-rewrite
    `7b09e6fc93` pages by primary key instead (0.15 ms per id page and 18 ms per page of artwork rows
-   on `file2`); #1878 picks it up at its next ultra-rewrite merge.
+   on `file2`), and #1878 includes it.
 
    Folds drain on the single background sandbox slot: attempt time is 9,067 s of `file2`'s 9,193 s
    drain. That drain includes a one-minute app restart, and it cost 3.9 CPU-seconds per fold job,
