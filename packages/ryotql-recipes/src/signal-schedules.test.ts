@@ -72,6 +72,7 @@ const schedule: SignalScheduleSource = {
 const bounds = {
 	end: "2026-03-15T00:00:00.000Z",
 	start: "2026-03-12T00:00:00.000Z",
+	horizon: "2026-03-18T00:00:00.000Z",
 	confirmedAfter: "2026-03-13T00:00:00.000Z",
 };
 
@@ -83,6 +84,7 @@ const page = (
 		readonly bounds?: {
 			readonly end: string;
 			readonly start: string;
+			readonly horizon: string;
 			readonly confirmedAfter: null | string;
 		};
 	} = {},
@@ -145,7 +147,7 @@ describe("signal schedule recipe", () => {
 		expect(unbounded.where).toMatchObject({ predicates: { length: 5 } });
 	});
 
-	it("selects the earliest fresh due time at or after the window end", () => {
+	it("selects the earliest fresh due time from the window end to the look-ahead's end", () => {
 		const query = requireRowsQuery(page().document.queries["signalScheduleNext"]);
 		expect(query.where).toEqual<unknown>({
 			type: "and",
@@ -153,6 +155,7 @@ describe("signal schedule recipe", () => {
 				where,
 				objectContaining({ type: "or" }),
 				gte(dueAt, castDate(literal(bounds.end))),
+				lt(dueAt, castDate(literal(bounds.horizon))),
 				or(isNull(confirmedAt), gte(confirmedAt, castDate(literal(bounds.confirmedAfter)))),
 			],
 		});
@@ -165,6 +168,7 @@ describe("signal schedule recipe", () => {
 		const instant = column(entity, "updatedAt");
 		const instantStart = "2026-03-12T05:00:00.000Z";
 		const instantEnd = "2026-03-14T21:30:00.000Z";
+		const instantHorizon = "2026-03-17T21:30:00.000Z";
 		const recipe = Result.getOrThrow(
 			signalScheduleRecipe({
 				schedule: {
@@ -180,7 +184,12 @@ describe("signal schedule recipe", () => {
 				},
 			}),
 		);
-		const { queries } = bindRecipe(recipe, { ...bounds, instantEnd, instantStart }).document;
+		const { queries } = bindRecipe(recipe, {
+			...bounds,
+			instantEnd,
+			instantStart,
+			instantHorizon,
+		}).document;
 		const freshness = or(
 			isNull(confirmedAt),
 			gte(confirmedAt, castDate(literal(bounds.confirmedAfter))),
@@ -211,7 +220,9 @@ describe("signal schedule recipe", () => {
 			predicates: [
 				where,
 				objectContaining({ type: "or" }),
-				and(isNull(instant), gte(dueAt, castDate(literal(bounds.end)))),
+				isNull(instant),
+				gte(dueAt, castDate(literal(bounds.end))),
+				lt(dueAt, castDate(literal(bounds.horizon))),
 				freshness,
 			],
 		});
@@ -221,13 +232,10 @@ describe("signal schedule recipe", () => {
 			predicates: [
 				where,
 				objectContaining({ type: "or" }),
-				{
-					type: "and",
-					predicates: [
-						objectContaining({ left: dueAt, operator: "gte", type: "comparison" }),
-						gte(instant, castDate(literal(instantEnd))),
-					],
-				},
+				objectContaining({ left: dueAt, operator: "gte", type: "comparison" }),
+				objectContaining({ left: dueAt, operator: "lt", type: "comparison" }),
+				gte(instant, castDate(literal(instantEnd))),
+				lt(instant, castDate(literal(instantHorizon))),
 				freshness,
 			],
 		});

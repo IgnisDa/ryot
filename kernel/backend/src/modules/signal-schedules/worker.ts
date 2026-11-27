@@ -42,6 +42,7 @@ import { EntitlementService } from "#platform/entitlements";
 import { type SignalScheduleCursor, SignalScheduleRepository } from "./repository";
 
 const CATCH_UP_DAYS = 2;
+const LOOKAHEAD_DAYS = 3;
 const RETENTION_DAYS = 30;
 const PRUNE_LIMIT = 500;
 const SNAPSHOT_HOURS = 1;
@@ -84,6 +85,9 @@ export const signalScheduleBounds = (input: {
 	return {
 		end: DateTime.formatIso(DateTime.subtract(end, delay)),
 		start: DateTime.formatIso(DateTime.subtract(start, delay)),
+		horizon: DateTime.formatIso(
+			DateTime.subtract(DateTime.add(end, { days: LOOKAHEAD_DAYS }), delay),
+		),
 		confirmedAfter:
 			input.maxAgeHours === null
 				? null
@@ -108,22 +112,34 @@ export const signalScheduleDueFrom = (input: {
 		: DateTime.toDate(shifted);
 };
 
-/** When the earlier of the next date-only row and the next timed row enters the window. */
+type NextRow = { readonly horizon: string; readonly at: null | string };
+
+/**
+ * When the earlier of the next date-only row and the next timed row enters the window. A kind with
+ * no row before its look-ahead's end is due when the window reaches that end.
+ */
 export const signalScheduleNextDue = (input: {
+	next: NextRow;
 	timeZone: TimeZone;
-	next: null | string;
 	delayDays: null | number;
-	nextInstant: null | string;
+	nextInstant: null | NextRow;
 	precision: "date" | "instant";
-}) => {
-	const due = [
-		...(input.next === null ? [] : [signalScheduleDueFrom({ ...input, dueAt: input.next })]),
-		...(input.nextInstant === null
-			? []
-			: [signalScheduleDueFrom({ ...input, precision: "instant", dueAt: input.nextInstant })]),
-	];
-	return Arr.isReadonlyArrayNonEmpty(due) ? Arr.min(due, Order.Date) : null;
-};
+}) =>
+	Arr.min(
+		[
+			signalScheduleDueFrom({ ...input, dueAt: input.next.at ?? input.next.horizon }),
+			...(input.nextInstant === null
+				? []
+				: [
+						signalScheduleDueFrom({
+							...input,
+							precision: "instant",
+							dueAt: input.nextInstant.at ?? input.nextInstant.horizon,
+						}),
+					]),
+		],
+		Order.Date,
+	);
 
 export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>()(
 	"@ryot-app/kernel-backend/modules/signal-schedules/worker/SignalScheduleWorker",
@@ -237,9 +253,14 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						arguments: {
 							end: bounds.end,
 							start: bounds.start,
+							horizon: bounds.horizon,
 							...(instantBounds === null
 								? {}
-								: { instantEnd: instantBounds.end, instantStart: instantBounds.start }),
+								: {
+										instantEnd: instantBounds.end,
+										instantStart: instantBounds.start,
+										instantHorizon: instantBounds.horizon,
+									}),
 							...(bounds.confirmedAfter === null ? {} : { confirmedAfter: bounds.confirmedAfter }),
 						},
 					});
@@ -261,8 +282,11 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							timeZone,
 							precision: target.precision,
 							delayDays: target.delayDays,
-							next: first.signalScheduleNext,
-							nextInstant: first.signalScheduleNextInstant ?? null,
+							next: { horizon: bounds.horizon, at: first.signalScheduleNext },
+							nextInstant:
+								instantBounds === null
+									? null
+									: { horizon: instantBounds.horizon, at: first.signalScheduleNextInstant ?? null },
 						});
 					}
 					if (page === OCCURRENCE_PAGE_LIMIT) {

@@ -1309,7 +1309,7 @@ CREATE TABLE "signal_schedule_delivery" (
 --> statement-breakpoint
 CREATE TABLE "signal_schedule_evaluation" (
 	"content_language" text,
-	"next_due_at" timestamp(3) with time zone,
+	"next_due_at" timestamp(3) with time zone NOT NULL,
 	"time_zone" text NOT NULL,
 	"schedule_slug" text,
 	"snapshot" pg_snapshot NOT NULL,

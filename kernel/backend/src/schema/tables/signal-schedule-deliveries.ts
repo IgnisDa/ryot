@@ -34,10 +34,10 @@ export const signalScheduleEvaluation = snakeCase.table(
 	"signal_schedule_evaluation",
 	{
 		contentLanguage: text(),
-		nextDueAt: timestamptz(),
 		timeZone: text().notNull(),
 		scheduleSlug: text().notNull(),
 		snapshot: snapshot().notNull(),
+		nextDueAt: timestamptz().notNull(),
 		evaluatedAt: timestamptz().notNull(),
 		userId: text()
 			.notNull()

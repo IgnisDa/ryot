@@ -19,6 +19,7 @@ import {
 	field,
 	gte,
 	isNull,
+	lt,
 	or,
 	table,
 } from "@ryot-app/ryotql";
@@ -64,9 +65,9 @@ const textValue = (row: DueRow, key: string) => {
 /**
  * `signalScheduleDue` pages the fresh occurrences due in `[start, end)`, or, for a row with an
  * `instantAt` value, in `[instantStart, instantEnd)`. `signalScheduleNext` is the earliest fresh
- * `dueAt` at or after `end` of a row without an instant, null when there is none. A schedule that
- * binds `instantAt` also has `signalScheduleNextInstant`, the earliest fresh instant at or after
- * `instantEnd`.
+ * `dueAt` in `[end, horizon)` of a row without an instant, null when there is none. A schedule that
+ * binds `instantAt` also has `signalScheduleNextInstant`, the earliest fresh instant in
+ * `[instantEnd, instantHorizon)`. Closed ranges let these queries start from an index on `dueAt`.
  */
 export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleSource }) => {
 	const { schedule } = input;
@@ -89,6 +90,12 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				description: "Inclusive bounded scan start",
 				label: kernelMessage("recipe.parameter.start"),
 			},
+			horizon: {
+				type: "datetime",
+				validation: { required: true },
+				label: kernelMessage("recipe.parameter.end"),
+				description: "Exclusive end of the look-ahead for the next due row",
+			},
 			instantEnd: {
 				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
 				type: "datetime",
@@ -100,6 +107,12 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				type: "datetime",
 				label: kernelMessage("recipe.parameter.start"),
 				description: "Inclusive scan start for timed rows",
+			},
+			instantHorizon: {
+				...(schedule.instantAt != null ? { validation: { required: true as const } } : {}),
+				type: "datetime",
+				label: kernelMessage("recipe.parameter.end"),
+				description: "Exclusive end of the look-ahead for the next timed row",
 			},
 		},
 	});
@@ -148,14 +161,14 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 				occurrence: yield* textValue(row, occurrenceKey),
 			} satisfies SignalScheduleCandidate;
 		});
-	const nextQuery = (at: ScalarExpression, window: Predicate) => ({
+	const nextQuery = (at: ScalarExpression, window: readonly Predicate[]) => ({
 		decodeResult: (result: unknown) =>
 			Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items: [row] }) =>
 				row === undefined ? Result.succeed(null) : textValue(row, dueAtKey),
 			),
 		document: {
 			...schedule.query,
-			where: where(window),
+			where: where(...window),
 			output: {
 				type: "rows" as const,
 				orderBy: [ascending(at)],
@@ -167,22 +180,20 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 	const recipe = defineRecipe({
 		parameters: recipeParameters.schema,
 		queries: {
-			[NEXT_QUERY]: nextQuery(
-				dueAt,
-				instantAt === null
-					? gte(dueAt, recipeParameters.value("end"))
-					: and(isNull(instantAt), gte(dueAt, recipeParameters.value("end"))),
-			),
+			[NEXT_QUERY]: nextQuery(dueAt, [
+				...(instantAt === null ? [] : [isNull(instantAt)]),
+				gte(dueAt, recipeParameters.value("end")),
+				lt(dueAt, recipeParameters.value("horizon")),
+			]),
 			...(instantAt === null
 				? {}
 				: {
-						[NEXT_INSTANT_QUERY]: nextQuery(
-							instantAt,
-							and(
-								gte(dueAt, dateAdd(castDate(recipeParameters.value("instantEnd")), -1, "day")),
-								gte(instantAt, recipeParameters.value("instantEnd")),
-							),
-						),
+						[NEXT_INSTANT_QUERY]: nextQuery(instantAt, [
+							gte(dueAt, dateAdd(castDate(recipeParameters.value("instantEnd")), -1, "day")),
+							lt(dueAt, dateAdd(castDate(recipeParameters.value("instantHorizon")), 1, "day")),
+							gte(instantAt, recipeParameters.value("instantEnd")),
+							lt(instantAt, recipeParameters.value("instantHorizon")),
+						]),
 					}),
 			[DUE_QUERY]: {
 				decodeResult: (result: unknown) =>

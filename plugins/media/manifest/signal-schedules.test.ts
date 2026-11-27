@@ -154,14 +154,18 @@ const evaluate = (slug: string, user: MediaUser) =>
 		assert(definition);
 		const recipe = Result.getOrThrow(signalScheduleRecipe({ schedule: definition }));
 		const service = yield* RyotQLService;
-		const window = { end: utcDay(3).toISOString(), start: utcDay(-3).toISOString() };
+		const window = {
+			end: utcDay(3).toISOString(),
+			start: utcDay(-3).toISOString(),
+			horizon: utcDay(6).toISOString(),
+		};
 		const response = yield* service.executeForUser(user, null, "kernel", {
 			source: { kind: "inline", document: recipe.document },
 			arguments: {
 				...window,
 				...(definition.instantAt === undefined
 					? {}
-					: { instantEnd: window.end, instantStart: window.start }),
+					: { instantEnd: window.end, instantStart: window.start, instantHorizon: window.horizon }),
 			},
 		});
 		const { signalScheduleDue, signalScheduleNext, signalScheduleNextInstant } = Result.getOrThrow(
@@ -262,7 +266,7 @@ const seedSchedules = Effect.gen(function* () {
 
 layer(mediaDatabaseLayer("media_signal_schedules"))((test) => {
 	test.effect(
-		"finds each schedule's due and next occurrences among the user's own titles, by instant when timed",
+		"finds each schedule's due occurrences and next ones before the look-ahead's end among the user's own titles, by instant when timed",
 		() =>
 			Effect.gen(function* () {
 				yield* seedSchedules;
@@ -280,7 +284,7 @@ layer(mediaDatabaseLayer("media_signal_schedules"))((test) => {
 					"anime-airing-releases": {
 						other: { due: [], next: null },
 						owner: {
-							next: utcDay(8).toISOString(),
+							next: null,
 							due: [
 								{
 									subjectId: "watched-anime",

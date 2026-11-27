@@ -64,6 +64,7 @@ describe("signal schedule bounds", () => {
 			confirmedAfter: null,
 			end: "2026-10-30T00:00:00.000Z",
 			start: "2026-10-27T00:00:00.000Z",
+			horizon: "2026-11-02T00:00:00.000Z",
 		});
 		expect(
 			signalScheduleBounds({
@@ -76,6 +77,7 @@ describe("signal schedule bounds", () => {
 		).toEqual({
 			end: "2026-10-29T00:00:00.000Z",
 			start: "2026-10-26T00:00:00.000Z",
+			horizon: "2026-11-01T00:00:00.000Z",
 			confirmedAfter: "2026-10-26T02:30:00.000Z",
 		});
 	});
@@ -93,6 +95,7 @@ describe("signal schedule bounds", () => {
 			confirmedAfter: null,
 			end: "2026-10-29T02:30:00.001Z",
 			start: "2026-10-26T18:30:00.000Z",
+			horizon: "2026-11-01T02:30:00.001Z",
 		});
 	});
 
@@ -109,6 +112,7 @@ describe("signal schedule bounds", () => {
 			confirmedAfter: null,
 			end: "2026-10-22T02:30:00.001Z",
 			start: "2026-10-20T00:00:00.000Z",
+			horizon: "2026-10-25T02:30:00.001Z",
 		});
 	});
 });
@@ -132,7 +136,12 @@ describe("signal schedule due times", () => {
 });
 
 describe("signal schedule next due time", () => {
-	const timeZone = TimeZone.make("Asia/Kolkata");
+	const timing = {
+		delayDays: null,
+		precision: "date" as const,
+		timeZone: TimeZone.make("Asia/Kolkata"),
+	};
+	const horizon = "2026-11-03T00:00:00.000Z";
 	it.each([
 		{
 			next: "2026-11-01",
@@ -146,16 +155,38 @@ describe("signal schedule next due time", () => {
 		},
 		{ next: null, due: "2026-10-31T17:00:00.000Z", nextInstant: "2026-10-31T17:00:00.000Z" },
 		{ nextInstant: null, next: "2026-11-01", due: "2026-10-31T18:30:00.000Z" },
-		{ due: null, next: null, nextInstant: null },
 	])("is the earlier of the next date $next and the next instant $nextInstant", (input) => {
 		expect(
 			signalScheduleNextDue({
-				...input,
-				timeZone,
-				delayDays: null,
-				precision: "date",
-			})?.toISOString() ?? null,
+				...timing,
+				next: { horizon, at: input.next },
+				nextInstant: { horizon, at: input.nextInstant },
+			}).toISOString(),
 		).toBe(input.due);
+	});
+
+	it("is when the window reaches the end of the look-ahead that found no row", () => {
+		expect(
+			signalScheduleNextDue({
+				...timing,
+				nextInstant: null,
+				next: { horizon, at: null },
+			}).toISOString(),
+		).toBe("2026-11-02T18:30:00.000Z");
+		expect(
+			signalScheduleNextDue({
+				...timing,
+				next: { horizon, at: null },
+				nextInstant: { at: null, horizon: "2026-11-02T20:00:00.000Z" },
+			}).toISOString(),
+		).toBe("2026-11-02T18:30:00.000Z");
+		expect(
+			signalScheduleNextDue({
+				...timing,
+				next: { horizon, at: null },
+				nextInstant: { at: null, horizon: "2026-11-02T17:00:00.000Z" },
+			}).toISOString(),
+		).toBe("2026-11-02T17:00:00.000Z");
 	});
 });
 

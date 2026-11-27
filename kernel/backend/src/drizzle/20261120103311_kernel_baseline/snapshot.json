@@ -19204,7 +19204,7 @@
 			"name": "next_due_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,

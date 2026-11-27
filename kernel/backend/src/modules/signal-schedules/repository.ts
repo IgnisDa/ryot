@@ -265,7 +265,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 									eq(schema.plugin.id, evaluation.pluginId),
 									eq(schedule.slug, evaluation.scheduleSlug),
 									lt(evaluation.evaluatedAt, input.before),
-									or(isNull(evaluation.nextDueAt), gt(evaluation.nextDueAt, input.now)),
+									gt(evaluation.nextDueAt, input.now),
 									exists(
 										db
 											.select({ id: schema.notificationSubscription.id })
