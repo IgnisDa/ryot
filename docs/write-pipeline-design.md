@@ -477,8 +477,9 @@ and its named tests, then its e2e files.
    380,130 rows in 763 pages (9.5 s mean) on `file2` and 153,075 rows in 308 pages (2.8 s) on
    `file3`. Each page index-scans every Media entity, with the id cursor only as a filter, and runs
    the translation lateral for each remaining row, so the total is quadratic. ultra-rewrite
-   `7b09e6fc93` pages by primary key instead (0.15 ms per id page and 18 ms per page of artwork rows
-   on `file2`), and #1878 includes it.
+   `7b09e6fc93` pages by primary key instead, and #1878 includes it: at `2f9e710d34` the `file2`
+   cutover took 11.2 min. Its 1,505 id pages took 3.5 ms each and its 1,504 artwork pages 34 ms;
+   writing the 379,997 patched rows took 593 s of the 674 s.
 
    Folds drain on the single background sandbox slot: attempt time is 9,067 s of `file2`'s 9,193 s
    drain. That drain includes a one-minute app restart, and it cost 3.9 CPU-seconds per fold job,
@@ -514,20 +515,48 @@ and its named tests, then its e2e files.
    12.7 KB on `file3`. Backlog shows fell from 43.8 to 8.8 KB and from 66.4 to 19.9 KB, and
    `file3`'s upcoming fell from 60.0 to 3.3 KB.
 
-   Upcoming and the show episode calendar regressed with the merged release-time airing. On `file3`,
-   the calendar looks up every episode of every library show to find the episodes airing in the
-   window: 187,190 entity lookups across 3,296 shows return 30 rows. Upcoming's statements make 65k
-   and 100k such lookups. Both reads are linear in the episodes of the user's library shows. On
-   `file2`'s largest library they exceed the 30 s RyotQL statement timeout, so the home page fails
-   its upcoming rail (page load 16.9 → 32.9 s; `file3` 10.4 → 17.2 s). At `4c64f50ae7` they took 463
-   and 103 ms on `file.sql`. Signal-schedule evaluation runs the same airing statements, so idle
-   cost grew too:
-   - `file2` database time per 5-minute cron: 0.7 s → 35 s right after the drain, and 5.7 s two
-     hours later;
-   - `file3`: 0.08 → 3.0 s.
+   At `5cb1615d59`, the merged release-time airing made upcoming and the show episode calendar look
+   up every episode of every library show: on `file3`, 187,190 entity lookups across 3,296 shows
+   returned 30 calendar rows, and upcoming made 65k and 100k. On `file2`'s largest library both
+   passed the 30 s RyotQL statement timeout, so the home page failed its upcoming rail.
+   Signal-schedule evaluation ran the same statements, so `file2`'s database time per 5-minute cron
+   went from 0.7 to 35 s right after the drain (`file3`: 0.08 → 3.0 s).
 
-   On `file2`, some evaluations hit the statement timeout. `frequent-cron` logs them, and a schedule
-   worker run takes 30–40 s at p50 (18–20 s on `file3`). Idle app CPU stays at 3–4%.
+   At `2f9e710d34`, from ultra-rewrite `22a3e3fdcd`, show and podcast episodes store their airing
+   instant, or else their publish date, in the indexed `entity.occurs_at`. Upcoming starts from the
+   episodes in its window, and the calendar and signal schedules are bounded by `occurs_at`.
+   Upcoming's shows statement now reads 94 episodes through `entity_schema_occurs_at_idx`. The aired
+   rule decides most episodes from `occurs_at` too. `file2`, `5cb1615d59` → `2f9e710d34`:
+
+   | Measure                                       |                 5cb1615d59 → 2f9e710d34 |
+   | --------------------------------------------- | --------------------------------------: |
+   | Upcoming                                      |                      over 30 s → 626 ms |
+   | Show episode calendar                         |                      over 30 s → 146 ms |
+   | Home page load                                |          32.9 s, upcoming fails → 5.2 s |
+   | All shows / continue / backlog shows          |    717 / 660 / 693 → 492 / 660 / 665 ms |
+   | Show detail summary                           |                            705 → 679 ms |
+   | Suggestions                                   |                          162 → 9,287 ms |
+   | Database time per cron, after drain / later   |                  35 / 5.7 → 1.1 / 4.9 s |
+   | Show log SQL, long history / oversized state  |            803 / 3,508 → 510 / 2,154 ms |
+   | Show log, long history / oversized state      |        2,291 / 5,186 → 1,947 / 3,890 ms |
+   | Show log, median user, short / long history   |        1,368 / 1,417 → 1,337 / 1,485 ms |
+   | Four users at once, p50 range / worst p95     |      1.9–11.3 / 28.7 → 1.4–9.3 / 19.7 s |
+   | Migration: legacy / artwork cutover           | 46.4 min / 2 h 21 min → 45.3 / 11.2 min |
+   | Drain after listening                         |                     2 h 33 → 2 h 29 min |
+
+   The drain still costs 4.1 CPU-seconds per fold job, with no failed jobs. The later idle window
+   started 1.5 h after the drain, against 1.75 h before.
+
+   One schedule evaluation per cron still passes the 30 s statement timeout. It hit all 51 crons
+   between listening and the end of the run, and `frequent-cron` logs each one. The statement is
+   the next-instant schedule query, which finishes in 0.1–0.2 s for other targets. Each worker run
+   therefore takes 31 s at p50. Cancelled statements are missing from the per-cron database time
+   above. Schedule evaluation also runs a `signalScheduleNext` statement that walks 40.9k entities
+   of one schema through the schema index to find nothing (0.4–1.9 s under `EXPLAIN ANALYZE`).
+
+   Suggestions ran two statements that returned no rows after 3.6 and 4.0 s. A later plan capture,
+   after the write probes, ran neither. The cost depends on the library's state at the time, and it
+   is not diagnosed here. Idle app CPU stays at 3–4%.
 
    Analytics trend went from 2.7 to 4.4 s on `file.sql` across #1878 with the same statement. That
    was host I/O and cache state, not a plan change:
@@ -538,7 +567,9 @@ and its named tests, then its e2e files.
      1.0 s before and 4.1 s after.
 
    Analytics summary and hours on `file2` show the same pattern. In the plan capture, ranking and
-   records ran at their earlier speed, so their slower probe p50s are the same host variance.
+   records ran at their earlier speed, so their slower probe p50s are the same host variance. At
+   `2f9e710d34`, the same statements took 2.5–9.5 s on `file2` (summary 19.8 → 6.8 s, trend 9.2 →
+   4.1 s).
    Analytics stays linear in history, as item 10 says. Some of `file3`'s all-time summaries now
    exceed the 30 s timeout.
 
