@@ -4,7 +4,6 @@ export { readCursorPages } from "./queries/cursor-pages";
 export type { SelectCodes } from "@ryot-app/i18n/builder";
 export { RyotNavigationTarget } from "./client/navigation-target";
 export { type RyotClient, createRyotClient } from "./client/client";
-export { RyotClientError, isEntitlementRequired } from "./client/errors";
 export { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 export type { EntitySettle, EntitySettleReason } from "./refresh/settle";
 export type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
@@ -18,12 +17,20 @@ export type {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
-
 export type {
 	DescribeResponse,
 	PluginExecutionSource,
 	PluginExecutionRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
+
+export {
+	ChangesConflict,
+	RyotClientError,
+	OperationRejected,
+	isChangesConflict,
+	isOperationRejected,
+	isEntitlementRequired,
+} from "./client/errors";
 export type {
 	EntityUpdate,
 	FileUploadRequest,

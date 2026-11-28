@@ -55,15 +55,6 @@ type HistorySubject = {
 
 const sinceLimit = 20;
 
-const iso = (value: string) => new Date(Date.parse(value)).toISOString();
-
-/** History compares instants; reads and change images spell them differently. */
-export const normalizedEvent = (event: FoldEvent): FoldEvent => ({
-	...event,
-	occurredAt: iso(event.occurredAt),
-	orderCreatedAt: iso(event.orderCreatedAt),
-});
-
 const isConsumption = (event: FoldEvent) =>
 	consumptionEventSlugs.some((slug) => slug === event.eventSchemaSlug);
 
@@ -105,7 +96,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			subject: input.subject,
 			previous: input.previous,
 			inventory: input.reads.inventory,
-			events: (yield* input.reads.history).map(normalizedEvent),
+			events: yield* input.reads.history,
 			...(input.renamedKeys === undefined ? {} : { renamedKeys: input.renamedKeys }),
 		});
 		return {
@@ -118,12 +109,12 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		return yield* replay;
 	}
 	const images = foldChangeImages(input.changes);
-	const added = images.added.map(normalizedEvent).filter(isConsumption);
-	const retracted = images.retracted.map(normalizedEvent).filter(isConsumption);
+	const added = images.added.filter(isConsumption);
+	const retracted = images.retracted.filter(isConsumption);
 	if (added.length === 0 && retracted.length === 0) {
 		return { changes: [], contributions: [], value: input.previous };
 	}
-	const changedIds = new Set([...added, ...retracted].map(({ id }) => id));
+	const changedIds = new Set<string>([...added, ...retracted].map(({ id }) => id));
 	if (input.subject.episodic && !(yield* keepsCoverage(input, added, retracted, changedIds))) {
 		return yield* replay;
 	}
@@ -149,7 +140,6 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			oldest === undefined
 				? undefined
 				: (yield* input.reads.completions({ entityId, until: oldest.occurredAt }))
-						.map(normalizedEvent)
 						.filter(
 							(event) =>
 								!changedIds.has(event.id) &&
@@ -163,10 +153,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 							undefined,
 						);
 		const touchedRuns = new Set(runs);
-		for (const event of (yield* input.reads.entity({
-			entityId,
-			from: start?.occurredAt ?? null,
-		})).map(normalizedEvent)) {
+		for (const event of yield* input.reads.entity({ entityId, from: start?.occurredAt ?? null })) {
 			window.set(event.id, event);
 			const run = sourceRunOf(event);
 			if (
@@ -179,7 +166,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 				context.add(event.id);
 			}
 		}
-		for (const event of [...sourced.map(normalizedEvent), ...items]) {
+		for (const event of [...sourced, ...items]) {
 			window.set(event.id, event);
 			context.delete(event.id);
 		}
@@ -246,11 +233,11 @@ const keepsCoverage = Effect.fnUntraced(function* <E, R>(
 	const later =
 		retracted.length > 0 || first === undefined
 			? []
-			: (yield* input.reads.since({
+			: yield* input.reads.since({
 					limit: sinceLimit,
 					from: first.occurredAt,
 					excluded: [...changedIds],
-				})).map(normalizedEvent);
+				});
 	const simultaneous = later.some((event) =>
 		added.some(({ occurredAt }) => occurredAt === event.occurredAt),
 	);

@@ -1,11 +1,12 @@
 import {
+	createEventChange,
 	type EventCreate,
 	existingEntity,
 	type ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -40,7 +41,6 @@ import {
 } from "../../shared/media-activity-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 const EPISODE_MEMBERSHIP_PAGE_SIZE = 100;
 
@@ -133,12 +133,11 @@ type ActivityEvent = EventCreate;
 const activityEvent = (
 	id: string,
 	event: Pick<ActivityEvent, "occurredAt" | "properties" | "eventSchemaSlug">,
-): ActivityEvent => ({
-	...event,
-	kind: "create",
-	entity: existingEntity(EntityId.make(id)),
-	itemIdentity: `${event.eventSchemaSlug}:${id}`,
-});
+): ActivityEvent =>
+	createEventChange(`${event.eventSchemaSlug}:${id}`, {
+		...event,
+		entity: existingEntity(EntityId.make(id)),
+	});
 
 const completeEvent = (
 	id: string,

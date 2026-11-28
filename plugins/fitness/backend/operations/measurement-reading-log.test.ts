@@ -5,8 +5,8 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import logDefinition, { manifest } from "./measurement-reading-log.sandbox";
+import { executeMeasurementRyotql } from "./measurement-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-27T08:00:00.000Z";

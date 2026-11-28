@@ -6,7 +6,12 @@ import {
 	type RowSourceQuery,
 } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	storedValidationContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
+import { dataChangeTables } from "@ryot-app/ryotql/catalog";
 import {
 	queryExpressionKind,
 	savedViewDataSourceAccess,
@@ -38,11 +43,15 @@ const rowSourceIssue = (
 	if ("orderBy" in query.output || "pagination" in query.output) {
 		return "ordering and pagination are owned by the kernel";
 	}
-	const projections = authoredValidationBranches(
-		rowSourceDocument(query),
-		storedValidationContext(() =>
-			Result.fail(new Error("Stored row sources cannot select another source")),
-		),
+	const projections = Result.flatMap(
+		validateAuthoredDocument(rowSourceDocument(query)),
+		(validated) =>
+			authoredValidationBranches(
+				validated,
+				storedValidationContext(() =>
+					Result.fail(new Error("Stored row sources cannot select another source")),
+				),
+			),
 	);
 	if (Result.isFailure(projections)) {
 		return projections.failure.message;
@@ -108,9 +117,6 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 		),
 	]);
 
-/** The tables whose writes record a data change, which decides when a schedule is evaluated again. */
-const signalScheduleTables = new Set(["event", "entity", "relationship"]);
-
 export const signalScheduleIssue = (
 	schedule: Omit<SignalScheduleDefinition, "readSchemaSlugs">,
 ) => {
@@ -122,7 +128,7 @@ export const signalScheduleIssue = (
 	if (documentReadsClock(document)) {
 		return "query must not read the clock; the kernel owns the due window";
 	}
-	const table = [...documentTables(document)].find((name) => !signalScheduleTables.has(name));
+	const table = [...documentTables(document)].find((name) => !dataChangeTables.has(name));
 	if (table !== undefined) {
 		return `query must read only entity, relationship and event tables, not '${table}'`;
 	}

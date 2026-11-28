@@ -13,7 +13,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
-import { bindDocument } from "@ryot-app/ryotql/binding";
+import { bindDocument, validateAuthoredDocument } from "@ryot-app/ryotql/binding";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Result, Schema } from "effect";
@@ -378,10 +378,16 @@ describe("Effect-native client capabilities", () => {
 									right: { name: "name", type: "parameter" },
 								});
 								const bound = Result.getOrThrow(
-									bindDocument(stampRyotQLDocument("plugin", request.source.document), request, {
-										now: bindingNow,
-										reportingTimeZone: "UTC",
-									}),
+									Result.flatMap(
+										validateAuthoredDocument(
+											stampRyotQLDocument("plugin", request.source.document),
+										),
+										(validated) =>
+											bindDocument(validated, request, {
+												now: bindingNow,
+												reportingTimeZone: "UTC",
+											}),
+									),
 								);
 								expect(bound.document.queries["items"]).toMatchObject({
 									output: { pagination: { limit: 3, after: "cursor" } },

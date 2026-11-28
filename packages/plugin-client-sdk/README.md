@@ -97,17 +97,19 @@ integration boundary.
 `CommittedChanges` (exported from the package root) for the changes the
 operation returned: the root `entityId` when one was written and each written event's `eventId` by
 `itemIdentity`, with an empty `events` array when nothing was committed. An operation whose changes
-hit a stale baseline fails with `changes-conflict`, and the error's `conflict` names the
-`CommitConflictCode`; reload the data and let the person resubmit. `formatConflict(error, messages,
-fallback)` from `react` renders such an error with the plugin's text for its code.
+hit a stale baseline fails with a `ChangesConflict`, a `RyotClientError` whose reason is
+`changes-conflict` and whose required `conflict` names the `CommitConflictCode`; reload the data and
+let the person resubmit. `isChangesConflict(error)` from the package root recognizes it.
 A successful operation notifies
 mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose
 caller calls `mutationCompleted.hint()` itself once later steps such as navigation finish.
-An operation that refuses the request fails with `operation-rejected`, and the `RyotClientError`
-`rejection` carries the operation's explanation as a message; resubmitting the same input cannot
-succeed. `formatError(t, error, fallback?)` (`/react`) renders any client error: the rejection
-message when present, else `fallback` (rendered text or a message), else a kernel default.
+An operation that refuses the request fails with an `OperationRejected`, a `RyotClientError` whose
+reason is `operation-rejected` and whose required `rejection` carries the operation's explanation as
+a message; resubmitting the same input cannot succeed. `isOperationRejected(error)` recognizes it.
+A plain `RyotClientError` cannot carry either reason. `formatError(t, error, fallback?)` (`/react`)
+renders any client error: the rejection message of a refusal, else `fallback` (rendered text or a
+message), else a kernel default.
 Retryable writes may pass an `idempotencyKey`. Retain the same key and exact immutable input across
 retries; the server replays the recorded result and rejects reuse of the key with different input.
 Each bridge attempt has its own transport `requestId`; it is not a write identity.
@@ -325,9 +327,10 @@ Backend batch traversal remains separate from user-driven pagination.
 `useRyotSubmission(mutation, { createId })` composes an existing mutation whose input is
 `RyotSubmission<Input>` (`submissionId`, `submittedAt`, and `input`). It captures and freezes a structured-cloneable
 plain-data input on `submit`, blocks another submission immediately, and retains the same snapshot
-and ID (`status: "retained"`) only when the write's outcome is unknown. `retry` resends that snapshot. A `RyotClientError` with reason
-`transport`, `protocol`, `disposed`, or `malformed-result`, and any other error, leaves the outcome
-unknown because the request may have been applied. Every other `RyotClientError` reason is a definite
+and ID (`status: "retained"`) only when the write's outcome is unknown. `retry` resends that snapshot. A `RyotClientError` whose reason
+the bridge contract's `mayHaveApplied` accepts (`transport`, `protocol`, `disposed`, or
+`malformed-result`), and any other error, leaves the outcome unknown because the request may have
+been applied. Every other `RyotClientError` reason is a definite
 failure: the write was not applied, so the submission settles `idle` and `error` stays set until
 `reset`. Callers show the failure and start a fresh submission instead of retrying the same one;
 they do not catch definite failures into success values. `abandon` releases retained work, but

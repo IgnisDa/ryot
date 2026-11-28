@@ -84,10 +84,11 @@ const authorizationProbeSource = (
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+	activity: true,
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -101,7 +102,7 @@ const errorReasonCode = (error: unknown) => {
   return typeof reason.code === "string" ? reason.code : null;
 };
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ ok: Schema.Boolean }),
@@ -585,6 +586,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 								({
 									providerSlug,
 									kind: "script",
+									activity: true,
 									slug: probe.slug,
 									name: probe.name,
 									oauthConnectionFields: [],

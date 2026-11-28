@@ -7,6 +7,7 @@ import { adaptIgdbCsv } from "./igdb";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.igdb",
 	name: "Parse IGDB import",
 });
@@ -21,5 +22,6 @@ export default defineActivity({
 			Effect.flatMap((collection) =>
 				collectMediaCsv("igdb", input, (text) => adaptIgdbCsv(text, { collection })),
 			),
+			Effect.map((output) => ({ output })),
 		),
 });

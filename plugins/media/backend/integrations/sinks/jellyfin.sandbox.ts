@@ -9,6 +9,7 @@ import { parseMediaServer } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Jellyfin sink",
 	slug: "integration.jellyfin-sink",
 });
@@ -31,5 +32,8 @@ export default defineActivity({
 				occurredAt,
 				(payload, provider) => findJellyfinShow(payload, provider, host),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

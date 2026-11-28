@@ -1,4 +1,5 @@
 import {
+	createEventChange,
 	deleteEventChange,
 	type EventChange,
 	existingEntity,
@@ -166,9 +167,9 @@ const written = (event: FoldEvent): WrittenOutput => ({
 	entityId: event.entityId,
 	orderKey: event.orderKey,
 	properties: event.properties,
+	occurredAt: event.occurredAt,
+	orderCreatedAt: event.orderCreatedAt,
 	sessionEntityId: event.sessionEntityId,
-	occurredAt: new Date(time(event.occurredAt)).toISOString(),
-	orderCreatedAt: new Date(time(event.orderCreatedAt)).toISOString(),
 });
 
 const optional = (key: string, value: JsonValue | undefined, keep: boolean) =>
@@ -503,16 +504,16 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const { sessionEntityId } = value.output;
 		const session = sessionEntityId === null ? null : EntityId.make(sessionEntityId);
 		if (actual === undefined) {
-			changes.push({
-				orderAfter,
-				kind: "create",
-				eventSchemaSlug: "complete",
-				occurredAt: value.output.occurredAt,
-				properties: value.output.properties,
-				itemIdentity: `complete:${value.occurrence.key}`,
-				entity: existingEntity(EntityId.make(value.output.entityId)),
-				...(session === null ? {} : { session: existingEntity(session) }),
-			});
+			changes.push(
+				createEventChange(`complete:${value.occurrence.key}`, {
+					orderAfter,
+					eventSchemaSlug: "complete",
+					occurredAt: value.output.occurredAt,
+					properties: value.output.properties,
+					entity: existingEntity(EntityId.make(value.output.entityId)),
+					...(session === null ? {} : { session: existingEntity(session) }),
+				}),
+			);
 		} else if (!jsonValueEquals(written(actual), value.output)) {
 			changes.push(
 				updateEventChange(EventId.make(actual.id), {

@@ -18,11 +18,11 @@ import { executeScriptExecutionWorkflow } from "./workflow";
 
 const activitySource = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { defineActivityWithChanges, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
-export const manifest = defineManifest({ kind: "script", name: "Cached step", slug: "cached.step" });
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Cached step", slug: "cached.step" });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Unknown,

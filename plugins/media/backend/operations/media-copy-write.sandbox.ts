@@ -1,7 +1,7 @@
 import { existingEntity, expectedRelationshipProperties } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -15,7 +15,6 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
@@ -24,6 +23,7 @@ import { mediaCopiesRecipe } from "../../shared/media-copy-recipes";
 import { MediaCopyWriteInput, MediaCopyWriteOutput } from "../../shared/media-ownership-operations";
 import { mediaOwnableEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
+import { userMediaLibraryRecipe } from "../../shared/user-media-library";
 
 const ownershipTargetsRecipe = (() => {
 	const inputParameters = parameters({
@@ -86,9 +86,7 @@ export default defineOperation({
 			if (input.action === "add") {
 				if (existing) {
 					if (existing.entityId !== input.entityId) {
-						return yield* new OperationRejectedError({
-							reason: catalogMessage("ownership.id-conflict"),
-						});
+						return yield* reject(catalogMessage("ownership.id-conflict"));
 					}
 					return { output: { copyId } };
 				}
@@ -96,30 +94,22 @@ export default defineOperation({
 					entityIds: [input.entityId],
 				});
 				if (entities.length === 0) {
-					return yield* new OperationRejectedError({
-						reason: catalogMessage("ownership.title-not-found"),
-					});
+					return yield* reject(catalogMessage("ownership.title-not-found"));
 				}
 			} else if (!existing) {
 				if (input.action === "remove") {
 					return { output: { copyId } };
 				}
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.copy-not-found"),
-				});
+				return yield* reject(catalogMessage("ownership.copy-not-found"));
 			}
 
 			if (existing?.properties.origin === "integration") {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.source-managed"),
-				});
+				return yield* reject(catalogMessage("ownership.source-managed"));
 			}
 			const { source, legacySources, origin = "manual" } = existing?.properties ?? {};
 			const targetEntityId = input.action === "add" ? input.entityId : existing?.entityId;
 			if (targetEntityId === undefined) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.copy-not-found"),
-				});
+				return yield* reject(catalogMessage("ownership.copy-not-found"));
 			}
 			const library = existingEntity(EntityId.make(libraryEntity.entityId));
 			const identity = {

@@ -6,7 +6,11 @@ import type {
 	ChangeSetEntityReference,
 	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/references";
-import type { EventDelete, EventUpdate } from "@ryot-app/contract/modules/events/mutations";
+import type {
+	EventCreate,
+	EventDelete,
+	EventUpdate,
+} from "@ryot-app/contract/modules/events/mutations";
 import type { EventWritePrecondition } from "@ryot-app/contract/modules/events/schemas";
 import { EntityId, type EventId } from "@ryot-app/contract/schema/brands";
 
@@ -79,6 +83,11 @@ export const expectedEventFields = (
 					Object.entries(event.properties).filter(([key]) => editable.includes(key)),
 				),
 });
+
+export const createEventChange = (
+	itemIdentity: string,
+	event: Omit<EventCreate, "kind" | "itemIdentity">,
+): EventCreate => ({ ...event, itemIdentity, kind: "create" });
 
 export const updateEventChange = (
 	eventId: EventId,

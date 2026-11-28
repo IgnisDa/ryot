@@ -75,14 +75,6 @@ export const EventUpdateRequest = strictStruct({
 	),
 );
 
-export const UpdateEventItem = strictStruct({
-	eventId: EventId,
-	patch: EventUpdatePatch,
-	expected: Schema.optional(EventWritePrecondition),
-});
-
-export type UpdateEventItem = typeof UpdateEventItem.Type;
-
 export class EventStale extends Schema.TaggedError<EventStale, { readonly brand: unique symbol }>()(
 	"EventStale",
 	{ reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }) },

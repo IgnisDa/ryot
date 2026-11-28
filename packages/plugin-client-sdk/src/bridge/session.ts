@@ -75,6 +75,7 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadRequest,
 	type RyotClientErrorReason,
+	type RyotClientPlainErrorReason,
 	type SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import { Effect, Match, Result, Schema } from "effect";
@@ -91,7 +92,7 @@ import type {
 	StorageAdapterRequest,
 } from "../client/adapter";
 import { createRyotClient } from "../client/client";
-import { RyotClientError } from "../client/errors";
+import { ChangesConflict, OperationRejected, RyotClientError } from "../client/errors";
 import type { RyotNavigationTarget } from "../client/navigation-target";
 import { createPluginLocaleStore } from "../i18n/locale-store";
 import type { PluginNavigationController, PluginNavigationSnapshot } from "../navigation/store";
@@ -521,28 +522,31 @@ export const createPluginRuntime = (
 		requestId: string,
 		outcome:
 			| { readonly value: unknown; readonly outcome: "success" }
+			| { readonly outcome: "failure"; readonly reason: RyotClientPlainErrorReason }
 			| {
-					readonly message?: Message;
+					readonly message: Message;
 					readonly outcome: "failure";
-					readonly reason: RyotClientErrorReason;
-					readonly conflict?: CommitConflictCode;
+					readonly reason: "operation-rejected";
+			  }
+			| {
+					readonly outcome: "failure";
+					readonly reason: "changes-conflict";
+					readonly conflict: CommitConflictCode;
 			  },
 	) => {
 		const call = pending.get(requestId);
 		if (call?.type !== type || !pending.delete(requestId)) {
 			return;
 		}
-		call.complete(
-			outcome.outcome === "failure"
-				? Effect.fail(
-						new RyotClientError({
-							reason: outcome.reason,
-							...(outcome.message === undefined ? {} : { rejection: outcome.message }),
-							...(outcome.conflict === undefined ? {} : { conflict: outcome.conflict }),
-						}),
-					)
-				: Effect.succeed(outcome.value),
-		);
+		if (outcome.outcome === "success") {
+			call.complete(Effect.succeed(outcome.value));
+		} else if (outcome.reason === "operation-rejected") {
+			call.complete(Effect.fail(new OperationRejected({ rejection: outcome.message })));
+		} else if (outcome.reason === "changes-conflict") {
+			call.complete(Effect.fail(new ChangesConflict({ conflict: outcome.conflict })));
+		} else {
+			call.complete(Effect.fail(new RyotClientError({ reason: outcome.reason })));
+		}
 	};
 
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {

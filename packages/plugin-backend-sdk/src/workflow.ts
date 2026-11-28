@@ -1,11 +1,16 @@
-import { type ChangeSet, OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type { ExecutionMetadata, ScriptManifest, WorkflowManifest } from "./core/script-manifest";
-import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
+import type { ActivityManifest, ExecutionMetadata, WorkflowManifest } from "./core/script-manifest";
+import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, type SandboxHostError } from "./wire";
+import {
+	defineWithChanges,
+	type DefinitionWithChangesInput,
+	type RunWithChanges,
+} from "./with-changes";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowReplayEnvelope,
@@ -283,86 +288,19 @@ export const defineWorkflow = <
 	},
 });
 
-type ActivityResult<Output extends Schema.Codec<unknown, unknown>> = ReturnType<
-	typeof OutputWithChanges<Output>
->;
-
 /**
- * A script that a workflow calls with `step.activity`. Its run returns the output the workflow
- * receives; `defineActivityWithChanges` also returns changes the kernel commits once.
+ * A script that a workflow calls with `step.activity`. Its run returns `{ output, changes? }`: the
+ * workflow receives `output`, and the kernel commits `changes` once.
  */
-export function defineActivity<
-	const Manifest extends ScriptManifest,
+export const defineActivity = <
+	const Manifest extends ActivityManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
 	Failure,
-	Run extends GenericScriptDefinition<Manifest, Input, Output, Failure>["run"],
+	Run extends RunWithChanges<Manifest, Input, Output, Failure>,
 >(
-	definition: { readonly run: Run } & Omit<
-		GenericScriptDefinition<Manifest, Input, Output, Failure>,
-		"run" | "definitionType"
-	>,
-): Omit<
-	GenericScriptDefinition<
-		Manifest,
-		Input,
-		ActivityResult<Output>,
-		RuntimeEffect.Error<ReturnType<Run>>
-	>,
-	"run"
-> & {
-	readonly run: (
-		...args: Parameters<Run>
-	) => RuntimeEffect.Effect<
-		{ readonly output: RuntimeEffect.Success<ReturnType<Run>> },
-		RuntimeEffect.Error<ReturnType<Run>>
-	>;
-};
-export function defineActivity(
-	definition: Omit<
-		GenericScriptDefinition<
-			ScriptManifest,
-			Schema.Codec<unknown, unknown>,
-			Schema.Codec<unknown, unknown>,
-			unknown
-		>,
-		"definitionType"
-	>,
-) {
-	return {
-		...definition,
-		definitionType: SANDBOX_SCRIPT_DEFINITION,
-		output: OutputWithChanges(definition.output),
-		run: (...args: Parameters<typeof definition.run>) =>
-			RuntimeEffect.map(definition.run(...args), (output) => ({ output })),
-	};
-}
-
-/** An activity whose run returns `{ output, changes? }`: the kernel commits `changes` once. */
-export const defineActivityWithChanges = <
-	const Manifest extends ScriptManifest,
-	Input extends Schema.Codec<unknown, unknown>,
-	Output extends Schema.Codec<unknown, unknown>,
-	Failure,
-	Run extends GenericScriptDefinition<Manifest, Input, ActivityResult<Output>, Failure>["run"],
->(
-	definition: { readonly run: Run } & Omit<
-		GenericScriptDefinition<Manifest, Input, Output, Failure>,
-		"run" | "definitionType"
-	>,
-): { readonly run: Run } & Omit<
-	GenericScriptDefinition<
-		Manifest,
-		Input,
-		ActivityResult<Output>,
-		RuntimeEffect.Error<ReturnType<Run>>
-	>,
-	"run"
-> => ({
-	...definition,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	output: OutputWithChanges(definition.output),
-});
+	definition: DefinitionWithChangesInput<Manifest, Input, Output, Failure, Run>,
+) => defineWithChanges(definition);
 
 export const Effect = {
 	as: RuntimeEffect.as,

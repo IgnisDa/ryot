@@ -1,4 +1,4 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isOperationRejected, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
@@ -74,7 +74,7 @@ export function ExerciseMergeFlow(props: {
 			handled.current = settled;
 			client.navigation.replace({ kind: "entity", entityId: result.mergeInto });
 			client.mutationCompleted.hint();
-		} else if (error instanceof RyotClientError && error.reason === "operation-rejected") {
+		} else if (isOperationRejected(error)) {
 			handled.current = settled;
 			onFailed(formatError(t, error));
 			onClose();

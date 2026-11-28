@@ -81,6 +81,11 @@ requests for transport fixtures. These helpers are test-only.
 using their declared limits. Supply every ungrouped aggregate explicitly; the helper does not guess
 scalar values. Overrides are preserved verbatim, including deliberately malformed test results.
 
+`inMemoryRyotql({ pluginId, tables })` is a sandbox `executeRyotql` host for script tests: it binds
+the request like `bindTestRequest` and answers its single rows query from rows keyed by catalog table
+name, paging by row `id`. It evaluates inner joins, equality, `in`, `and`, null checks, JSON paths,
+casts, and counting aggregates, and throws on anything else.
+
 `pagesRecipe` lists owner-scoped page metadata; `pageRecipe` reads a page and its draft/published definitions by `pageId`. Both use the kernel-only `page` catalog. Compiled draft revision and artifact hash support revision-bound, read-only preview composition.
 
 ## Kernel publication page

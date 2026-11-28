@@ -1,5 +1,6 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { readAllPages, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -9,7 +10,6 @@ import {
 	executeRyotqlRecipe,
 	literal,
 	parameters,
-	readAllRyotqlPages,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
@@ -20,7 +20,6 @@ import {
 import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 const reviewConsumptionRecipe = (() => {
 	const inputParameters = parameters({
@@ -108,7 +107,7 @@ export const reviewsNamingConsumption = (
 	host: Pick<ScriptHost, "executeRyotql">,
 	eventId: string,
 ) =>
-	readAllRyotqlPages((after) =>
+	readAllPages((after) =>
 		executeRyotqlRecipe(
 			host.executeRyotql,
 			reviewsOfConsumptionRecipe,

@@ -1,18 +1,18 @@
 import { expect } from "bun:test";
 
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { validateDefinitionSet } from "@ryot-app/definitions/definition-set";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 
-import { validateDefinitionSet } from "./definition-set";
 import {
-	DefinitionSetValidationRequest,
-	definitionSetValidationRequest,
-	validateDefinitionSetRequest,
-} from "./definition-set-protocol";
-import { kernelDefinitionSource } from "./kernel-definitions";
+	decodeValidateDefinitionSetResponse,
+	encodeValidateDefinitionSetRequest,
+	servePluginValidationRequest,
+} from "./validation-worker-protocol";
 
 const manifest = fixtureManifest();
 const entitySchema = manifest.entitySchemas[0];
@@ -25,18 +25,15 @@ const invalidPlugin = {
 	},
 };
 
-const RequestJson = Schema.fromJsonString(DefinitionSetValidationRequest);
-
-/** The request crosses a process boundary as JSON of its decoded value. */
-const serve = (plugins: Parameters<typeof definitionSetValidationRequest>[1]) =>
-	Schema.decodeEffect(RequestJson)(
-		JSON.stringify(
-			definitionSetValidationRequest(kernelDefinitionSource(), plugins, {
-				scope: "system",
-				pluginIds: new Set(plugins.map(({ id }) => id)),
-			}),
-		),
-	).pipe(Effect.flatMap(validateDefinitionSetRequest));
+/** The request crosses the process boundary as one JSON line, and so does the answer. */
+const serve = (plugins: Parameters<typeof encodeValidateDefinitionSetRequest>[1]) =>
+	encodeValidateDefinitionSetRequest(kernelDefinitionSource(), plugins, {
+		scope: "system",
+		pluginIds: new Set(plugins.map(({ id }) => id)),
+	}).pipe(
+		Effect.flatMap(servePluginValidationRequest),
+		Effect.flatMap(decodeValidateDefinitionSetResponse),
+	);
 
 layer(Layer.empty)((test) => {
 	test.effect(

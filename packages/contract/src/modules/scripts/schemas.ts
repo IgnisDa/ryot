@@ -42,6 +42,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	kind: Schema.optional(SandboxScriptKind),
+	activity: Schema.optional(Schema.Literal(true)),
 	relatedInputs: Schema.optional(ProviderRelatedInputs),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	translationInputs: Schema.optional(ProviderTranslationInputs),
@@ -68,7 +69,11 @@ const SandboxScriptManifestFields = {
 };
 
 export const SandboxScriptManifest = Schema.Union([
-	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("script"),
+		activity: Schema.optional(Schema.Literal(true)),
+	}),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
 	Schema.Struct({
 		...SandboxScriptManifestFields,

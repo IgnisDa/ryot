@@ -21,11 +21,9 @@ kernel, database, or runtime dependency, so the kernel and `ryot plugin build` r
   system-owned documents, which cannot reference user plugins; a system-scope change still binds
   every document so dangling owners fail.
 
-- `/definition-set-protocol` declares the request and response schemas for validating a definition
-  set in another process. `definitionSetValidationRequest` keeps only the fields validation reads;
-  `validateDefinitionSetRequest` answers `{ valid: true }` or `{ valid: false, issue }` with the
-  string of the error the in-process validator throws. The package owns no process: the kernel hosts
-  the worker and frames the lines.
+- `DefinitionSource`, `DefinitionSetPlugin` and `DefinitionSetScope` are the schemas a definition
+  set crosses a process boundary with. The package owns no process: the kernel's validation worker
+  protocol frames the request and its answer.
 
 Deployment rules, such as active system package uniqueness and configuration environment keys, stay
 in the kernel. The kernel validates every archive at ingestion regardless of build-time checks.

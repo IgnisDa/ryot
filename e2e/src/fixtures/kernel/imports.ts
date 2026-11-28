@@ -89,15 +89,16 @@ export default defineWorkflow({
 const FIXTURE_IMPORT_VALIDATE_SOURCE = `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+	activity: true,
   name: "E2E validate archive",
   slug: "import.e2e-validate-archive",
 });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Number,
@@ -121,9 +122,20 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				},
 			},
 		},
+		files: {
+			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
+			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
+			"backend/scripts/configured.sandbox.ts": `
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, slug: "import.e2e-configured", name: "Configured import" });
+export default defineActivity({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as({ output: 1 })) });
+`,
+		},
 		scripts: [
 			{
 				kind: "script",
+				activity: true,
 				name: "Configured import",
 				requiredPluginConfigKeys: [],
 				slug: "import.e2e-configured",
@@ -140,6 +152,7 @@ export const installTestImportPlugin = Effect.suspend(() => {
 			},
 			{
 				kind: "script",
+				activity: true,
 				entry: validateEntry,
 				name: "E2E validate archive",
 				requiredPluginConfigKeys: [],
@@ -147,16 +160,6 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				slug: "import.e2e-validate-archive",
 			},
 		],
-		files: {
-			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
-			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
-			"backend/scripts/configured.sandbox.ts": `
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
-export default defineActivityWithChanges({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as({ output: 1 })) });
-`,
-		},
 		importSources: [
 			{
 				workflowSlug: "import",
@@ -250,15 +253,16 @@ const fixtureHandleImportChunkSource = (failureCount: number) => {
 	return `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+	activity: true,
   name: "E2E write harvest chunk",
   slug: "import.e2e-write-harvest-chunk",
 });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
    output: sandboxScratchManifestSchema,
@@ -307,6 +311,7 @@ export const installTestHarvestHandleImportPlugin = (
 				},
 				{
 					kind: "script",
+					activity: true,
 					capabilities: ["scratch"],
 					requiredPluginConfigKeys: [],
 					name: "E2E write harvest chunk",
@@ -373,15 +378,16 @@ const partialResultCancellationChunkSource = (
 ) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+	activity: true,
   name: "E2E partial-result cancellation chunk",
   slug: ${JSON.stringify(chunkScriptSlug)},
 });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
    output: sandboxScratchManifestSchema,
@@ -527,6 +533,7 @@ export const installTestPartialResultCancellationImportPlugin = Effect.flatMap(
 				},
 				{
 					kind: "script",
+					activity: true,
 					entry: chunkEntry,
 					slug: chunkScriptSlug,
 					capabilities: ["scratch"],
@@ -629,6 +636,7 @@ export const installTestImportPinningPlugin = Effect.flatMap(randomUuid, (suffix
 		scripts: [
 			{
 				kind: "script",
+				activity: true,
 				capabilities: [],
 				name: "Checkpoint wait",
 				slug: `${scriptSlug}-wait`,

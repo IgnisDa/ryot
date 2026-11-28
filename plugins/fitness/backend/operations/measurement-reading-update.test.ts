@@ -2,15 +2,12 @@ import { describe, expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { inMemoryRyotql } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import {
-	executeMeasurementRyotql,
-	inMemoryRyotql,
-	measurementTables,
-} from "./in-memory-ryotql.test-support";
 import updateDefinition, { manifest } from "./measurement-reading-update.sandbox";
+import { executeMeasurementRyotql, measurementTables } from "./measurement-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-28T07:30:00.000Z";
@@ -70,8 +67,8 @@ describe("measurement reading update operation", () => {
 					}));
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: inMemoryRyotql({
-						event: children,
-						entity: [...(measurementTables.entity ?? []), ...metrics],
+						pluginId: "fitness-owner",
+						tables: { event: children, entity: [...(measurementTables.entity ?? []), ...metrics] },
 					}),
 				});
 				const values = [...metrics.slice(0, 204), ...metrics.slice(205)].map(({ id }) => ({

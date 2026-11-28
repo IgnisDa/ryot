@@ -1,4 +1,5 @@
 import {
+	createEventChange,
 	deleteEventChange,
 	entityUpdateTarget,
 	existingEntity,
@@ -63,15 +64,15 @@ export default defineOperation({
 					properties: { remove: [], set: measurementReadingProperties(value) },
 				});
 			});
-			const creates = [...pending].map(([metricId, value]) => ({
-				occurredAt,
-				session: rootEntity,
-				kind: "create" as const,
-				itemIdentity: `reading:${metricId}`,
-				eventSchemaSlug: "measurement-reading",
-				entity: existingEntity(EntityId.make(metricId)),
-				properties: measurementReadingProperties(value),
-			}));
+			const creates = [...pending].map(([metricId, value]) =>
+				createEventChange(`reading:${metricId}`, {
+					occurredAt,
+					session: rootEntity,
+					eventSchemaSlug: "measurement-reading",
+					entity: existingEntity(EntityId.make(metricId)),
+					properties: measurementReadingProperties(value),
+				}),
+			);
 			return {
 				output: { count: changes.length + creates.length },
 				changes: {

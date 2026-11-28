@@ -16,6 +16,7 @@ import { adaptSpotifyStreamingHistory } from "./spotify";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.spotify",
 	name: "Collect Spotify history",
 });
@@ -72,5 +73,5 @@ export default defineActivity({
 				itemIndex,
 				header: input.header,
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

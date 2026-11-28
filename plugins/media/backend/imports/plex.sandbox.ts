@@ -7,6 +7,7 @@ import { collectPlex } from "./plex-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.plex",
 	name: "Collect Plex history",
 });
@@ -17,5 +18,6 @@ export default defineActivity({
 	run: (input, host) =>
 		collectPlex(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Plex")),
+			Effect.map((output) => ({ output })),
 		),
 });

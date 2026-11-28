@@ -12,7 +12,10 @@ and sends it a `PluginExecutionRequest`; the host stamps inline parameter text w
 plugin namespace.
 Options carry request filter, sort, and pages; selected recipes include their named query. Server
 binding supplies execution clock and authority. `executeRyotqlRecipe` keeps host failures in their original channel and returns
-`RyotqlRecipeDecodeError` for malformed recipe responses. `runSandboxTestScript` infers the
+`RyotqlRecipeDecodeError` for malformed recipe responses. `readAllPages(loadPage)` from `core` reads
+every page of a cursor-paged read whose pages are `{ items, pageInfo }`, such as a RyotQL rows query
+or `listIntegrations`; `continuationCursor(pageInfo, previous?)` answers the next cursor and fails
+with `PaginationError` when a continuing page does not advance. `runSandboxTestScript` infers the
 script's failure channel rather than erasing it in tests.
 
 Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-backend-sdk/workflow`.
@@ -20,6 +23,8 @@ Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-ba
 The checkpoint is `null` initially. `step.save(state)` ends the current bounded step; the next step
 receives the saved state. Return a value to finish. Bounded workflows can omit the checkpoint schema.
 Use `step.activity` and `step.child` to invoke typed scripts and workflows. There is no workflow sleep API.
+An activity's manifest declares `activity: true`, and `defineActivity`, like `defineOperation`,
+takes a `run` that returns `{ output, changes? }`.
 
 The runtime retains a private call journal only for the unfinished step, then atomically saves its
 checkpoint and discards completed step receipts. Calls within that step must remain deterministic.
@@ -60,7 +65,7 @@ helpers to capabilities by canonical module/export, not import alias. Contract w
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
 Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `ChangeSet`
-(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
+(the `ChangeSet` type from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
 that the kernel commits after the run in one database transaction. Its parts and per-writer authority
 are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets); `CHANGE_SET_LIMITS`
 holds their bounds. Any validation, authority, or commit failure leaves the entire change set
@@ -76,8 +81,10 @@ the original result.
 
 Fold scripts use `FoldInput`, `FoldOutput`, `FoldSubjectInput`, `FoldResult`, `FoldEventChange`,
 `FoldEventImage` and `FOLD_LIMITS` from `@ryot-app/plugin-backend-sdk/folds`. A run lists several
-subjects; `foldEachSubject` turns a per-subject fold returning `FoldResult` into the run's `run`, and
-`foldChangeImages` splits a change list. See
+subjects; `foldSubjects({ value, replay, update })` builds the run's `run` from per-subject handlers,
+decoding stored and absorbed values strictly with `value`, and `foldChangeImages` splits a change list.
+`foldSubjectEventPredicate` and `foldEventImageSelection` from `ryotql` read a subject's events as the
+kernel routes them. See
 [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
@@ -91,14 +98,14 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
-`unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`, and
-`asset-forbidden`. `verifyManagedAssets(host.verifyManagedAssets, locators)` from `core` fails a forbidden asset with the
+`unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`,
+`changes-conflict`, and `asset-forbidden`. `verifyManagedAssets(host.verifyManagedAssets, locators)` from `core` fails a forbidden asset with the
 typed `ManagedAssetForbiddenError`.
 Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
 a host call with a message reason, `data` is that stamped `Message` and `message` is its key.
 
 An operation that refuses a request for a deterministic, user-correctable reason fails with
-`new OperationRejectedError({ reason })` from `@ryot-app/plugin-backend-sdk/operation`, where
+`reject(reason)` from `@ryot-app/plugin-backend-sdk/operation`, an `OperationRejectedError` whose
 `reason` is a `LocalMessage`; its `data` is the local `operation-rejected` boundary reason, and the
 kernel stamps the run's plugin namespace when it records the failure. It reaches the caller as an
 HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
@@ -106,7 +113,10 @@ HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
 provider scripts, which report failures through their results. Outputs are success-only: a refusal
 is always this error. An operation that may find its baseline stale returns its changes with the
 baselines it read (`entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)`), and the
-commit reports the conflict as HTTP 409 `changes-conflict`.
+commit reports the conflict as HTTP 409 `changes-conflict`. One that already finds while reading
+that its baseline is gone or no longer matches fails with `new StaleBaselineError({ conflict })`,
+whose `changes-conflict` boundary reason reaches the caller as the same HTTP 409 with that
+`CommitConflictCode`, instead of returning changes bound to fail.
 
 ## Agent scripts
 

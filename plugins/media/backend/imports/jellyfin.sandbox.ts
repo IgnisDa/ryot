@@ -7,6 +7,7 @@ import { collectJellyfin } from "./jellyfin-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.jellyfin",
 	name: "Collect Jellyfin history",
 });
@@ -17,5 +18,6 @@ export default defineActivity({
 	run: (input, host) =>
 		collectJellyfin(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Jellyfin")),
+			Effect.map((output) => ({ output })),
 		),
 });

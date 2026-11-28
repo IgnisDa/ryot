@@ -13,6 +13,7 @@ import { baseUrl, executionStartedAt, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Audiobookshelf yank",
 	slug: "integration.audiobookshelf",
 });
@@ -308,5 +309,5 @@ export default defineActivity({
 				{ failures, entityGroups },
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

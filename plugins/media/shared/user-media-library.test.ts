@@ -3,9 +3,9 @@ import { describe, expect, it } from "bun:test";
 import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { Result } from "effect";
+import { Result } from "@ryot-app/plugin-kit/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
-import { bindRecipe } from "./test-utils";
 import { userMediaLibraryRecipe } from "./user-media-library";
 
 const userMediaLibraryResponse = {

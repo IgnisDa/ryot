@@ -1,4 +1,4 @@
-import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
+import { createEventChange, existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -25,13 +25,11 @@ export default defineOperation({
 				changes: {
 					events: {
 						changes: [
-							{
-								kind: "create",
+							createEventChange(`review:${exerciseId}`, {
 								eventSchemaSlug: "review",
-								itemIdentity: `review:${exerciseId}`,
 								entity: existingEntity(EntityId.make(exerciseId)),
 								properties: reviewProperties({ text: input.text, rating: input.rating ?? null }),
-							},
+							}),
 						],
 					},
 				},

@@ -12,6 +12,7 @@ import { NetflixResolutionInput, NetflixResolutionOutput } from "./schemas";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Resolve Netflix titles",
 	slug: "import.netflix-resolution",
 });
@@ -82,5 +83,5 @@ export default defineActivity({
 				}
 			}
 			return { results };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

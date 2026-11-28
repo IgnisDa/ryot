@@ -149,15 +149,16 @@ export default defineWorkflow({
 
 const configActivitySource = (activityScriptSlug: string) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+  activity: true,
   name: "E2E durable import config check",
   slug: ${JSON.stringify(activityScriptSlug)},
 });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   output: Schema.Null,
   input: Schema.Struct({ expectedValue: Schema.String }),
@@ -175,15 +176,16 @@ export default defineActivityWithChanges({
 const readSourceActivity = (activityScriptSlug: string) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+  activity: true,
   name: "E2E durable import source read",
   slug: ${JSON.stringify(`${activityScriptSlug}-read`)},
 });
 const sourceSchema = Schema.Struct({ expectedValue: Schema.String, delayMs: Schema.Int });
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Struct({ artifactHandle: Schema.String }),
   output: sourceSchema,
@@ -283,6 +285,7 @@ describe("isolated import durability", () => {
 				scripts: [
 					{
 						kind: "script",
+						activity: true,
 						capabilities: [],
 						name: "Checkpoint wait",
 						requiredPluginConfigKeys: [],
@@ -291,6 +294,7 @@ describe("isolated import durability", () => {
 					},
 					{
 						kind: "script",
+						activity: true,
 						requiredPluginConfigKeys: [],
 						capabilities: ["artifact-read"],
 						slug: `${activityScriptSlug}-read`,
@@ -307,6 +311,7 @@ describe("isolated import durability", () => {
 					},
 					{
 						kind: "script",
+						activity: true,
 						entry: activityEntry,
 						slug: activityScriptSlug,
 						capabilities: ["getPluginConfig"],

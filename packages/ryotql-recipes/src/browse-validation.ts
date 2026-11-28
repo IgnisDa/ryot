@@ -6,7 +6,11 @@ import {
 import type { FilterValueType } from "@ryot-app/contract/modules/filters/schemas";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	storedValidationContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
 import {
 	queryExpressionKind,
 	savedViewDataSourceAccess,
@@ -28,10 +32,12 @@ const expectedKinds: Record<FilterValueType, string> = {
 };
 
 const expressionBranches = (expression: ScalarExpression) =>
-	authoredValidationBranches(
-		browseExpressionDocument(expression),
-		storedValidationContext(() =>
-			Result.fail(new Error("Browse expressions cannot select stored sources")),
+	Result.flatMap(validateAuthoredDocument(browseExpressionDocument(expression)), (validated) =>
+		authoredValidationBranches(
+			validated,
+			storedValidationContext(() =>
+				Result.fail(new Error("Browse expressions cannot select stored sources")),
+			),
 		),
 	);
 

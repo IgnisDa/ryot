@@ -1,4 +1,4 @@
-import { existingEntity, rootEntity } from "@ryot-app/plugin-backend-sdk/core";
+import { createEventChange, existingEntity, rootEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -35,15 +35,15 @@ export default defineOperation({
 				changes: {
 					entity: { ...measurementEntryEntity(occurredAt, comment), target: { kind: "create" } },
 					events: {
-						changes: values.map(({ value, metricId }) => ({
-							occurredAt,
-							kind: "create",
-							session: rootEntity,
-							itemIdentity: `reading:${metricId}`,
-							eventSchemaSlug: "measurement-reading",
-							entity: existingEntity(EntityId.make(metricId)),
-							properties: measurementReadingProperties(value),
-						})),
+						changes: values.map(({ value, metricId }) =>
+							createEventChange(`reading:${metricId}`, {
+								occurredAt,
+								session: rootEntity,
+								eventSchemaSlug: "measurement-reading",
+								entity: existingEntity(EntityId.make(metricId)),
+								properties: measurementReadingProperties(value),
+							}),
+						),
 					},
 				},
 			};

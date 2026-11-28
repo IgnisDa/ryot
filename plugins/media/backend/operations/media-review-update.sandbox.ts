@@ -1,7 +1,7 @@
 import { expectedEventFields, updateEventChange } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import { EventId, reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
 
 import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
@@ -11,7 +11,6 @@ import {
 	reviewPositionError,
 } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 import {
 	loadEditTargets,
 	requireDeclaredProperties,

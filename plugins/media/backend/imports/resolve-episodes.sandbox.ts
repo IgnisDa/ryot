@@ -6,6 +6,7 @@ import { resolveEpisodes } from "../operations/resolve-episodes";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.resolve-episodes",
 	name: "Resolve imported episodes",
 });
@@ -15,5 +16,8 @@ export default defineActivity({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
-		resolveEpisodes(input.refs, host.executeRyotql).pipe(Effect.map((results) => ({ results }))),
+		resolveEpisodes(input.refs, host.executeRyotql).pipe(
+			Effect.map((results) => ({ results })),
+			Effect.map((output) => ({ output })),
+		),
 });

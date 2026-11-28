@@ -60,12 +60,13 @@ check, carries the changed row's schema slug; a global plugin change has none an
 target. Rows are only inserted, so concurrent writers never wait for each other.
 
 A schedule's `read_schema_slugs`, computed at ingestion by `signalScheduleReadSchemaSlugs`, bounds
-the global rows its two recipe queries can read. Each entity or relationship table must be bounded by
-its schema slug in its query set's `where` or inner join conditions, or in its own left join
-condition, through `eq` and `in` with text literals, `and` and `or`; the declared subject schemas
-bound the subject. A table without such a condition, or a read of `relatedPopulationStatus`, which
-reads every relationship of an entity, leaves the schedule unbounded (null). Event rows are never
-global. A global row of another schema joins no row the query returns, and translations and provider
+the global rows its two recipe queries can read. Each table the RyotQL catalog gives a
+`globalSchemaField` (entity, relationship) must be bounded by that schema slug in its query set's
+`where` or inner join conditions, or in its own left join condition, through `eq` and `in` with text
+literals, `and` and `or`; the declared subject schemas bound the subject. A table without such a
+condition, or a read of a `readsEverySchema` field such as `relatedPopulationStatus`, which reads
+every relationship of an entity, leaves the schedule unbounded (null). Event rows, whose table has
+no global schema field, are never global. A global row of another schema joins no row the query returns, and translations and provider
 checks are read only through their own entity, so a change to it cannot add a due occurrence.
 
 A data change is one that the evaluation's snapshot does not see: an indexed probe of the user's

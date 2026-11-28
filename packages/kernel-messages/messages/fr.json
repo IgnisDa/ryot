@@ -1783,6 +1783,7 @@
 	"error.mutations.submission-expired": "Cette modification a été envoyée il y a trop longtemps. Réessayez.",
 	"error.plugins.user-settings-too-large": "Ces paramètres dépassent la limite de {maxBytes, number} octets.",
 	"error.sandbox.asset-forbidden": "Un fichier de cette requête ne vous est pas accessible.",
+	"error.sandbox.changes-conflict": "Vos données ont changé pendant l'enregistrement. Actualisez et réessayez.",
 	"error.sandbox.entitlement-required": "{entitlement, select, pro {Ryot Pro est requis.} other {Un abonnement est requis.}}",
 	"error.sandbox.execution-limit": "L’exécution a dépassé ses limites.",
 	"error.sandbox.installation-unavailable": "Cette installation du plugin est indisponible.",

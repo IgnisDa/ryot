@@ -53,8 +53,8 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 						})
 						.pipe(
 							Effect.map(({ items, nextAfterId }) => ({
-								nextCursor: nextAfterId,
 								items: items.map(toSandboxIntegration),
+								pageInfo: { nextCursor: nextAfterId, hasMore: nextAfterId !== null },
 							})),
 						),
 				);

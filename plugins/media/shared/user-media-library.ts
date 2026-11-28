@@ -1,5 +1,4 @@
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { Result } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
@@ -7,12 +6,12 @@ import {
 	defineRecipe,
 	entitySchemaPredicate,
 	isNotNull,
+	parameters,
 	selectedField,
 	selectedRow,
 	table,
-} from "@ryot-app/ryotql";
-import { parameters } from "@ryot-app/ryotql/authoring";
-import { Result } from "effect";
+} from "@ryot-app/plugin-kit/ryotql";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 const entityMediaLibrary = table("entity", "mediaLibrary");
 

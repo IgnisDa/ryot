@@ -1,5 +1,6 @@
 import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
+import { postgresTestSetup } from "@ryot-app/testing/postgres-container";
 import { sql } from "drizzle-orm";
 import { Effect, Layer, Redacted, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
@@ -18,7 +19,7 @@ const TestDatabaseRun = Schema.Struct({
 	fileConnectionLimit: Schema.Int,
 });
 
-export const encodeTestDatabaseRun = Schema.encodeEffect(Schema.fromJsonString(TestDatabaseRun));
+const encodeTestDatabaseRun = Schema.encodeEffect(Schema.fromJsonString(TestDatabaseRun));
 export const decodeTestDatabaseRun = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(TestDatabaseRun),
 );
@@ -30,7 +31,7 @@ const workerAdminConnections = 1;
 const runnerConnections = 2;
 const defaultSuperuserReservedConnections = 3;
 
-export const testDatabaseMaxConnections = (workers: number) =>
+const testDatabaseMaxConnections = (workers: number) =>
 	workers * (fileConnectionLimit + workerAdminConnections) +
 	runnerConnections +
 	defaultSuperuserReservedConnections;
@@ -127,7 +128,7 @@ const migrateTestDatabase = Layer.effectDiscard(
 	}),
 );
 
-export const prepareTestDatabaseRun = Effect.fn("prepareTestDatabaseRun")(function* (input: {
+const prepareTestDatabaseRun = Effect.fn("prepareTestDatabaseRun")(function* (input: {
 	workers: number;
 	adminUrl: string;
 }) {
@@ -172,4 +173,21 @@ export const prepareTestDatabaseRun = Effect.fn("prepareTestDatabaseRun")(functi
 		),
 	);
 	return { prefix, template, ownerRole, fileConnectionLimit, adminUrl: input.adminUrl };
+});
+
+/**
+ * Starts PostgreSQL for a `label` suite, prepares its migrated template for `workers` test workers,
+ * and runs `run` with the environment that hands the run to each test file.
+ */
+export const runDatabaseTests = Effect.fn("runDatabaseTests")(function* <E, R>(input: {
+	readonly label: string;
+	readonly workers: number;
+	readonly run: (env: Readonly<Record<string, string>>) => Effect.Effect<void, E, R>;
+}) {
+	const adminUrl = yield* postgresTestSetup({
+		label: input.label,
+		maxConnections: testDatabaseMaxConnections(input.workers),
+	});
+	const database = yield* prepareTestDatabaseRun({ adminUrl, workers: input.workers });
+	yield* input.run({ [testDatabaseRunVariable]: yield* encodeTestDatabaseRun(database) });
 });

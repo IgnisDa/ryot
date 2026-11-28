@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaJson } from "./collection";
@@ -6,6 +7,7 @@ import { adaptWatcharrExportBatch } from "./watcharr";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.watcharr",
 	name: "Collect Watcharr export",
 });
@@ -16,5 +18,5 @@ export default defineActivity({
 	run: (input) =>
 		collectMediaJson("watcharr", input, (rows, eventOffset) =>
 			adaptWatcharrExportBatch(rows, 0, rows.length, input.importedAt, eventOffset, 128),
-		),
+		).pipe(Effect.map((output) => ({ output }))),
 });

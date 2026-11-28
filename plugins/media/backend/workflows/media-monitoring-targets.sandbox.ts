@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
@@ -9,6 +10,7 @@ import { mediaMonitoringSweepRecipe } from "../lib/media-monitoring-ryotql";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "media-monitoring-targets",
 	name: "List media monitoring targets",
 });
@@ -23,5 +25,5 @@ export default defineActivity({
 			mediaMonitoringSweepRecipe({ kind: "self" }),
 			{},
 			{ pages: { targets: { after: input.after, limit: input.limit } } },
-		),
+		).pipe(Effect.map((output) => ({ output }))),
 });

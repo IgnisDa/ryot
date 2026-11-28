@@ -6,7 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { OperationRejectedError, StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -757,30 +757,19 @@ describe("media activity delete", () => {
 	);
 
 	it.live(
-		"leaves a record that vanished under a precondition to the commit's conflict check",
+		"fails a single-record delete whose record vanished as a stale baseline",
 		() =>
 			Effect.gen(function* () {
 				const { host } = recordingHost({ events: [] });
-				const result = yield* runSandboxTestScript(
-					deleteDefinition,
-					{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
-					host,
-					execution,
+				const result = yield* Effect.flip(
+					runSandboxTestScript(
+						deleteDefinition,
+						{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
+						host,
+						execution,
+					),
 				);
-				expect(result).toMatchObject({
-					output: { count: 0 },
-					changes: {
-						events: {
-							changes: [
-								{
-									kind: "delete",
-									eventId: "event-1",
-									expected: { kind: "fields", entityId: expected.entityId },
-								},
-							],
-						},
-					},
-				});
+				expect(result).toEqual(new StaleBaselineError({ conflict: "event-not-found" }));
 			}),
 		testTimeout,
 	);

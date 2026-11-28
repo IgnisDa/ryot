@@ -2098,9 +2098,17 @@
 		"message": "Event",
 		"description": "Label of a query parameter that selects one event."
 	},
+	"query-parameter.event-schemas": {
+		"message": "Event types",
+		"description": "Label of a query parameter that selects which kinds of event to read."
+	},
 	"query-parameter.events": {
 		"message": "Events",
 		"description": "Label of a query parameter that selects events."
+	},
+	"query-parameter.from": {
+		"message": "From",
+		"description": "Label of a query parameter holding the start of a time range."
 	},
 	"query-parameter.group": {
 		"message": "Group",
@@ -2162,6 +2170,10 @@
 		"message": "Source entries",
 		"description": "Label of a query parameter that selects entries at an external service."
 	},
+	"query-parameter.source-runs": {
+		"message": "Source runs",
+		"description": "Label of a query parameter that selects the import or integration runs events came from."
+	},
 	"query-parameter.states": {
 		"message": "States",
 		"description": "Label of a query parameter that selects library states."
@@ -2173,6 +2185,10 @@
 	"query-parameter.titles": {
 		"message": "Titles",
 		"description": "Label of a query parameter that selects media titles."
+	},
+	"query-parameter.until": {
+		"message": "Until",
+		"description": "Label of a query parameter holding the end of a time range."
 	},
 	"recommendations.clear-search": "Clear search",
 	"recommendations.error-account": "Your account could not be loaded. Check your connection and try again.",

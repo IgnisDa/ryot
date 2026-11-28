@@ -1,13 +1,13 @@
 import {
+	continuationCursor,
 	entityUpdateTarget,
 	expectedEventFields,
 	updateEventChange,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
-	continuationCursor,
 	entityEventScopeRevisionRecipe,
 	executeRyotqlRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
@@ -41,9 +41,7 @@ export default defineOperation({
 				decoded.success.entity.id !== input.entityId ||
 				(input.endedAt !== undefined && Date.parse(input.endedAt) < Date.parse(input.startedAt))
 			) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.workout-time.invalid"),
-				});
+				return yield* reject(catalogMessage("rejection.workout-time.invalid"));
 			}
 			const revision = yield* executeRyotqlRecipe(
 				host.executeRyotql,

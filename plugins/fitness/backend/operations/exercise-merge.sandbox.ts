@@ -2,11 +2,12 @@ import {
 	CHANGE_SET_LIMITS,
 	entityUpdateTarget,
 	existingEntity,
+	readAllPages,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
 	ExerciseMergeInputSchema,
@@ -58,9 +59,7 @@ export default defineOperation({
 	run: ({ mergeFrom, mergeInto }, host) =>
 		Effect.gen(function* () {
 			if (mergeFrom === mergeInto) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.exercise-merge.same"),
-				});
+				return yield* reject(catalogMessage("rejection.exercise-merge.same"));
 			}
 			const subjects = yield* executeRyotqlRecipe(
 				host.executeRyotql,
@@ -70,16 +69,12 @@ export default defineOperation({
 			const source = subjects.find(({ id }) => id === mergeFrom);
 			const target = subjects.find(({ id }) => id === mergeInto);
 			if (!source || !target) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.exercise-merge.missing"),
-				});
+				return yield* reject(catalogMessage("rejection.exercise-merge.missing"));
 			}
 			if (source.kind !== target.kind) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.exercise-merge.kind-mismatch"),
-				});
+				return yield* reject(catalogMessage("rejection.exercise-merge.kind-mismatch"));
 			}
-			const links = yield* readAllRyotqlPages((after) =>
+			const links = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
 					exerciseMergeLinksRecipe({ reference }),
@@ -87,7 +82,7 @@ export default defineOperation({
 					{ pages: { links: { after } } },
 				),
 			);
-			const templates = yield* readAllRyotqlPages((after) =>
+			const templates = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
 					exerciseMergeTemplatesRecipe({ reference }),
@@ -109,9 +104,7 @@ export default defineOperation({
 						];
 			});
 			if (updates.length > CHANGE_SET_LIMITS.entityUpdates) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.exercise-merge.too-many-templates"),
-				});
+				return yield* reject(catalogMessage("rejection.exercise-merge.too-many-templates"));
 			}
 			return {
 				output: { mergeInto },

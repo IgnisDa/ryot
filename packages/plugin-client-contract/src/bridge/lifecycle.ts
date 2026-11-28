@@ -17,7 +17,7 @@ import {
 	PluginLogicalLocation,
 	PluginNavigationTarget,
 } from "../navigation";
-import { RyotClientErrorReason } from "./capabilities";
+import { RyotClientPlainErrorReason } from "./capabilities";
 
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 export const CLIENT_BRIDGE_BOOTSTRAP = "ryot-client-bootstrap";
@@ -216,7 +216,11 @@ const hostScreenResult = <Type extends string, Outcome extends Schema.Top>(
 	const fields = { requestId: Schema.String, type: Schema.Literal(type) };
 	return Schema.Union([
 		strictStruct({ ...fields, value: outcome, outcome: Schema.Literal("success") }),
-		strictStruct({ ...fields, reason: RyotClientErrorReason, outcome: Schema.Literal("failure") }),
+		strictStruct({
+			...fields,
+			reason: RyotClientPlainErrorReason,
+			outcome: Schema.Literal("failure"),
+		}),
 	]);
 };
 

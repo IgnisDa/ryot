@@ -1,7 +1,7 @@
 import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe, type JsonValue } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
@@ -39,9 +39,7 @@ export default defineOperation({
 				{ exerciseId },
 			);
 			if (exercises.items.length !== 1 || membership === null) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.exercise-override.missing-exercise"),
-				});
+				return yield* reject(catalogMessage("rejection.exercise-override.missing-exercise"));
 			}
 			return {
 				output: {},

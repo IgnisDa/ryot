@@ -1,5 +1,5 @@
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import {
 	and,
@@ -17,6 +17,7 @@ import {
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 
 import { catalogMessage } from "../../shared/messages.generated";
 
@@ -77,8 +78,8 @@ const exerciseNoteEventRecipe = (() => {
 		},
 	});
 })();
-const requireFound = (reason: OperationRejectedError["reason"]) => (id: string | undefined) =>
-	id === undefined ? Effect.fail(new OperationRejectedError({ reason })) : Effect.succeed(id);
+const requireFound = (reason: LocalMessage) => (id: string | undefined) =>
+	id === undefined ? reject(reason) : Effect.succeed(id);
 
 export const requireExerciseNoteExercise = (exerciseId: string, executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, exerciseNoteExerciseRecipe, { exerciseId: exerciseId }).pipe(

@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { OperationRejected, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type PluginDeviceRequest,
@@ -382,8 +382,7 @@ describe("workout editor controller", () => {
 			Effect.gen(function* () {
 				const outcomes: ReadonlyArray<Effect.Effect<WorkoutEditorSaveResult, RyotClientError>> = [
 					Effect.fail(
-						new RyotClientError({
-							reason: "operation-rejected",
+						new OperationRejected({
 							rejection: {
 								namespace: "fitness",
 								key: "rejection.workout-save.missing-measurement",

@@ -18,7 +18,7 @@ import {
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
-import { Result, Schema } from "effect";
+import { Brand, Result, Schema } from "effect";
 
 import { queryPaging } from "./paging";
 
@@ -34,20 +34,14 @@ const isList = (property: AppPropertyDefinition) =>
 	property.type === "array" || property.type === "enum-array";
 const isSet = (value: unknown) => value !== undefined && !isMissingAppSchemaRequiredValue(value);
 
-const validatedDocuments = new WeakMap<Authored.RyotQLDocument, Result.Result<void, Error>>();
+export type ValidatedRyotQLDocument = Authored.RyotQLDocument &
+	Brand.Brand<"ValidatedRyotQLDocument">;
+const ValidatedRyotQLDocument = Brand.nominal<ValidatedRyotQLDocument>();
 
-/** Validates each document object once; documents are immutable, so a repeated check reuses it. */
 export const validateAuthoredDocument = (
 	document: Authored.RyotQLDocument,
-): Result.Result<void, Error> => {
-	const known = validatedDocuments.get(document);
-	if (known !== undefined) {
-		return known;
-	}
-	const validated = validateDocument(document);
-	validatedDocuments.set(document, validated);
-	return validated;
-};
+): Result.Result<ValidatedRyotQLDocument, Error> =>
+	Result.map(validateDocument(document), () => ValidatedRyotQLDocument(document));
 
 const validateDocument = (document: Authored.RyotQLDocument): Result.Result<void, Error> => {
 	const decoded = Schema.decodeResult(Authored.RyotQLDocument)(document);
@@ -323,117 +317,112 @@ export const materializeValidationSample = (value: unknown) =>
 	materialize(value, "sample", {}, storedValidationContext(), undefined, undefined, {});
 
 export const bindDocument = (
-	document: Authored.RyotQLDocument,
+	document: ValidatedRyotQLDocument,
 	values: RequestValues,
 	context: BindingContext,
 ): Result.Result<
 	{ readonly document: RyotQLDocument; readonly arguments: Readonly<Record<string, unknown>> },
 	Error
 > =>
-	Result.flatMap(validateAuthoredDocument(document), () =>
-		Result.flatMap(
-			Result.mapError(
-				bindArguments(document.parameters, values.arguments),
-				(issues) => new Error(argumentIssuesMessage(issues)),
-			),
-			(boundArguments) => {
-				if (
-					values.filter !== undefined &&
-					(document.controls?.filter === undefined || context.filter === undefined)
-				) {
-					return fail("Filter control resolution is required");
-				}
-				if (
-					values.sort !== undefined &&
-					(document.controls?.sort === undefined || context.sort === undefined)
-				) {
-					return fail("Sort control resolution is required");
-				}
-				if (
-					Object.keys(values.pages ?? {}).some((name) => !Object.hasOwn(document.queries, name))
-				) {
-					return fail("Page references an unknown query");
-				}
-				return Result.flatMap(
-					Result.all(
-						Object.entries(document.queries).map(([name, query]) => {
-							const filter =
-								values.filter !== undefined && context.filter !== undefined
-									? context.filter(name, document.controls?.filter, values.filter)
-									: Result.succeed(undefined);
-							const sort =
-								values.sort !== undefined && context.sort !== undefined
-									? context.sort(name, document.controls?.sort, values.sort)
-									: Result.succeed(undefined);
-							return Result.flatMap(Result.all({ sort, filter }), (controls) =>
-								Result.flatMap(
-									materialize(
-										query,
-										"query",
-										boundArguments,
-										context,
-										controls.filter,
-										controls.sort,
-										document.parameters?.fields ?? {},
-									),
-									(bound) => {
-										if (!isObjectRecord(bound) || !isObjectRecord(bound["output"])) {
-											return fail("Malformed bound query");
-										}
-										const output = bound["output"];
-										const pagination = output["type"] === "rows" ? output["pagination"] : output;
-										if (
-											!isObjectRecord(pagination) ||
-											typeof pagination["limit"] !== "number" ||
-											typeof pagination["maxLimit"] !== "number"
-										) {
-											return fail("Malformed query limits");
-										}
-										const page = values.pages?.[name];
-										const paging = queryPaging(query);
-										if (page !== undefined && paging === null) {
-											return fail(
-												`Query '${name}' cannot be paged; only rows and grouped aggregates support paging`,
-											);
-										}
-										if (
-											page?.limit !== undefined &&
-											paging !== null &&
-											(!Number.isInteger(page.limit) ||
-												page.limit <= 0 ||
-												page.limit > paging.maxLimit)
-										) {
-											return fail(
-												`Page limit for '${name}' must be an integer from 1 to ${paging.maxLimit}`,
-											);
-										}
-										const { maxLimit: _, ...limits } = pagination;
-										const paged = {
-											...limits,
-											limit: page?.limit ?? pagination["limit"],
-											...(page?.after === undefined ? {} : { after: page.after }),
-										};
-										return Result.succeed([
-											name,
-											{
-												...bound,
-												output:
-													output["type"] === "rows" ? { ...output, pagination: paged } : paged,
-											},
-										] as const);
-									},
-								),
-							);
-						}),
-					),
-					(queries) =>
-						Result.map(decodeDocument({ queries: Object.fromEntries(queries) }), (bound) => ({
-							document: bound,
-							arguments: boundArguments,
-						})),
-				);
-			},
+	Result.flatMap(
+		Result.mapError(
+			bindArguments(document.parameters, values.arguments),
+			(issues) => new Error(argumentIssuesMessage(issues)),
 		),
+		(boundArguments) => {
+			if (
+				values.filter !== undefined &&
+				(document.controls?.filter === undefined || context.filter === undefined)
+			) {
+				return fail("Filter control resolution is required");
+			}
+			if (
+				values.sort !== undefined &&
+				(document.controls?.sort === undefined || context.sort === undefined)
+			) {
+				return fail("Sort control resolution is required");
+			}
+			if (Object.keys(values.pages ?? {}).some((name) => !Object.hasOwn(document.queries, name))) {
+				return fail("Page references an unknown query");
+			}
+			return Result.flatMap(
+				Result.all(
+					Object.entries(document.queries).map(([name, query]) => {
+						const filter =
+							values.filter !== undefined && context.filter !== undefined
+								? context.filter(name, document.controls?.filter, values.filter)
+								: Result.succeed(undefined);
+						const sort =
+							values.sort !== undefined && context.sort !== undefined
+								? context.sort(name, document.controls?.sort, values.sort)
+								: Result.succeed(undefined);
+						return Result.flatMap(Result.all({ sort, filter }), (controls) =>
+							Result.flatMap(
+								materialize(
+									query,
+									"query",
+									boundArguments,
+									context,
+									controls.filter,
+									controls.sort,
+									document.parameters?.fields ?? {},
+								),
+								(bound) => {
+									if (!isObjectRecord(bound) || !isObjectRecord(bound["output"])) {
+										return fail("Malformed bound query");
+									}
+									const output = bound["output"];
+									const pagination = output["type"] === "rows" ? output["pagination"] : output;
+									if (
+										!isObjectRecord(pagination) ||
+										typeof pagination["limit"] !== "number" ||
+										typeof pagination["maxLimit"] !== "number"
+									) {
+										return fail("Malformed query limits");
+									}
+									const page = values.pages?.[name];
+									const paging = queryPaging(query);
+									if (page !== undefined && paging === null) {
+										return fail(
+											`Query '${name}' cannot be paged; only rows and grouped aggregates support paging`,
+										);
+									}
+									if (
+										page?.limit !== undefined &&
+										paging !== null &&
+										(!Number.isInteger(page.limit) ||
+											page.limit <= 0 ||
+											page.limit > paging.maxLimit)
+									) {
+										return fail(
+											`Page limit for '${name}' must be an integer from 1 to ${paging.maxLimit}`,
+										);
+									}
+									const { maxLimit: _, ...limits } = pagination;
+									const paged = {
+										...limits,
+										limit: page?.limit ?? pagination["limit"],
+										...(page?.after === undefined ? {} : { after: page.after }),
+									};
+									return Result.succeed([
+										name,
+										{
+											...bound,
+											output: output["type"] === "rows" ? { ...output, pagination: paged } : paged,
+										},
+									] as const);
+								},
+							),
+						);
+					}),
+				),
+				(queries) =>
+					Result.map(decodeDocument({ queries: Object.fromEntries(queries) }), (bound) => ({
+						document: bound,
+						arguments: boundArguments,
+					})),
+			);
+		},
 	);
 
 const sampleValue = (property: AppPropertyDefinition): unknown => {
@@ -487,7 +476,7 @@ const choiceKey = (parameter: unknown) => `${choicePrefix}${String(parameter)}`;
 const setKey = (parameter: unknown) => `${setPrefix}${String(parameter)}`;
 
 export const authoredValidationBranches = (
-	document: Authored.RyotQLDocument,
+	document: ValidatedRyotQLDocument,
 	context: StoredValidationContext,
 ): Result.Result<readonly RyotQLDocument[], Error> => {
 	type Selections = Readonly<Record<string, string>>;
@@ -571,56 +560,54 @@ export const authoredValidationBranches = (
 		return bound;
 	};
 
-	return Result.flatMap(validateAuthoredDocument(document), () => {
-		if (!Number.isSafeInteger(context.maximumBranches) || context.maximumBranches <= 0) {
-			return fail("A positive validation branch budget is required");
-		}
-		const fields = document.parameters?.fields ?? {};
-		const samples = Object.fromEntries(
-			Object.entries(fields).map(([name, property]) => [name, sampleValue(property)]),
-		);
-		const branchContext: BindingContext = {
-			...context,
-			resolveSourceEntity: (_, alias, parameter) => context.sourceEntity(parameter, alias),
-		};
-		return Result.flatMap(decisions(document.queries, {}), (branches) =>
-			Result.all(
-				branches.map((branch) =>
-					Result.flatMap(
-						materialize(
-							document.queries,
-							"queries",
-							branchArguments(samples, branch),
-							branchContext,
-							undefined,
-							undefined,
-							fields,
-						),
-						(queries) => {
-							if (!isObjectRecord(queries)) {
-								return fail("Invalid query branches");
-							}
-							const stripped = Object.fromEntries(
-								Object.entries(queries).map(([name, query]) => {
-									if (!isObjectRecord(query) || !isObjectRecord(query["output"])) {
-										return [name, query];
-									}
-									const output = query["output"];
-									if (output["type"] === "rows" && isObjectRecord(output["pagination"])) {
-										const { maxLimit: _, ...pagination } = output["pagination"];
-										return [name, { ...query, output: { ...output, pagination } }];
-									}
-									const { maxLimit: _, ...aggregate } = output;
-									return [name, { ...query, output: aggregate }];
-								}),
-							);
-							return decodeDocument({ queries: stripped });
-						},
+	if (!Number.isSafeInteger(context.maximumBranches) || context.maximumBranches <= 0) {
+		return fail("A positive validation branch budget is required");
+	}
+	const fields = document.parameters?.fields ?? {};
+	const samples = Object.fromEntries(
+		Object.entries(fields).map(([name, property]) => [name, sampleValue(property)]),
+	);
+	const branchContext: BindingContext = {
+		...context,
+		resolveSourceEntity: (_, alias, parameter) => context.sourceEntity(parameter, alias),
+	};
+	return Result.flatMap(decisions(document.queries, {}), (branches) =>
+		Result.all(
+			branches.map((branch) =>
+				Result.flatMap(
+					materialize(
+						document.queries,
+						"queries",
+						branchArguments(samples, branch),
+						branchContext,
+						undefined,
+						undefined,
+						fields,
 					),
+					(queries) => {
+						if (!isObjectRecord(queries)) {
+							return fail("Invalid query branches");
+						}
+						const stripped = Object.fromEntries(
+							Object.entries(queries).map(([name, query]) => {
+								if (!isObjectRecord(query) || !isObjectRecord(query["output"])) {
+									return [name, query];
+								}
+								const output = query["output"];
+								if (output["type"] === "rows" && isObjectRecord(output["pagination"])) {
+									const { maxLimit: _, ...pagination } = output["pagination"];
+									return [name, { ...query, output: { ...output, pagination } }];
+								}
+								const { maxLimit: _, ...aggregate } = output;
+								return [name, { ...query, output: aggregate }];
+							}),
+						);
+						return decodeDocument({ queries: stripped });
+					},
 				),
 			),
-		);
-	});
+		),
+	);
 };
 
 export const cursorBindingKey = (input: {

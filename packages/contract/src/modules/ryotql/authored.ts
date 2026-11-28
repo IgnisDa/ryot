@@ -550,6 +550,7 @@ type AuthoredMapping = {
 	readonly sourceEntity?: () => void;
 	readonly alias?: (alias: string) => string;
 	readonly table?: (table: string) => string;
+	readonly node?: (node: Readonly<Record<string, unknown>>) => void;
 	readonly reference?: (reference: PluginIdentityReference) => PluginIdentityReference;
 };
 
@@ -564,6 +565,7 @@ const mapAuthoredNode = (value: unknown, transform: AuthoredMapping): unknown =>
 	if (Result.isSuccess(reference)) {
 		return transform.reference?.(reference.success) ?? reference.success;
 	}
+	transform.node?.(value);
 	if (value["type"] === "sourceEntity") {
 		transform.sourceEntity?.();
 	}
@@ -641,6 +643,14 @@ export const scalarExpressionTables = (expression: ScalarExpression): ReadonlySe
 export const documentTables = (
 	document: RyotQLDocument | PluginRyotQLDocument,
 ): ReadonlySet<string> => referencedTables(document);
+
+/** Visits every node of an authored value except literals and plugin identity references. */
+export const visitAuthoredNodes = (
+	value: unknown,
+	visit: (node: Readonly<Record<string, unknown>>) => void,
+) => {
+	mapAuthoredNode(value, { node: visit });
+};
 
 export const documentReadsClock = (document: RyotQLDocument | PluginRyotQLDocument) => {
 	let reads = false;

@@ -9,7 +9,7 @@ import { act, type ReactNode, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { RyotClientAdapter } from "../client/adapter";
-import { RyotClientError } from "../client/errors";
+import { ChangesConflict, RyotClientError } from "../client/errors";
 import { createTestPluginStorage, createTestRyotClock } from "../testing";
 import {
 	createRyotHostQuery,
@@ -319,7 +319,7 @@ describe("Effect-native React definitions", () => {
 				const attempts: RyotSubmission<{ value: number }>[] = [];
 				let identity = 0;
 				const failures = [
-					new RyotClientError({ conflict: "entity-stale", reason: "changes-conflict" }),
+					new ChangesConflict({ conflict: "entity-stale" }),
 					new RyotClientError({ reason: "transport" }),
 					new RyotClientError({ reason: "protocol" }),
 					new RyotClientError({ reason: "disposed" }),

@@ -16,6 +16,7 @@ import { adaptNetflixCsv, netflixViewingContext } from "./netflix";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.netflix",
 	name: "Collect Netflix export",
 });
@@ -124,5 +125,5 @@ export default defineActivity({
 				itemIndex,
 				header: yield* Schema.encodeEffect(Schema.fromJsonString(State))(state),
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

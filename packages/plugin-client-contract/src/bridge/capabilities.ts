@@ -52,14 +52,19 @@ import { PluginFileSource } from "./files";
 export const PLUGIN_STORAGE_KEY_MAX_LENGTH = 128;
 export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 
-export const PluginOperationBridgeErrorReason = Schema.Literals([
+/** Why an operation failed with no detail to carry. */
+export const PluginOperationPlainFailureReason = Schema.Literals([
 	"transport",
 	"operation-failed",
 	"entitlement-required",
 	"page-write-access-required",
+	"malformed-result",
+]);
+
+export const PluginOperationBridgeErrorReason = Schema.Literals([
+	...PluginOperationPlainFailureReason.literals,
 	"operation-rejected",
 	"changes-conflict",
-	"malformed-result",
 ]);
 
 export type PluginOperationBridgeErrorReason = Schema.Schema.Type<
@@ -85,27 +90,30 @@ export type PluginUploadBridgeErrorReason = Schema.Schema.Type<
 	typeof PluginUploadBridgeErrorReason
 >;
 
-export const RyotClientErrorReason = Schema.Literals([
+/** Why a client capability failed, other than a rejection or a conflict, which carry their detail. */
+export const RyotClientPlainErrorReason = Schema.Literals([
+	...PluginOperationPlainFailureReason.literals,
 	"link-open-failed",
 	"activation-required",
 	"disposed",
 	"protocol",
-	"transport",
 	"asset-failed",
 	"collection-failed",
 	"collection-stale",
 	"entity-save-failed",
 	"query-failed",
 	"invalid-input",
-	"operation-failed",
-	"entitlement-required",
-	"page-write-access-required",
-	"operation-rejected",
-	"changes-conflict",
-	"malformed-result",
 	"unsupported-capability",
 	"invalid-request",
 	"quota",
+]);
+
+export type RyotClientPlainErrorReason = Schema.Schema.Type<typeof RyotClientPlainErrorReason>;
+
+export const RyotClientErrorReason = Schema.Literals([
+	...RyotClientPlainErrorReason.literals,
+	"operation-rejected",
+	"changes-conflict",
 ]);
 
 export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
@@ -359,28 +367,28 @@ const pluginOperationSuccessFields = {
 	outcome: Schema.Literal("success"),
 };
 
-const pluginOperationFailureVariants = [
-	{
-		outcome: Schema.Literal("failure"),
-		reason: Schema.Literals([
-			"transport",
-			"operation-failed",
-			"entitlement-required",
-			"page-write-access-required",
-			"malformed-result",
-		]),
-	},
-	{
-		conflict: CommitConflictCode,
-		outcome: Schema.Literal("failure"),
-		reason: Schema.Literal("changes-conflict"),
-	},
-	{
-		message: Message,
-		outcome: Schema.Literal("failure"),
-		reason: Schema.Literal("operation-rejected"),
-	},
-] as const;
+/**
+ * The ways an operation fails, each with `fields`: a `plain` reason, a rejection with its message, or
+ * a commit conflict with its code.
+ */
+export const pluginOperationFailures = <
+	const Fields extends Schema.Struct.Fields,
+	Plain extends Schema.Top,
+>(
+	fields: Fields,
+	plain: Plain,
+) =>
+	[
+		strictStruct({ ...fields, reason: plain }),
+		strictStruct({
+			...fields,
+			conflict: CommitConflictCode,
+			reason: Schema.Literal("changes-conflict"),
+		}),
+		strictStruct({ ...fields, message: Message, reason: Schema.Literal("operation-rejected") }),
+	] as const;
+
+const pluginOperationFailureFields = { outcome: Schema.Literal("failure") };
 
 const pluginBridgeOperationResultFields = {
 	requestId: Schema.String,
@@ -389,15 +397,16 @@ const pluginBridgeOperationResultFields = {
 
 export const PluginOperationOutcome = Schema.Union([
 	strictStruct(pluginOperationSuccessFields),
-	...pluginOperationFailureVariants.map((fields) => strictStruct(fields)),
+	...pluginOperationFailures(pluginOperationFailureFields, PluginOperationPlainFailureReason),
 ]);
 
 export type PluginOperationOutcome = Schema.Schema.Type<typeof PluginOperationOutcome>;
 
 export const PluginBridgeOperationResult = Schema.Union([
 	strictStruct({ ...pluginOperationSuccessFields, ...pluginBridgeOperationResultFields }),
-	...pluginOperationFailureVariants.map((fields) =>
-		strictStruct({ ...fields, ...pluginBridgeOperationResultFields }),
+	...pluginOperationFailures(
+		{ ...pluginOperationFailureFields, ...pluginBridgeOperationResultFields },
+		PluginOperationPlainFailureReason,
 	),
 ]);
 

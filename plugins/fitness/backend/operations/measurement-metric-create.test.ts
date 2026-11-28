@@ -2,20 +2,19 @@ import { describe, expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { inMemoryRyotql, type StoredTables } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import {
-	inMemoryRyotql,
-	measurementTables,
-	type StoredTables,
-} from "./in-memory-ryotql.test-support";
 import createDefinition, { manifest } from "./measurement-metric-create.sandbox";
+import { measurementTables } from "./measurement-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
 const recordingHost = (tables: StoredTables = measurementTables) =>
-	defineSandboxTestHost(manifest, { executeRyotql: inMemoryRyotql(tables) });
+	defineSandboxTestHost(manifest, {
+		executeRyotql: inMemoryRyotql({ tables, pluginId: "fitness-owner" }),
+	});
 
 const create = (input: { readonly name: string; readonly unit?: string }, tables?: StoredTables) =>
 	runSandboxTestScript(createDefinition, input, recordingHost(tables), execution);

@@ -8,6 +8,7 @@ import { MediaControlInput, MediaControlOutput } from "./references";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.control",
 	name: "Read media import settings and archive directory",
 });
@@ -33,5 +34,5 @@ export default defineActivity({
 				Schema.fromJsonString(Schema.Record(Schema.String, jsonValueSchema)),
 			)(new TextDecoder("utf-8", { fatal: true }).decode(range.bytes));
 			return { settings, next: null, entries: [] };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

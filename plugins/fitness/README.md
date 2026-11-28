@@ -323,8 +323,10 @@ budgets. The draft's retained submission freezes data, baseline, ID, and timesta
 settings changes. The operation reads only and returns the entity, sets, relationships, and any
 new-workout completion event as one change set, which the kernel commits atomically; asset uploads
 are separate. The client takes the saved workout's ID from the commit's root entity. A baseline that
-is gone or missing a kept set is left to the change set's entity update target, `expected` set IDs
-and scope baseline, so the commit reports the conflict. An invalid save or a forbidden managed asset
+is gone, or a source exercise position the workout no longer records, fails with
+`StaleBaselineError`; a baseline missing a kept set is left to the change set's entity update target,
+`expected` set IDs and scope baseline, so the commit reports the conflict. Both reach the client as a
+`changes-conflict`. An invalid save or a forbidden managed asset
 is refused with `OperationRejectedError` and a `rejection.workout-save.*` message; the output is
 success-only.
 
@@ -397,8 +399,12 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   maximum there and the largest changed candidate, so only those later sets are read (none when no
   changed set sets a best), and later bests above that range carry the maximum forward. It reads the
   start of every added set's workout and replays when one of those workouts is missing. Deleting the
-  earliest heavy set of a long history can still read most of it. A value stays visible while its plugin revision is
-  active; pending or failed status is noted until processing finishes.
+  earliest heavy set of a long history can still read most of it. Both reads are static documents in
+  `shared/workout-record-recipes.ts` that route sets with the kernel's `foldSubjectEventPredicate`;
+  the later-sets read takes each record type's widest changed bound as `<type>Above` and
+  `<type>AtMost` arguments. `foldSubjects` replays an exercise without a stored value and fails a run
+  whose stored value does not decode. A value stays visible while its plugin revision is active;
+  pending or failed status is noted until processing finishes.
 
 Domain recipes author static documents with typed flat parameters. Factories configure plugin
 identity and schemas; runtime IDs, lists, filters, searches, and reporting choices remain arguments.

@@ -572,7 +572,8 @@ returns the delete of a visible review without a precondition; an ID that resolv
 no changes and a count of zero. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
 change fails the commit with `changes-conflict` instead of being merged; a single-record delete
-under a snapshot whose record no longer exists reports the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
+under a snapshot whose record no longer exists fails with `StaleBaselineError`, which reaches the
+caller as the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
 through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another
 episode of the same show (across seasons) or podcast, which must be visible to the caller; moving to the
 record's own episode changes nothing, and any other record or parent is refused. Reviews that name the moved
@@ -765,8 +766,11 @@ Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSche
 entityProperties }` over its history schemas, naming what the fold reads of entities: a title's
 `publishDate` and `publishYear`, and for a Show or Podcast its `productionStatus` and its episodes'
 `airingAt`, `publishDate` and `episodeNumber`. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
-Podcast, its required episodes with `backend/fold/recipes.ts`. An episode with a parent session belongs
-to the parent's fold, and a sessionless special to its own. `backend/fold/history.ts` derives automatic
+Podcast, its required episodes with the static documents in `backend/fold/recipes.ts`; the history
+read routes events with the kernel's `foldSubjectEventPredicate` and narrows them by typed
+parameters. An episode with a parent session belongs to the parent's fold, and a sessionless special
+to its own. `foldSubjects` replays a title without a stored value and fails a run whose stored value
+does not decode. `backend/fold/history.ts` derives automatic
 completions, and `backend/fold/consumption.ts` allocates consumption contributions. Each run returns
 the completions to change, one contribution per consumption event, the library summary for each
 `in-media-library` link, and the fold's value.
@@ -820,7 +824,7 @@ Show or Podcast covers:
   the title. Coverage before the appended events is judged as before, so an append that completes or
   progresses no episode cannot; one that does can only restore a lapsed occurrence while the value
   is `waiting`, complete a title that just became terminal, or complete a terminal title once no
-  required episode is left uncovered in the current cycle, which `mediaFoldUncoveredRecipe` reads
+  required episode is left uncovered in the current cycle, which the kind's `uncovered` recipe reads
   from the written history, counting the episodes the append progresses as covered. Suppressed,
   overridden or lapsed occurrences elsewhere do not replay it. The append still advances `counted`
   to the latest episode completion it sources, and an explicit title completion ends `waiting`.
@@ -1031,8 +1035,8 @@ analytics-summary, analytics-trend, and analytics-ranking using these recipes. E
 views declare browse controls and an explicit `librarySearch` query with ranked search and summary
 fields. Their search argument is persisted with the saved selection.
 
-The Media test runner provisions PostgreSQL through the canonical scoped database-run setup before
-calling the shared client runner. Executor regressions and node tests share that lifecycle; DOM
+The Media test runner provisions PostgreSQL through the kernel's `runDatabaseTests` before calling
+the shared client runner. Executor regressions and node tests share that lifecycle; DOM
 tests retain the shared browser preload. Package test arguments pass through unchanged.
 
 ## Original language

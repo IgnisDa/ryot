@@ -19,6 +19,11 @@ export {
 } from "@ryot-app/ryotql/authoring";
 
 export {
+	type FoldDeclarations,
+	foldEventImageSelection,
+	foldSubjectEventPredicate,
+} from "@ryot-app/ryotql-recipes/fold-events";
+export {
 	eventIsAfter,
 	latestEventField,
 	eventOrderAscending,

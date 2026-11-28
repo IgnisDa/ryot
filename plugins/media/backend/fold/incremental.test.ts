@@ -7,7 +7,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { compareHistory, type FoldEvent, type MediaFoldValue } from "./history";
 import { applyHistoryChanges } from "./history.test-support";
-import { foldMediaHistory, type MediaHistoryReads, normalizedEvent } from "./incremental";
+import { foldMediaHistory, type MediaHistoryReads } from "./incremental";
 
 type Subject = {
 	readonly id: string;
@@ -269,7 +269,7 @@ const storedId = (prefix: string, index: number) =>
 
 const episodeCompletion = (index: number) => {
 	const occurredAt = new Date(Date.UTC(2020, 0, 1) + index * 86_400_000).toISOString();
-	return normalizedEvent({
+	return {
 		...base(storedId("event", index), occurredAt, {
 			sessionEntityId: "show",
 			entitySchemaSlug: "show-episode",
@@ -281,12 +281,12 @@ const episodeCompletion = (index: number) => {
 			calendarDate: occurredAt.slice(0, 10),
 			consumptionBasis: { total: 45, unit: "minutes", property: "runtime" },
 		},
-	});
+	};
 };
 
 const bookProgress = (index: number) => {
 	const occurredAt = new Date(Date.UTC(2020, 0, 1) + index * 3_600_000).toISOString();
-	return normalizedEvent({
+	return {
 		...base(storedId("event", index), occurredAt, {
 			entityId: "book",
 			sessionEntityId: null,
@@ -300,7 +300,7 @@ const bookProgress = (index: number) => {
 			calendarDate: occurredAt.slice(0, 10),
 			consumptionBasis: { total: 600, unit: "pages", property: "pages" },
 		},
-	});
+	};
 };
 
 /** Drives the same random appends, past inserts, edits, deletes and completion overrides through both folds. */
@@ -327,10 +327,7 @@ const compare = Effect.fnUntraced(function* (input: {
 		const id = `event-${input.seed}-${String(index).padStart(3, "0")}`;
 		let changed: ReadonlyArray<FoldEvent>;
 		if (operation <= 1 || target === undefined) {
-			changed = [
-				...history,
-				normalizedEvent(input.generate(next, id, at(next, latest, operation === 0))),
-			];
+			changed = [...history, input.generate(next, id, at(next, latest, operation === 0))];
 		} else if (operation === 2) {
 			changed = history.filter((event) => event.id !== target.id);
 		} else if (operation === 3 && typeof target.properties["completionKey"] === "string") {
@@ -344,12 +341,11 @@ const compare = Effect.fnUntraced(function* (input: {
 					: event,
 			);
 		} else {
-			const replaced = input.generate(next, target.id, at(next, latest, false));
-			changed = history.map((event) =>
-				event.id === target.id
-					? normalizedEvent({ ...replaced, revision: target.revision + 1 })
-					: event,
-			);
+			const replaced = {
+				...input.generate(next, target.id, at(next, latest, false)),
+				revision: target.revision + 1,
+			};
+			changed = history.map((event) => (event.id === target.id ? replaced : event));
 		}
 		const replayed = yield* foldMediaHistory({
 			changes: null,

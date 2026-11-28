@@ -9,12 +9,12 @@ import {
 	type AutomationRequestPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { EventUpdate } from "@ryot-app/contract/modules/events/mutations";
 import {
 	EventBadRequest,
 	EventCreateItemError,
 	EventNotFound,
 	EventStale,
-	type UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
@@ -119,7 +119,7 @@ const command = (id: string) => ({
 	}),
 	writeContext: null,
 });
-const updateItem = (id: string, patch: UpdateEventItem["patch"]): UpdateEventItem => ({
+const updateItem = (id: string, patch: EventUpdate["item"]["patch"]): EventUpdate["item"] => ({
 	patch,
 	eventId: EventId.make(id),
 });
@@ -1558,7 +1558,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
-					const rejectsEdit = (precondition: UpdateEventItem["expected"], commandId: string) =>
+					const rejectsEdit = (precondition: EventUpdate["item"]["expected"], commandId: string) =>
 						runChanges(
 							[
 								eventUpdate({

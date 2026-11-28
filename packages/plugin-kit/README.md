@@ -526,10 +526,13 @@ The fold is a read-only script of the same plugin using `FoldInput` and `FoldOut
 `@ryot-app/plugin-backend-sdk/folds`. One run folds up to `FOLD_LIMITS.runSubjects` subjects, which
 share the run's sandbox budgets: it receives `{ subjects }`, each `{ subjectEntityId, value, absorbed,
 changes }`, and returns `{ subjects }` with exactly one result per subject, carrying its
-`subjectEntityId` and next `value`. Write `run: foldEachSubject((subject, host) => ...)` to fold one
-subject at a time and return its `FoldResult`, or handle `subjects` directly to batch reads across
-them. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
-mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
+`subjectEntityId` and next `value`. Write `run: foldSubjects({ value, replay, update })` to fold one
+subject at a time, or handle `subjects` directly to batch reads across them. `foldSubjects` decodes each
+subject's stored value and absorbed values with the `value` schema, failing the run on one that does
+not decode, calls `replay` for a subject without a value or with `changes: null` and `update`
+otherwise, and encodes the value each returns. `absorbed` lists the values of subjects merged or
+restored into this one, each with `ids` mapping the entity and event IDs it holds to their new ones;
+carry over whatever must survive.
 
 `changes` selects the mode:
 
@@ -544,6 +547,13 @@ mapping the entity and event IDs it holds to their new ones; carry over whatever
   without an `after` and keeps every output you do not return. An empty list means nothing in the
   subject's history changed: its links changed, a fold request asked for it, or its refresh time
   passed.
+
+Change images carry ISO UTC `occurredAt` and `orderCreatedAt`. To read a subject's history, filter
+the `event` table with `foldSubjectEventPredicate(event, { subject, eventSchemaSlugs, folds })` from
+`@ryot-app/plugin-kit/ryotql`, where `folds` lists the plugin's fold declarations, so the read routes
+events to subjects as the kernel does, and select `foldEventImageSelection(event, entity)` to read
+them as change images, with the same timestamps. Keep the recipe a static document and pass bounds and
+filters as parameters.
 
 `foldChangeImages` splits a change list into retracted and added images. Incremental results must
 equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and
@@ -728,8 +738,9 @@ scripts do not author per-script key lists. Configuration is never copied into a
 history. A stored configuration may be at most 64 KiB; larger saves and restores are rejected.
 
 `listIntegrations({ provider?, isDisabled?, cursor? })` returns one page of at most 20 of the
-execution user's integrations as `{ items, nextCursor }`; pass `nextCursor` back as `cursor` until
-it is `null`. An integration's name, provider, and settings may be at most 16 KiB together; larger
+execution user's integrations as `{ items, pageInfo }`, the page shape RyotQL rows use;
+`readAllPages((cursor) => host.listIntegrations({ ...options, cursor }))` from
+`@ryot-app/plugin-backend-sdk/core` reads every page. An integration's name, provider, and settings may be at most 16 KiB together; larger
 saves and restores are rejected.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, idempotency keys, and encryption keys are not account-backup data.
@@ -766,10 +777,12 @@ export default defineWorkflow({
 ```
 
 `step.activity` and `step.child` invoke declared script and workflow references. An activity script
-is defined with `defineActivity`, whose `run` returns the output the reference's `output` schema
-describes, or with `defineActivityWithChanges`, whose `run` returns `{ output, changes? }`: the
-kernel commits those changes once when it completes and hands the workflow only `output`. The backend compiler rejects a `step.activity` target that is not
-defined with `defineActivity` or `defineActivityWithChanges`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+declares `activity: true` in its `kind: "script"` manifest and is defined with `defineActivity`,
+whose `run` returns `{ output, changes? }`, as an operation's does: `output` is what the reference's
+`output` schema describes, and the kernel commits `changes` once when the activity completes and
+hands the workflow only `output`. The backend compiler rejects an activity manifest defined with
+another helper, `defineActivity` without the flag, and a `step.activity` target that is not an
+activity; manifest validation rejects the last one too. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
 workflow that finishes in one step can omit `checkpoint`.
@@ -929,11 +942,11 @@ commit's conflict code.
 
 ### Change sets
 
-`ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
+`ChangeSet` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
 references, `entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)` and
 `expectedRelationshipProperties(properties, checked)` baselines,
-`updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
+`createEventChange(itemIdentity, event)`, `updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
 `EventDelete`, `EventChange`, `RelationshipUpsert`, `SignalChange` and `GlobalRelationship`. Every part names schemas of the writing plugin by slug, and every slug must be declared
 by its revision.
 
@@ -957,10 +970,12 @@ A `{ kind: "root" }` reference requires `entity`. User entities never carry prov
 ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after
 the commit. A part the writer may not write fails the whole change set.
 
-Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
-receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502); outputs are
-success-only. A baseline that changed is reported by the commit of the returned changes as HTTP 409
-`changes-conflict`. A signal notification automation passes `notifySignals(signals)` from
+Refuse a request that cannot succeed as submitted with `reject(message)` from
+`@ryot-app/plugin-backend-sdk/operation`; the caller receives the message (HTTP 422) instead of a
+generic runtime failure (HTTP 502); outputs are success-only. A baseline that changed is reported by
+the commit of the returned changes as HTTP 409 `changes-conflict`; a baseline the operation already
+finds gone or changed while reading fails with `StaleBaselineError({ conflict })`, which the caller
+receives as the same conflict. A signal notification automation passes `notifySignals(signals)` from
 `automation` as the `run` of `defineAutomation`: each signal schema slug names a properties schema and
 a `notify` formatter, the formatted message is returned as a change-set notification, and undecodable
 properties fail with `SignalNotificationError`. Import
@@ -1052,10 +1067,7 @@ names, stays English.
 Backend code rejects an operation with a message from its own catalog:
 
 ```ts
-return (
-  yield *
-  new OperationRejectedError({ reason: catalogMessage("rejection.review.duplicate", { title }) })
-);
+reject(catalogMessage("rejection.review.duplicate", { title }));
 ```
 
 The same applies to every other text a plugin's backend hands to the kernel: a before-stage policy
@@ -1091,7 +1103,9 @@ installation re-checks their limits before the kernel serves them.
 
 Plugin tests compile the package's own English catalog with `compilePluginCatalog(packageRoot)`
 from `@ryot-app/plugin-kit/testing`. Backend tests render messages with `englishRenderer(catalog)`
-from `@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
+from `@ryot-app/plugin-backend-sdk/testing`, where `signalAutomationInput({ signalSchemaSlug,
+properties, ... })` builds the input a signal emission hands a notification automation; client tests
+use `testPluginText` from the client SDK.
 
 ## Languages
 

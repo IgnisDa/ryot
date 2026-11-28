@@ -13,6 +13,7 @@ import { MediaImportAdapterBatch, MediaImportWriteChunkActivityInput } from "./s
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.write-chunks",
 	name: "Write media import chunks",
 });
@@ -94,5 +95,5 @@ export default defineActivity({
 				chunk,
 			);
 			return yield* writeMediaCapture([{ contents, name: "writes.json" }]);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

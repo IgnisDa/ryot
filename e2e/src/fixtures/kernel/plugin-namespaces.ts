@@ -248,7 +248,7 @@ export const namespacePairRecipe = (input: {
 const operationSource = (label: string) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { deleteEventChange, existingEntity, updateEventChange, type ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
+import { createEventChange, deleteEventChange, existingEntity, updateEventChange, type ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
@@ -267,7 +267,7 @@ const changesFor = (input: typeof Input.Type): ChangeSet | undefined => {
     return { globalEntities: [{ name: "Forbidden global bottle", entitySchemaSlug: "bottle", externalId: input.externalId ?? "forbidden", properties: {}, populatedAt: null }] };
   }
   if (input.action === "create-event" && input.entityId) {
-    return { events: { changes: [{ kind: "create" as const, itemIdentity: "tasted", eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } }] } };
+    return { events: { changes: [createEventChange("tasted", { eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } })] } };
   }
   if (input.action === "update-event" && input.eventId) {
     return { events: { changes: [updateEventChange(EventId.make(input.eventId), { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } })] } };
@@ -331,9 +331,9 @@ const checkpointSource = `
 import { genericImportWorkflowInputSchema, genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
 import { configValuesSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "script", name: "Whiskey checkpoint", slug: "checkpoint" });
-export default defineActivityWithChanges({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Whiskey checkpoint", slug: "checkpoint" });
+export default defineActivity({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
   const request = { runId: input.runId, command: input.command, operation: { action: "seal" as const } };
   const config = yield* host.getPluginConfig({ optional: ["checkpointUrl", "writerMarker"] });
   if (typeof config.checkpointUrl === "string") {
@@ -356,10 +356,10 @@ const kernelWriteChunksSource = (label: string, strength: string | number) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { genericImportChunkSchema, type GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "script", name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
 const Source = Schema.Struct({ ownEntityId: Schema.String, foreignEntityId: Schema.String });
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest, input: Schema.Struct({ artifactHandle: Schema.String, occurredAt: Schema.String }), output: sandboxScratchManifestSchema,
   run: (input) => Effect.gen(function* () {
     const source = yield* Schema.decodeEffect(Schema.fromJsonString(Source))(new TextDecoder().decode(yield* readArtifact));
@@ -803,6 +803,7 @@ const namespacePackage = (input: {
 		scripts: [
 			{
 				kind: "script",
+				activity: true,
 				capabilities: [],
 				slug: "kernel-write-chunks",
 				requiredPluginConfigKeys: [],
@@ -843,6 +844,7 @@ const namespacePackage = (input: {
 			},
 			{
 				kind: "script",
+				activity: true,
 				capabilities: [],
 				slug: "bootstrap",
 				entry: bootstrapEntry,

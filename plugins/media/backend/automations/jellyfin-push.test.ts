@@ -89,9 +89,13 @@ const createHost = (options: {
 		httpCall: options.httpCall,
 		log: options.log ?? (() => Effect.succeed(null)),
 		executeRyotql: integrationPushRyotql(options.entity, providerSlugs),
-		listIntegrations: () => hostSuccess({ nextCursor: null, items: options.integrations ?? [] }),
 		getUserPreferences: () =>
 			hostSuccess({ disableIntegrations: options.disableIntegrations ?? false }),
+		listIntegrations: () =>
+			hostSuccess({
+				items: options.integrations ?? [],
+				pageInfo: { hasMore: false, nextCursor: null },
+			}),
 	});
 
 describe("jellyfin-push sandbox script", () => {

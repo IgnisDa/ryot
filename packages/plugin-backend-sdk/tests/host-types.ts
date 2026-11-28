@@ -134,7 +134,7 @@ defineScript({
 			const provider: string = integration.provider;
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
 			const page = yield* host.listIntegrations({ provider: "plugin_defined_provider" });
-			const nextCursor: null | string = page.nextCursor;
+			const nextCursor: null | string = page.pageInfo.nextCursor;
 			void provider;
 			void setting;
 			const query = yield* host.executeRyotql({

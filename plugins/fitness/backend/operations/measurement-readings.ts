@@ -1,7 +1,8 @@
+import { readAllPages } from "@ryot-app/plugin-backend-sdk/core";
 import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MEASUREMENT_EVENT_BATCH_SIZE } from "../../shared/measurement-reading-operations";
@@ -22,15 +23,13 @@ export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(func
 		entryId: entryId,
 	});
 	if (found === null) {
-		return yield* new OperationRejectedError({
-			reason: catalogMessage("rejection.measurement-entry.missing"),
-		});
+		return yield* reject(catalogMessage("rejection.measurement-entry.missing"));
 	}
 	return found;
 });
 
 export const readMeasurementEntryReadings = (entryId: string, executeRyotql: ExecuteRyotql) =>
-	readAllRyotqlPages((after) =>
+	readAllPages((after) =>
 		executeRyotqlRecipe(
 			executeRyotql,
 			measurementEntryReadingsRecipe({ reference: { kind: "self" } }),
@@ -49,9 +48,7 @@ export const requireMeasurementMetrics = Effect.fn("requireMeasurementMetrics")(
 		(ids) => executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe, { metricIds: ids }),
 	)).flat();
 	if (found.length !== unique.length) {
-		return yield* new OperationRejectedError({
-			reason: catalogMessage("rejection.measurement-metric.missing"),
-		});
+		return yield* reject(catalogMessage("rejection.measurement-metric.missing"));
 	}
 	return found;
 });

@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { EntityId, EventId, RelationshipKey } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
-import { strictStruct } from "../../schema/utils";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
 import { FoldRequest } from "../events/folds";
 import { EventChange } from "../events/mutations";
 import { ChangeSetEntityReference, ChangeSetGlobalEntityReference } from "./references";
@@ -64,10 +64,8 @@ const relationshipEndpoints = {
 	key: Schema.optionalKey(RelationshipKey),
 };
 
-const distinctEntityIds = Schema.makeFilter(
-	(baselines: ReadonlyArray<{ readonly entityId: EntityId }>) =>
-		new Set(baselines.map((baseline) => baseline.entityId)).size === baselines.length,
-);
+const distinctBy = <Item>(key: (item: Item) => string) =>
+	Schema.makeFilter((items: ReadonlyArray<Item>) => new Set(items.map(key)).size === items.length);
 
 /** Everything one plugin run writes. The kernel commits it atomically after the run ends. */
 export const ChangeSet = strictStruct({
@@ -95,11 +93,7 @@ export const ChangeSet = strictStruct({
 				entitySchemaSlug: slug,
 				name: Schema.NonEmptyString,
 				externalId: Schema.NonEmptyString,
-				populatedAt: Schema.NullOr(
-					Schema.String.check(
-						Schema.makeFilter((value) => !Number.isNaN(new Date(value).getTime())),
-					),
-				),
+				populatedAt: Schema.NullOr(IsoUtcString),
 			}),
 			CHANGE_SET_LIMITS.globalEntities,
 		),
@@ -117,7 +111,30 @@ export const ChangeSet = strictStruct({
 				Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
 					.check(Schema.isMinLength(1))
 					.check(Schema.isMaxLength(CHANGE_SET_LIMITS.baselines))
-					.check(distinctEntityIds),
+					.check(distinctBy((baseline) => baseline.entityId)),
+			),
+		}),
+	),
+	entities: Schema.optional(
+		strictStruct({
+			deletes: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDeletes)),
+			clears: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDataChanges)),
+			updates: Schema.optional(
+				atMost(ChangeSetEntityUpdate, CHANGE_SET_LIMITS.entityUpdates).check(
+					distinctBy((update) => update.target.entityId),
+				),
+			),
+			ensures: Schema.optional(
+				atMost(
+					strictStruct({ properties, entitySchemaSlug: slug, name: Schema.NonEmptyString }),
+					CHANGE_SET_LIMITS.entityEnsures,
+				),
+			),
+			merges: Schema.optional(
+				atMost(
+					strictStruct({ mergeFrom: EntityId, mergeInto: EntityId, entitySchemaSlug: slug }),
+					CHANGE_SET_LIMITS.entityDataChanges,
+				),
 			),
 		}),
 	),
@@ -146,32 +163,6 @@ export const ChangeSet = strictStruct({
 					CHANGE_SET_LIMITS.relationshipChanges,
 			),
 		),
-	),
-	entities: Schema.optional(
-		strictStruct({
-			deletes: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDeletes)),
-			clears: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDataChanges)),
-			ensures: Schema.optional(
-				atMost(
-					strictStruct({ properties, entitySchemaSlug: slug, name: Schema.NonEmptyString }),
-					CHANGE_SET_LIMITS.entityEnsures,
-				),
-			),
-			merges: Schema.optional(
-				atMost(
-					strictStruct({ mergeFrom: EntityId, mergeInto: EntityId, entitySchemaSlug: slug }),
-					CHANGE_SET_LIMITS.entityDataChanges,
-				),
-			),
-			updates: Schema.optional(
-				atMost(ChangeSetEntityUpdate, CHANGE_SET_LIMITS.entityUpdates).check(
-					Schema.makeFilter(
-						(updates) =>
-							new Set(updates.map((update) => update.target.entityId)).size === updates.length,
-					),
-				),
-			),
-		}),
 	),
 	globalRelationships: Schema.optional(
 		atMost(
@@ -212,7 +203,7 @@ export type ChangesOutput = typeof ChangesOutput.Type;
 
 /** The result of a script that returns an output and the changes the kernel commits for it. */
 export const OutputWithChanges = <Output extends Schema.Top>(output: Output) =>
-	Schema.Struct({ output, changes: Schema.optional(ChangeSet) });
+	strictStruct({ output, changes: Schema.optional(ChangeSet) });
 
 export const CommittedChanges = strictStruct({
 	entityId: Schema.optional(EntityId),

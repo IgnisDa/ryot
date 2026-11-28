@@ -52,7 +52,11 @@ import {
 	PresentationRows,
 } from "@ryot-app/ryotql-recipes/presentations";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
-import { bindDocument as bindAuthoredDocument, cursorBindingKey } from "@ryot-app/ryotql/binding";
+import {
+	bindDocument as bindAuthoredDocument,
+	cursorBindingKey,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
 import type { RyotQLAudience } from "@ryot-app/ryotql/catalog";
 import { type ExpandedRyotQLDocument, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -256,13 +260,15 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						: { limitBytes: options.resultBytes, remainingBytes: options.resultBytes };
 				const projection = Effect.fnUntraced(function* (source: RyotQLDocument) {
 					const expanded = yield* Effect.fromResult(
-						bindAuthoredDocument(
-							source,
-							{},
-							{
-								reportingTimeZone: options.execution.timeZone,
-								now: DateTime.toDateUtc(DateTime.makeUnsafe(options.execution.now)),
-							},
+						Result.flatMap(validateAuthoredDocument(source), (authored) =>
+							bindAuthoredDocument(
+								authored,
+								{},
+								{
+									reportingTimeZone: options.execution.timeZone,
+									now: DateTime.toDateUtc(DateTime.makeUnsafe(options.execution.now)),
+								},
+							),
 						),
 					).pipe(Effect.mapError((error) => invalidQuery(error.message)));
 					const preliminary = validateRyotQLDocument(expanded.document, scope);
@@ -531,6 +537,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									),
 								),
 							};
+				const authored = yield* Effect.fromResult(validateAuthoredDocument(selected)).pipe(
+					Effect.mapError((error) => invalidQuery(error.message)),
+				);
 				const now = executionNow ?? DateTime.toDateUtc(yield* DateTime.now);
 				let ownerId: string | undefined;
 				if (scope.type === "user") {
@@ -610,10 +619,12 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						membership.push({ collectionId: source.id, propertiesSchema: source.membership });
 						subjectAlias = "subject";
 						const collection = yield* Effect.fromResult(
-							bindAuthoredDocument(
-								collectionSubjectDocument,
-								{ arguments: { collectionId: source.id } },
-								{ now, reportingTimeZone: owner?.preferences.reportingTimeZone ?? "UTC" },
+							Result.flatMap(validateAuthoredDocument(collectionSubjectDocument), (validated) =>
+								bindAuthoredDocument(
+									validated,
+									{ arguments: { collectionId: source.id } },
+									{ now, reportingTimeZone: owner?.preferences.reportingTimeZone ?? "UTC" },
+								),
 							),
 						).pipe(Effect.orDie);
 						const validated = validateRyotQLDocument(collection.document, scope);
@@ -672,7 +683,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					}
 					sourceEntities[`sourceEntity:${reference}`] = rows;
 				}
-				const bound = bindAuthoredDocument(selected, values, {
+				const bound = bindAuthoredDocument(authored, values, {
 					now,
 					reportingTimeZone: owner?.preferences.reportingTimeZone ?? "UTC",
 					resolveSourceEntity: (reference, alias) =>
@@ -775,7 +786,11 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 										Object.entries(document.queries).filter(([name]) => name === query),
 									),
 								};
-					const bound = bindAuthoredDocument(selected, request, {
+					const authored = validateAuthoredDocument(selected);
+					if (Result.isFailure(authored)) {
+						return yield* invalidQuery(authored.failure.message);
+					}
+					const bound = bindAuthoredDocument(authored.success, request, {
 						reportingTimeZone: "UTC",
 						now: DateTime.toDateUtc(yield* DateTime.now),
 						resolveSourceEntity: (reference) => {

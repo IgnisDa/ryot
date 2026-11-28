@@ -9,6 +9,7 @@ import { parseMediaServer } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Emby sink",
 	slug: "integration.emby",
 });
@@ -31,5 +32,8 @@ export default defineActivity({
 				occurredAt,
 				(payload) => findEmbyShow(payload, host),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

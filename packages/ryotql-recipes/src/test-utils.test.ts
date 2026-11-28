@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { aggregate, column, document, field, rows, table } from "@ryot-app/ryotql";
-import { bindDocument } from "@ryot-app/ryotql/binding";
+import { bindDocument, validateAuthoredDocument } from "@ryot-app/ryotql/binding";
 import { Result } from "effect";
 
 import { recipeResponse } from "./test-utils";
@@ -37,7 +37,9 @@ describe("recipe response fixtures", () => {
 	});
 	it("accepts the executable document returned by canonical binding", () => {
 		const bound = Result.getOrThrow(
-			bindDocument(recipe.document, {}, { now: bindingNow, reportingTimeZone: "UTC" }),
+			Result.flatMap(validateAuthoredDocument(recipe.document), (validated) =>
+				bindDocument(validated, {}, { now: bindingNow, reportingTimeZone: "UTC" }),
+			),
 		);
 		expect(
 			recipeResponse(

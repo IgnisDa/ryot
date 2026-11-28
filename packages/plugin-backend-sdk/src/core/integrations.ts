@@ -44,8 +44,8 @@ export const invalidateOAuthAccessTokenArgsSchema = Schema.Tuple([
 ]);
 export const invalidateOAuthAccessTokenResultSchema = hostResultSchema(Schema.Null);
 export const listIntegrationsDataSchema = strictStruct({
-	nextCursor: Schema.NullOr(Schema.String),
 	items: Schema.Array(integrationRecordSchema),
+	pageInfo: strictStruct({ hasMore: Schema.Boolean, nextCursor: Schema.NullOr(Schema.String) }),
 });
 export const getCurrentIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
