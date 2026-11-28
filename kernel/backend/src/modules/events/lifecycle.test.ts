@@ -1053,7 +1053,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						},
 					).pipe(Effect.flip);
 					expect(rejected).toMatchObject({
-						_tag: "EventBadRequest",
+						_tag: "PolicyRejected",
 						reason: {
 							code: "policy-rejected",
 							message: { key: "rejection.rejected", namespace: "policy-plugin" },

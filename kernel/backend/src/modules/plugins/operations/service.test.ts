@@ -1299,21 +1299,17 @@ layer(
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
 				assert(Exit.isFailure(exit));
-				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-					new PluginInvocationError({
-						reason: {
-							code: "runtime-failed",
-							diagnostics: [
-								{
-									phase: "output",
-									severity: "error",
-									code: "sandbox-runtime-error",
-									message: "Sandbox operation result is invalid",
-								},
-							],
-						},
-					}),
-				);
+				const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+				assert(error instanceof PluginInvocationError);
+				expect(error.reason.code).toBe("runtime-failed");
+				const [diagnostic, ...others] = error.reason.diagnostics;
+				expect(others).toEqual([]);
+				expect(diagnostic).toMatchObject({
+					phase: "output",
+					severity: "error",
+					code: "sandbox-runtime-error",
+				});
+				expect(diagnostic?.message).toStartWith("Script output is invalid");
 			}),
 		testTimeout,
 	);

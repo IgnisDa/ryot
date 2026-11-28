@@ -41,7 +41,25 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 		() =>
 			Effect.gen(function* () {
 				const { bind } = yield* SandboxHostFunctions;
-				const before = yield* bind(makeSubjectRunInput(policyRunSubject(UserId.make("user_1"))));
+				const policy = policyRunSubject(UserId.make("user_1"));
+				const before = yield* bind(
+					makeSubjectRunInput(
+						policy,
+						null,
+						{},
+						{
+							pluginRevision: {
+								...makeUserPluginRevision({
+									compiledHashes: {},
+									slug: policy.pluginId,
+									ownerId: policy.executionUserId,
+								}),
+								revisionId: policy.pluginRevisionId,
+								configRevisionId: policy.pluginConfigRevisionId,
+							},
+						},
+					),
+				);
 				const after = yield* bind(makeSubjectRunInput(automationRunSubject(UserId.make("user_1"))));
 
 				expect(new Set(Object.keys(before))).toEqual(
