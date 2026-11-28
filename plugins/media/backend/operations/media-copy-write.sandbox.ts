@@ -15,7 +15,6 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
@@ -24,6 +23,7 @@ import { mediaCopiesRecipe } from "../../shared/media-copy-recipes";
 import { MediaCopyWriteInput, MediaCopyWriteOutput } from "../../shared/media-ownership-operations";
 import { mediaOwnableEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
+import { userMediaLibraryRecipe } from "../../shared/user-media-library";
 
 const ownershipTargetsRecipe = (() => {
 	const inputParameters = parameters({

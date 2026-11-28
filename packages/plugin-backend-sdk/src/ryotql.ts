@@ -8,7 +8,6 @@ export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
 export { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
-export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
 export { entityEventScopeRevisionRecipe } from "@ryot-app/ryotql-recipes/event-scope";
 export type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 export type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";

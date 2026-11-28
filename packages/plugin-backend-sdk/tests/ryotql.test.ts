@@ -13,7 +13,6 @@ import {
 	field,
 	rows,
 	table,
-	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
@@ -56,9 +55,6 @@ describe("RyotQL sandbox SDK", () => {
 				owner: { kind: "local", pluginId: PluginId.make("item-owner") },
 			}).document,
 		).toHaveProperty("queries.events");
-		expect(userMediaLibraryRecipe({ kind: "self" }).document).toHaveProperty(
-			"queries.mediaLibrary",
-		);
 	});
 
 	it("executes and decodes a prepared recipe", () => {

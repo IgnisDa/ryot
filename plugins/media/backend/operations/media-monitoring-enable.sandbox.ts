@@ -2,13 +2,14 @@ import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaMonitoringEnableInput,
 	MediaMonitoringOutput,
 } from "../../shared/media-monitoring-operations";
+import { userMediaLibraryRecipe } from "../../shared/user-media-library";
 import {
 	alignedMediaMonitoringResults,
 	queryMediaMonitoringTargets,
