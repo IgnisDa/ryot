@@ -24,6 +24,7 @@ export const derivedValue = snakeCase.table(
 		revision: integer().notNull().default(0),
 		replay: boolean().notNull().default(false),
 		value: jsonb().$type<JsonValue>().notNull(),
+		valueVersion: integer().notNull().default(0),
 		updatedAt: timestamptz().defaultNow().notNull(),
 		kind: text().$type<"event" | "subject" | "absorbed" | "relationship">().notNull(),
 		status: text().$type<"ready" | "failed" | "pending">().notNull().default("ready"),
@@ -48,12 +49,13 @@ export const derivedValue = snakeCase.table(
 	],
 );
 
-/** Events a background write changed since their subject's last fold, each with its image before the first change. */
+/** Events written since their subject's last fold, each with its image before the first change and a version every rewrite bumps. */
 export const derivedChange = snakeCase.table(
 	"derived_change",
 	{
 		eventId: text().notNull(),
 		before: jsonb().$type<JsonValue>(),
+		version: integer().notNull().default(0),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

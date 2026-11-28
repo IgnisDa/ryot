@@ -71,28 +71,33 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 
 layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
-		"runs folds inline in the writing transaction and fails the write without retrying",
+		"folds a commit's subjects after the commit, outside any transaction, and keeps the write when that fails",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* eventGroupFixture();
 				const session = yield* DatabaseSession;
 				const folded: Array<boolean> = [];
-				const failure = new DbError({ message: "Fold failed" });
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
-						settle: () =>
+						queue: () =>
+							Effect.succeed([
+								{ userId: fixture.userId, entityId: EntityId.make(fixture.subjectId) },
+							]),
+						fold: () =>
 							Effect.gen(function* () {
 								folded.push(yield* session.isTransactionActive);
-								return folded.length === 1 ? undefined : yield* failure;
+								return folded.length === 1 ? true : yield* new DbError({ message: "Fold failed" });
 							}),
 					}),
 				);
 				const rename = (name: string) =>
-					mutations.transaction(() =>
-						session.run((db) =>
-							db.execute(sql`update entity set name = ${name} where id = ${fixture.subjectId}`),
-						),
+					mutations.transaction(
+						() =>
+							session.run((db) =>
+								db.execute(sql`update entity set name = ${name} where id = ${fixture.subjectId}`),
+							),
+						"eager",
 					);
 				const subjectName = session.run((db) =>
 					db
@@ -102,9 +107,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				);
 				yield* rename("Changed");
 				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
-				assertExitFails(yield* Effect.exit(rename("Rolled back")), failure);
-				expect(folded).toEqual([true, true]);
-				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
+				yield* rename("Kept");
+				expect(folded).toEqual([false, false]);
+				expect(yield* subjectName).toEqual([{ name: "Kept" }]);
 			}),
 		testTimeout,
 	);

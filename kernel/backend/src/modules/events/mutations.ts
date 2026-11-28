@@ -1,4 +1,4 @@
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationEntityDraft,
@@ -22,7 +22,7 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -39,7 +39,12 @@ import {
 	unchangedPolicyBatch,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { type ApplyFoldChanges, type FoldMode, Folds } from "#modules/derived-values/service";
+import {
+	type ApplyFoldChanges,
+	type FoldMode,
+	Folds,
+	type FoldWriter,
+} from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,
@@ -1018,27 +1023,67 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			});
 			/**
 			 * Runs event writes in one transaction with their own write state, then clears the references
-			 * their deletions released, folds or queues what they changed, and validates their event groups.
+			 * their deletions released, queues the folds of what they changed, and validates their event
+			 * groups; returns the work's value and the queued subjects.
 			 */
-			const transaction = <A, E, R>(
+			const commit = <A, E, R>(
 				work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>,
-				mode: FoldMode = "inline",
-				preparation: null | WritePreparation = null,
+				eager: boolean,
+				preparation: null | WritePreparation,
 			) =>
 				runRootTransaction(
 					session,
 					Effect.gen(function* () {
 						const state = new WriteTransaction(preparation);
-						const result = yield* work(state);
+						const value = yield* work(state);
 						yield* clearPendingReferences(state);
-						yield* mode === "queue"
-							? folds.queue(state)
-							: folds.settle(state, applyFoldChanges, mode);
+						const queued = yield* folds.queue(state, eager);
 						yield* groups.validateCaptured(state);
-						return result;
+						return { value, queued };
 					}),
 				);
+			const writer: FoldWriter = {
+				apply: applyFoldChanges,
+				commit: (work) =>
+					commit(work, true, null).pipe(
+						Effect.mapError((error) =>
+							error instanceof DbError ? error : unknownToDbError(error),
+						),
+					),
+			};
+			/** Folds the user's subjects that have work, writing their results through event transactions. */
+			const fold = (input: Parameters<Folds["Service"]["fold"]>[0]) => folds.fold(input, writer);
+			/**
+			 * Commits event writes. An `eager` commit then folds the subjects it queued on the interactive
+			 * lane before returning; a fold that fails leaves its subjects pending for their jobs.
+			 */
+			const transaction = <A, E, R>(
+				work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>,
+				mode: FoldMode,
+				preparation: null | WritePreparation = null,
+			) =>
+				Effect.gen(function* () {
+					const { value, queued } = yield* commit(work, mode === "eager", preparation);
+					if (mode === "eager") {
+						yield* Effect.forEach(
+							Object.values(Arr.groupBy(queued, ({ userId }) => userId)),
+							(subjects) =>
+								fold({
+									lane: "interactive",
+									userId: subjects[0].userId,
+									entityIds: subjects.map(({ entityId }) => entityId),
+								}).pipe(
+									Effect.catchCause((cause) =>
+										Effect.logWarning("Folding a commit's subjects failed", cause),
+									),
+								),
+							{ discard: true },
+						);
+					}
+					return value;
+				});
 			return {
+				fold,
 				prepare,
 				persist,
 				transaction,

@@ -481,6 +481,7 @@ CREATE TABLE "definition_signal_schema" (
 CREATE TABLE "derived_change" (
 	"event_id" text,
 	"before" jsonb,
+	"version" integer DEFAULT 0 NOT NULL,
 	"user_id" text,
 	"subject_entity_id" text,
 	CONSTRAINT "derived_change_pkey" PRIMARY KEY("subject_entity_id","user_id","event_id")
@@ -492,6 +493,7 @@ CREATE TABLE "derived_value" (
 	"revision" integer DEFAULT 0 NOT NULL,
 	"replay" boolean DEFAULT false NOT NULL,
 	"value" jsonb NOT NULL,
+	"value_version" integer DEFAULT 0 NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"kind" text,
 	"status" text DEFAULT 'ready' NOT NULL,

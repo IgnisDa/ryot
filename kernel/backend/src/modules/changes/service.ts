@@ -1578,7 +1578,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				) =>
 					eventMutations.transaction(
 						work,
-						command.causation.lane === "background" || options.queueFolds ? "queue" : "inline",
+						command.causation.lane === "background" || options.queueFolds ? "queue" : "eager",
 						preparation,
 					);
 				// Every catalog read and write check of a commit transaction follows its catalog lock, so they

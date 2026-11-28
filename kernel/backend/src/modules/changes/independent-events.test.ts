@@ -59,7 +59,7 @@ import {
 } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { type FoldMode, Folds } from "#modules/derived-values/service";
+import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
@@ -719,6 +719,22 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 
 const run = (input = payload, folds = unfoldedFolds) =>
 	createEvents(input).pipe(Effect.provideServiceEffect(ChangeSets, eventChangeSets(folds)));
+
+/** Folds that record each commit's queue mode and each fold's lane, queuing one subject per commit. */
+const recordingFolds = (calls: Array<string>) =>
+	Folds.of({
+		...unfoldedFolds,
+		fold: (input) =>
+			Effect.sync(() => {
+				calls.push(`fold ${input.lane}`);
+				return true;
+			}),
+		queue: (_transaction, eager) =>
+			Effect.sync(() => {
+				calls.push(eager ? "queue eagerly" : "queue");
+				return [{ userId, entityId }];
+			}),
+	});
 
 layer(harnessLayer({ afterHookRatings: [1], policies: [{ position: 1, slug: "policy" }] }))(
 	"independent events",
@@ -1608,24 +1624,22 @@ const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 }).pipe(Effect.orDie);
 
 layer(harnessLayer({ noHooks: true }))("independent event folds", (test) => {
-	test.effect("queues a background write's folds and folds an interactive write inline", () =>
-		Effect.gen(function* () {
-			const modes: Array<FoldMode | undefined> = [];
-			const folds = Folds.of({
-				...unfoldedFolds,
-				queue: () => Effect.sync(() => modes.push("queue")),
-				settle: (_transaction, _apply, mode) => Effect.sync(() => modes.push(mode)),
-			});
-			const background = {
-				...command,
-				causation: { ...command.causation, lane: "background" as const },
-			};
-			yield* run(payload, folds);
-			expect(modes).toEqual(["inline"]);
-			modes.length = 0;
-			yield* run({ ...payload, command: background }, folds);
-			expect(modes).toEqual(["queue"]);
-		}),
+	test.effect(
+		"queues a background write's folds and folds an interactive write's after its commit",
+		() =>
+			Effect.gen(function* () {
+				const calls: Array<string> = [];
+				const folds = recordingFolds(calls);
+				const background = {
+					...command,
+					causation: { ...command.causation, lane: "background" as const },
+				};
+				yield* run(payload, folds);
+				expect(calls).toEqual(["queue eagerly", "fold interactive"]);
+				calls.length = 0;
+				yield* run({ ...payload, command: background }, folds);
+				expect(calls).toEqual(["queue"]);
+			}),
 	);
 });
 
@@ -1781,12 +1795,8 @@ layer(harnessLayer({ policies: [{ position: 1, slug: "policy" }] }))(
 	(test) => {
 		test.effect("folds both transactions of a policy-matched commit by its lane", () =>
 			Effect.gen(function* () {
-				const modes: Array<FoldMode | undefined> = [];
-				const folds = Folds.of({
-					...unfoldedFolds,
-					queue: () => Effect.sync(() => modes.push("queue")),
-					settle: (_transaction, _apply, mode) => Effect.sync(() => modes.push(mode)),
-				});
+				const calls: Array<string> = [];
+				const folds = recordingFolds(calls);
 				yield* run(
 					{
 						...payload,
@@ -1801,10 +1811,15 @@ layer(harnessLayer({ policies: [{ position: 1, slug: "policy" }] }))(
 					},
 					folds,
 				);
-				expect(modes).toEqual(["queue", "queue"]);
-				modes.length = 0;
+				expect(calls).toEqual(["queue", "queue"]);
+				calls.length = 0;
 				yield* run(payload, folds);
-				expect(modes).toEqual(["inline", "inline"]);
+				expect(calls).toEqual([
+					"queue eagerly",
+					"fold interactive",
+					"queue eagerly",
+					"fold interactive",
+				]);
 			}),
 		);
 	},

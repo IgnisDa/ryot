@@ -11619,6 +11619,19 @@
 		{
 			"schema": "public",
 			"table": "derived_change",
+			"name": "version",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_change",
 			"name": "user_id",
 			"type": "text",
 			"typeSchema": null,
@@ -11703,6 +11716,19 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "value_version",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"

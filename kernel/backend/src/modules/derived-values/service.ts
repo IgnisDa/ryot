@@ -3,7 +3,6 @@ import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifec
 import {
 	FOLD_LIMITS,
 	FoldAbsorbed,
-	type FoldEventChange,
 	FoldEventImage,
 	FoldOutput,
 	type FoldSubjectInput,
@@ -17,10 +16,10 @@ import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-val
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
-import { type Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
-import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
+import { lifecycleActor, rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { eventMutation } from "#modules/changes/changes";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -34,19 +33,18 @@ import {
 	type FoldDeclaration,
 	type FoldEventRow,
 	foldImage,
-	foldJobKey,
 	FoldMarks,
-	type FoldRun,
 	foldRunKey,
 	type FoldSubject,
 	foldSubjectOf,
 	foldValuesSql,
-	pendingFolds,
 	readFoldEvents,
+	type ResolvedFold,
 	sourceEntities,
 } from "./marks";
 
-export type FoldMode = "job" | "queue" | "inline";
+/** Whether a write folds the subjects it queued right after its commit or leaves them to their jobs. */
+export type FoldMode = "eager" | "queue";
 
 export type ApplyFoldChanges = (
 	transaction: WriteTransaction,
@@ -57,12 +55,27 @@ export type ApplyFoldChanges = (
 	},
 ) => Effect.Effect<void, unknown>;
 
+/**
+ * How a fold writes its results: `commit` runs a transaction that queues whatever its writes change
+ * and returns the subjects it queued, and `apply` applies a fold's event changes in it.
+ */
+export type FoldWriter = {
+	readonly apply: ApplyFoldChanges;
+	readonly commit: <A>(
+		work: (transaction: WriteTransaction) => Effect.Effect<A, DbError>,
+	) => Effect.Effect<{ readonly value: A; readonly queued: ReadonlyArray<FoldSubject> }, DbError>;
+};
+
 type Binding = NonNullable<Effect.Success<ReturnType<FoldScripts["Service"]["resolve"]>>>;
 
-type QueuedResults = ReadonlyArray<{
-	readonly prepared: Prepared;
-	readonly item: FoldSubjectOutput;
-}>;
+type Results = ReadonlyArray<{ readonly prepared: Prepared; readonly item: FoldSubjectOutput }>;
+
+/** A stored change a run read: its version then, and the image it consumed as the event's image now. */
+type Consumed = {
+	readonly eventId: string;
+	readonly version: number;
+	readonly after: null | FoldEventImage;
+};
 
 type Target = {
 	readonly id: string;
@@ -76,39 +89,39 @@ type Changed = {
 	readonly changes: ReadonlyArray<EventMutation>;
 };
 
-/** Subjects of one fold that a fold job runs together, built without locks. */
-type QueuedRun = {
+/** Subjects of one fold that one script run folds together. */
+type Run = {
 	readonly userId: UserId;
 	readonly binding: Binding;
 	readonly pluginId: PluginId;
 	readonly subjects: ReadonlyArray<Prepared>;
 };
 
-/**
- * A subject's input and its cost within a run's subject list, with the stored state it was built from:
- * the subject row's revision (-1 without one), whether a fold job has work for it, and whether it takes
- * stored changes.
- */
-type Prepared = {
-	readonly cost: number;
-	readonly entry: FoldRun;
-	readonly revision: number;
-	readonly pending: boolean;
-	readonly consumed: boolean;
-	readonly input: FoldSubjectInput;
-};
-
 type OutputRow = {
 	readonly value: JsonValue;
 	readonly targetId: string;
-	readonly expected: number;
 	readonly subjectEntityId: string;
-	readonly kind: "event" | "subject" | "relationship";
+	readonly kind: "event" | "relationship";
+};
+
+/**
+ * A subject's input and its cost within a run's subject list, with the stored state it was built from:
+ * the subject row's revision and value version, and the absorbed values and changes it consumes.
+ */
+type Prepared = {
+	readonly cost: number;
+	readonly version: number;
+	readonly revision: number;
+	readonly entry: ResolvedFold;
+	readonly input: FoldSubjectInput;
+	readonly absorbed: ReadonlyArray<string>;
+	readonly consumed: ReadonlyArray<Consumed>;
 };
 
 type StoredRow = {
+	readonly version: number;
 	readonly value: JsonValue;
-	readonly eventId: null | string;
+	readonly targetId: string;
 	readonly replay: null | boolean;
 	readonly revision: null | number;
 	readonly subjectEntityId: string;
@@ -120,8 +133,6 @@ class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique
 	"FoldFailed",
 	{ message: Schema.String },
 ) {}
-
-const MAX_RUNS = 2;
 
 const REBUILD_PAGE = 500;
 
@@ -138,6 +149,9 @@ const costOf = (input: FoldSubjectInput) => {
 	const bytes = jsonByteLength(input);
 	return bytes === null || bytes + 1 > RUN_CAPACITY ? null : bytes + 1;
 };
+
+const subjectIds = (results: Results) =>
+	results.map(({ prepared }) => prepared.entry.subject.entityId);
 
 /** Packs subjects into runs first-fit by decreasing cost, each within the input bound and subject count. */
 const pack = (prepared: ReadonlyArray<Prepared>) => {
@@ -159,38 +173,6 @@ const pack = (prepared: ReadonlyArray<Prepared>) => {
 		subjects.sort((left, right) =>
 			left.entry.subject.entityId.localeCompare(right.entry.subject.entityId),
 		),
-	);
-};
-
-/**
- * Joins a subject's stored changes to the transaction's: a stored change keeps its earlier image before,
- * and an event the transaction did not change pairs it with its image now when it still belongs here.
- */
-const joinedChanges = (
-	subjectEntityId: string,
-	changes: ReadonlyArray<FoldEventChange>,
-	stored: ReadonlyArray<{ readonly eventId: string; readonly before: null | FoldEventImage }>,
-	now: ReadonlyMap<string, FoldEventRow>,
-	known: ReadonlyMap<string, FoldDeclaration>,
-) => {
-	const byEvent = new Map<string, FoldEventChange>();
-	for (const change of changes) {
-		const image = change.after ?? change.before;
-		if (image) {
-			byEvent.set(image.id, change);
-		}
-	}
-	for (const { before, eventId } of stored) {
-		const current = byEvent.get(eventId);
-		const image = now.get(eventId);
-		let after = current?.after ?? null;
-		if (!current && image && foldSubjectOf(image, known)?.entityId === subjectEntityId) {
-			after = foldImage(image);
-		}
-		byEvent.set(eventId, { after, before });
-	}
-	return [...byEvent.values()].filter(
-		({ after, before }) => stableStringify(before) !== stableStringify(after),
 	);
 };
 
@@ -221,7 +203,7 @@ export class Folds extends Context.Service<Folds>()(
 			const calls = yield* ScriptCalls;
 			const random = yield* SecureRandom.SecureRandom;
 
-			const { route, collect, declarations, queuePending, queueResolved } = marks;
+			const { route, declarations, queuePending, queueResolved } = marks;
 
 			const outputTargets = Effect.fn("Folds.outputTargets")(function* (
 				transaction: WriteTransaction,
@@ -329,14 +311,14 @@ export class Folds extends Context.Service<Folds>()(
 							Effect.flatMap(Schema.decodeUnknownEffect(JsonValue)),
 							Effect.mapError(() => failure(`Fold returned invalid ${kind} properties`)),
 						);
-						return { kind, value, expected: 0, subjectEntityId, targetId: output.id };
+						return { kind, value, subjectEntityId, targetId: output.id } satisfies OutputRow;
 					}),
 				);
 			});
 
 			/**
-			 * Locks the subjects' entity rows. Every write that changes their events holds them too, so no
-			 * change joins a subject's stored list between a fold reading it and consuming it.
+			 * Locks the subjects' entity rows, as every write that changes their events does first, so
+			 * writing a fold's results waits behind those writes instead of deadlocking with them.
 			 */
 			const lockSubjects = (ids: ReadonlyArray<string>) =>
 				session.run((db) =>
@@ -349,170 +331,183 @@ export class Folds extends Context.Service<Folds>()(
 			const readStored = (userId: UserId, ids: ReadonlyArray<string>) =>
 				session.run((db) =>
 					db.execute<StoredRow>(
-						sql`select kind, value, status, revision, replay, subject_entity_id as "subjectEntityId",
-							null::text as "eventId"
+						sql`select kind, value, status, revision, replay, value_version as version,
+							subject_entity_id as "subjectEntityId", target_id as "targetId"
 						from derived_value
 						where user_id = ${userId} and subject_entity_id in (${foldValuesSql(ids)})
 							and kind in ('subject', 'absorbed')
 						union all
-						select 'change', before, null, null, null, subject_entity_id, event_id
+						select 'change', before, null, null, null, version, subject_entity_id, event_id
 						from derived_change
 						where user_id = ${userId} and subject_entity_id in (${foldValuesSql(ids)})
-						order by 6, 7`,
+						order by 7, 8`,
 						"objects",
 					),
 				);
 
 			/**
-			 * Builds each subject's input from its stored state and the transaction's changes, incremental
-			 * when it can be. A commit locks its subjects first; a fold job reads them without locks.
+			 * Builds the runs of one fold's pending subjects from their stored state, without locks: a
+			 * stored change keeps its image before, its image after is the event now while it still
+			 * belongs to the subject, and a change whose two images are equal drops out of the list.
 			 */
 			const prepare = Effect.fnUntraced(function* (
 				userId: UserId,
-				pluginId: PluginId,
-				scriptSlug: string,
-				entries: ReadonlyArray<FoldRun>,
-				lock: boolean,
-				transaction?: WriteTransaction,
+				entries: Arr.NonEmptyReadonlyArray<ResolvedFold>,
 			) {
+				const [
+					{
+						declaration: { pluginId, scriptSlug },
+					},
+				] = entries;
 				const binding = yield* scripts.resolve({ userId, pluginId, scriptSlug });
 				if (!binding) {
 					return yield* failure("Fold script is unavailable");
 				}
-				const ids = entries.map(({ subject }) => subject.entityId).sort();
-				if (lock) {
-					yield* lockSubjects(ids);
-				}
-				const stored = yield* readStored(userId, ids);
-				const changedHere = new Map<string, ReadonlySet<string>>(
-					entries.map((entry) => [
-						entry.subject.entityId,
-						new Set<string>(
-							(entry.changes ?? []).flatMap((change) => {
-								const image = change.after ?? change.before;
-								return image ? [image.id] : [];
-							}),
-						),
-					]),
+				const stored = yield* readStored(
+					userId,
+					entries.map(({ subject }) => subject.entityId).sort(),
 				);
-				const unread = [
-					...new Set(
-						stored.flatMap((row) =>
-							row.kind === "change" &&
-							row.eventId !== null &&
-							!changedHere.get(row.subjectEntityId)?.has(row.eventId)
-								? [row.eventId]
-								: [],
-						),
-					),
+				const changed = [
+					...new Set(stored.flatMap((row) => (row.kind === "change" ? [row.targetId] : []))),
 				];
 				const images =
-					unread.length === 0
+					changed.length === 0
 						? []
 						: yield* readFoldEvents(
 								session,
-								sql`v.user_id = ${userId} and v.id in (${foldValuesSql(unread)})`,
+								sql`v.user_id = ${userId} and v.id in (${foldValuesSql(changed)})`,
 							);
 				const known = new Map([
 					...(images.length === 0
 						? []
-						: yield* declarations(userId, images.flatMap(sourceEntities), transaction)),
+						: yield* declarations(userId, images.flatMap(sourceEntities))),
 					...entries.map(({ declaration }) => [declaration.entityId, declaration] as const),
 				]);
-				const now = new Map(images.map((row) => [row.id, row]));
+				const now = new Map<string, FoldEventRow>(images.map((row) => [row.id, row]));
 				const prepared = yield* Effect.forEach(entries, (entry) =>
 					Effect.gen(function* () {
-						const rows = stored.filter((row) => row.subjectEntityId === entry.subject.entityId);
-						const absorbed = yield* Effect.forEach(
-							rows.filter((row) => row.kind === "absorbed"),
-							(row) =>
-								Schema.decodeUnknownEffect(FoldAbsorbed)(row.value).pipe(
-									Effect.mapError(() => failure("Absorbed fold value is invalid")),
-								),
+						const { entityId } = entry.subject;
+						const rows = stored.filter((row) => row.subjectEntityId === entityId);
+						const own = rows.find((row) => row.kind === "subject");
+						if (own?.status !== "pending") {
+							return [];
+						}
+						const absorbedRows = rows.filter((row) => row.kind === "absorbed");
+						const absorbed = yield* Effect.forEach(absorbedRows, (row) =>
+							Schema.decodeUnknownEffect(FoldAbsorbed)(row.value).pipe(
+								Effect.mapError(() => failure("Absorbed fold value is invalid")),
+							),
 						);
-						const queued = yield* Effect.forEach(
+						const changes = yield* Effect.forEach(
 							rows.filter((row) => row.kind === "change"),
 							(row) =>
 								Schema.decodeUnknownEffect(Schema.NullOr(FoldEventImage))(row.value).pipe(
 									Effect.mapBoth({
 										onFailure: () => failure("Stored fold change is invalid"),
-										onSuccess: (before) => ({ before, eventId: row.eventId ?? "" }),
+										onSuccess: (before) => {
+											const image = now.get(row.targetId);
+											return {
+												before,
+												version: row.version,
+												eventId: row.targetId,
+												after:
+													image && foldSubjectOf(image, known)?.entityId === entityId
+														? foldImage(image)
+														: null,
+											};
+										},
 									}),
 								),
 						);
-						const own = rows.find((row) => row.kind === "subject");
-						const replay = {
-							absorbed,
-							changes: null,
-							value: own?.value ?? null,
-							subjectEntityId: entry.subject.entityId,
-						};
+						const replay = { absorbed, changes: null, value: own.value, subjectEntityId: entityId };
 						const replayCost = costOf(replay);
 						if (replayCost === null) {
 							return yield* failure(`Fold input exceeds ${FOLD_LIMITS.inputBytes} UTF-8 bytes`);
 						}
 						const state = {
 							entry,
-							consumed: queued.length > 0,
-							revision: own?.revision ?? -1,
-							pending: own?.status === "pending",
+							version: own.version,
+							revision: own.revision ?? 0,
+							absorbed: absorbedRows.map(({ targetId }) => targetId),
+							consumed: changes.map(({ after, eventId, version }) => ({ after, eventId, version })),
 						};
-						const changes =
-							own && !own.replay && absorbed.length === 0 && entry.changes !== null
-								? joinedChanges(entry.subject.entityId, entry.changes, queued, now, known)
-								: null;
-						if (changes !== null && changes.length <= FOLD_LIMITS.inputChanges) {
-							const incremental = { ...replay, changes };
+						const list = changes.flatMap(({ after, before }) =>
+							stableStringify(before) === stableStringify(after) ? [] : [{ after, before }],
+						);
+						if (!own.replay && absorbed.length === 0 && list.length <= FOLD_LIMITS.inputChanges) {
+							const incremental = { ...replay, changes: list };
 							const cost = costOf(incremental);
 							if (cost !== null) {
-								return { ...state, cost, input: incremental };
+								return [{ ...state, cost, input: incremental }];
 							}
 						}
-						return { ...state, input: replay, cost: replayCost };
+						return [{ ...state, input: replay, cost: replayCost }];
 					}),
 				);
-				return { binding, prepared };
+				return pack(prepared.flat()).map((subjects): Run => ({
+					userId,
+					binding,
+					pluginId,
+					subjects,
+				}));
+			});
+
+			/** Builds the runs of the user's subjects that have work, grouped by fold. */
+			const runsOf = Effect.fnUntraced(function* (
+				userId: UserId,
+				entityIds: ReadonlyArray<EntityId>,
+			) {
+				const resolved = yield* route({
+					sources: [],
+					subjects: entityIds.map((entityId) => ({ userId, entityId })),
+				});
+				const runs = yield* Effect.forEach(
+					Object.values(Arr.groupBy(resolved, foldRunKey)),
+					(entries) => prepare(userId, entries),
+				);
+				return runs.flat();
 			});
 
 			/**
-			 * Writes a run's outputs: replayed subjects replace theirs, incremental ones patch them. A subject
-			 * becomes ready and drops its stored changes only while its row is at the revision it was read
-			 * at; a mark since keeps it pending for the job that mark queued.
+			 * Writes a run's outputs: replayed subjects replace theirs, incremental ones patch them. Each
+			 * subject consumes exactly what it read: its absorbed values, and each stored change unless a
+			 * write rewrote it since, which then keeps the image the run consumed as its image before. A
+			 * subject becomes ready only while no write marked it since the run read it.
 			 */
 			const write = Effect.fnUntraced(function* (
 				userId: UserId,
 				pluginId: PluginId,
 				revision: string,
 				subjects: ReadonlyArray<{
-					readonly entityId: string;
-					readonly consumed: boolean;
+					readonly value: JsonValue;
+					readonly prepared: Prepared;
 					readonly rows: ReadonlyArray<OutputRow>;
-					readonly changes: FoldSubjectInput["changes"];
 				}>,
 			) {
 				const rows = subjects.flatMap((subject) => subject.rows);
-				const replayed = subjects.flatMap(({ changes, entityId }) =>
-					changes === null ? [entityId] : [],
+				const entityIdOf = ({ prepared }: (typeof subjects)[number]) =>
+					prepared.entry.subject.entityId;
+				const replayed = subjects.flatMap((subject) =>
+					subject.prepared.input.changes === null ? [entityIdOf(subject)] : [],
 				);
-				const patched = subjects.flatMap(({ changes, entityId }) =>
-					changes === null ? [] : [entityId],
-				);
-				const consumed = subjects.flatMap(({ entityId, consumed: taken }) =>
-					taken ? [entityId] : [],
+				const patched = subjects.flatMap((subject) =>
+					subject.prepared.input.changes === null ? [] : [entityIdOf(subject)],
 				);
 				if (replayed.length > 0) {
 					yield* session.run((db) =>
 						db.execute(sql`delete from derived_value where user_id = ${userId}
-							and subject_entity_id in (${foldValuesSql(replayed)}) and kind <> 'subject'
+							and subject_entity_id in (${foldValuesSql(replayed)}) and kind in ('event', 'relationship')
 							and (kind, target_id) not in (select * from jsonb_to_recordset(${JSON.stringify(
 								rows.map((row) => ({ kind: row.kind, targetId: row.targetId })),
 							)}::jsonb) as r(kind text, "targetId" text))`),
 					);
 				}
 				if (patched.length > 0) {
-					const removed = subjects.flatMap(({ changes, entityId }) =>
-						(changes ?? []).flatMap((change) =>
-							change.before && !change.after ? [{ entityId, targetId: change.before.id }] : [],
+					const removed = subjects.flatMap((subject) =>
+						(subject.prepared.input.changes ?? []).flatMap((change) =>
+							change.before && !change.after
+								? [{ targetId: change.before.id, entityId: entityIdOf(subject) }]
+								: [],
 						),
 					);
 					if (removed.length > 0) {
@@ -530,29 +525,69 @@ export class Folds extends Context.Service<Folds>()(
 								and r.source_entity_id = v.subject_entity_id)`),
 					);
 				}
+				const absorbed = subjects.flatMap(({ prepared }) => prepared.absorbed);
+				if (absorbed.length > 0) {
+					yield* session.run((db) =>
+						db.execute(sql`delete from derived_value where user_id = ${userId} and kind = 'absorbed'
+							and target_id in (${foldValuesSql(absorbed)})`),
+					);
+				}
+				const consumed = subjects.flatMap((subject) =>
+					subject.prepared.consumed.map((change) => ({ ...change, entityId: entityIdOf(subject) })),
+				);
 				if (consumed.length > 0) {
 					yield* session.run((db) =>
-						db.execute(sql`delete from derived_change where user_id = ${userId}
-							and subject_entity_id in (${foldValuesSql(consumed)})`),
+						db.execute(sql`
+							with consumed as (
+								select * from jsonb_to_recordset(${JSON.stringify(consumed)}::jsonb)
+									as c("entityId" text, "eventId" text, version integer, after jsonb)
+							), deleted as (
+								delete from derived_change d using consumed c
+								where d.user_id = ${userId} and d.subject_entity_id = c."entityId"
+									and d.event_id = c."eventId" and d.version = c.version
+							)
+							update derived_change d set before = c.after
+							from consumed c
+							where d.user_id = ${userId} and d.subject_entity_id = c."entityId"
+								and d.event_id = c."eventId" and d.version <> c.version
+						`),
+					);
+				}
+				if (rows.length > 0) {
+					yield* session.run((db) =>
+						db.execute(sql`
+							insert into derived_value as v
+								(user_id, kind, target_id, subject_entity_id, plugin_id, plugin_revision_id, value)
+							select ${userId}, r.kind, r."targetId", r."subjectEntityId", ${pluginId}, ${revision},
+								coalesce(r.value, 'null'::jsonb)
+							from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
+								as r(kind text, "targetId" text, "subjectEntityId" text, value jsonb)
+							order by 2, 3
+							on conflict (user_id, kind, target_id) do update set value = excluded.value,
+								revision = v.revision + 1, subject_entity_id = excluded.subject_entity_id,
+								plugin_revision_id = excluded.plugin_revision_id, updated_at = now()
+							where v.value is distinct from excluded.value
+								or v.subject_entity_id <> excluded.subject_entity_id
+								or v.plugin_revision_id <> excluded.plugin_revision_id
+						`),
 					);
 				}
 				yield* session.run((db) =>
 					db.execute(sql`
-						insert into derived_value as v
-							(user_id, kind, target_id, subject_entity_id, plugin_id, plugin_revision_id, value, status, revision, updated_at)
-						select ${userId}, r.kind, r."targetId", r."subjectEntityId", ${pluginId}, ${revision},
-							coalesce(r.value, 'null'::jsonb), 'ready', r.expected + 1, now()
-						from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
-							as r(kind text, "targetId" text, "subjectEntityId" text, value jsonb, expected integer)
-						order by 2, 3
-						on conflict (user_id, kind, target_id) do update set value = excluded.value,
-							status = case when v.revision = excluded.revision - 1 then 'ready' else v.status end,
-							replay = v.replay and v.revision <> excluded.revision - 1,
-							revision = v.revision + 1, subject_entity_id = excluded.subject_entity_id,
-							plugin_revision_id = excluded.plugin_revision_id, updated_at = now()
-						where v.value is distinct from excluded.value or v.status <> 'ready' or v.replay
-							or v.subject_entity_id <> excluded.subject_entity_id
-							or v.plugin_revision_id <> excluded.plugin_revision_id
+						update derived_value v set value = coalesce(s.value, 'null'::jsonb),
+							status = case when v.revision = s.revision then 'ready' else v.status end,
+							replay = v.revision <> s.revision and (v.replay or s.replayed),
+							revision = v.revision + 1, value_version = v.value_version + 1,
+							plugin_revision_id = ${revision}, updated_at = now()
+						from jsonb_to_recordset(${JSON.stringify(
+							subjects.map((subject) => ({
+								value: subject.value,
+								entityId: entityIdOf(subject),
+								revision: subject.prepared.revision,
+								replayed: subject.prepared.input.changes === null,
+							})),
+						)}::jsonb) as s("entityId" text, value jsonb, revision integer, replayed boolean)
+						where v.user_id = ${userId} and v.kind = 'subject' and v.target_id = s."entityId"
 					`),
 				);
 			});
@@ -562,32 +597,26 @@ export class Folds extends Context.Service<Folds>()(
 				writeContext: DomainLifecycleCommand["writeContext"],
 				lane: ExecutionLane,
 			) {
-				const actor = lifecycleActor({ userId: subject.userId });
 				return {
 					writeContext,
-					accountUserId: actor.accountUserId,
-					itemIdentity: `fold:${subject.entityId}`,
-					occurredAt: DateTime.formatIso(yield* DateTime.now),
-					causation: rootLifecycleCausation({
+					...rootLifecycleCommand({
 						lane,
 						source: "api",
-						initiator: actor.initiator,
+						...lifecycleActor({ userId: subject.userId }),
+						itemIdentity: `fold:${subject.entityId}`,
+						occurredAt: DateTime.formatIso(yield* DateTime.now),
 						executionId: AutomationExecutionId.make(`fold:${subject.userId}:${subject.entityId}`),
 					}),
 				} satisfies DomainLifecycleCommand;
 			});
 
 			/** Runs the fold once over subjects that fit one run and pairs each with its result. */
-			const execute = Effect.fnUntraced(function* (
-				binding: Binding,
-				subjects: ReadonlyArray<Prepared>,
-				lane: ExecutionLane,
-			) {
+			const execute = Effect.fnUntraced(function* (run: Run, lane: ExecutionLane) {
 				const result = yield* calls.run({
 					lane,
-					principal: binding.principal,
+					principal: run.binding.principal,
 					executionId: `fold-${yield* random.uuidV4()}`,
-					input: { subjects: subjects.map(({ input }) => input) },
+					input: { subjects: run.subjects.map(({ input }) => input) },
 				});
 				if (result.error) {
 					return yield* failure(
@@ -597,10 +626,10 @@ export class Folds extends Context.Service<Folds>()(
 				const output = yield* Schema.decodeUnknownEffect(FoldOutput)(result.value).pipe(
 					Effect.mapError((error) => failure(`Fold output is invalid: ${unknownToMessage(error)}`)),
 				);
-				if (output.subjects.length !== subjects.length) {
+				if (output.subjects.length !== run.subjects.length) {
 					return yield* failure("Fold must return one result per subject");
 				}
-				return yield* Effect.forEach(subjects, (prepared) => {
+				return yield* Effect.forEach(run.subjects, (prepared) => {
 					const item = output.subjects.find(
 						({ subjectEntityId }) => subjectEntityId === prepared.entry.subject.entityId,
 					);
@@ -613,11 +642,9 @@ export class Folds extends Context.Service<Folds>()(
 			/** Validates and writes a run's results, returning the changes each subject asked for. */
 			const persist = Effect.fnUntraced(function* (
 				transaction: WriteTransaction,
-				userId: UserId,
-				pluginId: PluginId,
-				binding: Binding,
+				run: Run,
+				results: Results,
 				lane: ExecutionLane,
-				results: QueuedResults,
 			) {
 				const changed: Array<Changed> = [];
 				if (results.length === 0) {
@@ -625,8 +652,8 @@ export class Folds extends Context.Service<Folds>()(
 				}
 				const found = yield* outputTargets(
 					transaction,
-					userId,
-					pluginId,
+					run.userId,
+					run.pluginId,
 					results.map(({ prepared }) => prepared.entry.declaration),
 					results.map(({ item }) => item),
 				);
@@ -638,14 +665,7 @@ export class Folds extends Context.Service<Folds>()(
 					) {
 						return yield* failure("Fold value exceeds its size limit");
 					}
-					const rows: Array<OutputRow> = [
-						{
-							kind: "subject",
-							value: item.value,
-							targetId: subject.entityId,
-							expected: prepared.revision,
-							subjectEntityId: subject.entityId,
-						},
+					const rows = [
 						...(yield* validated(
 							"event",
 							subject.entityId,
@@ -669,186 +689,134 @@ export class Folds extends Context.Service<Folds>()(
 								: Effect.fail(failure("Fold event creates name existing entities")),
 						),
 					);
-					writes.push({
-						rows,
-						entityId: subject.entityId,
-						consumed: prepared.consumed,
-						changes: prepared.input.changes,
-					});
+					writes.push({ rows, prepared, value: item.value });
 					if (changes.length > 0) {
 						changed.push({
 							subject,
 							changes,
-							command: yield* commandOf(subject, binding.principal, lane),
+							command: yield* commandOf(subject, run.binding.principal, lane),
 						});
 					}
 				}
-				yield* write(userId, pluginId, binding.pluginPin.revisionId, writes);
+				yield* write(run.userId, run.pluginId, run.binding.pluginPin.revisionId, writes);
 				return changed;
 			});
 
-			/** Folds one fold's subjects in as few runs as fit, under their locks, returning the changes each asked for. */
-			const runFold = Effect.fn("Folds.runFold")(function* (
-				transaction: WriteTransaction,
-				entries: Arr.NonEmptyReadonlyArray<FoldRun>,
-				lane: ExecutionLane,
+			/** Marks subjects' last folds failed; their next folds replay in full. */
+			const failed = Effect.fn("Folds.failed")(function* (
+				userId: UserId,
+				entityIds: ReadonlyArray<string>,
 			) {
-				const [
-					{
-						subject: { userId },
-						declaration: { pluginId, scriptSlug },
-					},
-				] = entries;
-				const { binding, prepared } = yield* prepare(
-					userId,
-					pluginId,
-					scriptSlug,
-					entries,
-					true,
-					transaction,
+				yield* session.run((db) =>
+					db.execute(sql`update derived_value set status = 'failed', replay = true,
+						revision = revision + 1, updated_at = now()
+						where user_id = ${userId} and kind = 'subject' and target_id in (${foldValuesSql(entityIds)})`),
 				);
-				const changed: Array<Changed> = [];
-				for (const subjects of pack(prepared)) {
-					changed.push(
-						...(yield* persist(
-							transaction,
-							userId,
-							pluginId,
-							binding,
-							lane,
-							yield* execute(binding, subjects, lane),
-						)),
-					);
-				}
-				return changed;
 			});
-
-			/** Runs each fold once over every subject a transaction collected, applies their changes, and repeats until none remain. */
-			const settle = Effect.fn("Folds.settle")(function* (
-				transaction: WriteTransaction,
-				apply: ApplyFoldChanges,
-				mode: Exclude<FoldMode, "queue">,
-			) {
-				const lane = mode === "job" ? "background" : "interactive";
-				const pending = pendingFolds(transaction);
-				const { runs } = pending;
-				for (
-					let resolved = yield* collect(transaction);
-					resolved.length > 0;
-					resolved = yield* collect(transaction)
-				) {
-					const byFold = new Map<string, Arr.NonEmptyArray<FoldRun>>();
-					for (const entry of resolved) {
-						const key = foldRunKey(entry);
-						const entries = byFold.get(key);
-						if (entries) {
-							entries.push(entry);
-						} else {
-							byFold.set(key, [entry]);
-						}
-						const subject = foldJobKey(entry.subject);
-						runs.set(subject, (runs.get(subject) ?? 0) + 1);
-					}
-					const changed = [];
-					for (const entries of byFold.values()) {
-						changed.push(...(yield* runFold(transaction, entries, lane)));
-					}
-					yield* changed.some(({ subject }) => (runs.get(foldJobKey(subject)) ?? 0) >= MAX_RUNS)
-						? failure("Fold kept changing its own events")
-						: applyChanges(transaction, changed, apply);
-				}
-			}, asDbError);
-
-			/** Builds the runs of a fold job's subjects that still have work, from their stored state and without locks. */
-			const prepareQueued = Effect.fn("Folds.prepareQueued")(function* (input: {
-				readonly userId: UserId;
-				readonly entityIds: ReadonlyArray<EntityId>;
-			}) {
-				const resolved = yield* route({
-					sources: [],
-					subjects: input.entityIds.map((entityId) => ({ entityId, userId: input.userId })),
-				});
-				const byFold = new Map<string, Arr.NonEmptyArray<FoldRun>>();
-				for (const entry of resolved) {
-					const key = foldRunKey(entry);
-					const queued: FoldRun = { ...entry, changes: [] };
-					const entries = byFold.get(key);
-					if (entries) {
-						entries.push(queued);
-					} else {
-						byFold.set(key, [queued]);
-					}
-				}
-				const runs: Array<QueuedRun> = [];
-				for (const entries of byFold.values()) {
-					const { pluginId, scriptSlug } = entries[0].declaration;
-					const { binding, prepared } = yield* prepare(
-						input.userId,
-						pluginId,
-						scriptSlug,
-						entries,
-						false,
-					);
-					for (const subjects of pack(prepared.filter(({ pending }) => pending))) {
-						runs.push({ binding, pluginId, subjects, userId: input.userId });
-					}
-				}
-				return runs;
-			}, asDbError);
-
-			/** Runs a fold job's run outside any transaction. */
-			const runQueued = Effect.fn("Folds.runQueued")(function* (run: QueuedRun) {
-				return yield* execute(run.binding, run.subjects, "background");
-			}, asDbError);
 
 			/**
-			 * Writes a fold job's results for the subjects still at the revisions the run was built from, under
-			 * their locks, and applies the changes they asked for; returns the subjects that changed since.
+			 * Writes a run's results in the writer's transaction and applies the changes they ask for. A
+			 * subject whose value another fold wrote since the run read it is lost and runs again from the
+			 * new state; one that asks for changes again after this fold already wrote it is marked failed.
 			 */
-			const commitQueued = Effect.fn("Folds.commitQueued")(function* (
+			const commitRun = Effect.fnUntraced(function* (
 				transaction: WriteTransaction,
-				run: QueuedRun,
-				results: QueuedResults,
+				run: Run,
+				results: Results,
+				input: { readonly lane: ExecutionLane; readonly written: ReadonlySet<string> },
 				apply: ApplyFoldChanges,
 			) {
 				const ids = run.subjects.map(({ entry }) => entry.subject.entityId).sort();
 				yield* lockSubjects(ids);
-				const current = new Map(
+				const versions = new Map(
 					(yield* session.run((db) =>
-						db.execute<{ targetId: string; revision: number }>(
-							sql`select target_id as "targetId", revision from derived_value
-							where user_id = ${run.userId} and kind = 'subject' and target_id in (${foldValuesSql(ids)})`,
+						db.execute<{ version: number; targetId: string }>(
+							sql`select target_id as "targetId", value_version as version from derived_value
+							where user_id = ${run.userId} and kind = 'subject' and target_id in (${foldValuesSql(ids)})
+							order by target_id for update`,
 							"objects",
 						),
-					)).map((row) => [row.targetId, row.revision]),
+					)).map((row) => [row.targetId, row.version]),
 				);
-				const matched = results.filter(
-					({ prepared }) => current.get(prepared.entry.subject.entityId) === prepared.revision,
+				const current = results.filter(
+					({ prepared }) => versions.get(prepared.entry.subject.entityId) === prepared.version,
 				);
-				const { runs } = pendingFolds(transaction);
-				for (const { prepared } of matched) {
-					runs.set(foldJobKey(prepared.entry.subject), 1);
+				const kept = current.filter(
+					({ item, prepared }) =>
+						item.changes.length > 0 && input.written.has(prepared.entry.subject.entityId),
+				);
+				const applied = current.filter((result) => !kept.includes(result));
+				if (kept.length > 0) {
+					yield* failed(run.userId, subjectIds(kept));
 				}
 				yield* applyChanges(
 					transaction,
-					yield* persist(transaction, run.userId, run.pluginId, run.binding, "background", matched),
+					yield* persist(transaction, run, applied, input.lane),
 					apply,
 				);
-				return results.flatMap(({ prepared }) =>
-					matched.some((entry) => entry.prepared === prepared)
-						? []
-						: [prepared.entry.subject.entityId],
-				);
-			}, asDbError);
-
-			/** Marks a subject's last fold job failed; its next fold replays in full. */
-			const failed = Effect.fn("Folds.failed")(function* (subject: FoldSubject) {
-				yield* session.run((db) =>
-					db.execute(sql`update derived_value set status = 'failed', replay = true,
-						revision = revision + 1, updated_at = now()
-						where user_id = ${subject.userId} and kind = 'subject' and target_id = ${subject.entityId}`),
-				);
+				return {
+					kept: subjectIds(kept),
+					applied: subjectIds(applied),
+					lost: subjectIds(
+						results.filter(({ prepared }) => {
+							const version = versions.get(prepared.entry.subject.entityId);
+							return version !== undefined && version !== prepared.version;
+						}),
+					),
+				};
 			});
+
+			/**
+			 * Folds the user's subjects that have work, with no transaction open while a script runs: each
+			 * run reads its subjects' stored state without locks, runs the script, and writes its results in
+			 * a short transaction. A subject another fold wrote meanwhile runs again from the new state, and
+			 * so does every subject the written changes queued, until none is left. Returns whether it wrote
+			 * any subject.
+			 */
+			const fold = Effect.fn("Folds.fold")(function* (
+				input: {
+					readonly userId: UserId;
+					readonly lane: ExecutionLane;
+					readonly entityIds: ReadonlyArray<EntityId>;
+				},
+				writer: FoldWriter,
+			) {
+				const written = new Set<string>();
+				const kept: Array<string> = [];
+				let entityIds = input.entityIds;
+				while (entityIds.length > 0) {
+					const next = new Set<EntityId>();
+					for (const run of yield* runsOf(input.userId, entityIds)) {
+						const results = yield* execute(run, input.lane);
+						const { value, queued } = yield* writer.commit((transaction) =>
+							commitRun(
+								transaction,
+								run,
+								results,
+								{ written, lane: input.lane },
+								writer.apply,
+							).pipe(asDbError),
+						);
+						for (const entityId of value.applied) {
+							written.add(entityId);
+						}
+						kept.push(...value.kept);
+						for (const entityId of value.lost) {
+							next.add(EntityId.make(entityId));
+						}
+						for (const subject of queued) {
+							if (subject.userId === input.userId) {
+								next.add(subject.entityId);
+							}
+						}
+					}
+					entityIds = [...next].sort();
+				}
+				if (kept.length > 0) {
+					return yield* failure("Fold kept changing its own events");
+				}
+				return written.size > 0;
+			}, asDbError);
 
 			const subjectsOfPlugin = Effect.fn("Folds.subjectsOfPlugin")(function* (input: {
 				userId: UserId;
@@ -939,15 +907,7 @@ export class Folds extends Context.Service<Folds>()(
 				} while (after !== null);
 			});
 
-			return {
-				failed,
-				settle,
-				rebuild,
-				runQueued,
-				commitQueued,
-				prepareQueued,
-				queue: queuePending,
-			};
+			return { fold, failed, rebuild, queue: queuePending };
 		}),
 	},
 ) {

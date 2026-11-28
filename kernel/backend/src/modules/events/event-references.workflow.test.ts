@@ -231,7 +231,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 	);
 
 	test.effect(
-		"clears references to events a fold deletes in the same transaction",
+		"clears references to events a fold deletes in the transaction that applies its changes",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* referenceFixture();
@@ -239,17 +239,17 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Derived", about: occurrence });
 				const foldCommand = yield* fixture.nextCommand;
 				const mutations = yield* EventMutations.make.pipe(
-					Effect.provideService(Folds, {
-						...unfoldedFolds,
-						settle: (transaction, apply) =>
-							apply(transaction, {
-								command: foldCommand,
-								userId: fixture.userId,
-								changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
-							}).pipe(Effect.orDie),
-					}),
+					Effect.provideService(Folds, unfoldedFolds),
 				);
-				yield* mutations.transaction(() => Effect.void);
+				yield* mutations.transaction(
+					(transaction) =>
+						mutations.applyFoldChanges(transaction, {
+							command: foldCommand,
+							userId: fixture.userId,
+							changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
+						}),
+					"queue",
+				);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Derived" });
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();
 			}),
@@ -312,27 +312,27 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Draft", about: occurrence });
 				const foldCommand = yield* fixture.nextCommand;
 				const mutations = yield* EventMutations.make.pipe(
-					Effect.provideService(Folds, {
-						...unfoldedFolds,
-						settle: (transaction, apply) =>
-							apply(transaction, {
-								command: foldCommand,
-								userId: fixture.userId,
-								changes: [
-									{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
-									{
-										kind: "update",
-										itemIdentity: "fold-update",
-										item: {
-											eventId: note,
-											patch: { properties: { remove: [], set: { text: "Edited" } } },
-										},
-									},
-								],
-							}).pipe(Effect.orDie),
-					}),
+					Effect.provideService(Folds, unfoldedFolds),
 				);
-				yield* mutations.transaction(() => Effect.void);
+				yield* mutations.transaction(
+					(transaction) =>
+						mutations.applyFoldChanges(transaction, {
+							command: foldCommand,
+							userId: fixture.userId,
+							changes: [
+								{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
+								{
+									kind: "update",
+									itemIdentity: "fold-update",
+									item: {
+										eventId: note,
+										patch: { properties: { remove: [], set: { text: "Edited" } } },
+									},
+								},
+							],
+						}),
+					"queue",
+				);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Edited" });
 				expect(yield* fixture.references([note])).toEqual([]);
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();

@@ -29,8 +29,9 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, sql } from "drizzle-orm";
-import { Context, DateTime, Deferred, Effect, Fiber, Layer, Option, Ref, Schema } from "effect";
+import { and, eq } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
+import type { SecureRandom } from "effect/crypto";
 
 import { noLifecycleWorkLayer } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -51,9 +52,9 @@ import { JobHandlers } from "#platform/jobs/worker";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
-import { FOLD_JOB_RERUNS, FoldJobsLive } from "./jobs";
+import { FoldJobsLive } from "./jobs";
 import { FoldJob, FoldMarks } from "./marks";
-import { type ApplyFoldChanges, type FoldMode, Folds } from "./service";
+import { type ApplyFoldChanges, type FoldMode, Folds, type FoldWriter } from "./service";
 
 const userId = UserId.make("owner");
 
@@ -248,27 +249,30 @@ const setup = Effect.fn(function* (fold: SubjectFold = countingFold, count?: num
 	return { ids, runs, first, second, recorded, installed, packageId };
 });
 
-/** Runs `work` in one transaction and then folds what it changed, or queues it on the background lane. */
+/** Commits `work` as an interactive write, which folds what it changed right after, or as a background one. */
 const write = <A, E, R>(
 	work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>,
-	apply: ApplyFoldChanges = () => Effect.void,
-	mode: FoldMode = "inline",
-) =>
+	mode: FoldMode = "eager",
+) => Effect.flatMap(EventMutations, (mutations) => mutations.transaction(work, mode));
+
+/** Writes fold results in transactions that queue what they change, applying fold changes with `apply`. */
+const writer = (apply: ApplyFoldChanges) =>
 	Effect.gen(function* () {
-		const folds = yield* Folds.make;
 		const session = yield* DatabaseSession;
-		return yield* session
-			.transaction(
-				Effect.gen(function* () {
-					const transaction = new WriteTransaction();
-					const result = yield* work(transaction);
-					yield* mode === "queue"
-						? folds.queue(transaction)
-						: folds.settle(transaction, apply, mode);
-					return result;
-				}),
-			)
-			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		const folds = yield* Folds;
+		return {
+			apply,
+			commit: (work) =>
+				session
+					.transaction(
+						Effect.gen(function* () {
+							const transaction = new WriteTransaction();
+							const value = yield* work(transaction);
+							return { value, queued: yield* folds.queue(transaction, true) };
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+		} satisfies FoldWriter;
 	});
 
 /** Creates one `changed` event per item in one write. */
@@ -458,7 +462,7 @@ const createValues = (
 
 /** A background-lane write: its folds are queued as fold jobs. */
 const background = <A, E, R>(work: (transaction: WriteTransaction) => Effect.Effect<A, E, R>) =>
-	write(work, () => Effect.void, "queue");
+	write(work, "queue");
 
 const subjectState = (entityId: EntityId) =>
 	Effect.flatMap(DatabaseSession, (session) =>
@@ -490,7 +494,7 @@ const foldJobs = (entityIds: ReadonlyArray<EntityId>) =>
 	Effect.flatMap(DatabaseSession, (session) =>
 		session.run((db) =>
 			db
-				.select({ id: tables.job.id })
+				.select({ id: tables.job.id, runAt: tables.job.runAt })
 				.from(tables.job)
 				.where(
 					and(eq(tables.job.kind, "fold"), eq(tables.job.key, `${userId}:${entityIds.join(",")}`)),
@@ -658,7 +662,7 @@ layer(testLayer)((test) => {
 					);
 					yield* createChanged(installed.pluginId, first, ["one"]);
 					yield* createChanged(installed.pluginId, first, ["two"]);
-					yield* (yield* Folds.make).failed({ userId, entityId: first });
+					yield* (yield* Folds).failed(userId, [first]);
 					yield* createChanged(installed.pluginId, first, ["three"]);
 					expect(recorded.map(({ changes }) => changes?.length ?? null)).toEqual([null, 1, null]);
 					expect(yield* subjectValue(first)).toEqual({ pad, runs: 3 });
@@ -776,7 +780,7 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"fails the whole write when one subject's outputs fail validation",
+		"keeps a write whose fold fails validation and leaves every subject of the run pending for its job",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -800,25 +804,29 @@ layer(testLayer)((test) => {
 					];
 					yield* createEvents(installed.pluginId, both("one"));
 					invalid.add(second);
-					assertExitFails(
-						yield* Effect.exit(createEvents(installed.pluginId, both("two"))),
-						new DbError({ message: "Fold returned invalid event properties" }),
-					);
+					const events = yield* EventsRepository;
+					for (const { id } of yield* createEvents(installed.pluginId, both("two"))) {
+						expect(yield* events.getEventSnapshot({ userId, eventId: id })).not.toBeNull();
+					}
 					expect(yield* derived(first)).toEqual([
 						{ kind: "subject", targetId: first, value: { runs: 1 } },
 					]);
+					const pending = [{ replay: false, status: "pending" as const }];
+					expect(yield* subjectState(first)).toEqual(pending);
+					expect(yield* subjectState(second)).toEqual(pending);
+					expect(yield* foldJobs([first, second].sort())).toHaveLength(1);
 				}),
 			),
 		testTimeout,
 	);
 
 	test.effect(
-		"settles every subject that returned changes in one further run",
+		"applies the changes a run asks for and folds every subject they changed in one further run",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const eventId = EventId.make(yield* randomUuid);
-					const { ids, runs, installed } = yield* setup(
+					const { ids, runs } = yield* setup(
 						(subject) =>
 							Effect.map(countingFold(subject), (output) => ({
 								...output,
@@ -830,38 +838,64 @@ layer(testLayer)((test) => {
 						3,
 					);
 					const marks = yield* FoldMarks;
+					const sorted = [...ids].sort();
+					yield* background((transaction) =>
+						marks.markSubjects(
+							transaction,
+							sorted.map((entityId) => ({ userId, entityId })),
+						),
+					);
 					const applied: Array<string> = [];
-					const events = yield* EventsRepository;
-					yield* write(
-						(transaction) =>
-							events.createEvents(
-								transaction,
-								ids.map((entityId) => ({
-									userId,
-									entityId,
-									eventSchemaName,
-									propertiesSchema,
-									id: EventId.make(entityId),
-									properties: { value: "one" },
-									eventSchemaPluginId: installed.pluginId,
-									eventSchemaSlug: EventSchemaSlug.make("changed"),
-									occurredAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-								})),
-							),
-						(transaction, input) => {
+					const written = yield* (yield* Folds).fold(
+						{ userId, entityIds: sorted, lane: "interactive" },
+						yield* writer((transaction, input) => {
 							const subjects = input.changes.map((change) => change.itemIdentity);
 							applied.push(...subjects);
 							return marks.markSubjects(
 								transaction,
 								subjects.map((entityId) => ({ userId, entityId: EntityId.make(entityId) })),
 							);
-						},
+						}),
 					);
+					expect(written).toBe(true);
 					expect(runs.map((run) => run.map(({ subjectEntityId }) => subjectEntityId))).toEqual([
-						[...ids].sort(),
-						[...ids].sort(),
+						sorted,
+						sorted,
 					]);
-					expect(applied.sort()).toEqual([...ids].sort());
+					expect(applied.sort()).toEqual(sorted);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"marks a subject failed when it asks for changes again after the same fold wrote it",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const eventId = EventId.make(yield* randomUuid);
+					const { runs, first } = yield* setup((subject) =>
+						Effect.map(countingFold(subject), (output) => ({
+							...output,
+							changes: [{ eventId, kind: "delete", itemIdentity: subject.subjectEntityId }],
+						})),
+					);
+					const marks = yield* FoldMarks;
+					const refold = (transaction: WriteTransaction) =>
+						marks.markSubjects(transaction, [{ userId, entityId: first }]);
+					yield* background(refold);
+					assertExitFails(
+						yield* Effect.exit(
+							(yield* Folds).fold(
+								{ userId, lane: "background", entityIds: [first] },
+								yield* writer(refold),
+							),
+						),
+						new DbError({ message: "Fold kept changing its own events" }),
+					);
+					expect(runs).toHaveLength(2);
+					expect(yield* subjectValue(first)).toEqual({ runs: 1 });
+					expect(yield* subjectState(first)).toEqual([{ replay: true, status: "failed" }]);
 				}),
 			),
 		testTimeout,
@@ -1002,169 +1036,112 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"keeps a subject consistent when a commit folds it while its job runs",
+		"folds an interactive write's subjects before it returns and leaves their delayed job nothing to do",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const { runs, first, recorded, installed } = yield* setup(listingFold(session));
-					const { pluginId } = installed;
-					yield* write((transaction) => createValues(transaction, pluginId, first, ["one"]));
-					yield* background((transaction) => createValues(transaction, pluginId, first, ["two"]));
-					const folds = yield* Folds;
-					const mutations = yield* EventMutations;
-					const [run] = yield* folds.prepareQueued({ userId, entityIds: [first] });
-					assert(run);
-					const results = yield* folds.runQueued(run);
-					yield* write((transaction) => createValues(transaction, pluginId, first, ["three"]));
-					expect(changeShape(recorded.at(-1)?.changes)).toEqual([
-						[null, "three", null, 0],
-						[null, "two", null, 0],
-					]);
-					expect(
-						yield* mutations.transaction(
-							(transaction) =>
-								folds.commitQueued(transaction, run, results, mutations.applyFoldChanges),
-							"job",
-						),
-					).toEqual([first]);
-					const folded = runs.length;
+					const { runs, first, installed } = yield* setup();
+					const before = yield* DateTime.nowAsDate;
+					yield* createChanged(installed.pluginId, first, ["one"]);
+					expect(runs).toHaveLength(1);
+					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
+					const [job] = yield* foldJobs([first]);
+					assert(job);
+					expect(job.runAt.getTime()).toBeGreaterThan(before.getTime());
 					yield* runFoldJob([first]);
-					expect(runs).toHaveLength(folded);
-					expect(yield* storedChanges(first)).toEqual([]);
-					expect(yield* subjectValue(first)).toEqual({ values: ["one", "three", "two"] });
+					expect(runs).toHaveLength(1);
 				}),
 			),
 		testTimeout,
 	);
 
 	test.effect(
-		"keeps a background write's changes that arrive while a commit refolds their subject",
+		"writes a fold's result when a write lands during its run, consuming only the changes it read",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const listing = listingFold(session);
-					const started = yield* Deferred.make<void>();
-					const interfering = yield* Ref.make(false);
-					const written = yield* Ref.make(false);
-					const waitedOn = session
-						.run((db) =>
-							db.execute<{ waited: boolean }>(
-								sql`select exists (select 1 from pg_locks w join pg_locks h
-									on h.locktype = 'transactionid' and h.transactionid = w.transactionid
-									where w.locktype = 'transactionid' and not w.granted and h.granted
-										and h.pid = pg_backend_pid()) as waited`,
-								"objects",
+					const during = yield* Ref.make<Effect.Effect<void>>(Effect.void);
+					const { first, recorded, installed } = yield* setup((subject) =>
+						Effect.andThen(Effect.flatten(Ref.getAndSet(during, Effect.void)), listing(subject)),
+					);
+					const { pluginId } = installed;
+					const services = yield* Effect.context<
+						EventMutations | EventsRepository | SecureRandom.SecureRandom
+					>();
+					const [, two] = yield* write((transaction) =>
+						createValues(transaction, pluginId, first, ["one", "two"]),
+					);
+					assert(two);
+					yield* background((transaction) => changeValue(transaction, pluginId, two, "two-b"));
+					yield* Ref.set(
+						during,
+						background((transaction) =>
+							Effect.andThen(
+								changeValue(transaction, pluginId, two, "two-c"),
+								createValues(transaction, pluginId, first, ["three"]),
 							),
-						)
-						.pipe(
-							Effect.orDie,
-							Effect.map(([row]) => row?.waited === true),
-						);
-					const { first, installed } = yield* setup((subject) =>
-						Effect.gen(function* () {
-							if (yield* Ref.getAndSet(interfering, false)) {
-								yield* Deferred.succeed(started, undefined);
-								while (!(yield* Ref.get(written)) && !(yield* waitedOn)) {
-									yield* Effect.yieldNow;
-								}
-							}
-							return yield* listing(subject);
-						}),
+						).pipe(Effect.asVoid, Effect.provideContext(services), Effect.orDie),
 					);
-					const { pluginId } = installed;
-					yield* write((transaction) => createValues(transaction, pluginId, first, ["one"]));
-					yield* background((transaction) => createValues(transaction, pluginId, first, ["two"]));
-					const interference = yield* Deferred.await(started).pipe(
-						Effect.andThen(
-							background((transaction) => createValues(transaction, pluginId, first, ["four"])),
-						),
-						Effect.andThen(Ref.set(written, true)),
-						Effect.forkChild,
-					);
-					yield* Ref.set(interfering, true);
-					const marks = yield* FoldMarks;
-					yield* write((transaction) =>
-						marks.markRefolds(transaction, [{ userId, entityId: first }]),
-					);
-					yield* Fiber.join(interference);
 					yield* runFoldJob([first]);
-					expect(yield* storedChanges(first)).toEqual([]);
-					expect(yield* subjectValue(first)).toEqual({ values: ["four", "one", "two"] });
-				}),
-			),
-		testTimeout,
-	);
-
-	test.effect(
-		"reruns a job's subject that a write changed during its run, at most twice, then folds it under its lock",
-		() =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const events = yield* EventsRepository;
-					const folds = yield* Folds.make;
-					const interfering = yield* Ref.make(false);
-					const locked: Array<boolean> = [];
-					const plugin = { id: "" };
-					const listing = listingFold(session);
-					const { first, installed } = yield* setup((subject) =>
-						Effect.gen(function* () {
-							const inTransaction = yield* session.isTransactionActive;
-							if (yield* Ref.get(interfering)) {
-								locked.push(inTransaction);
-								if (!inTransaction) {
-									yield* session
-										.transaction(
-											Effect.gen(function* () {
-												const transaction = new WriteTransaction();
-												yield* events.createEvents(transaction, [
-													{
-														userId,
-														eventSchemaName,
-														propertiesSchema,
-														eventSchemaPluginId: plugin.id,
-														entityId: subject.subjectEntityId,
-														properties: { value: `during-${locked.length}` },
-														eventSchemaSlug: EventSchemaSlug.make("changed"),
-														id: EventId.make(`${subject.subjectEntityId}-${locked.length}`),
-														occurredAt: DateTime.toDate(
-															DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
-														),
-													},
-												]);
-												yield* folds.queue(transaction);
-											}),
-										)
-										.pipe(Effect.orDie);
-								}
-							}
-							return yield* listing(subject);
-						}),
-					);
-					plugin.id = installed.pluginId;
-					yield* write((transaction) =>
-						createValues(transaction, installed.pluginId, first, ["one"]),
-					);
-					yield* background((transaction) =>
-						createValues(transaction, installed.pluginId, first, ["two"]),
-					);
-					yield* Ref.set(interfering, true);
+					expect(changeShape(recorded.at(-1)?.changes)).toEqual([["two", "two-b", 0, 1]]);
+					expect(yield* subjectValue(first)).toEqual({ values: ["one", "two-b"] });
+					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "pending" }]);
+					expect(yield* storedChanges(first)).toHaveLength(2);
 					yield* runFoldJob([first]);
-					expect(locked).toEqual([
-						...Array.from({ length: FOLD_JOB_RERUNS + 1 }, () => false),
-						true,
+					expect(changeShape(recorded.at(-1)?.changes)).toEqual([
+						["two-b", "two-c", 1, 2],
+						[null, "three", null, 0],
 					]);
-					yield* Ref.set(interfering, false);
 					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
 					expect(yield* storedChanges(first)).toEqual([]);
-					const marks = yield* FoldMarks;
 					const incremental = yield* derived(first);
+					expect(incremental.find(({ kind }) => kind === "subject")?.value).toEqual({
+						values: ["one", "three", "two-c"],
+					});
+					const marks = yield* FoldMarks;
 					yield* write((transaction) =>
 						marks.markSubjects(transaction, [{ userId, entityId: first }]),
 					);
+					expect(recorded.at(-1)?.changes).toBeNull();
 					expect(yield* derived(first)).toEqual(incremental);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"lets one of two folds that read a subject together write it and reruns the other from the new state",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const listing = listingFold(session);
+					const during = yield* Ref.make<Effect.Effect<void>>(Effect.void);
+					const { runs, first, installed } = yield* setup((subject) =>
+						Effect.andThen(Effect.flatten(Ref.getAndSet(during, Effect.void)), listing(subject)),
+					);
+					const { pluginId } = installed;
+					const services = yield* Effect.context<
+						EventMutations | EventsRepository | SecureRandom.SecureRandom
+					>();
+					yield* write((transaction) => createValues(transaction, pluginId, first, ["one"]));
+					yield* background((transaction) => createValues(transaction, pluginId, first, ["two"]));
+					yield* Ref.set(
+						during,
+						write((transaction) => createValues(transaction, pluginId, first, ["three"])).pipe(
+							Effect.asVoid,
+							Effect.provideContext(services),
+							Effect.orDie,
+						),
+					);
+					const folded = runs.length;
+					yield* runFoldJob([first]);
+					expect(runs).toHaveLength(folded + 2);
+					expect(yield* subjectValue(first)).toEqual({ values: ["one", "three", "two"] });
+					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
+					expect(yield* storedChanges(first)).toEqual([]);
 				}),
 			),
 		testTimeout,
