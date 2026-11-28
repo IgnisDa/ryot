@@ -38,7 +38,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Ref, Schema, type Scope } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import type { Changes } from "#modules/changes/changes";
+import { type Changes, type EntityReference, eventCreateChange } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
 import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets, type CommitOptions } from "#modules/changes/service";
@@ -499,20 +499,18 @@ const genericItemChanges = Effect.fnUntraced(function* (
 				item.events.filter((event) => event.coalescing === undefined),
 				(event) =>
 					Effect.gen(function* () {
-						return {
-							kind: "create" as const,
+						return eventCreateChange<EntityReference>(identity(event.operationId), {
 							occurredAt: event.occurredAt,
 							properties: event.properties,
 							eventSchemaSlug: event.eventSchemaSlug,
-							itemIdentity: identity(event.operationId),
 							entity:
 								event.subjectEntityId === undefined
 									? yield* keyed(event.entityAlias)
-									: { kind: "existing" as const, entityId: EntityId.make(event.subjectEntityId) },
-							...(event.sessionEntityAlias
-								? { session: yield* keyed(event.sessionEntityAlias) }
-								: {}),
-						};
+									: { kind: "existing", entityId: EntityId.make(event.subjectEntityId) },
+							session: event.sessionEntityAlias
+								? yield* keyed(event.sessionEntityAlias)
+								: undefined,
+						});
 					}),
 			),
 		},

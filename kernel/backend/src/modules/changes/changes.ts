@@ -717,6 +717,28 @@ export const eventMutation = <Reference, E, R>(
 				};
 			});
 
+/** The create of one event of `entity` under `itemIdentity`; an absent optional field is left out. */
+export const eventCreateChange = <Reference>(
+	itemIdentity: string,
+	event: {
+		readonly entity: Reference;
+		readonly properties: unknown;
+		readonly eventSchemaSlug: string;
+		readonly session?: undefined | Reference;
+		readonly occurredAt?: undefined | string;
+		readonly orderAfter?: EventCreate["orderAfter"];
+	},
+): EventCreateChange<Reference> => ({
+	itemIdentity,
+	kind: "create",
+	entity: event.entity,
+	properties: event.properties,
+	eventSchemaSlug: event.eventSchemaSlug,
+	...(event.session === undefined ? {} : { session: event.session }),
+	...(event.occurredAt === undefined ? {} : { occurredAt: event.occurredAt }),
+	...(event.orderAfter === undefined ? {} : { orderAfter: event.orderAfter }),
+});
+
 /** Independent event creates of existing entities, identified as `event:<index>` unless given. */
 export const eventCreateChanges = (
 	userId: UserId,
@@ -725,18 +747,19 @@ export const eventCreateChanges = (
 ): Changes & { readonly userId: UserId } => ({
 	userId,
 	events: {
-		changes: items.map((item, index) => ({
-			kind: "create" as const,
-			properties: item.properties,
-			eventSchemaSlug: item.eventSchemaSlug,
-			itemIdentity: itemIdentities?.[index] ?? `event:${index}`,
-			entity: { entityId: item.entityId, kind: "existing" as const },
-			...(item.orderAfter ? { orderAfter: item.orderAfter } : {}),
-			...(item.occurredAt === undefined ? {} : { occurredAt: item.occurredAt }),
-			...(item.sessionEntityId === undefined
-				? {}
-				: { session: { kind: "existing" as const, entityId: item.sessionEntityId } }),
-		})),
+		changes: items.map((item, index) =>
+			eventCreateChange(itemIdentities?.[index] ?? `event:${index}`, {
+				properties: item.properties,
+				orderAfter: item.orderAfter,
+				occurredAt: item.occurredAt,
+				eventSchemaSlug: item.eventSchemaSlug,
+				entity: { entityId: item.entityId, kind: "existing" as const },
+				session:
+					item.sessionEntityId === undefined
+						? undefined
+						: { kind: "existing" as const, entityId: item.sessionEntityId },
+			}),
+		),
 	},
 });
 

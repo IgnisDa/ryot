@@ -6,7 +6,7 @@ import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { EntityId, EventSchemaSlug, RelationshipId } from "@ryot-app/contract/schema/brands";
+import { EntityId, RelationshipId } from "@ryot-app/contract/schema/brands";
 import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Result, Schema } from "effect";
@@ -16,7 +16,7 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
-import type { Changes } from "#modules/changes/changes";
+import { type Changes, eventCreateChange } from "#modules/changes/changes";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
@@ -525,15 +525,13 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			itemIdentity: string,
 		) {
 			const { sessionEntityKey } = item.record;
-			return {
+			return eventCreateChange(itemIdentity, {
 				properties,
-				itemIdentity,
-				kind: "create" as const,
 				occurredAt: item.record.occurredAt,
+				eventSchemaSlug: item.record.eventSchemaSlug,
 				entity: yield* existing(item.record.entityKey),
-				eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
-				...(sessionEntityKey ? { session: yield* existing(sessionEntityKey) } : {}),
-			};
+				session: sessionEntityKey ? yield* existing(sessionEntityKey) : undefined,
+			});
 		});
 		/** The record's one change set; an entity the record names without writing is referenced. */
 		const recordChanges = Effect.fnUntraced(function* (
