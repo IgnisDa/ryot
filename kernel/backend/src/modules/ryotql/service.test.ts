@@ -41,6 +41,7 @@ import {
 	include,
 	integer,
 	isNotNull,
+	isNull,
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
@@ -319,6 +320,64 @@ layer(makeServiceLayer())((test) => {
 				expect(outer.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
 				expect(statement.match(/LIMIT 1\)/g)).toHaveLength(1);
 				expect(statement).toMatch(/("first\d+_0"\."v1") AS "f1v", \1 AS "f2v"/);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"runs aggregates and firsts read only in a conditional's branch where the branch is taken",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const scope = { where: eq(column(source, "entityId"), column(subject, "id")) };
+				const latest = (select: Parameters<typeof first>[1]["select"]) =>
+					first(source, {
+						select,
+						where: scope.where,
+						orderBy: [descending(column(source, "occurredAt"))],
+					});
+				const named = isNull(column(subject, "name"));
+				const execute = (fields: ReadonlyArray<ReturnType<typeof field>>) =>
+					service.executeForUser("user-1", null, "plugin", {
+						source: {
+							kind: "inline",
+							document: {
+								queries: {
+									branches: rows(subject, { fields, orderBy: [ascending(column(subject, "id"))] }),
+								},
+							},
+						},
+					});
+				const branchOnly = [
+					field("events", conditional(named, count(source, scope), literal(0))),
+					field("slug", conditional(named, latest(column(source, "eventSchemaSlug")), literal(""))),
+					field(
+						"session",
+						conditional(named, latest(column(source, "sessionEntityId")), literal("")),
+					),
+				];
+				yield* execute(branchOnly);
+				const recorded = yield* RecordedStatements;
+				const branched = (yield* recorded.statements).findLast((value) => value.includes("CASE"));
+				assert(branched);
+				expect(branched).not.toContain("JOIN LATERAL");
+				expect(branched.match(/COUNT\(/g)).toHaveLength(1);
+				expect(branched.match(/LIMIT 1\)/g)).toHaveLength(2);
+
+				yield* execute([
+					...branchOnly,
+					field("total", count(source, scope)),
+					field("first", latest(column(source, "id"))),
+					field("again", latest(column(source, "createdAt"))),
+				]);
+				const fused = (yield* recorded.statements).findLast((value) => value.includes("CASE"));
+				assert(fused);
+				expect(fused.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
+				expect(fused.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
+				expect(fused.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(fused).toMatch(/THEN "aggregate\d+_0"\."v0"/);
 			}),
 		testTimeout,
 	);

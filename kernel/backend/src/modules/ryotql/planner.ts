@@ -511,11 +511,34 @@ const planScope = (
 		child.extras.push(...query.extras);
 		correlated.set(key, child);
 	};
-	const visit = (node: Node, fusable: boolean): void => {
+	const fusableFirst = (node: Node): node is FirstExpression =>
+		node.type === "first" &&
+		scalarExpressionKind(
+			node.select,
+			correlatedAliasScope(node.query, aliasScope),
+			kindResolver,
+		) !== "json";
+	// An aggregate or `first` read only in a conditional's branch runs only where the branch is taken.
+	const branchReads: Array<{
+		readonly node: Node;
+		readonly query: Correlated;
+		readonly aggregate?: AggregationSpec;
+	}> = [];
+	const visit = (node: Node, fusable: boolean, branch = false): void => {
 		const { row, element, aggregate, correlated: query } = operands(node);
-		row.forEach((child) => visit(child, fusable));
+		if (node.type === "conditional") {
+			visit(node.condition, fusable, branch);
+			visit(node.whenTrue, fusable, true);
+			visit(node.whenFalse, fusable, true);
+		} else {
+			row.forEach((child) => visit(child, fusable, branch));
+		}
 		element.forEach((child) => visit(child, false));
 		if (!query) {
+			return;
+		}
+		if (fusable && branch && (aggregate || fusableFirst(node))) {
+			branchReads.push({ node, query, ...(aggregate ? { aggregate } : {}) });
 			return;
 		}
 		if (aggregate && fusable) {
@@ -525,15 +548,7 @@ const planScope = (
 			fused.set(key, group);
 			return;
 		}
-		if (
-			node.type === "first" &&
-			fusable &&
-			scalarExpressionKind(
-				node.select,
-				correlatedAliasScope(node.query, aliasScope),
-				kindResolver,
-			) !== "json"
-		) {
+		if (fusable && fusableFirst(node)) {
 			const key = firstGroupKey(node);
 			const group = firsts.get(key) ?? { reads: 0, expr: node, values: new Map() };
 			group.reads += 1;
@@ -557,6 +572,18 @@ const planScope = (
 				query: group.expr.query,
 				extras: [group.expr.select, ...group.expr.orderBy.map((order) => order.expr)],
 			});
+		}
+	}
+	// A branch read joins a lateral that reads outside a branch already run for every row.
+	for (const { node, query, aggregate } of branchReads) {
+		const group = aggregate ? fused.get(stableStringify(query.query)) : undefined;
+		const first = node.type === "first" ? firsts.get(firstGroupKey(node)) : undefined;
+		if (aggregate && group) {
+			group.measures.set(stableStringify(aggregate), aggregate);
+		} else if (node.type === "first" && first) {
+			first.values.set(stableStringify(node.select), node.select);
+		} else {
+			addCorrelated(query);
 		}
 	}
 	const scope: { -readonly [Key in keyof PlannedScope]: PlannedScope[Key] } = {
