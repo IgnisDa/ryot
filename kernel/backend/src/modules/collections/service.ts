@@ -13,11 +13,7 @@ import {
 	type DeleteMembershipBody,
 	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
-import type {
-	EntityBadRequest,
-	EntityNotFound,
-	EntityStale,
-} from "@ryot-app/contract/modules/entities/schemas";
+import type { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	type EntityId,
@@ -31,6 +27,7 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer } from "effect";
 
 import type { Changes, EntityReference, RelationshipEvent } from "#modules/changes/changes";
+import type { CommitConflict } from "#modules/changes/conflict";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -53,7 +50,7 @@ type MembershipTarget = {
 	readonly command: DomainLifecycleCommand;
 };
 
-const invalidMembership = (error: RelationshipBadRequest) =>
+const invalidMembership = (error: CommitConflict | RelationshipBadRequest) =>
 	new CollectionBadRequest({
 		reason: {
 			code: "invalid-membership-properties",
@@ -70,8 +67,7 @@ const invalidCollection = (error: EntityBadRequest) =>
 	});
 
 const membershipEventFailures = new Set([
-	"EventStale",
-	"EventNotFound",
+	"CommitConflict",
 	"EventBadRequest",
 	"EventCreateItemError",
 ]);
@@ -106,7 +102,7 @@ const collectionProperties = (
 const storedMembershipFields = (properties: unknown) =>
 	isObjectRecord(properties) ? properties["membershipFields"] : undefined;
 
-const collectionRejected = (error: EntityStale | EntityNotFound | EntityBadRequest) => {
+const collectionRejected = (error: CommitConflict | EntityNotFound | EntityBadRequest) => {
 	if (error._tag !== "EntityBadRequest") {
 		return Effect.die(error);
 	}
@@ -212,7 +208,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				userId: UserId,
 				entity: NonNullable<Changes["entity"]>,
 				command: DomainLifecycleCommand,
-				rejected: (error: EntityStale | EntityNotFound | EntityBadRequest) => Effect.Effect<A, E>,
+				rejected: (
+					error: CommitConflict | EntityNotFound | EntityBadRequest,
+				) => Effect.Effect<A, E>,
 			) =>
 				changes
 					.commit({ entity, userId }, command, { entities: { verbatimIdentities: true } })
@@ -222,7 +220,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							if (
 								error._tag === "EntityBadRequest" ||
 								error._tag === "EntityNotFound" ||
-								error._tag === "EntityStale"
+								error._tag === "CommitConflict"
 							) {
 								return rejected(error);
 							}
@@ -299,10 +297,13 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					},
 					lifecycle,
 					(error): Effect.Effect<never, CollectionNotFound | CollectionBadRequest> => {
-						if (error._tag === "EntityNotFound") {
+						if (
+							error._tag === "EntityNotFound" ||
+							(error._tag === "CommitConflict" && error.reason.code === "entity-not-found")
+						) {
 							return Effect.fail(collectionNotFound(current.id));
 						}
-						return error._tag === "EntityStale"
+						return error._tag === "CommitConflict"
 							? Effect.fail(
 									new CollectionBadRequest({
 										reason: { code: "collection-stale", collectionId: current.id },
@@ -340,7 +341,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								if (error._tag === "EntityBadRequest") {
 									return Effect.fail(invalidCollection(error));
 								}
-								if (error._tag === "EntityNotFound") {
+								if (
+									error._tag === "EntityNotFound" ||
+									(error._tag === "CommitConflict" && error.reason.code === "entity-not-found")
+								) {
 									return Effect.fail(collectionNotFound(payload.collectionId));
 								}
 								return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
@@ -504,7 +508,11 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					})
 					.pipe(
 						Effect.catch((error): Effect.Effect<never, DbError | CollectionBadRequest> => {
-							if (error._tag === "RelationshipBadRequest") {
+							if (
+								error._tag === "RelationshipBadRequest" ||
+								(error._tag === "CommitConflict" &&
+									error.reason.code === "concurrent-relationship-change")
+							) {
 								return Effect.fail(invalidMembership(error));
 							}
 							if (error._tag === "DbError") {

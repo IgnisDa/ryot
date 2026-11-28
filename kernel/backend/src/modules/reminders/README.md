@@ -24,7 +24,8 @@ Failures defer only the affected row for 60 seconds. A due reminder commits its 
 `reminder.due` kernel signal through `KernelSignals` (see [automations](../automations/README.md)),
 with the reminder's lock as its ledger's check; the ledger records the trigger, the planned formatter
 run and its dispatch on the reminder, or settles it Not sent when no formatter is planned, so the
-signal and the reminder row commit together. Dispatch starts after commit. The worker
+signal and the reminder row commit together; a blocked signal commits neither and defers the reminder
+like a failure. Dispatch starts after commit. The worker
 settles from the notification ledger, not formatter success. Missing/disabled subscriptions settle as
 Not sent. Missing, failed or expired formatter evidence settles explicitly and revokes later admission.
 

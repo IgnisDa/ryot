@@ -463,6 +463,41 @@ layer(makeServiceLayer())((test) => {
 	);
 
 	test.effect(
+		"casts canonical date literals directly and checks any other text",
+		() =>
+			Effect.gen(function* () {
+				const entity = table("entity", "entity");
+				const occursAt = column(entity, "occursAt");
+				const service = yield* RyotQLService;
+				yield* service.executeForUser("user-1", null, "plugin", {
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								entities: rows(entity, {
+									fields: [field("id", column(entity, "id"))],
+									where: and(
+										gte(occursAt, castDate(literal("2026-09-01"))),
+										lt(occursAt, castDate(literal("2026-09-08T00:00:00.000Z"))),
+										lt(occursAt, castDate(literal("2026-02-30"))),
+									),
+								}),
+							},
+						},
+					},
+				});
+				const statement = (yield* (yield* RecordedStatements).statements).findLast((value) =>
+					value.includes("occurs_at"),
+				);
+				assert(statement);
+				expect(statement.match(/occurs_at" >= \$\d+::timestamp with time zone/g)).toHaveLength(1);
+				expect(statement.match(/occurs_at" < \$\d+::timestamp with time zone/g)).toHaveLength(1);
+				expect(statement.match(/pg_input_is_valid/g)).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"compiles timezone-aware hour and year groups in SQL",
 		() =>
 			Effect.gen(function* () {

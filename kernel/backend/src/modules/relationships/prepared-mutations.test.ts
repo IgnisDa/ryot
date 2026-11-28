@@ -18,6 +18,7 @@ import { Effect } from "effect";
 
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import {
 	countStatementClasses,
@@ -130,6 +131,9 @@ const entityNotFound = (targetEntityId: EntityId, source: EntityId = sourceEntit
 		reason: { code: "entity-not-found", entityIds: [source, targetEntityId] },
 	});
 
+const entityConflict = (targetEntityId: EntityId, source: EntityId = sourceEntityId) =>
+	new CommitConflict({ reason: { code: "entity-not-found", entityIds: [source, targetEntityId] } });
+
 const concurrentChange = new RelationshipBadRequest({
 	reason: { code: "concurrent-relationship-change" },
 });
@@ -226,7 +230,7 @@ describe("Prepared relationship mutations", () => {
 							{ ...baseInput, targetEntityId: ordinary },
 							command("deleted-ordinary"),
 						).pipe(Effect.flip),
-					).toEqual(entityNotFound(ordinary));
+					).toEqual(entityConflict(ordinary));
 
 					expect(
 						yield* writeRelationship(
@@ -239,7 +243,7 @@ describe("Prepared relationship mutations", () => {
 								),
 							),
 						).pipe(Effect.flip),
-					).toEqual(entityNotFound(policy, policyInput.sourceEntityId));
+					).toEqual(entityConflict(policy, policyInput.sourceEntityId));
 
 					yield* deleteEntity(session, reconciled);
 					expect(
@@ -299,7 +303,7 @@ describe("Prepared relationship mutations", () => {
 						yield* writeRelationship("upsert", foreignInput, command("foreign-ordinary")).pipe(
 							Effect.flip,
 						),
-					).toEqual(entityNotFound(foreign));
+					).toEqual(entityConflict(foreign));
 					expect(
 						yield* writeRelationship(
 							"upsert",
@@ -307,7 +311,7 @@ describe("Prepared relationship mutations", () => {
 							command("foreign-policy"),
 							yield* changeSetsWith(yield* policyLifecycle()),
 						).pipe(Effect.flip),
-					).toEqual(entityNotFound(foreign, policyInput.sourceEntityId));
+					).toEqual(entityConflict(foreign, policyInput.sourceEntityId));
 					expect(
 						yield* session
 							.transaction(

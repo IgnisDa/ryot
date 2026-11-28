@@ -6,17 +6,15 @@ import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { EntityId, EventSchemaSlug, RelationshipId } from "@ryot-app/contract/schema/brands";
-import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { EntityId, RelationshipId } from "@ryot-app/contract/schema/brands";
+import { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Result, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
-import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
-import type { Changes } from "#modules/changes/changes";
+import { type Changes, eventCreateChange } from "#modules/changes/changes";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
@@ -470,8 +468,6 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				.transaction(repository.startBatch(scope, input.batch.id))
 				.pipe(Effect.mapError(toWorkflowError)),
 		});
-		const assets = yield* ManagedAssetsService;
-		const definitions = definitionLookup(input.snapshot);
 		const entitySchemasByKey = new Map(Object.entries(input.entitySchemasByKey));
 		const entityIds = new Map(Object.entries(input.entityIds));
 		const relationshipIds = new Map(Object.entries(input.relationshipIds));
@@ -525,15 +521,13 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			itemIdentity: string,
 		) {
 			const { sessionEntityKey } = item.record;
-			return {
+			return eventCreateChange(itemIdentity, {
 				properties,
-				itemIdentity,
-				kind: "create" as const,
 				occurredAt: item.record.occurredAt,
+				eventSchemaSlug: item.record.eventSchemaSlug,
 				entity: yield* existing(item.record.entityKey),
-				eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
-				...(sessionEntityKey ? { session: yield* existing(sessionEntityKey) } : {}),
-			};
+				session: sessionEntityKey ? yield* existing(sessionEntityKey) : undefined,
+			});
 		});
 		/** The record's one change set; an entity the record names without writing is referenced. */
 		const recordChanges = Effect.fnUntraced(function* (
@@ -630,7 +624,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			item: Exclude<DataGraphRecord, { readonly kind: "event" }>,
 			index: number,
 		) {
-			const { schema, command, operation, properties } = yield* prepareRecord(item);
+			const { command, operation, properties } = yield* prepareRecord(item);
 			let resolved: EntityId | undefined;
 			if (item.kind === "entity" && item.record.kind === "provider") {
 				const { record } = item;
@@ -665,27 +659,6 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				success: DataRecordWritten,
 				name: `write-data-record-${index}`,
 				execute: Effect.gen(function* () {
-					const invalid = yield* Effect.gen(function* () {
-						const locators = collectManagedAssetLocators([
-							{ properties, propertiesSchema: schema },
-						]);
-						yield* assets.verifyManagedAssetOwnership(input.userId, locators);
-						if (item.kind === "entity" && item.record.kind === "custom") {
-							yield* definitions.validateEntityProperties(item.record.entitySchema, properties);
-						}
-						return null;
-					}).pipe(
-						Effect.catch((error) =>
-							Effect.succeed({
-								kind: "failed" as const,
-								message: unknownToMessage(error),
-								stage: "input_transformation" as const,
-							}),
-						),
-					);
-					if (invalid) {
-						return invalid;
-					}
 					const committed = yield* commitImportItem(
 						changes,
 						command,
@@ -730,9 +703,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		});
 		/**
 		 * Writes consecutive event records, which reference only records committed before them, as one
-		 * commit with an outcome per event, each of which the commit records. An event naming managed
-		 * assets commits alone: the commit checks the assets of all its creates at once, and an asset one
-		 * of them may not reference fails every create.
+		 * commit with an outcome per event, each of which the commit records.
 		 */
 		const writeEvents = Effect.fnUntraced(function* (
 			run: ReadonlyArray<Extract<DataGraphRecord, { readonly kind: "event" }>>,
@@ -744,15 +715,14 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				readonly prepared: Effect.Success<ReturnType<typeof prepareRecord>>;
 			};
 			const results: Array<Result.Result<"imported" | "unsuccessful", unknown>> = [];
-			const batch: Array<Prepared> = [];
-			const alone: Array<Prepared> = [];
+			const events: Array<Prepared> = [];
 			for (const [position, item] of run.entries()) {
 				const prepared = yield* prepareRecord(item).pipe(Effect.result);
 				if (prepared._tag === "Failure") {
 					results[position] = Result.fail(prepared.failure);
 					continue;
 				}
-				const { schema, command, properties } = prepared.success;
+				const { command, properties } = prepared.success;
 				const create = yield* eventCreate(item, properties, command.itemIdentity).pipe(
 					Effect.result,
 				);
@@ -760,18 +730,10 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					results[position] = Result.fail(create.failure);
 					continue;
 				}
-				const locators = collectManagedAssetLocators([{ properties, propertiesSchema: schema }]);
-				(locators.length > 0 ? alone : batch).push({
-					position,
-					create: create.success,
-					prepared: prepared.success,
-				});
+				events.push({ position, create: create.success, prepared: prepared.success });
 			}
-			for (const events of [batch, ...alone.map((event) => [event])]) {
-				const [first] = events;
-				if (first === undefined) {
-					continue;
-				}
+			const [first] = events;
+			if (first !== undefined) {
 				const committed = yield* makeActivity({
 					error: ImportRunError,
 					success: CreateEventsResponse,

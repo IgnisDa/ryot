@@ -137,6 +137,8 @@ const applyCase = (
 						starts.push(input);
 						return true;
 					}),
+				recordedOutcomeIds: (_scope, ids) =>
+					Effect.sync(() => new Set(ids.filter((id) => outcomes.has(id)))),
 				getIngestionRunControl: () =>
 					Effect.succeed(ingestionTestRun({ status: cancelled ? "cancelling" : "running" })),
 				recordIssue: (_scope, issue) =>

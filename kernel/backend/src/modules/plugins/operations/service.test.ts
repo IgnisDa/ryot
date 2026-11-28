@@ -3,7 +3,6 @@ import { expect } from "bun:test";
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
-import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
@@ -43,6 +42,7 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ScriptChangesLayer } from "#modules/changes/script-changes";
 import {
 	type ChangeSetFailure,
@@ -1561,7 +1561,7 @@ layer(
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
 		available: [systemUserOperation],
-		commitFailure: new EntityStale({
+		commitFailure: new CommitConflict({
 			reason: { code: "entity-stale", entityId: EntityId.make("entity-1") },
 		}),
 	}),
@@ -1585,7 +1585,7 @@ layer(
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
 		available: [systemUserOperation],
-		commitFailure: new EntityUserDataBadRequest({
+		commitFailure: new CommitConflict({
 			reason: { code: "child-mapping-conflict", entityIds: [EntityId.make("child-1")] },
 		}),
 	}),

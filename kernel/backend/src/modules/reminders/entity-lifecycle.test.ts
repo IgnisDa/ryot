@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
@@ -28,6 +27,7 @@ import {
 	mergeUserData,
 	userDataChangeSets,
 } from "#modules/changes/change-sets.test-support";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -373,7 +373,7 @@ layer(services)((test) => {
 					).pipe(Effect.exit);
 					assertExitFails(
 						exit,
-						new EntityUserDataBadRequest({
+						new CommitConflict({
 							reason: { code: "child-mapping-conflict", entityIds: [input.sourcePartId] },
 						}),
 					);

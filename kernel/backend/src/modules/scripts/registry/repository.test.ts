@@ -16,7 +16,7 @@ import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 
-import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
+import { isWorkflowCallTarget, SandboxRepository } from "./repository";
 
 const activity = {
 	index: 0,
@@ -26,10 +26,11 @@ const activity = {
 } satisfies WorkflowDurableCallRequest;
 
 describe("workflow call script resolution", () => {
-	it("dispatches activity requests to scripts", () => {
-		expect(isWorkflowCallTargetKind(activity, "script")).toBe(true);
+	it("dispatches activity requests only to activity scripts", () => {
+		expect(isWorkflowCallTarget(activity, { kind: "script", activity: true })).toBe(true);
+		expect(isWorkflowCallTarget(activity, { kind: "script" })).toBe(false);
 		for (const kind of ["operation", "workflow", "provider", "automation"] as const) {
-			expect(isWorkflowCallTargetKind(activity, kind)).toBe(false);
+			expect(isWorkflowCallTarget(activity, { kind })).toBe(false);
 		}
 	});
 
@@ -40,8 +41,8 @@ describe("workflow call script resolution", () => {
 			kind: "child",
 			args: { input: {}, workflowSlug: "workflow.test" },
 		} satisfies WorkflowDurableCallRequest;
-		expect(isWorkflowCallTargetKind(child, "workflow")).toBe(true);
-		expect(isWorkflowCallTargetKind(child, "script")).toBe(false);
+		expect(isWorkflowCallTarget(child, { kind: "workflow" })).toBe(true);
+		expect(isWorkflowCallTarget(child, { kind: "script", activity: true })).toBe(false);
 	});
 });
 

@@ -2032,6 +2032,29 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				);
 				return row ? yield* decodeItem(IngestionOutcome)(row.data) : null;
 			});
+			/** The operations among `operationIds` that already have an outcome. */
+			const recordedOutcomeIds = Effect.fn("ImportsRepository.recordedOutcomeIds")(function* (
+				scope: IngestionScope,
+				operationIds: ReadonlyArray<string>,
+			) {
+				if (operationIds.length === 0) {
+					return new Set<string>();
+				}
+				const rows = yield* database.run((db) =>
+					db
+						.select({ id: schema.importItem.id })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(
+							and(
+								owned(scope),
+								itemsOf("outcome", scope.runId),
+								inArray(schema.importItem.id, [...operationIds]),
+							),
+						),
+				);
+				return new Set(rows.map(({ id }) => id));
+			});
 			const releaseCapture = Effect.fn("ImportsRepository.releaseCapture")(function* (
 				scope: IngestionScope,
 				captureId: string,
@@ -2131,6 +2154,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				storeBatchResult,
 				startPayloadWrite,
 				stopPayloadWrites,
+				recordedOutcomeIds,
 				getPreparedRelease,
 				isIngestionApplied,
 				updateInputSummary,

@@ -221,6 +221,22 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 					}),
 				);
 			});
+			/** Moves an unsettled reminder's next attempt `RECONCILE_DELAY_MS` past `now`. */
+			const defer = (row: ReminderRecord, now: Date) =>
+				transaction(
+					Effect.gen(function* () {
+						const current = yield* lockCandidate(row);
+						if (current && (current.state === "scheduled" || current.state === "processing")) {
+							yield* repository.update(row.id, {
+								reconcileAt: DateTime.toDate(
+									DateTime.addDuration(DateTime.makeUnsafe(now), RECONCILE_DELAY_MS),
+								),
+							});
+						}
+					}),
+				).pipe(
+					Effect.catchCause((failure) => Effect.logWarning("Reminder deferral failed", failure)),
+				);
 			const run = Effect.fn("ReminderWorker.run")(function* () {
 				if (config.scheduler.disableDispatchers) {
 					return;
@@ -246,31 +262,17 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 									yield* admitDue(row, now);
 								}
 							}).pipe(
+								Effect.catchTag("KernelSignalBlocked", ({ reason }) =>
+									Effect.logInfo("Reminder deferred: its signal was blocked").pipe(
+										Effect.annotateLogs({ reminderId: row.id, reason: reason.code }),
+										Effect.andThen(defer(row, now)),
+									),
+								),
 								Effect.catchCause((cause) =>
-									Effect.gen(function* () {
-										yield* Effect.logWarning("Reminder processing deferred", cause).pipe(
-											Effect.annotateLogs({ reminderId: row.id }),
-										);
-										yield* transaction(
-											Effect.gen(function* () {
-												const current = yield* lockCandidate(row);
-												if (
-													current &&
-													(current.state === "scheduled" || current.state === "processing")
-												) {
-													yield* repository.update(row.id, {
-														reconcileAt: DateTime.toDate(
-															DateTime.addDuration(DateTime.makeUnsafe(now), RECONCILE_DELAY_MS),
-														),
-													});
-												}
-											}),
-										).pipe(
-											Effect.catchCause((failure) =>
-												Effect.logWarning("Reminder deferral failed", failure),
-											),
-										);
-									}),
+									Effect.logWarning("Reminder processing deferred", cause).pipe(
+										Effect.annotateLogs({ reminderId: row.id }),
+										Effect.andThen(defer(row, now)),
+									),
 								),
 							);
 						}

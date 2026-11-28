@@ -206,13 +206,14 @@ Ledgers that are preconditions:
 all-or-nothing. The result's `outcomes` list every create by position, and `toCreateEventsResponse`
 (`outcomes.ts`) builds the HTTP `CreateEventsResponse` from them:
 
-- a preparation failure fails only its item;
+- a preparation failure fails only its item, including a create naming a managed asset its user may
+  not reference;
 - a policy rejection is `skipped_by_policy`, and a policy item error fails the item
   (`session-entity-not-found` or `invalid-properties`);
 - a policy execution failure writes nothing, keeps preparation failures, and fails every other item
   with `policy-execution-failed`;
 - a commit conflict writes nothing, keeps preparation and policy outcomes, and fails every other item
-  with `mutation-conflict` or `asset-forbidden`.
+  with `mutation-conflict`, or `asset-forbidden` when an asset changed after preparation.
 
 A result that wrote nothing because of such a failure is recorded through the receipt in its own
 transaction. `events.verbatimIdentities` keeps each create's `itemIdentity` as its write identity
@@ -266,10 +267,8 @@ trigger, entity and event ID the commit derives comes from it. Failures are norm
 `resource-unavailable` with `policy-unavailable`, a policy rejection or a refusal a `script-failure`
 carrying its reason, and anything else `invalid-output`. Policy failures are classified where they
 happen: `applyPolicies` turns a policy that could not run for want of capacity into
-`PolicyUnavailable` and any other policy failure into `PolicyRejected`. A failure whose reason code is a
-`CommitConflictCode` is a `conflict`: stale baselines, and the `EntityUserDataService` refusals a user
-causes by acting on changed data (`state-conflict` when the captured user data changed,
-`child-mapping-conflict` when merged child data has no unique match). `PolicyUnavailable` (a policy
+`PolicyUnavailable` and any other policy failure into `PolicyRejected`. A `CommitConflict` is a
+`conflict` carrying its code. `PolicyUnavailable` (a policy
 run that failed with `resource-unavailable`, `timeout` or `infrastructure`) is `policy-unavailable`, so
 after hooks and workflow steps retry it; a `PolicyRejected` rejection is `policy-rejected`, and its
 other reasons stay `invalid`. The `EntityUserDataService` refusals of the entities a user chose
@@ -382,11 +381,24 @@ carry expected entity/session references, occurrence time, present property valu
 property names. Change sets can also declare the expected set of session event IDs. These baselines
 detect stale writes; a changed baseline fails the atomic change set rather than merging silently.
 
-A kernel commit that fails with `EventStale` for an event it updates or deletes with a field
-`expected` is prepared and committed again, at most twice, while the event's current snapshot still
-matches that `expected`: the concurrent change touched only fields the caller did not depend on. A
-stale event without `expected`, or one whose fields no longer match, fails the commit. Script commits
-are not retried.
+A kernel commit whose event it updates or deletes with a field `expected` turned stale is prepared
+and committed again, at most twice, while the event's current snapshot still matches that `expected`:
+the concurrent change touched only fields the caller did not depend on. A stale event without
+`expected`, or one whose fields no longer match, fails the commit. Script commits are not retried.
+
+### Commit conflicts
+
+Every `ChangeSets` method fails with `CommitConflict` (`conflict.ts`) when the change set's baseline
+changed or vanished concurrently, or the user data it clears or merges no longer allows the change.
+Its reason carries a `CommitConflictCode` and the event or entities it names: `event-stale`,
+`entity-stale`, `event-not-found`, `entity-not-found` (also another user's entity or event a script
+names), `mutation-conflict`, `concurrent-relationship-change`, and the `EntityUserDataService`
+refusals a user causes by acting on changed data (`state-conflict` when the captured user data
+changed, `child-mapping-conflict` when merged child data has no unique match). The domain services
+raise their own errors; `ChangeSets` classifies them once, after its retries. Kernel callers match
+`CommitConflict`, and each route maps it to its own wire error: the events, entities, relationships and
+entity data routes to their stale, not-found and bad-request errors, and plugin operations to the HTTP
+409 `changes-conflict` reason, which an operation's SDK `StaleBaselineError` also reaches.
 
 Optional event `baselines` protect read-dependent change sets. Each names a visible entity owned by
 the change set's plugin and the revision of that user's plugin event scope. Each insert, edit, deletion,

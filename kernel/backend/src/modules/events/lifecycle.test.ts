@@ -10,12 +10,7 @@ import {
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EventUpdate } from "@ryot-app/contract/modules/events/mutations";
-import {
-	EventBadRequest,
-	EventCreateItemError,
-	EventNotFound,
-	EventStale,
-} from "@ryot-app/contract/modules/events/schemas";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -61,6 +56,7 @@ import {
 	eventUpdate,
 } from "#modules/changes/change-sets.test-support";
 import type { EventChange } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -704,13 +700,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					]);
 					assertExitFails(
 						yield* Effect.exit(runChanges([eventUpdate(item)], command("stale-edit"))),
-						new EventStale({ reason: { eventId, code: "event-stale" } }),
+						new CommitConflict({ reason: { eventId, code: "event-stale" } }),
 					);
 					assertExitFails(
 						yield* Effect.exit(
 							runChanges([eventDelete(eventId, expected)], command("stale-delete")),
 						),
-						new EventStale({ reason: { eventId, code: "event-stale" } }),
+						new CommitConflict({ reason: { eventId, code: "event-stale" } }),
 					);
 					const current = yield* repository.getEventSnapshot({ userId, eventId });
 					assert(current);
@@ -879,7 +875,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						revision: 0,
 						snapshot: { entityId, sessionEntityId: entityId, updatedAt: created.createdAt },
 					});
-					const notFound = new EventNotFound({ reason: { eventId, code: "event-not-found" } });
+					const notFound = new CommitConflict({ reason: { eventId, code: "event-not-found" } });
 					assertExitFails(
 						yield* Effect.exit(
 							runChanges(
@@ -1008,7 +1004,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								{ policies: changedDuringPolicies(staleId) },
 							),
 						),
-						new EventStale({ reason: { eventId: staleId, code: "event-stale" } }),
+						new CommitConflict({ reason: { eventId: staleId, code: "event-stale" } }),
 					);
 					const staleDeleteId = EventId.make("prepared-stale-delete");
 					yield* seed(staleDeleteId);
@@ -1018,7 +1014,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								policies: changedDuringPolicies(staleDeleteId),
 							}),
 						),
-						new EventStale({ reason: { code: "event-stale", eventId: staleDeleteId } }),
+						new CommitConflict({ reason: { code: "event-stale", eventId: staleDeleteId } }),
 					);
 					expect(
 						yield* repository.getEventSnapshot({ userId, eventId: staleDeleteId }),
@@ -1102,7 +1098,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							{ policies: racingPolicies },
 						).pipe(Effect.flip),
 					).toMatchObject({
-						_tag: "EventStale",
+						_tag: "CommitConflict",
 						reason: { code: "event-stale", eventId: "batch-stale" },
 					});
 					for (const eventId of eventIds) {
@@ -1181,7 +1177,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								command("reference-race-protected"),
 							),
 						),
-						new EventStale({ reason: { code: "event-stale", eventId: protectedId } }),
+						new CommitConflict({ reason: { code: "event-stale", eventId: protectedId } }),
 					);
 					expect(referenceRaceInputs).toHaveLength(3);
 					expect(
@@ -1333,7 +1329,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						yield* Effect.exit(
 							runChanges([eventDelete(missingId)], command("no-hook-missing-delete")),
 						),
-						new EventNotFound({ reason: { eventId: missingId, code: "event-not-found" } }),
+						new CommitConflict({ reason: { eventId: missingId, code: "event-not-found" } }),
 					);
 					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(0);
 					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
@@ -1480,9 +1476,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								command("unreadable-edit-reference"),
 							),
 						),
-						new EventCreateItemError({
-							reason: { entityId: unreadable, code: "entity-not-found" },
-						}),
+						new CommitConflict({ reason: { entityIds: [unreadable], code: "entity-not-found" } }),
 					);
 					expect(
 						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
@@ -1579,7 +1573,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						const stale = yield* Effect.flip(
 							rejectsEdit(mismatch, `field-precondition-stale-${index}`),
 						);
-						expect(stale).toBeInstanceOf(EventStale);
+						expect(stale).toMatchObject({
+							_tag: "CommitConflict",
+							reason: { code: "event-stale" },
+						});
 					}
 
 					const deleteId = EventId.make("field-precondition-delete");
@@ -1655,7 +1652,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								{ policies: movingPolicies },
 							),
 						),
-						new EventStale({ reason: { eventId, code: "event-stale" } }),
+						new CommitConflict({ reason: { eventId, code: "event-stale" } }),
 					);
 					const after = yield* repository.getEventSnapshot({ userId, eventId });
 					assert(after);
@@ -1758,7 +1755,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								command("field-precondition-protected"),
 							),
 						),
-						new EventStale({ reason: { code: "event-stale", eventId: protectedEventId } }),
+						new CommitConflict({ reason: { code: "event-stale", eventId: protectedEventId } }),
 					);
 					expect(retryPolicyInputs).toHaveLength(3);
 					const protectedResult = yield* repository.getEventSnapshot({

@@ -7,7 +7,6 @@ import type { AutomationPolicyOutput } from "@ryot-app/contract/modules/automati
 import {
 	EntityBadRequest,
 	EntityNotFound,
-	EntityStale,
 	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
@@ -58,6 +57,7 @@ import {
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { entityChangeSets, entityUpdate } from "#modules/changes/change-sets.test-support";
 import type { Changes } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -599,7 +599,7 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(saved.properties).toEqual({ title: "changed" });
 					assertExitFails(
 						yield* Effect.exit(update("stale-update")),
-						new EntityStale({ reason: { code: "entity-stale", entityId: created.id } }),
+						new CommitConflict({ reason: { code: "entity-stale", entityId: created.id } }),
 					);
 				}),
 			testTimeout,
@@ -980,7 +980,7 @@ describe("EntitiesService committed lifecycle", () => {
 									command("late-event-delete"),
 								),
 							),
-							new EntityBadRequest({ reason: { code: "mutation-conflict" } }),
+							new CommitConflict({ reason: { code: "mutation-conflict" } }),
 						);
 						expect(yield* (yield* EntitiesRepository).getById(recordSession.id)).toEqual<unknown>(
 							recordSession,
@@ -1056,8 +1056,8 @@ describe("EntitiesService committed lifecycle", () => {
 						expect(
 							yield* changeSets.commit(denied, command(`scoped-denied-${index}`)).pipe(Effect.flip),
 						).toMatchObject({
-							_tag: "EntityNotFound",
-							reason: { entityId: record.id, code: "entity-not-found" },
+							_tag: "CommitConflict",
+							reason: { entityIds: [record.id], code: "entity-not-found" },
 						});
 					}
 					expect(
@@ -1135,7 +1135,7 @@ describe("EntitiesService committed lifecycle", () => {
 						yield* changeSets
 							.commit(deletesOf(owner, [global.id]), command("scoped-global-delete"))
 							.pipe(Effect.flip),
-					).toMatchObject({ _tag: "EntityNotFound" });
+					).toMatchObject({ _tag: "CommitConflict" });
 					expect(yield* (yield* EntitiesRepository).getById(global.id)).toEqual<unknown>(global);
 				}),
 			testTimeout,
@@ -1376,8 +1376,8 @@ describe("EntitiesService committed lifecycle", () => {
 							command("private-provider-create"),
 						)
 						.pipe(Effect.flatMap(savedEntity));
-					const refusal = new EntityNotFound({
-						reason: { entityId: entity.id, code: "entity-not-found" },
+					const refusal = new CommitConflict({
+						reason: { entityIds: [entity.id], code: "entity-not-found" },
 					});
 					assertExitFails(
 						yield* Effect.exit(
@@ -1402,7 +1402,7 @@ describe("EntitiesService committed lifecycle", () => {
 								target: entityUpdate(entity, "Editor edit", {}).target,
 							}),
 						),
-						refusal,
+						new EntityNotFound({ reason: { entityId: entity.id, code: "entity-not-found" } }),
 					);
 					expect((yield* repository.getById(entity.id))?.name).toBe(entity.name);
 					const corrected = yield* changeSets
@@ -1499,7 +1499,7 @@ describe("EntitiesService committed lifecycle", () => {
 								command("policy-provider-update"),
 							),
 						),
-						new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
+						new CommitConflict({ reason: { entityIds: [entityId], code: "entity-not-found" } }),
 					);
 					expect((yield* repository.getById(entityId))?.name).toBe("Original");
 				}),

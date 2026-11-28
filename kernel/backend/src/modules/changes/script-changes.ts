@@ -1,8 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	CommitConflictCode,
-	CommittedChanges,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { PolicyRejected, PolicyUnavailable } from "@ryot-app/contract/modules/changes/policies";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
@@ -27,11 +24,9 @@ import {
 import { scriptChangesCommand } from "#modules/scripts/host/execution-context";
 
 import { ChangeSetRejected } from "./authority";
+import { CommitConflict } from "./conflict";
 import { type ChangeSetFailure, ChangeSets } from "./service";
 
-const isCommitConflict = Schema.is(
-	Schema.Struct({ reason: Schema.Struct({ code: CommitConflictCode }) }),
-);
 const hasReasonCode = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Schema.String }) }));
 
 const invalid = (message: string) =>
@@ -65,7 +60,7 @@ const rejection = (error: typeof ChangeSetFailure.Type) => {
 	if (refusal !== undefined) {
 		return new ScriptChangesRejected({ reason: { code: "refused", message: refusal } });
 	}
-	if (isCommitConflict(error)) {
+	if (error instanceof CommitConflict) {
 		return new ScriptChangesRejected({ reason: { code: "conflict", conflict: error.reason.code } });
 	}
 	if (error instanceof ChangeSetRejected) {

@@ -1624,20 +1624,27 @@ layer(Layer.provideMerge(harnessLayer({ noHooks: true }), BunCrypto.layerSecureR
 	"independent events",
 	(test) => {
 		test.effect(
-			"fails an event-create item that references another user's managed asset",
+			"fails only the event-create item that references another user's managed asset",
 			() =>
 				Effect.gen(function* () {
 					const h = yield* IndependentEventsHarness;
 					const foreign = yield* insertManagedAsset(UserId.make("event-create-asset-foreign"));
 					const result = yield* run({
 						...payload,
-						payload: [{ entityId, eventSchemaSlug, properties: { rating: 1, image: foreign } }],
+						payload: [
+							...ratedItems([1]),
+							{ entityId, eventSchemaSlug, properties: { rating: 2, image: foreign } },
+							...ratedItems([3]),
+						],
 					});
 					expect(result).toMatchObject({
-						count: 0,
-						failure: { index: 0, reason: { code: "asset-forbidden" } },
+						count: 2,
+						failure: { index: 1, reason: { code: "asset-forbidden" } },
 					});
-					expect(yield* h.created).toEqual([]);
+					expect((yield* h.created).map(({ properties }) => properties)).toEqual([
+						{ rating: 1 },
+						{ rating: 3 },
+					]);
 				}),
 			testTimeout,
 		);

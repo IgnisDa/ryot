@@ -1,4 +1,5 @@
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
+import { isActivityScript } from "@ryot-app/contract/modules/plugins/execution";
 import {
 	type SandboxExecutionSubject,
 	sandboxSubjectUserId,
@@ -38,12 +39,13 @@ const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
 
 type StoredScriptMetadata = (typeof schema.sandboxScript.$inferSelect)["metadata"];
 
-export const isWorkflowCallTargetKind = (
+export const isWorkflowCallTarget = (
 	request: WorkflowDurableCallRequest,
-	kind: StoredScriptMetadata["kind"],
+	metadata: Pick<StoredScriptMetadata, "kind" | "activity">,
 ) =>
-	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
-	(request.kind === "activity" && kind === "script");
+	((request.kind === "child" || request.kind === "workflow-child") &&
+		metadata.kind === "workflow") ||
+	(request.kind === "activity" && isActivityScript(metadata));
 
 export const pinnedRevisionScript = (revisionId: string) =>
 	sql`exists (select 1 from ${schema.sandboxScript} s where s.plugin_revision_id = ${revisionId}
@@ -380,7 +382,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							)
 							.limit(1),
 					);
-					if (!target || !isWorkflowCallTargetKind(request, target.metadata.kind)) {
+					if (!target || !isWorkflowCallTarget(request, target.metadata)) {
 						return null;
 					}
 					return {

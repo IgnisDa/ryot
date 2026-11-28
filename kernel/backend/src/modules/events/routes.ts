@@ -3,9 +3,9 @@ import { AppContract } from "@ryot-app/contract/contract";
 import type { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EventBadRequest,
-	type EventNotFound,
+	EventNotFound,
 	EventsInternalError,
-	type EventStale,
+	EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
 import { EventId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
@@ -35,13 +35,24 @@ const commitEventChange = Effect.fnUntraced(
 			EventStale | EventNotFound | PolicyFailure | EventBadRequest | EventsInternalError
 		> => {
 			if (
-				error._tag === "EventStale" ||
-				error._tag === "EventNotFound" ||
 				error._tag === "EventBadRequest" ||
 				error._tag === "PolicyRejected" ||
 				error._tag === "PolicyUnavailable"
 			) {
 				return Effect.fail(error);
+			}
+			if (error._tag === "CommitConflict") {
+				const { reason } = error;
+				if (reason.code === "event-stale") {
+					return Effect.fail(new EventStale({ reason }));
+				}
+				if (reason.code === "event-not-found") {
+					return Effect.fail(new EventNotFound({ reason }));
+				}
+				const conflict = new EventBadRequest({ reason: { code: "mutation-conflict" } });
+				return reason.code === "mutation-conflict"
+					? Effect.fail(conflict)
+					: rejectWithLoggedCause(conflict, `Event change conflicted: ${reason.code}`);
 			}
 			if (error._tag === "DomainWriteConflict") {
 				return Effect.fail(new EventBadRequest({ reason: { code: error.reason.code } }));

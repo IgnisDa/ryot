@@ -503,7 +503,7 @@ export const AutomationTriggerKind = Schema.Union([
 ]);
 export type AutomationTriggerKind = typeof AutomationTriggerKind.Type;
 
-const AutomationBlockedReason = strictStruct({
+export const AutomationBlockedReason = strictStruct({
 	code: Schema.Literal("automation-limit-reached"),
 	omittedHooks: Schema.Array(AutomationHookIdentity).pipe(Schema.check(Schema.isMaxLength(100))),
 });

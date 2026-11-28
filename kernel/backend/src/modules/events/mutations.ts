@@ -611,7 +611,37 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				const items: Array<typeof PreparedEventChange.Type> = [];
 				const propertiesSchemas: Record<string, AppSchema> = {};
 				const failures: Array<(typeof PreparedEventChanges.Type.failures)[number]> = [];
+				// An independent change naming an asset it may not reference fails alone; the commit's lock
+				// still fails every change of an asset that changes after this check.
+				const checked = input.independent
+					? prepared.flatMap((result, index) =>
+							result._tag === "Success"
+								? [
+										{
+											index,
+											ownerUserId: input.userId,
+											properties: result.success.draft.properties,
+											propertiesSchema: result.success.propertiesSchema,
+										},
+									]
+								: [],
+						)
+					: [];
+				const assetForbidden = new Set(
+					[...(yield* assets.rejected(checked))].map((position) => checked[position]?.index),
+				);
 				for (const [index, result] of prepared.entries()) {
+					const change = pending[index];
+					if (!change) {
+						return yield* Effect.die("Prepared change index is unavailable");
+					}
+					if (assetForbidden.has(index)) {
+						failures.push({
+							reason: { code: "asset-forbidden" },
+							itemIdentity: change.change.itemIdentity,
+						});
+						continue;
+					}
 					if (result._tag === "Success") {
 						const { propertiesSchema, ...item } = result.success;
 						items.push(item);
@@ -621,10 +651,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					const error = result.failure;
 					if (!input.independent || error._tag === "DbError") {
 						return yield* error;
-					}
-					const change = pending[index];
-					if (!change) {
-						return yield* Effect.die("Prepared change index is unavailable");
 					}
 					failures.push({
 						itemIdentity: change.change.itemIdentity,

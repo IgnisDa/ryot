@@ -12,6 +12,7 @@ import { HttpApiBuilder } from "effect/http-api";
 
 import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
 import { rejectKernelOwnedSchemas } from "#modules/changes/authority";
+import type { CommitConflict } from "#modules/changes/conflict";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
@@ -23,6 +24,19 @@ import { EntityEnrichmentService } from "./providers/enrichment";
 const isRouteFailure = Schema.is(
 	Schema.Union([DbError, PolicyFailure, EntityBadRequest, EntityNotFound, EntityStale]),
 );
+
+const entityConflict = ({
+	reason,
+}: CommitConflict): Effect.Effect<never, EntityStale | EntityNotFound | EntityBadRequest> => {
+	if (reason.code === "entity-stale") {
+		return Effect.fail(new EntityStale({ reason }));
+	}
+	if (reason.code === "entity-not-found") {
+		const [entityId] = reason.entityIds;
+		return Effect.fail(new EntityNotFound({ reason: { entityId, code: reason.code } }));
+	}
+	return Effect.fail(new EntityBadRequest({ reason: { code: "mutation-conflict" } }));
+};
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
 	handlers
@@ -53,6 +67,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				);
 				return { entity: yield* savedEntity(result) };
 			}).pipe(
+				Effect.catchTag("CommitConflict", entityConflict),
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
 				dieOnDbError,
 			),

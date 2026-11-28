@@ -33,7 +33,7 @@ the account and takes the occurrence's delivery lock, writing nothing when the o
 recorded; its record step stores `(user, plugin, schedule, occurrence)` in `signal_schedule_delivery`
 with the signal's trigger in the same transaction. Dispatch starts after commit. A recorded
 occurrence is never planned again, even if its date later moves, until retention deletes the row
-after 30 days. A failing target is logged and saves no evaluation, so a later run tries it again.
+after 30 days. A failing target, or one whose signal is blocked, is logged and saves no evaluation, so a later run tries it again.
 
 ## Evaluation
 

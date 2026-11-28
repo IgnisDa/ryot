@@ -302,8 +302,9 @@ These are listed so they aren't rediscovered; each needs the user's go-ahead.
   takes 340–740 MB, the app grew from 329 MB to 1.9 GB, and the host froze.
 - **Show episode log cost.** Each write refolds the stored library summary, about 60–90 ms of SQL on
   the host. That is what makes #1878's show cards and continue-watching lists cheap to read.
-- **Media fold sources.** `occurrences` and `coverageSources` grow with history; a title needs about
-  7k sources to reach the bound.
+- **Media fold occurrences.** The fold value keeps one `occurrences` entry per completion, so it grows
+  with a title's completions; a coverage occurrence keeps only its closing source and the fold counts
+  only its latest completion, so episodes no longer add sources.
 - **Manual imports** store `sourceRun` without the run prefix that `batch.ts` adds.
 - **Policy chunks.** A subject with more than 50 items gets a chunk of its own, and a chunk over the
   sandbox context limit fails with `policy-execution-failed`.

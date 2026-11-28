@@ -31,8 +31,9 @@ export class ManagedAssetReferenceLocker extends Context.Service<ManagedAssetRef
 			const session = yield* DatabaseSession;
 			// Every locator is checked, not only newly added ones: managed_asset rows are removed only by
 			// the owner-account cascade, and only rows owned by that same owner may reference them.
-			const lock = Effect.fn("ManagedAssetReferenceLocker.lock")(function* (
+			const check = Effect.fnUntraced(function* (
 				records: ReadonlyArray<OwnedManagedAssetPropertyRecord>,
+				lock: boolean,
 			) {
 				const recordLocators = records.map((record) => ({
 					ownerUserId: record.ownerUserId,
@@ -46,11 +47,13 @@ export class ManagedAssetReferenceLocker extends Context.Service<ManagedAssetRef
 					),
 				);
 				if (requested.length === 0) {
-					return yield* Effect.void;
+					return new Set<number>();
 				}
-				yield* session.requireTransaction;
-				const rows = yield* session.run((db) =>
-					db
+				if (lock) {
+					yield* session.requireTransaction;
+				}
+				const rows = yield* session.run((db) => {
+					const query = db
 						.select({
 							key: managedAsset.key,
 							provider: managedAsset.provider,
@@ -59,25 +62,44 @@ export class ManagedAssetReferenceLocker extends Context.Service<ManagedAssetRef
 						})
 						.from(managedAsset)
 						.where(or(...requested.map(locatorWhere)))
-						.orderBy(asc(managedAsset.provider), asc(managedAsset.key))
-						.for("share"),
-				);
+						.orderBy(asc(managedAsset.provider), asc(managedAsset.key));
+					return lock ? query.for("share") : query;
+				});
 				const assets = new Map(
 					rows.map(
 						(row) => [managedAssetLocatorKey({ key: row.key, type: row.provider }), row] as const,
 					),
 				);
-				const rejected = recordLocators.some(({ locators, ownerUserId }) =>
-					locators.some((locator) => {
-						const asset = assets.get(managedAssetLocatorKey(locator));
-						return (
-							ownerUserId === null || asset?.retiredAt !== null || asset.ownerUserId !== ownerUserId
-						);
-					}),
+				return new Set(
+					recordLocators.flatMap(({ locators, ownerUserId }, index) =>
+						locators.some((locator) => {
+							const asset = assets.get(managedAssetLocatorKey(locator));
+							return (
+								ownerUserId === null ||
+								asset?.retiredAt !== null ||
+								asset.ownerUserId !== ownerUserId
+							);
+						})
+							? [index]
+							: [],
+					),
 				);
-				return yield* rejected ? new ManagedAssetReferenceRejected() : Effect.void;
 			});
-			return { lock };
+			/** Share-locks every asset the records reference, failing when one may not be referenced. */
+			const lock = Effect.fn("ManagedAssetReferenceLocker.lock")(function* (
+				records: ReadonlyArray<OwnedManagedAssetPropertyRecord>,
+			) {
+				const rejected = yield* check(records, true);
+				return yield* rejected.size > 0 ? new ManagedAssetReferenceRejected() : Effect.void;
+			});
+			/** The positions of the records referencing an asset they may not, without locking. */
+			const rejected = Effect.fn("ManagedAssetReferenceLocker.rejected")(function* (
+				records: ReadonlyArray<OwnedManagedAssetPropertyRecord>,
+			) {
+				const positions: ReadonlySet<number> = yield* check(records, false);
+				return positions;
+			});
+			return { lock, rejected };
 		}),
 	},
 ) {}

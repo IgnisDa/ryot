@@ -392,11 +392,22 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 							field("number", castNumber(literal("3"))),
 							field("boolean", castBoolean(literal("true"))),
 							field("date", castDate(literal("2026-01-01"))),
+							field("instant", castDate(literal("2026-01-01T05:30:00.000Z"))),
+							field("invalidDate", castDate(literal("2026-02-30"))),
+							field("infinite", castDate(literal("infinity"))),
 						],
 					}),
 				);
 				expect(nested.result.items).toEqual([
-					{ first: 1, number: 3, boolean: true, date: "2026-01-01T00:00:00.000Z" },
+					{
+						first: 1,
+						number: 3,
+						boolean: true,
+						infinite: null,
+						invalidDate: null,
+						date: "2026-01-01T00:00:00.000Z",
+						instant: "2026-01-01T05:30:00.000Z",
+					},
 				]);
 				const items = jsonPath(column(source, "properties"), "items");
 				const element = jsonElementsJoin("inner", "element", items);

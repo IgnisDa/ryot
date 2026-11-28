@@ -502,14 +502,14 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							}),
 						]),
 					),
-				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
+				).toMatchObject({ _tag: "CommitConflict", reason: { code: "entity-not-found" } });
 				expect(
 					yield* Effect.flip(
 						changeUserEvents(nextCommand(first.command, "wrong-delete"), firstUser, [
 							eventDelete(eventId),
 						]),
 					),
-				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
+				).toMatchObject({ _tag: "CommitConflict", reason: { code: "entity-not-found" } });
 				expect(
 					(yield* session.run((db) =>
 						db.select().from(tables.event).where(eq(tables.event.id, eventId)),
@@ -864,7 +864,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				expect(
 					yield* merge(from.id, into.id, bottle, nextCommand(first.command, "m5")),
-				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
+				).toMatchObject({ _tag: "CommitConflict", reason: { code: "entity-not-found" } });
 				expect(
 					yield* session.run((db) =>
 						db
@@ -1971,14 +1971,14 @@ layer(relationshipChangeSetsLayer())((test) => {
 								}),
 							]),
 						),
-					).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
+					).toMatchObject({ _tag: "CommitConflict", reason: { code: "entity-not-found" } });
 					expect(
 						yield* Effect.flip(
 							changeUserEvents(nextCommand(writer.command, `delete-${eventId}`), firstUser, [
 								eventDelete(eventId),
 							]),
 						),
-					).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
+					).toMatchObject({ _tag: "CommitConflict", reason: { code: "entity-not-found" } });
 				}
 				expect(
 					yield* Effect.flip(

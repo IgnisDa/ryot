@@ -22,12 +22,13 @@ the IDs an earlier record's commit generated and a record fails alone. An existi
 provider-resolved entity record is a reference, so its commit checks the entity's schema and records
 its `unchanged` import item. A run of consecutive event records references only records committed
 before it, so it commits as one independent-mode change set in one activity, keyed by the run's
-first committed record, with an outcome per event: a preparation failure, policy rejection or policy
-item error affects only its event, and a failure of the whole commit (a policy execution error,
-`mutation-conflict` or `asset-forbidden`) fails every event without an outcome of its own. An event
-naming managed assets commits in a run of its own, because the commit checks the assets of all its
-creates at once and one it may not reference fails every create. A run whose activity fails records
-each of its events `unsuccessful`. Cancellation is checked before each record or run.
+first committed record, with an outcome per event: a preparation failure (an asset the user may not
+reference among them), policy rejection or policy item error affects only its event, and a failure of
+the whole commit (a policy execution error, `mutation-conflict`, or `asset-forbidden` for an asset that
+changed after preparation) fails every event without an outcome of its own. A run whose activity fails
+records each of its events `unsuccessful`. The commit owns every property and asset check of a
+record, so a record it refuses fails at `database_commit`. Cancellation is checked before each record
+or run.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
 the ingestion identity of the subject entity's operation. Provider entities resolve in their own
@@ -54,7 +55,7 @@ commit did not write: `skipped` with the policy's `policy-rejected` reason, or `
 coalesced event's outcome is recorded the same way after its commit. A record or run that fails
 otherwise records its operations `unsuccessful` with its failure stage's code, and a generic record
 with a failure records each intent that has neither a result nor an outcome `unsuccessful` with its
-first failure's code.
+first failure's code, in one activity that reads the record's results and outcomes as sets.
 
 Collection memberships commit in the record's change set, built by `CollectionsService`: each names
 the user's collection by trimmed name, created with the record when no collection has that name, a

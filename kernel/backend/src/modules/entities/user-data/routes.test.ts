@@ -4,7 +4,6 @@ import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-
 import { AppContract } from "@ryot-app/contract/contract";
 import { PolicyRejected, PolicyUnavailable } from "@ryot-app/contract/modules/changes/policies";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
-import { EventStale } from "@ryot-app/contract/modules/events/schemas";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
@@ -18,6 +17,7 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
 import type { Changes } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
@@ -74,7 +74,9 @@ const routesLayer = Layer.unwrap(
 				const clearedId = changes.entities?.clears?.[0]?.entityId;
 				if (clearedId === "edited") {
 					return Effect.fail(
-						new EventStale({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
+						new CommitConflict({
+							reason: { code: "event-stale", eventId: EventId.make("edited") },
+						}),
 					);
 				}
 				if (clearedId === "unavailable") {

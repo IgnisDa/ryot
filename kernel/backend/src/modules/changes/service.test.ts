@@ -10,7 +10,6 @@ import type {
 import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { ChangeSet, ChangeSetEntityUpdate } from "@ryot-app/contract/modules/changes/change-set";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
-import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -89,6 +88,7 @@ import { workflowEngineTestLayer } from "#testing/effect";
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
 import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
+import { CommitConflict } from "./conflict";
 import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets, type ScriptLifecycleCommand } from "./service";
 
@@ -736,7 +736,7 @@ layer(testLayer(false))((test) => {
 					});
 					assertExitFails(
 						yield* Effect.exit(commitUserCommand({ input: staleInput, command: nextCommand() })),
-						new EntityStale({ reason: { code: "entity-stale", entityId: original.entityId } }),
+						new CommitConflict({ reason: { code: "entity-stale", entityId: original.entityId } }),
 					);
 					const partial = yield* input.session.run((db) =>
 						db
@@ -903,7 +903,7 @@ layer(testLayer(false))((test) => {
 								},
 							}),
 						),
-						new EntityStale({ reason: { code: "entity-stale", entityId: changedEntityId } }),
+						new CommitConflict({ reason: { code: "entity-stale", entityId: changedEntityId } }),
 					);
 					const sourceEvidenceAfter = yield* input.session.run((db) =>
 						db
@@ -1657,7 +1657,7 @@ layer(testLayer(false))((test) => {
 					yield* Effect.exit(
 						commit(yield* entityUpdates([[target, original, "Stale"]]), nextCommand(input)),
 					),
-					new EntityStale({ reason: { entityId: target, code: "entity-stale" } }),
+					new CommitConflict({ reason: { entityId: target, code: "entity-stale" } }),
 				);
 				expect(yield* read).toMatchObject({ name: "Renamed" });
 			}),
@@ -2876,11 +2876,25 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 							eventSchemaSlug: "collection-entry",
 						}),
 				);
-				const attacks: Record<string, readonly [string, string, typeof ChangeSet.Encoded]> = {
+				const run = automationRun(own);
+				const attacks: Record<
+					string,
+					readonly [string, string, typeof ChangeSet.Encoded, ScriptExecutionPrincipal?]
+				> = {
+					"fold subject": [
+						"folds",
+						foreignEntity,
+						{ folds: { scope: "user", entityIds: [foreignEntity] } },
+					],
 					"event entity": [
 						"events",
 						foreignEntity,
 						{ events: eventCreate({ kind: "existing", entityId: foreignEntity }) },
+					],
+					"another user's fold subject": [
+						"folds",
+						otherUserEntity,
+						{ folds: { scope: "user", entityIds: [otherUserEntity] } },
 					],
 					"kernel-owned entity": [
 						"events",
@@ -2963,6 +2977,21 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 							},
 						},
 					],
+					"signal subject": [
+						"signals",
+						foreignEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "foreign",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: foreignEntity,
+								},
+							],
+						},
+						run,
+					],
 					"entity update": [
 						"entities.updates",
 						foreignEntity,
@@ -2978,6 +3007,21 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 								],
 							},
 						},
+					],
+					"another user's signal subject": [
+						"signals",
+						otherUserEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "other-user",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: otherUserEntity,
+								},
+							],
+						},
+						run,
 					],
 					"relationship delete": [
 						"relationships",
@@ -3052,17 +3096,17 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 				const expected: Record<string, unknown> = {
 					"missing entity": { code: "conflict", conflict: "entity-not-found" },
 					"another user's entity": { code: "conflict", conflict: "entity-not-found" },
+					"another user's fold subject": { code: "conflict", conflict: "entity-not-found" },
 					"another user's entity delete": { code: "conflict", conflict: "entity-not-found" },
+					"another user's signal subject": { code: "conflict", conflict: "entity-not-found" },
 				};
 				const missing = EntityId.make(yield* randomUuid);
-				for (const [name, [part, id, attack]] of Object.entries({
-					...attacks,
-					"missing entity": [
-						"events",
-						missing,
-						{ events: eventCreate({ kind: "existing", entityId: missing }) },
-					] as const,
-				})) {
+				attacks["missing entity"] = [
+					"events",
+					missing,
+					{ events: eventCreate({ kind: "existing", entityId: missing }) },
+				];
+				for (const [name, [part, id, attack, principal]] of Object.entries(attacks)) {
 					const error = yield* Effect.flip(
 						Effect.flatMap(ScriptChanges, (scripts) =>
 							Effect.flatMap(Schema.decodeEffect(ChangeSet)(attack), (changes) =>
@@ -3071,7 +3115,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 									lane: "interactive",
 									executionId: `foreign-${name}`,
 									occurredAt: own.command.occurredAt,
-									principal: own.command.writeContext,
+									principal: principal ?? own.command.writeContext,
 								}),
 							),
 						),

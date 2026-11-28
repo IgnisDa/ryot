@@ -198,7 +198,7 @@ Ungrouped aggregates return one item without page info and accept no cursor. Gro
 
 ## Compilation
 
-`planner.ts` turns each validated named query into an immutable plan before any SQL is emitted; `executor.ts` only reads that plan. A plan scope exists for the root, every include, and every correlated query. It records each alias's generated SQL name and the catalog fields referenced anywhere in its subtree, so catalog sources add derived columns (such as event projections) only when needed.
+`planner.ts` turns each validated named query into an immutable plan before any SQL is emitted; `executor.ts` only reads that plan. A plan scope exists for the root, every include, and every correlated query. It records each alias's generated SQL name and the catalog fields referenced anywhere in its subtree, so catalog sources add derived columns (such as event and relationship projections) only when needed.
 
 Correlated aggregates with an identical query set in the same scope are fused into one `CROSS JOIN LATERAL` that computes all their measures once per outer row; selections, ordering, and cursor predicates reference its columns. Aggregates inside join conditions or JSON element operators stay scalar subqueries. Likewise, a scope that reads `first` more than once with an identical query set and ordering selects all its distinct non-JSON values through one `LEFT JOIN LATERAL ... LIMIT 1`; a lone `first`, one inside a join condition, and a JSON-valued one stay scalar subqueries. Reads inside a conditional's branch fuse the same way, so a value the filter, the order and the fields all read is computed and rendered once per row. A lateral that only branches read runs only for rows that take one of them: its query also requires the condition of the outermost conditional around each read (negated for the `else` branch), which PostgreSQL checks once per row before scanning. Those conditions are read outside every branch, so guarded laterals follow the unguarded ones they read. A value read once and only inside a branch stays a scalar subquery in the `CASE`.
 
@@ -208,7 +208,7 @@ Inside a fused aggregate with only inner table joins, a reference is hoisted int
 
 A rows query whose root `entity` filters `occursAt` on both sides runs with the written join order, set for that statement. Postgres badly underestimates joins through library memberships and would otherwise start there and visit every row the date range rules out, so such a query should list its joins outward from the dated entity.
 
-Catalog sources return their `from` fragment plus named CTEs; the executor owns CTE names, merges them for the whole statement, and emits one `WITH` clause. A cast of a JSON object path to text, number, or boolean is one silent `jsonb_path_query_first` call, and a cast of a subquery operand evaluates the subquery once. A `localDate` always renders a valid date or null, so casting it to a date skips the validity check.
+Catalog sources return their `from` fragment plus named CTEs; the executor owns CTE names, merges them for the whole statement, and emits one `WITH` clause. A cast of a JSON object path to text, number, or boolean is one silent `jsonb_path_query_first` call, and a cast of a subquery operand evaluates the subquery once. A `localDate` always renders a valid date or null, so casting it to a date skips the validity check; so does a date literal written as `YYYY-MM-DD` or as a UTC `toISOString` instant, such as a bound `date` parameter or `now`; any other text keeps the check.
 
 ## Limits
 

@@ -167,6 +167,17 @@ const safeInputValid = (value: SqlFragment, target: CastTarget) => {
 	return valid;
 };
 
+// Dates and `toISOString` instants of years 1-9999 always parse, so their literal casts need no check.
+const isCanonicalTimestamp = (value: string) => {
+	const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+	const instant = new Date(dateOnly ? `${value}T00:00:00.000Z` : value);
+	if (!Number.isFinite(instant.getTime()) || instant.getUTCFullYear() < 1) {
+		return false;
+	}
+	const canonical = instant.toISOString();
+	return dateOnly ? canonical.startsWith(`${value}T`) : canonical === value;
+};
+
 const inlineCastOperand = (expr: ScalarExpression, scope: AliasScope): boolean => {
 	if (expr.type === "literal" || expr.type === "jsonElement") {
 		return true;
@@ -267,6 +278,14 @@ const compileCast = (
 	// A local date renders as a valid date or null, so its cast needs no check.
 	if (expr.target === "date" && expr.expr.type === "localDate") {
 		return sql`(${compileExpression(expr.expr, ctx)})::timestamp with time zone`;
+	}
+	if (
+		expr.target === "date" &&
+		expr.expr.type === "literal" &&
+		typeof expr.expr.value === "string" &&
+		isCanonicalTimestamp(expr.expr.value)
+	) {
+		return sql`${expr.expr.value}::timestamp with time zone`;
 	}
 	if (sourceKind === "json") {
 		if (expr.target === "text") {
