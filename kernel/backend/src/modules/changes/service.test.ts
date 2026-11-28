@@ -2876,7 +2876,51 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 							eventSchemaSlug: "collection-entry",
 						}),
 				);
-				const attacks: Record<string, readonly [string, string, typeof ChangeSet.Encoded]> = {
+				const run = automationRun(own);
+				const attacks: Record<
+					string,
+					readonly [string, string, typeof ChangeSet.Encoded, ScriptExecutionPrincipal?]
+				> = {
+					"fold subject": [
+						"folds",
+						foreignEntity,
+						{ folds: { scope: "user", entityIds: [foreignEntity] } },
+					],
+					"another user's fold subject": [
+						"folds",
+						otherUserEntity,
+						{ folds: { scope: "user", entityIds: [otherUserEntity] } },
+					],
+					"signal subject": [
+						"signals",
+						foreignEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "foreign",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: foreignEntity,
+								},
+							],
+						},
+						run,
+					],
+					"another user's signal subject": [
+						"signals",
+						otherUserEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "other-user",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: otherUserEntity,
+								},
+							],
+						},
+						run,
+					],
 					"event entity": [
 						"events",
 						foreignEntity,
@@ -3053,16 +3097,16 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 					"missing entity": { code: "conflict", conflict: "entity-not-found" },
 					"another user's entity": { code: "conflict", conflict: "entity-not-found" },
 					"another user's entity delete": { code: "conflict", conflict: "entity-not-found" },
+					"another user's fold subject": { code: "conflict", conflict: "entity-not-found" },
+					"another user's signal subject": { code: "conflict", conflict: "entity-not-found" },
 				};
 				const missing = EntityId.make(yield* randomUuid);
-				for (const [name, [part, id, attack]] of Object.entries({
-					...attacks,
-					"missing entity": [
-						"events",
-						missing,
-						{ events: eventCreate({ kind: "existing", entityId: missing }) },
-					] as const,
-				})) {
+				attacks["missing entity"] = [
+					"events",
+					missing,
+					{ events: eventCreate({ kind: "existing", entityId: missing }) },
+				];
+				for (const [name, [part, id, attack, principal]] of Object.entries(attacks)) {
 					const error = yield* Effect.flip(
 						Effect.flatMap(ScriptChanges, (scripts) =>
 							Effect.flatMap(Schema.decodeEffect(ChangeSet)(attack), (changes) =>
@@ -3071,7 +3115,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 									lane: "interactive",
 									executionId: `foreign-${name}`,
 									occurredAt: own.command.occurredAt,
-									principal: own.command.writeContext,
+									principal: principal ?? own.command.writeContext,
 								}),
 							),
 						),

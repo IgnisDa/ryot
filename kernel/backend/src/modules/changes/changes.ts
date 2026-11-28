@@ -404,6 +404,9 @@ export const scriptChangeSetParts: ReadonlyArray<ScriptChangeSetPart> = [
 		present: ({ folds }) => folds !== undefined,
 		translate: ({ folds }) => (folds === undefined ? {} : { folds }),
 		writer: { kind: "user", named: ({ folds }) => folds?.scope === "user" },
+		references: ({ folds }) => ({
+			entities: (folds?.entityIds ?? []).map((entityId) => [entityId] as const),
+		}),
 	},
 	{
 		part: "entity",
@@ -537,6 +540,11 @@ export const scriptChangeSetParts: ReadonlyArray<ScriptChangeSetPart> = [
 		part: "signals",
 		present: ({ signals }) => nonEmpty(signals),
 		schemas: ({ signals = [] }) => ({ signal: signals.map(({ schemaSlug }) => schemaSlug) }),
+		references: ({ signals = [] }) => ({
+			entities: signals.flatMap(({ subjectEntityId }) =>
+				subjectEntityId === undefined ? [] : [[subjectEntityId] as const],
+			),
+		}),
 		translate: ({ signals }, { owner, userId }) =>
 			signals === undefined
 				? {}
