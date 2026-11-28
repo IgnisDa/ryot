@@ -51,7 +51,6 @@ export type SandboxRunInput = {
 	readonly compiledFormat: number;
 	readonly principal: SandboxPrincipal;
 	readonly workflowExecutionId?: string;
-	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
 	readonly replayJournal?: SandboxPinnedJournal;
 	readonly inlineDurableHost?: SandboxInlineDurableHost;

@@ -109,7 +109,6 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		principal,
 		compiledCode: "",
 		workflowExecutionId: executionId,
-		hostCallDiscriminator: request.index,
 		compiledFormat: SANDBOX_COMPILED_FORMAT,
 		executionId: `${executionId}-host-${request.index}`,
 	};
