@@ -17,10 +17,8 @@ const timestamp = "2026-01-01T00:00:00.000Z";
 
 export const execution = { metadata: {}, startedAt: timestamp, sandboxScriptId: "script-test" };
 
-const invocation = {
-	runId: "run-1",
+const policyInvocation = {
 	occurredAt: timestamp,
-	triggerId: "trigger-1",
 	hookSlug: "media.test",
 	executionUserId: "user-1",
 	causation: {
@@ -34,6 +32,8 @@ const invocation = {
 		initiator: { kind: "user", id: "user-1" },
 	},
 };
+
+const invocation = { ...policyInvocation, runId: "run-1", triggerId: "trigger-1" };
 
 export const automationContext = (payload: unknown, overrides: Record<string, unknown> = {}) =>
 	Schema.decodeUnknownEffect(automationInputSchema)({
@@ -105,7 +105,10 @@ const policyEventDraft = {
 
 const policyInput = (payload: Record<string, unknown>) =>
 	Schema.decodeUnknownEffect(automationPolicyInputSchema)({
-		automation: { ...invocation, payload: { resource: "event", category: "request", ...payload } },
+		automation: {
+			...policyInvocation,
+			payload: { resource: "event", category: "request", ...payload },
+		},
 	}).pipe(Effect.orDie);
 
 export const policyAutomationContext = (

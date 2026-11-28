@@ -1,10 +1,9 @@
-import { DbError, SandboxFailureKind, unknownToMessage } from "@ryot-app/contract/errors";
+import { DbError, SandboxFailureKind } from "@ryot-app/contract/errors";
 import {
-	AutomationEntityDraft,
+	type AutomationEntityDraft,
 	AutomationPolicyBatchInput,
 	AutomationPolicyBatchOutput,
 	type AutomationPolicyReference,
-	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	DEFAULT_POLICY_HOOK_POSITION,
@@ -13,8 +12,7 @@ import {
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxScriptManifest } from "@ryot-app/contract/modules/scripts/schemas";
 import {
-	AutomationHookSlug,
-	EntityId,
+	type EntityId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
@@ -23,17 +21,15 @@ import {
 import { Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
-import { automationRunSubject } from "#modules/automations/lifecycle/command";
-import { lifecycleRunId } from "#modules/automations/lifecycle/planning";
 import {
 	AutomationPolicyExecutionError,
 	LifecyclePolicies,
 	type LifecyclePolicy,
-	type LifecyclePolicyItem,
+	type PolicyRequest,
 } from "#modules/automations/lifecycle/policies";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { automationEntityDrafts } from "#modules/entities/automation-drafts";
+import type { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -58,94 +54,94 @@ export const LifecyclePoliciesLive = Layer.effect(
 		const session = yield* DatabaseSession;
 		const resolver = yield* AutomationPlannerResolver;
 		const scripts = yield* SandboxRepository;
-		const entities = yield* EntitiesRepository;
 		const admission = yield* AccountAdmission.make;
 		const calls = yield* ScriptCalls;
 		const random = yield* SecureRandom.SecureRandom;
+		const services = yield* Effect.context<EntitiesRepository>();
 
 		const match = Effect.fn("LifecyclePolicies.match")(function* (
-			trigger: AutomationTrigger,
+			request: PolicyRequest,
 			transaction: WriteTransaction,
 		) {
-			if (trigger.payload?.category !== "request") {
-				return yield* new DbError({ message: "Policies match only request triggers" });
-			}
-			yield* resolver.lockCatalog([trigger.scopeUserId], transaction);
-			const matches = yield* resolver.resolve(trigger, trigger.scopeUserId, transaction);
-			const policies = yield* Effect.forEach(
-				matches,
-				({ hook, plugin, script, executionUserId }) => {
-					if (hook.stage !== "before" || plugin?.pluginConfigRevisionId == null) {
-						return Effect.fail(new DbError({ message: `Invalid policy ${hook.slug}` }));
-					}
-					const pluginId = PluginId.make(plugin.id);
-					return Effect.succeed<LifecyclePolicy>({
-						hook,
-						pluginId,
-						executionUserId,
-						position: hook.position ?? DEFAULT_POLICY_HOOK_POSITION,
-						script: {
-							slug: script.slug,
-							contentHash: script.contentHash,
-							id: SandboxScriptId.make(script.id),
-						},
-						runId: lifecycleRunId({
-							pluginId,
-							executionUserId,
-							triggerId: trigger.id,
-							hookSlug: AutomationHookSlug.make(hook.slug),
-						}),
-						plugin: {
-							revisionId: PluginRevisionId.make(plugin.pluginRevisionId),
-							configRevisionId: PluginConfigRevisionId.make(plugin.pluginConfigRevisionId),
-						},
-					});
-				},
-			);
+			yield* resolver.lockCatalog([request.scopeUserId], transaction);
+			const matches = yield* resolver.resolvePolicies(request, transaction);
+			const policies = yield* Effect.forEach(matches, ({ hook, plugin, script }) => {
+				if (hook.stage !== "before" || plugin.pluginConfigRevisionId === null) {
+					return Effect.fail(new DbError({ message: `Invalid policy ${hook.slug}` }));
+				}
+				return Effect.succeed<LifecyclePolicy>({
+					hook,
+					pluginId: PluginId.make(plugin.id),
+					executionUserId: request.scopeUserId,
+					position: hook.position ?? DEFAULT_POLICY_HOOK_POSITION,
+					script: {
+						slug: script.slug,
+						contentHash: script.contentHash,
+						id: SandboxScriptId.make(script.id),
+					},
+					plugin: {
+						revisionId: PluginRevisionId.make(plugin.pluginRevisionId),
+						configRevisionId: PluginConfigRevisionId.make(plugin.pluginConfigRevisionId),
+					},
+				});
+			});
 			return [...policies].sort(comparePolicies);
 		});
 
 		const prepare = Effect.fnUntraced(function* (input: {
+			readonly request: PolicyRequest;
 			readonly policy: LifecyclePolicy;
-			readonly trigger: AutomationTrigger;
-			readonly items: ReadonlyArray<LifecyclePolicyItem>;
-			readonly references: Readonly<Record<string, AutomationEntityDraft>>;
 		}) {
-			const { policy, trigger } = input;
+			const { policy, request } = input;
 			const fail = (message: string, kind: SandboxFailureKind = "invalid-input") =>
 				new PolicyCallFailed({
 					kind,
 					message: `Policy '${policy.hook.slug}' of plugin '${policy.pluginId}' ${message}`,
 				});
-			const pin = yield* scripts
-				.getScriptPin(policy.script.id, {
-					id: policy.pluginId,
-					revisionId: policy.plugin.revisionId,
-					configRevisionId: policy.plugin.configRevisionId,
-				})
+			const hook: typeof PluginBeforeHook.Type = policy.hook;
+			const accountUserId =
+				policy.executionUserId === null
+					? null
+					: yield* admission.currentAccount(policy.executionUserId);
+			const principal = yield* scripts
+				.pinnedPrincipal(
+					policy.script.id,
+					{
+						accountUserId,
+						stage: "before",
+						type: "automation-run",
+						pluginId: policy.pluginId,
+						causation: request.causation,
+						executionUserId: policy.executionUserId,
+						pluginRevisionId: policy.plugin.revisionId,
+						pluginConfigRevisionId: policy.plugin.configRevisionId,
+					},
+					{
+						expectedRevision: {
+							id: policy.pluginId,
+							revisionId: policy.plugin.revisionId,
+							configRevisionId: policy.plugin.configRevisionId,
+						},
+					},
+				)
 				.pipe(
 					Effect.catchTag("SandboxRunError", (error) =>
 						Effect.fail(fail(error.message, error.kind)),
 					),
 				);
-			if (!pin || pin.contentHash !== policy.script.contentHash) {
+			if (!principal || principal.contentHash !== policy.script.contentHash) {
 				return yield* fail("has no pinned script", "missing-artifact");
 			}
-			const manifest = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(pin.metadata).pipe(
-				Effect.mapError(() => fail("has an invalid script declaration")),
-			);
+			const manifest = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
+				principal.metadata,
+			).pipe(Effect.mapError(() => fail("has an invalid script declaration")));
 			if (manifest.kind !== "automation" || manifest.automationType !== "policy") {
 				return yield* fail("has an incompatible script declaration");
 			}
-			const hook: typeof PluginBeforeHook.Type = policy.hook;
 			const owner = definitionOwner(policy.pluginId);
 			const subjects = new Set<string>();
-			const selected = input.items.filter((item) => {
-				if (
-					!hook.targets.some((target) =>
-						matchesTarget(owner, target, { ...trigger, payload: item.request }),
-					)
-				) {
+			const selected = request.items.filter((item) => {
+				if (!hook.targets.some((target) => matchesTarget(owner, target, item.request))) {
 					return false;
 				}
 				if (item.request.resource !== "event" || hook.batchFrequency !== "once-per-subject") {
@@ -160,10 +156,10 @@ export const LifecyclePoliciesLive = Layer.effect(
 			});
 			const referenceIds = [
 				...new Set(
-					selected.flatMap(({ request }) =>
-						request.resource === "event"
-							? [request.draft.entityId, request.draft.sessionEntityId].flatMap((id) =>
-									id === null || input.references[id] ? [] : [id],
+					selected.flatMap(({ request: item }) =>
+						item.resource === "event"
+							? [item.draft.entityId, item.draft.sessionEntityId].flatMap((id) =>
+									id === null || request.references[id] ? [] : [id],
 								)
 							: [],
 					),
@@ -171,35 +167,26 @@ export const LifecyclePoliciesLive = Layer.effect(
 			];
 			const loaded =
 				referenceIds.length === 0 || policy.executionUserId === null
-					? []
-					: yield* entities.getByIdsForUser({
-							userId: policy.executionUserId,
-							entityIds: referenceIds.map((id) => EntityId.make(id)),
-						});
-			const drafts: Record<string, AutomationEntityDraft> = { ...input.references };
-			for (const [id, reference] of loaded) {
-				drafts[id] = yield* Schema.decodeUnknownEffect(AutomationEntityDraft)({
-					name: reference.name,
-					properties: reference.properties,
-					providerId: reference.providerId,
-					externalId: reference.externalId,
-					populatedAt: reference.populatedAt,
-					entitySchemaSlug: reference.entitySchemaSlug,
-					entitySchemaPluginId: reference.entitySchemaPluginId,
-				}).pipe(Effect.mapError(() => fail("received an invalid reference")));
-			}
+					? new Map<EntityId, AutomationEntityDraft>()
+					: yield* automationEntityDrafts(policy.executionUserId, referenceIds).pipe(
+							Effect.provideContext(services),
+						);
+			const drafts: Readonly<Record<string, AutomationEntityDraft>> = {
+				...request.references,
+				...Object.fromEntries(loaded),
+			};
 			const items: Array<AutomationPolicyBatchInput["items"][number]> = [];
 			const references: Record<string, typeof AutomationPolicyReference.Type> = {};
 			for (const item of selected) {
-				const request = projectAutomationPolicyInput(item.request, manifest.inputProjection);
-				if (!request) {
+				const projected = projectAutomationPolicyInput(item.request, manifest.inputProjection);
+				if (!projected) {
 					return yield* fail("does not project the request resource");
 				}
-				const projection = manifest.inputProjection[request.resource];
-				if (request.resource === "event" && projection) {
+				const projection = manifest.inputProjection[projected.resource];
+				if (projected.resource === "event" && projection) {
 					for (const [id, names] of [
-						[request.draft.entityId, projection.entityProperties ?? []],
-						[request.draft.sessionEntityId, projection.sessionEntityProperties ?? []],
+						[projected.draft.entityId, projection.entityProperties ?? []],
+						[projected.draft.sessionEntityId, projection.sessionEntityProperties ?? []],
 					] as const) {
 						const reference = id === null ? undefined : drafts[id];
 						if (reference && id !== null) {
@@ -219,39 +206,15 @@ export const LifecyclePoliciesLive = Layer.effect(
 						}
 					}
 				}
-				items.push({ payload: request, itemIdentity: item.itemIdentity });
+				items.push({ payload: projected, itemIdentity: item.itemIdentity });
 			}
-			const accountUserId =
-				policy.executionUserId === null
-					? null
-					: yield* admission.currentAccount(policy.executionUserId);
-			const subject = automationRunSubject(
-				{
-					trigger,
-					accountUserId,
-					stage: "before",
-					runId: policy.runId,
-					executionUserId: policy.executionUserId,
-				},
-				{
-					pluginId: policy.pluginId,
-					pluginRevisionId: policy.plugin.revisionId,
-					pluginConfigRevisionId: policy.plugin.configRevisionId,
-				},
-			);
-			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
-				...pin,
-				subject,
-			}).pipe(Effect.mapError(() => fail("does not produce a valid principal")));
 			const invocation = yield* Schema.decodeEffect(AutomationPolicyBatchInput)({
 				items,
 				automation: {
 					references,
-					runId: policy.runId,
 					hookSlug: hook.slug,
-					triggerId: trigger.id,
-					causation: trigger.causation,
-					occurredAt: trigger.occurredAt,
+					causation: request.causation,
+					occurredAt: request.occurredAt,
 					executionUserId: policy.executionUserId,
 					...(hook.metadata === undefined ? {} : { hookMetadata: hook.metadata }),
 				},
@@ -262,7 +225,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 		const run = Effect.fn("LifecyclePolicies.run")(function* (
 			input: Parameters<LifecyclePolicies["Service"]["run"]>[0],
 		) {
-			const { policy, trigger } = input;
+			const { request } = input;
 			return yield* Effect.gen(function* () {
 				const { fail, principal, invocation } = yield* session
 					.transaction(prepare(input))
@@ -270,43 +233,35 @@ export const LifecyclePoliciesLive = Layer.effect(
 				if (invocation.items.length === 0) {
 					return { items: [] };
 				}
-				const result = yield* calls.run({
-					principal,
-					input: invocation,
-					lane: trigger.causation.lane,
-					executionId: `policy-${yield* random.uuidV4()}`,
-				});
+				const result = yield* calls.run(
+					{
+						principal,
+						input: invocation,
+						lane: request.causation.lane,
+						executionId: `policy-${yield* random.uuidV4()}`,
+					},
+					AutomationPolicyBatchOutput,
+				);
 				if (result.error) {
 					return yield* fail(
 						`failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
 						result.error.kind,
 					);
 				}
-				const output = yield* Schema.decodeUnknownEffect(AutomationPolicyBatchOutput)(
-					result.value,
-				).pipe(
-					Effect.mapError((error) => fail(`returned ${unknownToMessage(error)}`, "invalid-output")),
-				);
 				const expected = new Set(invocation.items.map((item) => item.itemIdentity));
-				const actual = new Set(output.items.map((item) => item.itemIdentity));
+				const actual = new Set(result.output.items.map((item) => item.itemIdentity));
 				if (
-					actual.size !== output.items.length ||
+					actual.size !== result.output.items.length ||
 					actual.size !== expected.size ||
 					[...actual].some((identity) => !expected.has(identity))
 				) {
 					return yield* fail("must decide each item exactly once", "invalid-output");
 				}
-				return output;
+				return result.output;
 			}).pipe(
 				Effect.catchTag("PolicyCallFailed", (error) =>
 					Effect.logWarning("Policy call failed", error).pipe(
-						Effect.andThen(
-							new AutomationPolicyExecutionError({
-								kind: error.kind,
-								runId: policy.runId,
-								code: "policy-execution-failed",
-							}),
-						),
+						Effect.andThen(new AutomationPolicyExecutionError({ kind: error.kind })),
 					),
 				),
 			);

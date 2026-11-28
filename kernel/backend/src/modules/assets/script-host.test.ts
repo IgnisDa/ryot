@@ -51,7 +51,7 @@ it.effect(
 			expect(yield* host.verifyManagedAssets(input, locators)).toBeNull();
 			expect(
 				yield* host.verifyManagedAssets(
-					makeSubjectRunInput(automationRunSubject("after", userId)),
+					makeSubjectRunInput(automationRunSubject(userId)),
 					locators,
 				),
 			).toBeNull();

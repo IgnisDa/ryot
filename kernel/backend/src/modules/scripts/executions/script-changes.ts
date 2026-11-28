@@ -53,7 +53,7 @@ export class ScriptChangesRejected extends Schema.TaggedError<
 >()("ScriptChangesRejected", {
 	reason: Schema.Union([
 		Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("conflict") }),
-		Schema.Struct({ message: Schema.String, code: Schema.Literal("policy-unavailable") }),
+		Schema.Struct({ code: Schema.Literal("policy-unavailable") }),
 		Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
 		Schema.Struct({ message: Message, code: Schema.Literal("refused") }),
 		Schema.Struct({ message: Schema.String, code: Schema.Literal("invalid") }),
@@ -73,11 +73,7 @@ export const scriptChangesFailure = ({ reason }: ScriptChangesRejected): ScriptC
 		};
 	}
 	if (reason.code === "policy-unavailable") {
-		return {
-			code: reason.code,
-			kind: "resource-unavailable",
-			message: `A policy could not run (${reason.message})`,
-		};
+		return { code: reason.code, kind: "resource-unavailable", message: "A policy could not run" };
 	}
 	if (reason.code === "policy-rejected") {
 		return {

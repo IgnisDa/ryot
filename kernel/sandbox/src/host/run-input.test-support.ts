@@ -7,6 +7,9 @@ import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -65,27 +68,41 @@ export const makeSubjectRunInput = (
 	},
 });
 
+const subjectCausation = {
+	depth: 0,
+	source: "api",
+	parentRunId: null,
+	lane: "interactive",
+	parentTriggerId: null,
+	initiator: { id: null, kind: "system" },
+	executionId: AutomationExecutionId.make("execution_1"),
+	rootExecutionId: AutomationExecutionId.make("execution_1"),
+} as const;
+
 export const automationRunSubject = (
-	stage: "after" | "before",
 	executionUserId: null | UserId,
-): Extract<SandboxExecutionSubject, { type: "automation-run" }> => ({
-	stage,
+): Extract<SandboxExecutionSubject, { stage: "after"; type: "automation-run" }> => ({
+	stage: "after",
 	pluginId: null,
 	executionUserId,
 	type: "automation-run",
 	pluginRevisionId: null,
+	causation: subjectCausation,
 	pluginConfigRevisionId: null,
 	accountUserId: executionUserId,
 	runId: AutomationRunId.make("run_1"),
 	triggerId: AutomationTriggerId.make("trigger_1"),
-	causation: {
-		depth: 0,
-		source: "api",
-		parentRunId: null,
-		lane: "interactive",
-		parentTriggerId: null,
-		initiator: { id: null, kind: "system" },
-		executionId: AutomationExecutionId.make("execution_1"),
-		rootExecutionId: AutomationExecutionId.make("execution_1"),
-	},
+});
+
+export const policyRunSubject = (
+	executionUserId: null | UserId,
+): Extract<SandboxExecutionSubject, { stage: "before"; type: "automation-run" }> => ({
+	stage: "before",
+	executionUserId,
+	type: "automation-run",
+	causation: subjectCausation,
+	accountUserId: executionUserId,
+	pluginId: PluginId.make("plugin_1"),
+	pluginRevisionId: PluginRevisionId.make("plugin_revision_1"),
+	pluginConfigRevisionId: PluginConfigRevisionId.make("plugin_config_revision_1"),
 });

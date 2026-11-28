@@ -2,7 +2,6 @@ import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
-	AutomationRunId,
 	AutomationTriggerId,
 	EntityId,
 	EventId,
@@ -102,14 +101,11 @@ export class EventBadRequest extends Schema.TaggedError<
 >()("EventBadRequest", {
 	reason: Schema.Union([
 		strictStruct({ code: Schema.Literal("asset-forbidden") }),
-		strictStruct({ message: Message, code: Schema.Literal("policy-rejected") }),
 		strictStruct({
 			code: Schema.Literals([
 				"automation-limit",
-				"invalid-policy-transform",
 				"invalid-properties",
 				"mutation-conflict",
-				"policy-execution-failed",
 				"owner-mismatch",
 				"global-scope-forbidden",
 				"root-entity-required",
@@ -149,7 +145,7 @@ export const CreateEventItem = Schema.Struct({
 export type CreateEventItem = typeof CreateEventItem.Type;
 
 export const EventCreateFailureReason = Schema.Union([
-	strictStruct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
+	strictStruct({ code: Schema.Literal("policy-execution-failed") }),
 	strictStruct({
 		triggerId: AutomationTriggerId,
 		code: Schema.Literal("automation-limit-reached"),

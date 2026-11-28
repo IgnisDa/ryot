@@ -52,7 +52,7 @@ import {
 import {
 	AutomationPolicyExecutionError,
 	LifecyclePolicies,
-	type LifecyclePolicyItem,
+	type PolicyRequest,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
@@ -312,7 +312,7 @@ const policyPackage = (
 
 /** Renames a created entity, and sets a created event's value to its entity's name as policies see it. */
 const renamingRoot = (
-	request: LifecyclePolicyItem["request"],
+	request: PolicyRequest["items"][number]["request"],
 	references: Readonly<Record<string, AutomationEntityDraft>>,
 ): AutomationPolicyOutput => {
 	if (request.operation !== "create") {
@@ -374,7 +374,7 @@ layer(testLayer(false))((test) => {
 						LifecyclePolicies,
 						LifecyclePolicies.of({
 							match,
-							run: ({ items, references }) =>
+							run: ({ request: { items, references } }) =>
 								Effect.succeed({
 									items: items.map(({ request, itemIdentity }) => ({
 										itemIdentity,
@@ -1165,25 +1165,36 @@ const commit = (input: ChangeSet, lifecycle: ScriptLifecycleCommand) =>
 		changes.commitScript(input, lifecycle, unrecorded(Function.identity<CommittedChanges>)),
 	);
 
-const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "before" } = {}) => {
+const automationSubject = (input: Fixture) => {
 	const { pluginRevision } = input.command.writeContext;
 	assert(pluginRevision);
 	return {
+		accountUserId: userId,
+		executionUserId: userId,
+		pluginId: pluginRevision.id,
+		type: "automation-run" as const,
+		causation: input.command.causation,
+		pluginRevisionId: pluginRevision.revisionId,
+		pluginConfigRevisionId: pluginRevision.configRevisionId,
+	};
+};
+
+const automationRun = (input: Fixture) =>
+	({
 		...input.command.writeContext,
 		subject: {
-			accountUserId: userId,
-			executionUserId: userId,
-			pluginId: pluginRevision.id,
-			type: "automation-run" as const,
-			stage: overrides.stage ?? "after",
-			causation: input.command.causation,
-			pluginRevisionId: pluginRevision.revisionId,
-			pluginConfigRevisionId: pluginRevision.configRevisionId,
+			...automationSubject(input),
+			stage: "after" as const,
 			runId: AutomationRunId.make(`run-${crypto.randomUUID()}`),
 			triggerId: AutomationTriggerId.make(`trigger-${crypto.randomUUID()}`),
 		},
-	} satisfies ScriptExecutionPrincipal;
-};
+	}) satisfies ScriptExecutionPrincipal;
+
+const policyRun = (input: Fixture) =>
+	({
+		...input.command.writeContext,
+		subject: { ...automationSubject(input), stage: "before" as const },
+	}) satisfies ScriptExecutionPrincipal;
 
 const targetOf = (input: Fixture) => {
 	const [relation] = input.input.relationships.upserts;
@@ -2168,7 +2179,7 @@ layer(testLayer(false))((test) => {
 						"globalRelationships",
 					],
 					[{ events }, { ...user, subject: { userId, type: "projection" } }, "changes"],
-					[{ events }, automationRun(input, { stage: "before" }), "changes"],
+					[{ events }, policyRun(input), "changes"],
 					[{ events }, { ...user, subject: { type: "system" } }, "events"],
 					[
 						{ folds: { mode: "replay", scope: "all-users", entityIds: [target] } },
@@ -2402,7 +2413,7 @@ layer(testLayer(false))((test) => {
 						LifecyclePolicies,
 						LifecyclePolicies.of({
 							match,
-							run: ({ items }) =>
+							run: ({ request: { items } }) =>
 								Effect.gen(function* () {
 									if (!(yield* Ref.getAndSet(raced, true))) {
 										yield* shared(changeSets).pipe(Effect.orDie);
@@ -3171,14 +3182,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 								LifecyclePolicies,
 								LifecyclePolicies.of({
 									match,
-									run: ({ policy }) =>
-										Effect.fail(
-											new AutomationPolicyExecutionError({
-												kind,
-												runId: policy.runId,
-												code: "policy-execution-failed",
-											}),
-										),
+									run: () => Effect.fail(new AutomationPolicyExecutionError({ kind })),
 								}),
 							),
 						);

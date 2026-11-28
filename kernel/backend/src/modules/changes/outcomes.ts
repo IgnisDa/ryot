@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/events/schemas";
 import { Schema } from "effect";
 
-import type { PolicyBatchResult } from "#modules/automations/lifecycle/policies";
+import type { PolicyDecisions } from "#modules/automations/lifecycle/policies";
 
 /** Nothing was committed: `kept` outcomes stand and every other item fails with `reason`. */
 export class EventCreateRejected extends Schema.TaggedError<
@@ -17,7 +17,7 @@ export class EventCreateRejected extends Schema.TaggedError<
 }) {}
 
 export const policyOutcomes = (
-	validated: PolicyBatchResult,
+	validated: PolicyDecisions,
 	indexOf: (itemIdentity: string) => number,
 ) => {
 	const outcomes: EventCreateItemOutcome[] = [];

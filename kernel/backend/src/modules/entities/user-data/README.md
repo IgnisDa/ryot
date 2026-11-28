@@ -2,9 +2,8 @@
 
 `EntityUserDataService` plans clear and same-schema merge of the caller's events and relationships
 for `ChangeSets` (`entities.clears` and `merges`). The HTTP routes commit one as a kernel writer with
-no schema restriction and map event conflicts to `state-conflict`, an event policy's rejection to
-`policy-rejected` with its reason, a policy's failure to `policy-execution-failed`, and a policy that
-could not run (`isTransientPolicyFailure`) to `EntityUserDataUnavailable` (503). They never delete entities or
+no schema restriction, map event conflicts to `state-conflict`, and pass a policy's `PolicyRejected`
+(400) and `PolicyUnavailable` (503) through unchanged. They never delete entities or
 modify another user's data. Schema owners may deny either operation and declare merge identity properties.
 Plugin callers require pinned ownership of both schemas; a global source is allowed because only the
 caller's state moves.

@@ -15,22 +15,38 @@ const decodeBatchPayload = Schema.decodeUnknownEffect(AutomationBatchChangePaylo
 // Half the sandbox context limit leaves room for the invocation envelope and hook metadata.
 const BATCH_PAYLOAD_BYTES = SANDBOX_LIMITS.execution.contextBytes / 2;
 
-const chunkItems = <Item>(
+/**
+ * Items in chunks of at most `maxItems` whose JSON fits half the sandbox context limit after
+ * `baseBytes`, in the items' order. Items sharing a `subjectOf` key stay in one chunk, after the
+ * subject's first item, so a subject over either bound gets a chunk of its own.
+ */
+export const lifecycleChunks = <Item>(
 	items: ReadonlyArray<Item>,
-	maxItems: number,
-	baseBytes: number,
+	options: {
+		readonly maxItems: number;
+		readonly baseBytes: number;
+		readonly sizeOf?: (item: Item) => unknown;
+		readonly subjectOf?: (item: Item) => string;
+	},
 ): ReadonlyArray<ReadonlyArray<Item>> => {
+	const { subjectOf, sizeOf = (item: Item) => item } = options;
+	const units = subjectOf
+		? [...Map.groupBy(items, subjectOf).values()]
+		: items.map((item) => [item]);
 	const chunks: Item[][] = [];
 	let chunk: Item[] = [];
-	let bytes = baseBytes;
-	for (const item of items) {
-		const size = (jsonByteLength(item) ?? 0) + 1;
-		if (chunk.length > 0 && (chunk.length >= maxItems || bytes + size > BATCH_PAYLOAD_BYTES)) {
+	let bytes = options.baseBytes;
+	for (const unit of units) {
+		const size = unit.reduce((total, item) => total + (jsonByteLength(sizeOf(item)) ?? 0) + 1, 0);
+		if (
+			chunk.length > 0 &&
+			(chunk.length + unit.length > options.maxItems || bytes + size > BATCH_PAYLOAD_BYTES)
+		) {
 			chunks.push(chunk);
 			chunk = [];
-			bytes = baseBytes;
+			bytes = options.baseBytes;
 		}
-		chunk.push(item);
+		chunk.push(...unit);
 		bytes += size;
 	}
 	return chunk.length > 0 ? [...chunks, chunk] : chunks;
@@ -64,7 +80,10 @@ export const lifecycleBatchTriggers = Effect.fnUntraced(function* (
 			.filter((change) => change.scopeUserId === scopeUserId)
 			.map((change) => change.payload)
 			.filter(({ resource }) => resource === input.resource);
-		const chunks = chunkItems(items, maxItems, jsonByteLength({ ...base, items: [] }) ?? 0);
+		const chunks = lifecycleChunks(items, {
+			maxItems,
+			baseBytes: jsonByteLength({ ...base, items: [] }) ?? 0,
+		});
 		for (const [chunkIndex, chunk] of chunks.entries()) {
 			const payload = yield* decodeBatchPayload({ ...base, items: chunk }).pipe(Effect.orDie);
 			triggers.push(yield* lifecycleTrigger(command, scopeUserId, payload, `batch:${chunkIndex}`));

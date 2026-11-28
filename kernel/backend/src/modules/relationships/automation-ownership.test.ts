@@ -63,7 +63,6 @@ const automationCommand = (id: string) => {
 		...parent,
 		causation: automationLifecycleCausation(
 			{
-				stage: "before",
 				causation: parent.causation,
 				runId: AutomationRunId.make("automation-run"),
 				triggerId: AutomationTriggerId.make("automation-trigger"),

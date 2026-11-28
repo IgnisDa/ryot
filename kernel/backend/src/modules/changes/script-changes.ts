@@ -3,17 +3,14 @@ import {
 	CommitConflictCode,
 	CommittedChanges,
 } from "@ryot-app/contract/modules/changes/change-set";
+import { PolicyRejected, PolicyUnavailable } from "@ryot-app/contract/modules/changes/policies";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
-import { Message } from "@ryot-app/i18n/message";
+import type { Message } from "@ryot-app/i18n/message";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect, Function, Layer, Schema } from "effect";
 
-import {
-	AutomationPolicyExecutionError,
-	isTransientPolicyFailure,
-} from "#modules/automations/lifecycle/policies";
 import {
 	type CommitReceipt,
 	idempotencyIdentity,
@@ -35,12 +32,6 @@ import { type ChangeSetFailure, ChangeSets } from "./service";
 const isCommitConflict = Schema.is(
 	Schema.Struct({ reason: Schema.Struct({ code: CommitConflictCode }) }),
 );
-const isPolicyRejection = Schema.is(
-	Schema.Struct({
-		_tag: Schema.Literals(["EventBadRequest", "RelationshipBadRequest"]),
-		reason: Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
-	}),
-);
 const hasReasonCode = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Schema.String }) }));
 
 const invalid = (message: string) =>
@@ -59,20 +50,20 @@ const rejection = (error: typeof ChangeSetFailure.Type) => {
 	if (error instanceof DbError) {
 		return error;
 	}
-	if (error instanceof AutomationPolicyExecutionError && isTransientPolicyFailure(error)) {
-		return new ScriptChangesRejected({
-			reason: { code: "policy-unavailable", message: `${error.runId} failed with ${error.kind}` },
-		});
+	if (error instanceof PolicyUnavailable) {
+		return new ScriptChangesRejected({ reason: { code: "policy-unavailable" } });
+	}
+	if (error instanceof PolicyRejected) {
+		return error.reason.code === "policy-rejected"
+			? new ScriptChangesRejected({
+					reason: { code: "policy-rejected", message: error.reason.message },
+				})
+			: invalid(`policies: ${error.reason.code}`);
 	}
 	const refusal =
 		error instanceof EntityUserDataBadRequest ? userDataRefusals[error.reason.code] : undefined;
 	if (refusal !== undefined) {
 		return new ScriptChangesRejected({ reason: { code: "refused", message: refusal } });
-	}
-	if (isPolicyRejection(error)) {
-		return new ScriptChangesRejected({
-			reason: { code: "policy-rejected", message: error.reason.message },
-		});
 	}
 	if (isCommitConflict(error)) {
 		return new ScriptChangesRejected({ reason: { code: "conflict", conflict: error.reason.code } });

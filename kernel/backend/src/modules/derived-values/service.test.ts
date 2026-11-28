@@ -46,8 +46,10 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { type ScriptCall, ScriptCalls } from "#modules/scripts/executions/calls";
+import type { ScriptCall } from "#modules/scripts/executions/calls";
+import { scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { DatabaseSession } from "#platform/db/session";
 import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
@@ -115,27 +117,27 @@ const foldedPackage = (packageId: PluginPackageId, version: string, scriptHash =
 
 const FoldCount = Schema.Struct({ runs: Schema.Int });
 
+type FoldRun = (call: ScriptCall) => Effect.Effect<SandboxExecutionResult>;
+
 type Recorded = {
 	readonly subjectEntityId: string;
 	readonly changes: null | ReadonlyArray<FoldEventChange>;
 };
 
 /** The fold the current test installed; every script call runs it. */
-class InstalledFold extends Context.Service<
-	InstalledFold,
-	Ref.Ref<ScriptCalls["Service"]["run"]>
->()("@ryot-app/kernel-backend/modules/derived-values/service.test/InstalledFold") {}
+class InstalledFold extends Context.Service<InstalledFold, Ref.Ref<FoldRun>>()(
+	"@ryot-app/kernel-backend/modules/derived-values/service.test/InstalledFold",
+) {}
 
-const installedFoldCalls = Layer.effect(
-	ScriptCalls,
-	Effect.map(InstalledFold, (installed) => ({
-		run: (call: ScriptCall) => Effect.flatMap(Ref.get(installed), (run) => run(call)),
-	})),
+const installedFoldCalls = Layer.unwrap(
+	Effect.map(InstalledFold, (installed) =>
+		scriptCallsLayer((call) => Effect.flatMap(Ref.get(installed), (run) => run(call))),
+	),
 ).pipe(
 	Layer.provideMerge(
 		Layer.effect(
 			InstalledFold,
-			Ref.make<ScriptCalls["Service"]["run"]>(() => Effect.die("No fold is installed")),
+			Ref.make<FoldRun>(() => Effect.die("No fold is installed")),
 		),
 	),
 );

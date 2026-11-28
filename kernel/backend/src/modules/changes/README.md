@@ -130,18 +130,19 @@ under one account admission, catalog lock and entity lock statement, rechecking 
 Every prepared entity write (saves, ensures and deletes) lists its policy items, which form one entity
 policy batch chunked by entity.
 
-Event changes are then prepared in one events transaction, with positions matching the change list,
-and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
-once-per-subject policy runs once per subject; a subject with more than 50 items gets a chunk of its
-own that size, and a chunk whose policy input exceeds the sandbox context limit fails with
-`policy-execution-failed`. The relationship writes of the `relationships` part and of every clear
-and merge form one relationship policy batch, chunked the same way by source entity.
+Event changes are then prepared in one events transaction, with positions matching the change list.
+`matchPolicies` (`#modules/automations/lifecycle/policies`) groups every policy batch into chunks of
+at most 50 items whose requests fit half the sandbox context limit, a subject's items together, so a
+once-per-subject policy runs once per subject; a subject over either bound gets a chunk of its own.
+Event batches are chunked by entity, and the relationship writes of the `relationships` part and of
+every clear and merge form one relationship policy batch, chunked by source entity.
 Event, relationship and entity policies are matched inside that transaction. When none matches, the commit
-continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
-per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is
-persisted), and a second events transaction commits. A relationship or entity policy rejection or
-invalid transform fails the whole change set, with the invalid property paths when properties fail
-validation; an accepted entity transform replaces the draft, and each entity write validates its
+continues in the same transaction. Otherwise the transaction ends, `applyPolicies` calls each matched
+policy once per chunk through `LifecyclePolicies` with every item it targets (a policy request is held
+in memory and nothing about the call is persisted), and a second events transaction commits. A
+relationship or entity policy rejection or invalid transform fails the whole change set with
+`PolicyRejected` (`@ryot-app/contract/modules/changes/policies`), with the invalid property paths when
+properties fail validation; an accepted entity transform replaces the draft, and each entity write validates its
 final draft once more under the catalog lock. Entity policies run before event policies, which see
 each saved entity as the entity policies left it. A policy batch stops calling policies once none of
 its items is still active.
@@ -196,7 +197,7 @@ all-or-nothing. The result's `outcomes` list every create by position, and `toCr
 - a policy rejection is `skipped_by_policy`, and a policy item error fails the item
   (`session-entity-not-found` or `invalid-properties`);
 - a policy execution failure writes nothing, keeps preparation failures, and fails every other item
-  with `policy-execution-failed` and the run ID;
+  with `policy-execution-failed`;
 - a commit conflict writes nothing, keeps preparation and policy outcomes, and fails every other item
   with `mutation-conflict` or `asset-forbidden`.
 
@@ -248,13 +249,15 @@ trigger, entity and event ID the commit derives comes from it. Failures are norm
 `invalid`), and every caller reports one through `scriptChangesFailure`: a conflict is
 `resource-unavailable` with its conflict code, a policy that could not run is
 `resource-unavailable` with `policy-unavailable`, a policy rejection or a refusal a `script-failure`
-carrying its reason, and anything else `invalid-output`. A failure whose reason code is a
+carrying its reason, and anything else `invalid-output`. Policy failures are classified where they
+happen: `applyPolicies` turns a policy that could not run for want of capacity into
+`PolicyUnavailable` and any other policy failure into `PolicyRejected`. A failure whose reason code is a
 `CommitConflictCode` is a `conflict`: stale baselines, and the `EntityUserDataService` refusals a user
 causes by acting on changed data (`state-conflict` when the captured user data changed,
-`child-mapping-conflict` when merged child data has no unique match). A policy run that failed with
-`resource-unavailable`, `timeout` or `infrastructure` (`isTransientPolicyFailure`) is
-`policy-unavailable`, so after hooks and workflow steps retry it; a policy's script failure or
-invalid output stays `invalid`. The `EntityUserDataService` refusals of the entities a user chose
+`child-mapping-conflict` when merged child data has no unique match). `PolicyUnavailable` (a policy
+run that failed with `resource-unavailable`, `timeout` or `infrastructure`) is `policy-unavailable`, so
+after hooks and workflow steps retry it; a `PolicyRejected` rejection is `policy-rejected`, and its
+other reasons stay `invalid`. The `EntityUserDataService` refusals of the entities a user chose
 (same-entity merges, schema or identity property mismatches, missing fields, denied operations) are
 `refused` with a kernel message for each. A clear's or merge's event changes fail like any event
 change (`event-stale`, `policy-rejected`).

@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
@@ -56,7 +57,7 @@ import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-su
 import type { CommitReceipt } from "#modules/mutations/idempotency";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -388,11 +389,12 @@ const makeLayer = (input: {
 					SandboxRepository,
 					SandboxRepository.of({
 						getScript: () => Effect.die("Operation admission only reads verified pins"),
+						getScriptPin: () => Effect.die("Operation admission reads pinned principals"),
 						getSchemaScope: () => Effect.die("Operation admission does not read schema scope"),
 						isPluginScript: () => Effect.die("Operation admission requires an exact plugin target"),
 						resolveWorkflowCallScript: () =>
 							Effect.die("Operations do not resolve child scripts at admission"),
-						getScriptPin: (scriptId) =>
+						pinnedPrincipal: (scriptId, subject) =>
 							Effect.map(Ref.get(state.available), (available) => {
 								const match = available.find(
 									(candidate) => resolvedOperation(candidate).script.id === scriptId,
@@ -402,6 +404,7 @@ const makeLayer = (input: {
 								}
 								const { plugin, script } = resolvedOperation(match);
 								return {
+									subject,
 									scriptId,
 									providerId: null,
 									scriptSlug: script.slug,
@@ -423,13 +426,12 @@ const makeLayer = (input: {
 							}),
 					}),
 				),
-				Layer.mock(ScriptCalls)({
-					run: (runInput) =>
-						recordEvent("dispatch").pipe(
-							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
-							Effect.as(sandboxResult),
-						),
-				}),
+				scriptCallsLayer((runInput) =>
+					recordEvent("dispatch").pipe(
+						Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
+						Effect.as(sandboxResult),
+					),
+				),
 				ScriptChangesLayer.pipe(
 					Layer.provide(
 						Layer.effect(
@@ -1541,7 +1543,7 @@ layer(
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
 		available: [systemUserOperation],
-		commitFailure: new EventBadRequest({
+		commitFailure: new PolicyRejected({
 			reason: { code: "policy-rejected", message: pluginRejection },
 		}),
 	}),

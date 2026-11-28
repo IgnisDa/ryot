@@ -131,12 +131,15 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const changes = yield* ScriptChanges;
 
 			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: AdmittedDispatch) {
-				const result = yield* calls.run({
-					lane: "interactive",
-					input: input.payload,
-					principal: input.principal,
-					executionId: input.executionId,
-				});
+				const result = yield* calls.run(
+					{
+						lane: "interactive",
+						input: input.payload,
+						principal: input.principal,
+						executionId: input.executionId,
+					},
+					OperationRunResult,
+				);
 				if (result.error?.data?.code === "page-write-access-required") {
 					return yield* new PluginRequestError({ reason: { code: "page-write-access-required" } });
 				}
@@ -168,9 +171,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						},
 					});
 				}
-				return yield* Schema.decodeUnknownEffect(OperationRunResult)(result.value).pipe(
-					Effect.mapError(() => invalidOutput("Sandbox operation result is invalid")),
-				);
+				return result.output;
 			});
 
 			const commit = Effect.fn("OperationsService.commit")(function* (
@@ -378,13 +379,15 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							executionId: existing.response.executionId,
 						} satisfies AdmittedDispatch;
 					}
-					const subject = {
-						type: "user" as const,
-						userId: dispatchInput.userId,
-						...(dispatchInput.integrationId ? { integrationId: dispatchInput.integrationId } : {}),
-					};
-					const pin = yield* scripts
-						.getScriptPin(dispatchInput.scriptId, undefined, subject)
+					const principal = yield* scripts
+						.pinnedPrincipal(dispatchInput.scriptId, {
+							type: "user",
+							userId: dispatchInput.userId,
+							...(dispatchInput.integrationId
+								? { integrationId: dispatchInput.integrationId }
+								: {}),
+							...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
+						})
 						.pipe(
 							Effect.catchTag("SandboxRunError", (error) =>
 								Effect.fail(
@@ -401,23 +404,16 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							),
 						);
 					if (
-						!pin?.pluginRevision ||
-						pin.pluginRevision.id !== resolved.plugin.id ||
-						!samePluginPin(pin.pluginRevision, resolved.plugin) ||
-						pin.pluginRevision.packageId !== resolved.plugin.packageId ||
-						pin.contentHash !== resolved.script.contentHash ||
-						pin.scriptSlug !== resolved.operation.scriptSlug ||
-						pin.metadata.kind !== "operation"
+						!principal?.pluginRevision ||
+						principal.pluginRevision.id !== resolved.plugin.id ||
+						!samePluginPin(principal.pluginRevision, resolved.plugin) ||
+						principal.pluginRevision.packageId !== resolved.plugin.packageId ||
+						principal.contentHash !== resolved.script.contentHash ||
+						principal.scriptSlug !== resolved.operation.scriptSlug ||
+						principal.metadata.kind !== "operation"
 					) {
 						return yield* operationNotFound;
 					}
-					const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
-						...pin,
-						subject: {
-							...subject,
-							...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
-						},
-					}).pipe(Effect.orDie);
 					yield* admission.admitAccount(dispatchInput.accountUserId);
 					if (input.idempotencyKey !== undefined) {
 						yield* keys.record(admissionIdentity, admissionSchema, { principal, executionId });

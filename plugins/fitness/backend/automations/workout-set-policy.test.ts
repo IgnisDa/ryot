@@ -43,9 +43,7 @@ const input = (
 	const snapshot = { ...draft, id: "event", createdAt: now, updatedAt: now };
 	return Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
-			runId: "run",
 			occurredAt: now,
-			triggerId: "trigger",
 			executionUserId: "user",
 			hookSlug: "fitness.workout-set",
 			references: options.references ?? references,

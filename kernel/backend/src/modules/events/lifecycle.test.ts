@@ -17,7 +17,6 @@ import {
 } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
-	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
@@ -205,7 +204,7 @@ const deleteTargets = [
 	},
 ];
 
-type PolicyCall = { readonly runId: AutomationRunId; readonly request: AutomationRequestPayload };
+type PolicyCall = { readonly request: AutomationRequestPayload };
 
 const recordTransaction = Effect.fnUntraced(function* (
 	session: DatabaseSession["Service"],
@@ -412,17 +411,12 @@ const lifecycleDatabaseLayer = (
 					const repository = yield* EventsRepository;
 					const session = yield* DatabaseSession;
 					return decidingPolicies(
-						(trigger) =>
+						(policyRequest) =>
 							Effect.gen(function* () {
 								yield* recordTransaction(session, planTransactions);
-								const { kind, payload } = trigger;
-								return kind.category === "request" &&
-									(kind.operation === "update" ||
-										(payload !== null &&
-											"items" in payload &&
-											payload.items.some((item) => item.operation === "update")))
-									? Array.from({ length: options.policyCount ?? 0 }, (_, index) => ({
-											...policyFixture(index, [
+								return policyRequest.items.some(({ request }) => request.operation === "update")
+									? Array.from({ length: options.policyCount ?? 0 }, (_, index) =>
+											policyFixture(index, [
 												{
 													eventSchemaSlug,
 													resource: "event",
@@ -430,13 +424,12 @@ const lifecycleDatabaseLayer = (
 													entitySchemaSlug: "record",
 												},
 											]),
-											runId: AutomationRunId.make(`event-policy-${index}`),
-										}))
+										)
 									: [];
 							}),
-						({ request }, { runId }) =>
+						({ request }) =>
 							(options.decidePolicy ?? (() => Effect.die("Unexpected policy")))(
-								{ runId, request },
+								{ request },
 								{ session, repository },
 							).pipe(
 								Effect.tap(() =>

@@ -155,7 +155,7 @@ const runInput = (
 			...otherPrincipalFacts,
 		},
 		context:
-			subject.type === "automation-run"
+			subject.type === "automation-run" && subject.stage === "after"
 				? {
 						automation: {
 							hookSlug: "script",

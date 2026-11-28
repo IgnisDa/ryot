@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
@@ -740,7 +741,7 @@ describe("Relationships lifecycle owner", () => {
 								case "reject":
 									assertExitFails(
 										exit,
-										new RelationshipBadRequest({
+										new PolicyRejected({
 											reason: {
 												code: "policy-rejected",
 												message: {
@@ -754,7 +755,7 @@ describe("Relationships lifecycle owner", () => {
 								case "invalid":
 									assertExitFails(
 										exit,
-										new RelationshipBadRequest({
+										new PolicyRejected({
 											reason: { paths: [["rank"]], code: "invalid-properties" },
 										}),
 									);
@@ -825,16 +826,10 @@ describe("Relationships lifecycle owner", () => {
 						expect(reconciled.result).toEqual([
 							{ created: 1, updated: 0, deleted: 0, upserted: 1 },
 						]);
-						const [relationships, triggers] = yield* session.run((db) =>
-							Effect.all([
-								db.select({ properties: tables.relationship.properties }).from(tables.relationship),
-								db
-									.select({ category: tables.automationTrigger.category })
-									.from(tables.automationTrigger),
-							]),
+						const relationships = yield* session.run((db) =>
+							db.select({ properties: tables.relationship.properties }).from(tables.relationship),
 						);
 						expect(relationships).toEqual([{ properties: { rank: 1 } }]);
-						expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
 					}),
 				testTimeout,
 			);
@@ -1557,7 +1552,7 @@ describe("Relationships lifecycle owner", () => {
 							LifecyclePolicies.of({
 								...decided,
 								run: (input) => {
-									calls.push(input.items.map(({ itemIdentity }) => itemIdentity));
+									calls.push(input.request.items.map(({ itemIdentity }) => itemIdentity));
 									return decided.run(input);
 								},
 							});

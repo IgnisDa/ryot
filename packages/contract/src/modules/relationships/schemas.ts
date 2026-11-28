@@ -1,8 +1,6 @@
-import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
-	AutomationRunId,
 	EntityId,
 	PluginId,
 	RelationshipId,
@@ -22,13 +20,10 @@ const RelationshipBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({ sourceEntityId: EntityId, code: Schema.Literal("source-not-owned") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
-	Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
-	Schema.Struct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
 	Schema.Struct({
 		code: Schema.Literals([
 			"automation-limit-reached",
 			"concurrent-relationship-change",
-			"invalid-policy-transform",
 			"lifecycle-command-conflict",
 		]),
 	}),

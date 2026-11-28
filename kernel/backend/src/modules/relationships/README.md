@@ -23,12 +23,11 @@ a sandbox policy during provider reconciliation.
 `prepared-mutations.ts` prepares each user write in its own short transaction, returning its
 request, or a null request when it would write nothing (an unchanged upsert or merge, an existing
 ensure, a missing delete). Policies run once per batch, not per item: the owning commit matches every
-prepared request in one relationship policy batch (`matchRelationshipPolicies`, chunks of at most 50
-grouped by source entity) in its prepare transaction, calls the matched policies outside it
-(`applyRelationshipPolicies`), and applies each item's decision before persisting it
-(`acceptRelationshipPolicies`). A rejection fails the commit with `policy-rejected`, an invalid
-transform with `invalid-properties` or `invalid-policy-transform`, and a policy execution failure with
-`policy-execution-failed`. Persistence joins the caller's active transaction, uses conditional source
+prepared request in one relationship policy batch (`matchRelationshipPolicies`, chunked by source
+entity) in its prepare transaction, calls the matched policies outside it, and applies each item's
+decision, by item identity, before persisting it (`acceptRelationshipPolicies`). A rejection, an
+invalid transform and a policy execution failure fail the commit with `PolicyRejected`
+(`policy-rejected`, `invalid-properties` or `invalid-policy-transform`, and `policy-execution-failed`). Persistence joins the caller's active transaction, uses conditional source
 writes, records the import item, and returns the item result and dispatch references; a null request
 rechecks that the source is unchanged and returns a no-op. The owner seals the resource batch and
 dispatches after commit. A policy-transformed update still writes even when its final properties

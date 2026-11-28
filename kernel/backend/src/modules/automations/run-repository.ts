@@ -125,9 +125,6 @@ export const redactAutomationHistoryPayload = Effect.fnUntraced(function* (
 		return { ...value, properties: properties(schema, isObjectRecord(values) ? values : {}) };
 	};
 	const result: Record<string, unknown> = { ...payload };
-	if ("draft" in payload) {
-		result["draft"] = snapshot(payload.draft);
-	}
 	if ("before" in payload) {
 		result["before"] = snapshot(payload.before);
 	}

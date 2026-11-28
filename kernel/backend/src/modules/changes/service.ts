@@ -1,5 +1,6 @@
 import { BadRequest, DbError, NotFound, ValidationFailed } from "@ryot-app/contract/errors";
 import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import { PolicyRejected, PolicyUnavailable } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EntityBadRequest,
 	EntityNotFound,
@@ -45,12 +46,12 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
-	applyPolicyChunks,
-	AutomationPolicyExecutionError,
+	applyPolicies,
 	type LifecyclePolicies,
-	type MatchedPolicyChunks,
-	type PolicyBatchResult,
-	unchangedPolicyBatch,
+	type MatchedPolicyChunk,
+	type PolicyDecisions,
+	unchangedPolicies,
+	unmatchedPolicies,
 } from "#modules/automations/lifecycle/policies";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionReadUnavailable } from "#modules/definitions/read-context";
@@ -58,7 +59,6 @@ import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	acceptEntityPolicies,
-	applyEntityPolicies,
 	EntitiesService,
 	entityDeleteEvents,
 	EntityMatchAppeared,
@@ -99,7 +99,6 @@ import {
 } from "#modules/plugins/preferences/user-settings-writer";
 import {
 	acceptRelationshipPolicies,
-	applyRelationshipPolicies,
 	matchRelationshipPolicies,
 	preparedRelationshipEntityIds,
 	type PreparedUserRelationship,
@@ -160,7 +159,8 @@ export const ChangeSetFailure = Schema.Union([
 	DefinitionReadUnavailable,
 	NotificationAdmissionConflictError,
 	NotificationAdmissionUnavailableError,
-	AutomationPolicyExecutionError,
+	PolicyRejected,
+	PolicyUnavailable,
 	PluginUserSettingsPatchError,
 	ChangeSetRejected,
 ]);
@@ -293,7 +293,7 @@ const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[num
 type PreparedEventChange = PreparedEventChanges["items"][number];
 
 type EventBatch = {
-	readonly validated: PolicyBatchResult;
+	readonly validated: PolicyDecisions;
 	readonly prepared: PreparedEventChanges;
 	readonly command: DomainLifecycleCommand;
 };
@@ -308,12 +308,12 @@ type EventGroup = {
 
 type ValidatedPolicies = {
 	readonly entities: EntityPolicyAcceptance;
-	readonly relationships: Effect.Success<ReturnType<typeof applyRelationshipPolicies>>;
+	readonly relationships: ReadonlyArray<{ readonly decisions: PolicyDecisions }>;
 	readonly events: ReadonlyArray<{
 		readonly group: EventGroup;
 		readonly prepared: PreparedEventChanges;
 		readonly chunks: ReadonlyArray<{
-			readonly validated: PolicyBatchResult;
+			readonly decisions: PolicyDecisions;
 			readonly items: ReadonlyArray<PreparedEventChange>;
 		}>;
 	}>;
@@ -817,6 +817,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const createIndexes = new Map(creates.map((item, index) => [item.itemIdentity, index]));
 				const indexOf = (itemIdentity: string) => createIndexes.get(itemIdentity) ?? -1;
 				let kept: ReadonlyArray<EventCreateItemOutcome> = [];
+				// Independent creates keep their outcomes when a policy fails to run, failing every other create.
+				const independentPolicyFailure = <E extends PolicyRejected | PolicyUnavailable>(
+					error: E,
+				) =>
+					independent
+						? new EventCreateRejected({ kept, reason: { code: "policy-execution-failed" } })
+						: error;
 				const relationshipTokens = [
 					...preparedRelations.flatMap(({ prepared }) => (prepared === null ? [] : [prepared])),
 					...userDataWrites.flatMap((prepared) => prepared.relationships),
@@ -901,51 +908,41 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				type PlannedPolicies = Effect.Success<ReturnType<typeof planPolicies>>;
 				const validatePolicies = Effect.fnUntraced(function* (planned: PlannedPolicies) {
 					const acceptEntity = acceptEntityPolicies(
-						yield* applyEntityPolicies(planned.entities).pipe(Effect.provideContext(policyContext)),
+						yield* applyPolicies(planned.entities).pipe(Effect.provideContext(policyContext)),
 					);
 					const accepted = yield* drafts(acceptEntity);
-					const withAcceptedEntities = <T>(chunk: MatchedPolicyChunks<T>[number]) => {
-						const { references } = chunk.policyBatch;
-						return Object.keys(references).some((id) => accepted.has(EntityId.make(id)))
-							? {
-									...chunk,
-									policyBatch: {
-										...chunk.policyBatch,
-										references: Object.fromEntries(
-											Object.entries(references).map(([id, draft]) => [
-												id,
-												accepted.get(EntityId.make(id)) ?? draft,
-											]),
-										),
-									},
-								}
-							: chunk;
+					const withAcceptedEntities = <T>(chunk: MatchedPolicyChunk<T>): MatchedPolicyChunk<T> => {
+						const { references } = chunk.request;
+						if (!Object.keys(references).some((id) => accepted.has(EntityId.make(id)))) {
+							return chunk;
+						}
+						const current = Object.fromEntries(
+							Object.entries(references).map(([id, draft]) => [
+								id,
+								accepted.get(EntityId.make(id)) ?? draft,
+							]),
+						);
+						return {
+							...chunk,
+							request: { ...chunk.request, references: current },
+							decisions: { ...chunk.decisions, references: current },
+						};
 					};
 					const eventPolicies = yield* Effect.forEach(planned.events, (group) =>
-						applyPolicyChunks(group.chunks.map(withAcceptedEntities)).pipe(
+						applyPolicies(group.chunks.map(withAcceptedEntities)).pipe(
 							Effect.map((chunks) => ({ ...group, chunks })),
 							Effect.provideContext(policyContext),
 						),
 					).pipe(
-						Effect.catchTag(
-							"AutomationPolicyExecutionError",
-							(
-								error,
-							): Effect.Effect<never, EventCreateRejected | AutomationPolicyExecutionError> =>
-								independent
-									? Effect.fail(
-											new EventCreateRejected({
-												kept,
-												reason: { runId: error.runId, code: "policy-execution-failed" },
-											}),
-										)
-									: Effect.fail(error),
-						),
+						Effect.catchTags({
+							PolicyRejected: (error) => Effect.fail(independentPolicyFailure(error)),
+							PolicyUnavailable: (error) => Effect.fail(independentPolicyFailure(error)),
+						}),
 					);
 					return {
 						events: eventPolicies,
 						entities: acceptEntity,
-						relationships: yield* applyRelationshipPolicies(planned.relationships).pipe(
+						relationships: yield* applyPolicies(planned.relationships).pipe(
 							Effect.provideContext(policyContext),
 						),
 					} satisfies ValidatedPolicies;
@@ -965,7 +962,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							}
 							const batches: Array<EventBatch> = [];
 							for (const chunk of chunks) {
-								const policies = policyOutcomes(chunk.validated, indexOf);
+								const policies = policyOutcomes(chunk.decisions, indexOf);
 								kept = [...kept, ...policies.outcomes];
 								const accepted = chunk.items.filter((item) =>
 									policies.accepted.has(item.change.itemIdentity),
@@ -973,7 +970,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								if (accepted.length > 0) {
 									batches.push({
 										command,
-										validated: chunk.validated,
+										validated: chunk.decisions,
 										prepared: { ...prepared, items: accepted },
 									});
 								}
@@ -1153,14 +1150,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							recorded.push({
 								command,
 								prepared,
-								validated: unchangedPolicyBatch({
-									userId,
-									command,
-									resource: "event",
-									references: prepared.references,
-									items: yield* eventPolicyItems(prepared),
-									propertiesSchemas: prepared.propertiesSchemas,
-								}),
+								validated: unchangedPolicies(
+									yield* eventPolicyItems(prepared),
+									prepared.references,
+								),
 							});
 						}
 					}
@@ -1596,11 +1589,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							yield* lockCatalog(writes);
 							const planned = yield* prepared.planPolicies(writes);
 							if (
-								[
+								unmatchedPolicies([
 									...planned.events.flatMap(({ chunks }) => chunks),
 									...planned.relationships,
 									...planned.entities,
-								].every(({ matched }) => matched === null)
+								])
 							) {
 								return {
 									kind: "committed" as const,

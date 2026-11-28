@@ -1,4 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
+import { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import {
 	type EntityEditorDeleteSubmission,
@@ -134,6 +136,7 @@ const editorReceipt = <A>(
 const isEditorFailure = Schema.is(
 	Schema.Union([
 		DbError,
+		PolicyFailure,
 		EntityBadRequest,
 		EntityNotFound,
 		EntityEditorRefused,
@@ -603,12 +606,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale }),
-						AutomationPolicyExecutionError: (error) =>
-							Effect.fail(
-								new EntityBadRequest({
-									reason: { runId: error.runId, code: "policy-execution-failed" },
-								}),
-							),
+						PolicyRejected: (error: PolicyRejected) =>
+							error.reason.code === "invalid-properties"
+								? Effect.succeed({
+										output: invalid(kernelMessage("error.entity-editor.invalid-properties")),
+									})
+								: Effect.fail(error),
 						RelationshipNotFound: (error: RelationshipNotFound) =>
 							error.reason.code === "entity-not-found"
 								? Effect.succeed({

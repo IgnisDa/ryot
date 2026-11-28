@@ -70,7 +70,12 @@ import {
 	LifecyclePlannerServiceLive,
 	LifecyclePoliciesServiceLive,
 } from "./layer";
-import { noLifecycleWorkLayer, policyFixture, triggerFixture } from "./lifecycle.test-support";
+import {
+	noLifecycleWorkLayer,
+	policyFixture,
+	policyRequestFixture,
+	triggerFixture,
+} from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
 import { LifecyclePoliciesLive } from "./policies";
@@ -110,7 +115,6 @@ const asDescendant = <T extends Effect.Success<ReturnType<typeof entityTrigger>>
 const entityTrigger = (
 	pluginId: null | string,
 	id = "entity",
-	category: "change" | "request" = "change",
 	operation: "create" | "update" | "delete" = "create",
 ) => {
 	const snapshot = {
@@ -125,7 +129,6 @@ const entityTrigger = (
 		createdAt: "2026-09-15T00:00:00.000Z",
 		updatedAt: "2026-09-15T00:00:00.000Z",
 	};
-	const { id: _id, createdAt: _created, updatedAt: _updated, ...draft } = snapshot;
 	const change =
 		operation === "delete"
 			? { before: snapshot }
@@ -133,18 +136,8 @@ const entityTrigger = (
 	return Schema.decodeUnknownEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		scopeUserId: owner,
-		kind: { category, operation, resource: "entity" },
-		payload: {
-			category,
-			operation,
-			resource: "entity",
-			...(category === "request"
-				? {
-						draft: operation === "delete" ? snapshot : draft,
-						...(operation === "update" ? { before: snapshot } : {}),
-					}
-				: change),
-		},
+		kind: { operation, category: "change", resource: "entity" },
+		payload: { ...change, operation, category: "change", resource: "entity" },
 	}).pipe(Effect.orDie);
 };
 
@@ -322,27 +315,22 @@ const eventPolicyPackage = (
 		},
 	};
 };
-const eventPolicyTrigger = (pluginId: null | string, id = "event-policy") =>
-	Schema.decodeEffect(AutomationTrigger)({
-		...triggerFixture(id),
-		scopeUserId: owner,
-		kind: { resource: "event", category: "request", operation: "create" },
-		payload: {
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: {
-				properties: {},
-				entityId: "subject",
-				sessionEntityId: null,
-				eventSchemaSlug: "changed",
-				eventSchemaPluginId: pluginId,
-				entitySchemaPluginId: pluginId,
-				entitySchemaSlug: "fixture-entity",
-				occurredAt: "2026-09-15T00:00:00.000Z",
-			},
+const eventPolicyRequest = (pluginId: null | string) =>
+	Schema.decodeEffect(AutomationRequestPayload)({
+		resource: "event",
+		category: "request",
+		operation: "create",
+		draft: {
+			properties: {},
+			entityId: "subject",
+			sessionEntityId: null,
+			eventSchemaSlug: "changed",
+			eventSchemaPluginId: pluginId,
+			entitySchemaPluginId: pluginId,
+			entitySchemaSlug: "fixture-entity",
+			occurredAt: "2026-09-15T00:00:00.000Z",
 		},
-	});
+	}).pipe(Effect.orDie);
 
 describe("LifecyclePlanner PostgreSQL", () => {
 	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
@@ -881,6 +869,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					Layer.succeed(AutomationPlannerResolver, {
 						lockCatalog: () => Effect.void,
 						resolve: () => Effect.succeed([]),
+						resolvePolicies: () => Effect.succeed([]),
 						resolveBatchCandidates: () => Effect.succeed([]),
 					}),
 					AutomationRunRepository.layer,
@@ -1118,7 +1107,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						for (const operation of ["create", "update", "delete"] as const) {
 							const planned = yield* planner.plan({
 								transaction: new WriteTransaction(),
-								trigger: yield* entityTrigger(installed.pluginId, operation, "change", operation),
+								trigger: yield* entityTrigger(installed.pluginId, operation, operation),
 							});
 							expect(planned.runs).toHaveLength(1);
 							expect(planned.runs[0]).toMatchObject({
@@ -2146,26 +2135,34 @@ describe("LifecyclePolicies PostgreSQL", () => {
 						const policies = yield* LifecyclePolicies;
 						const session = yield* DatabaseSession;
 						const installed = yield* installRevisionPackage(hookPackage());
-						const trigger = yield* entityTrigger(installed.pluginId, "request", "request");
-						const request = trigger.payload;
-						assert(request?.category === "request" && request.operation !== "batch");
-						const matched = yield* policies.match(trigger, new WriteTransaction());
+						const request = yield* Schema.decodeEffect(AutomationRequestPayload)({
+							resource: "entity",
+							category: "request",
+							operation: "create",
+							draft: {
+								name: "Entity",
+								properties: {},
+								externalId: null,
+								providerId: null,
+								populatedAt: null,
+								entitySchemaSlug: "fixture-entity",
+								entitySchemaPluginId: installed.pluginId,
+							},
+						});
+						const policyRequest = policyRequestFixture(
+							"entity",
+							["first", "second", "third"].map((itemIdentity) => ({ request, itemIdentity })),
+						);
+						const matched = yield* policies.match(policyRequest, new WriteTransaction());
 						expect(matched.map(({ hook }) => hook.slug)).toEqual([
 							"fixture.z-first",
 							"fixture.a-second",
 						]);
-						const requests = ["first", "second", "third"].map((itemIdentity) => ({
-							request,
-							itemIdentity,
-						}));
 						for (const policy of matched) {
 							expect(
-								(yield* policies.run({
-									policy,
-									trigger,
-									references: {},
-									items: requests,
-								})).items.map(({ itemIdentity }) => itemIdentity),
+								(yield* policies.run({ policy, request: policyRequest })).items.map(
+									({ itemIdentity }) => itemIdentity,
+								),
 							).toEqual(["first", "second", "third"]);
 						}
 						expect(
@@ -2198,29 +2195,20 @@ describe("LifecyclePolicies PostgreSQL", () => {
 						const installed = yield* installRevisionPackage(
 							eventPolicyPackage("v1", 7, "once-per-subject"),
 						);
-						const trigger = yield* eventPolicyTrigger(installed.pluginId);
-						const request = trigger.payload;
-						assert(
-							request?.category === "request" &&
-								request.operation !== "batch" &&
-								request.resource === "event",
-						);
-						const [policy] = yield* policies.match(trigger, new WriteTransaction());
-						assert(policy);
-						const other = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
+						const request = yield* eventPolicyRequest(installed.pluginId);
+						assert(request.resource === "event" && request.operation === "create");
+						const other = yield* Schema.decodeEffect(AutomationRequestPayload)({
 							...request,
 							draft: { ...request.draft, entityId: "other" },
 						});
-						const output = yield* policies.run({
-							policy,
-							trigger,
-							references: {},
-							items: [
-								{ request, itemIdentity: "first" },
-								{ request, itemIdentity: "repeat" },
-								{ request: other, itemIdentity: "other" },
-							],
-						});
+						const policyRequest = policyRequestFixture("event", [
+							{ request, itemIdentity: "first" },
+							{ request, itemIdentity: "repeat" },
+							{ request: other, itemIdentity: "other" },
+						]);
+						const [policy] = yield* policies.match(policyRequest, new WriteTransaction());
+						assert(policy);
+						const output = yield* policies.run({ policy, request: policyRequest });
 						expect(output.items.map(({ itemIdentity }) => itemIdentity)).toEqual([
 							"first",
 							"other",
@@ -2238,7 +2226,7 @@ describe("LifecyclePolicies PostgreSQL", () => {
 					Layer.mock(AutomationPlannerResolver)({}),
 					Layer.mock(EntitiesRepository)({}),
 					Layer.mock(SandboxRepository)({
-						getScriptPin: () => Effect.fail(new DbError({ message: "Script pin read failed" })),
+						pinnedPrincipal: () => Effect.fail(new DbError({ message: "Script pin read failed" })),
 					}),
 					scriptCallsLayer(() => Effect.die("A policy whose pin read failed must not run")),
 				),
@@ -2252,9 +2240,7 @@ describe("LifecyclePolicies PostgreSQL", () => {
 				Effect.gen(function* () {
 					const exit = yield* Effect.exit(
 						(yield* LifecyclePolicies).run({
-							items: [],
-							references: {},
-							trigger: triggerFixture("policy-read-failure"),
+							request: policyRequestFixture("entity", []),
 							policy: policyFixture(0, [
 								{ resource: "entity", operation: "create", entitySchemaSlug: "record" },
 							]),

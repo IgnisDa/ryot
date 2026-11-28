@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { testExecutionId } from "#testing/effect";
 
@@ -63,23 +63,26 @@ const foldingChanges = (results: Ref.Ref<ReadonlyArray<unknown>>) =>
 				commit: () => Effect.die("Workflow steps commit by execution identity"),
 				commitKeyed: (input) =>
 					calls
-						.run({
-							lane: input.lane,
-							executionId: `${input.executionId}-fold`,
-							input: { executionId: input.executionId },
-							principal: {
-								providerId: null,
-								scriptId: fold.scriptId,
-								contentHash: fold.contentHash,
-								metadata: fold.compiled.manifest,
-								pluginRevision: fold.pluginRevision,
-								scriptSlug: fold.compiled.manifest.slug,
-								subject: { type: "user", userId: realSandboxUserId },
+						.run(
+							{
+								lane: input.lane,
+								executionId: `${input.executionId}-fold`,
+								input: { executionId: input.executionId },
+								principal: {
+									providerId: null,
+									scriptId: fold.scriptId,
+									contentHash: fold.contentHash,
+									metadata: fold.compiled.manifest,
+									pluginRevision: fold.pluginRevision,
+									scriptSlug: fold.compiled.manifest.slug,
+									subject: { type: "user", userId: realSandboxUserId },
+								},
 							},
-						})
+							Schema.Unknown,
+						)
 						.pipe(
 							Effect.flatMap((result) =>
-								Ref.update(results, (all) => [...all, result.error ?? result.value]),
+								Ref.update(results, (all) => [...all, result.error ?? result.output]),
 							),
 							Effect.as({ events: [] }),
 						),

@@ -374,9 +374,9 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						const session = yield* DatabaseSession;
 						const eventRepository = yield* EventsRepository;
 						return LifecyclePolicies.of({
-							run: ({ items, policy }) =>
+							run: ({ policy, request: { items } }) =>
 								Effect.gen(function* () {
-									yield* Ref.update(policyCalls, (all) => [...all, policy.runId]);
+									yield* Ref.update(policyCalls, (all) => [...all, policy.hook.slug]);
 									expect(yield* session.isTransactionActive).toBe(false);
 									const index = policy.position;
 									if (index === 1) {
@@ -398,33 +398,27 @@ const entitiesLayer = (options: TestOptions = {}) =>
 											.pipe(Effect.orDie);
 									}
 									if (output === "fail") {
-										return yield* new AutomationPolicyExecutionError({
-											runId: policy.runId,
-											kind: "script-failure",
-											code: "policy-execution-failed",
-										});
+										return yield* new AutomationPolicyExecutionError({ kind: "script-failure" });
 									}
 									return {
 										items: items.map(({ itemIdentity }) => ({ itemIdentity, decision: output })),
 									};
 								}),
-							match: (trigger) =>
+							match: (request) =>
 								Effect.gen(function* () {
+									const [first] = request.items;
 									if (
 										options.lateEventOnDelete &&
-										trigger.scopeUserId !== null &&
-										trigger.payload?.resource === "event" &&
-										trigger.payload.category === "request" &&
-										trigger.payload.operation === "batch" &&
-										trigger.payload.items[0]?.resource === "event" &&
-										trigger.payload.items[0].operation === "delete"
+										request.scopeUserId !== null &&
+										first?.request.resource === "event" &&
+										first.request.operation === "delete"
 									) {
-										const before = trigger.payload.items[0].draft;
+										const before = first.request.draft;
 										yield* eventRepository
 											.createEvent(new WriteTransaction(), {
 												entityId: before.entityId,
 												eventSchemaPluginId: null,
-												userId: trigger.scopeUserId,
+												userId: request.scopeUserId,
 												properties: before.properties,
 												propertiesSchema: { fields: {} },
 												id: EventId.make("late-cascade-event"),
@@ -447,8 +441,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 											]),
 										];
 									}
-									return trigger.payload?.category === "request" &&
-										trigger.payload.resource === "entity"
+									return request.resource === "entity"
 										? (options.policies ?? []).map((_, index) =>
 												policyFixture(index, [
 													{ resource: "entity", operation: "create", entitySchemaSlug: slug },
@@ -1816,10 +1809,7 @@ describe("EntitiesService committed lifecycle", () => {
 						const error = yield* (yield* ChangeSets)
 							.commit(ownerCreate(), command(name))
 							.pipe(Effect.flip);
-						expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
-						if (name === "failed") {
-							expect(error).toMatchObject({ reason: { runId: "policy-0" } });
-						}
+						expect(error).toMatchObject({ reason: { code }, _tag: "PolicyRejected" });
 						if (name === "rejected") {
 							expect(error).toMatchObject({
 								reason: { message: { key: "rejection.denied", namespace: "policy-plugin" } },
@@ -2114,19 +2104,12 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const session = yield* DatabaseSession;
 					const lifecycle = yield* FakeEntityLifecycle;
 					const [written] = yield* commitUpserts(
 						[providerUpsert("policy")],
 						command("planned-policy"),
 					);
 					expect(written?.properties).toEqual({ title: "policy" });
-					const triggers = yield* session.run((db) =>
-						db
-							.select({ category: tables.automationTrigger.category })
-							.from(tables.automationTrigger),
-					);
-					expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
 					expect(yield* lifecycle.policyCalls).toEqual([]);
 				}),
 			testTimeout,

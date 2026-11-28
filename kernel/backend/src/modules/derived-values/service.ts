@@ -629,20 +629,21 @@ export class Folds extends Context.Service<Folds>()(
 
 			/** Runs the fold once over subjects that fit one run and pairs each with its result. */
 			const execute = Effect.fnUntraced(function* (run: Run, lane: ExecutionLane) {
-				const result = yield* calls.run({
-					lane,
-					principal: run.binding.principal,
-					executionId: `fold-${yield* random.uuidV4()}`,
-					input: { subjects: run.subjects.map(({ input }) => input) },
-				});
+				const result = yield* calls.run(
+					{
+						lane,
+						principal: run.binding.principal,
+						executionId: `fold-${yield* random.uuidV4()}`,
+						input: { subjects: run.subjects.map(({ input }) => input) },
+					},
+					FoldOutput,
+				);
 				if (result.error) {
 					return yield* failure(
 						`Fold failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
 					);
 				}
-				const output = yield* Schema.decodeUnknownEffect(FoldOutput)(result.value).pipe(
-					Effect.mapError((error) => failure(`Fold output is invalid: ${unknownToMessage(error)}`)),
-				);
+				const { output } = result;
 				if (output.subjects.length !== run.subjects.length) {
 					return yield* failure("Fold must return one result per subject");
 				}

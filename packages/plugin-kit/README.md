@@ -633,10 +633,12 @@ immutable references with per-item projected request snapshots:
 
 ```ts
 {
-  automation: { /* shared invocation metadata and references */ },
+  automation: { /* hookSlug, causation, occurredAt, executionUserId, hookMetadata?, references */ },
   items: [{ itemIdentity, payload }],
 }
 ```
+
+A policy call has no run or trigger, so its metadata carries no `runId` or `triggerId`.
 
 Return a decision for each item, matched by its identity:
 
@@ -667,8 +669,9 @@ share those scales with the property definitions instead of repeating literals.
 Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
 For event-create batches, `once-per-subject` runs on the first eligible item for each deterministic
 subject key. Before hooks have no `retry` field. A policy is called once per command with every item it
-targets and leaves no automation history. Infrastructure failure returns
-`policy-execution-failed` with the call's run ID and creates no mutation. Resubmission is a new command;
+targets and leaves no automation history. A policy that cannot run for want of capacity makes the
+write fail as unavailable (HTTP 503), and any other policy failure fails it with
+`policy-execution-failed` (HTTP 400); neither creates a mutation. Resubmission is a new command;
 delayed automatic and manual policy retry are not allowed.
 
 After hooks use `defineAutomation` and `automationType: "automation"`. An after hook returns

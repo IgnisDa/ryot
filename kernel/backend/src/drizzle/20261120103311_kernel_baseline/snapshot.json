@@ -27286,7 +27286,7 @@
 			"schema": "public",
 			"table": "automation_trigger",
 			"name": "automation_trigger_kind_check",
-			"value": "(\"category\" in ('request', 'change') and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete', 'batch')) or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
+			"value": "(\"category\" = 'change' and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete', 'batch')) or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
 			"entityType": "checks"
 		},
 		{

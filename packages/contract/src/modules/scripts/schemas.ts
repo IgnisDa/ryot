@@ -131,11 +131,14 @@ export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 const automationRunSubjectFields = {
 	accountUserId: Schema.NullOr(UserId),
 	type: Schema.Literal("automation-run"),
-	runId: AutomationInvocationFields.runId,
-	stage: Schema.Literals(["before", "after"]),
-	triggerId: AutomationInvocationFields.triggerId,
 	causation: AutomationInvocationFields.causation,
 	executionUserId: AutomationInvocationFields.executionUserId,
+};
+const afterRunSubjectFields = {
+	...automationRunSubjectFields,
+	stage: Schema.Literal("after"),
+	runId: AutomationInvocationFields.runId,
+	triggerId: AutomationInvocationFields.triggerId,
 };
 
 export const SandboxExecutionSubject = Schema.Union([
@@ -157,16 +160,24 @@ export const SandboxExecutionSubject = Schema.Union([
 		pageAuthority: Schema.optional(PageOperationAuthority),
 	}),
 	strictStruct({
-		...automationRunSubjectFields,
+		...afterRunSubjectFields,
 		pluginId: PluginId,
 		pluginRevisionId: PluginRevisionId,
 		pluginConfigRevisionId: PluginConfigRevisionId,
 	}),
 	strictStruct({
-		...automationRunSubjectFields,
+		...afterRunSubjectFields,
 		pluginId: Schema.Null,
 		pluginRevisionId: Schema.Null,
 		pluginConfigRevisionId: Schema.Null,
+	}),
+	// A policy decides a request in memory, so its run has no stored trigger or run.
+	strictStruct({
+		...automationRunSubjectFields,
+		pluginId: PluginId,
+		stage: Schema.Literal("before"),
+		pluginRevisionId: PluginRevisionId,
+		pluginConfigRevisionId: PluginConfigRevisionId,
 	}),
 ]).pipe(
 	Schema.check(

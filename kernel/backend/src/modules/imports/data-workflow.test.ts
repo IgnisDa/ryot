@@ -9,7 +9,6 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
 	AutomationExecutionId,
-	AutomationRunId,
 	EntitySchemaSlug,
 	EventId,
 	IntegrationId,
@@ -188,11 +187,7 @@ const fixture = Effect.fnUntraced(function* (
 					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
 					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
 						if (throws) {
-							return {
-								index,
-								status: "failed",
-								reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run") },
-							};
+							return { index, status: "failed", reason: { code: "policy-execution-failed" } };
 						}
 						if (itemIdentity.includes("skipped")) {
 							return {

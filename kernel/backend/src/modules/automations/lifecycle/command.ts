@@ -57,7 +57,10 @@ export const lifecycleActor = (
 	};
 };
 
-type AutomationRunSubject = Extract<SandboxExecutionSubject, { type: "automation-run" }>;
+type AutomationRunSubject = Extract<
+	SandboxExecutionSubject,
+	{ stage: "after"; type: "automation-run" }
+>;
 
 /** The sandbox subject of one automation run triggered by `trigger`, for its principal to decode. */
 export const automationRunSubject = <
@@ -68,7 +71,6 @@ export const automationRunSubject = <
 >(
 	run: {
 		readonly runId: AutomationRunSubject["runId"];
-		readonly stage: AutomationRunSubject["stage"];
 		readonly accountUserId: AutomationRunSubject["accountUserId"];
 		readonly trigger: Pick<AutomationTrigger, "id" | "causation">;
 		readonly executionUserId: AutomationRunSubject["executionUserId"];
@@ -77,7 +79,7 @@ export const automationRunSubject = <
 ) => ({
 	...plugin,
 	runId: run.runId,
-	stage: run.stage,
+	stage: "after" as const,
 	triggerId: run.trigger.id,
 	type: "automation-run" as const,
 	accountUserId: run.accountUserId,
@@ -85,20 +87,16 @@ export const automationRunSubject = <
 	executionUserId: run.executionUserId,
 });
 
-export const automationRunLane = (run: {
-	readonly stage: AutomationRunSubject["stage"];
-	readonly causation: Pick<AutomationRunSubject["causation"], "lane">;
-}): ExecutionLane => (run.stage === "after" ? "background" : run.causation.lane);
-
+/** An after hook's writes descend from its trigger; after hooks run in the background lane. */
 export const automationLifecycleCausation = (
-	parent: Pick<AutomationRunSubject, "runId" | "stage" | "causation" | "triggerId">,
+	parent: Pick<AutomationRunSubject, "runId" | "causation" | "triggerId">,
 	executionId: AutomationExecutionId,
 ): AutomationCausation => ({
 	...parent.causation,
 	executionId,
+	lane: "background",
 	source: "automation",
 	parentRunId: parent.runId,
-	lane: automationRunLane(parent),
 	parentTriggerId: parent.triggerId,
 	depth: parent.causation.depth + 1,
 });
@@ -155,7 +153,7 @@ export const principalLifecycleCommand = (input: {
 }): DomainLifecycleCommand & { readonly writeContext: ScriptExecutionPrincipal } => {
 	const { subject } = input.principal;
 	const population = input.population === undefined ? {} : { population: input.population };
-	if (subject.type === "automation-run") {
+	if (subject.type === "automation-run" && subject.stage === "after") {
 		return {
 			...population,
 			occurredAt: input.occurredAt,

@@ -12,6 +12,7 @@ import {
 	AutomationPolicyInput,
 	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
+	AutomationRequestPayload,
 	AutomationRetryPolicy,
 	AutomationRun,
 	AutomationRunAttempt,
@@ -273,9 +274,10 @@ describe("lifecycle payload boundaries", () => {
 		"requires the trusted execution principal in policy and after invocations",
 		() =>
 			Effect.gen(function* () {
-				for (const [schema, payload] of [
+				for (const [schema, run, payload] of [
 					[
 						AutomationInput,
+						{ runId: "run-1", triggerId: "trigger-1" },
 						{
 							category: "change",
 							resource: "entity",
@@ -290,6 +292,7 @@ describe("lifecycle payload boundaries", () => {
 					],
 					[
 						AutomationPolicyInput,
+						{},
 						{
 							resource: "entity",
 							category: "request",
@@ -301,13 +304,12 @@ describe("lifecycle payload boundaries", () => {
 					for (const executionUserId of [null, "user-1"]) {
 						const input = {
 							automation: {
+								...run,
 								payload,
 								causation,
-								runId: "run-1",
 								executionUserId,
 								hookSlug: "item.hook",
 								occurredAt: timestamp,
-								triggerId: "trigger-1",
 							},
 						};
 						expect(yield* Schema.decodeUnknownEffect(schema)(input)).toEqual<unknown>(input);
@@ -440,15 +442,16 @@ describe("lifecycle payload boundaries", () => {
 					changedProperties: ["count"],
 					draft: { ...drafts[0]?.draft, properties: { projected: true } },
 				};
+				const { runId: _runId, triggerId: _triggerId, ...policy } = input.automation;
 				expect(
 					yield* Schema.decodeUnknownEffect(AutomationPolicyInput)({
-						automation: { ...input.automation, payload: projectedRequest },
+						automation: { ...policy, payload: projectedRequest },
 					}),
 				).toMatchObject({ automation: { payload: { changedProperties: ["count"] } } });
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(AutomationPolicyInput)({
 						automation: {
-							...input.automation,
+							...policy,
 							payload: { ...projectedRequest, changedProperties: undefined },
 						},
 					}),
@@ -477,10 +480,18 @@ describe("lifecycle payload boundaries", () => {
 			Effect.gen(function* () {
 				const before = { ...draft, id: "record-1", createdAt: timestamp, updatedAt: timestamp };
 				const after = { ...before, properties: { changed: true } };
-				for (const payload of [
+				const requests = [
 					{ draft, resource, category: "request", operation: "create" },
 					{ draft, before, resource, category: "request", operation: "update" },
 					{ resource, draft: before, category: "request", operation: "delete" },
+				];
+				for (const payload of requests) {
+					expect(
+						yield* Schema.decodeUnknownEffect(AutomationRequestPayload)(payload),
+					).toEqual<unknown>(payload);
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+				}
+				for (const payload of [
 					{ after, resource, category: "change", operation: "create" },
 					{ after, before, resource, category: "change", operation: "update" },
 					{ before, resource, category: "change", operation: "delete" },
@@ -493,6 +504,11 @@ describe("lifecycle payload boundaries", () => {
 					{ after, resource, category: "change", operation: "update" },
 					{ after, before, resource, category: "change", operation: "create" },
 					{ after, resource, category: "change", operation: "delete" },
+					{ after, resource, operation: "emit", category: "signal" },
+				]) {
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+				}
+				for (const payload of [
 					{ draft, resource, category: "request", operation: "update" },
 					{
 						resource,
@@ -500,9 +516,8 @@ describe("lifecycle payload boundaries", () => {
 						operation: "create",
 						draft: { ...draft, parentRunId: "untrusted" },
 					},
-					{ after, resource, operation: "emit", category: "signal" },
 				]) {
-					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationRequestPayload)(payload));
 				}
 			}),
 		testTimeout,

@@ -12,12 +12,9 @@ import type { EntityId, RelationshipId, UserId } from "@ryot-app/contract/schema
 import { Effect, Schema } from "effect";
 
 import {
-	applyPolicyChunks,
-	invalidPolicyItemReason,
-	isTransientPolicyFailure,
-	matchPolicyChunks,
-	type PolicyBatchResult,
-	subjectChunks,
+	acceptedPolicyRequests,
+	matchPolicies,
+	type PolicyDecisions,
 } from "#modules/automations/lifecycle/policies";
 import {
 	type PreparedEntityCreate,
@@ -84,92 +81,44 @@ export const preparedRelationshipEntityIds = ({
 const concurrentChange = () =>
 	new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } });
 
-const schemaKey = (mutation: Mutation) => {
-	const reference = relationshipSchemaReference(mutation.input);
-	return definitionKey("relationship", reference.owner, reference.slug);
-};
-
 /** Matches the policies of every prepared write with a request, in the caller's transaction. */
 export const matchRelationshipPolicies = (input: {
 	readonly userId: UserId;
 	readonly transaction: WriteTransaction;
 	readonly command: DomainLifecycleCommand;
 	readonly prepared: ReadonlyArray<PreparedUserRelationship>;
-}) => {
-	const requested = input.prepared.flatMap((token): ReadonlyArray<RequestedRelationship> => {
-		const { request, mutation } = token;
-		return request === null ? [] : [{ token, request, mutation }];
-	});
-	return matchPolicyChunks(
-		input.transaction,
-		subjectChunks(requested, (item) => item.mutation.input.sourceEntityId),
-		(items, index) =>
-			Effect.succeed({
-				references: {},
-				userId: input.userId,
-				resource: "relationship" as const,
-				command: {
-					...input.command,
-					itemIdentity: `${input.command.itemIdentity}:relationship-policies:${index}`,
-				},
-				items: items.map(({ request, mutation }) => ({
-					request,
-					schemaKey: schemaKey(mutation),
-					itemIdentity: mutation.command.itemIdentity,
-				})),
-				propertiesSchemas: Object.fromEntries(
-					items.flatMap(({ mutation }) =>
-						mutation.propertiesSchema ? [[schemaKey(mutation), mutation.propertiesSchema]] : [],
-					),
-				),
+}) =>
+	matchPolicies(
+		{
+			userId: input.userId,
+			command: input.command,
+			resource: "relationship",
+			items: input.prepared.flatMap((token): ReadonlyArray<RequestedRelationship> => {
+				const { request, mutation } = token;
+				return request === null ? [] : [{ token, request, mutation }];
 			}),
-	);
-};
-
-/** Runs the matched relationship policies, outside any transaction. */
-export const applyRelationshipPolicies = (
-	chunks: Effect.Success<ReturnType<typeof matchRelationshipPolicies>>,
-) =>
-	applyPolicyChunks(chunks).pipe(
-		Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-			Effect.fail(
-				isTransientPolicyFailure(error)
-					? error
-					: new RelationshipBadRequest({
-							reason: { runId: error.runId, code: "policy-execution-failed" },
-						}),
-			),
-		),
+			policyItem: ({ request, mutation }) => ({
+				request,
+				subject: mutation.input.sourceEntityId,
+				itemIdentity: mutation.command.itemIdentity,
+				propertiesSchema: mutation.propertiesSchema ?? null,
+			}),
+		},
+		input.transaction,
 	);
 
 /**
- * Each prepared write with its policy decision applied; a rejected or invalid item fails. A write
- * without a request, or outside the decided chunks, stands as prepared.
+ * Each prepared write with its policy decision applied; a refused item fails. A write without a
+ * request, or outside the decided chunks, stands as prepared.
  */
 export const acceptRelationshipPolicies = (
-	chunks: Effect.Success<ReturnType<typeof applyRelationshipPolicies>>,
+	chunks: ReadonlyArray<{ readonly decisions: PolicyDecisions }>,
 ) => {
-	const decided = new Map<PreparedUserRelationship, PolicyBatchResult["items"][number]>();
-	for (const chunk of chunks) {
-		for (const [index, item] of chunk.items.entries()) {
-			const decision = chunk.validated.items[index];
-			if (decision) {
-				decided.set(item.token, decision);
-			}
-		}
-	}
+	const accepted = acceptedPolicyRequests(chunks);
 	return Effect.fnUntraced(function* (token: PreparedUserRelationship) {
-		const decision = decided.get(token);
-		if (!decision) {
+		const decision = yield* accepted(token.mutation.command.itemIdentity);
+		if (decision === null) {
 			return token;
-		}
-		if (decision.rejected !== null) {
-			return yield* new RelationshipBadRequest({
-				reason: { code: "policy-rejected", message: decision.rejected },
-			});
-		}
-		if (decision.error !== null) {
-			return yield* new RelationshipBadRequest({ reason: invalidPolicyItemReason(decision.error) });
 		}
 		const { request } = decision;
 		if (request.resource !== "relationship") {
