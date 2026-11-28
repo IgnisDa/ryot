@@ -1,11 +1,14 @@
 import {
 	type CreateEventsResponse,
+	type EventBadRequest,
 	EventCreateFailureReason,
 	EventCreateItemOutcome,
+	type EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
 import { Schema } from "effect";
 
 import type { PolicyDecisions } from "#modules/automations/lifecycle/policies";
+import { EventReferenceUnavailable } from "#modules/events/event-references";
 
 /** Nothing was committed: `kept` outcomes stand and every other item fails with `reason`. */
 export class EventCreateRejected extends Schema.TaggedError<
@@ -70,20 +73,16 @@ export const toCreateEventsResponse = (
 	};
 };
 
-export const commitRejection = (error: {
-	readonly _tag: string;
-	readonly reason?: unknown;
-}): EventCreateFailureReason => {
-	if (error._tag === "EventReferenceUnavailable") {
+/** The reason every create of an independent commit fails with when its write fails with `error`. */
+export const commitRejection = (
+	error: EventStale | EventBadRequest | EventReferenceUnavailable,
+): EventCreateFailureReason => {
+	if (error instanceof EventReferenceUnavailable) {
 		return { code: "invalid-properties" };
 	}
 	return {
 		code:
-			error._tag === "EventBadRequest" &&
-			typeof error.reason === "object" &&
-			error.reason !== null &&
-			"code" in error.reason &&
-			error.reason.code === "asset-forbidden"
+			error._tag === "EventBadRequest" && error.reason.code === "asset-forbidden"
 				? "asset-forbidden"
 				: "mutation-conflict",
 	};

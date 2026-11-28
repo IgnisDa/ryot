@@ -1437,9 +1437,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const written = yield* independent
 					? persisted.pipe(
 							Effect.mapError((error) =>
-								error._tag === "DbError"
-									? error
-									: new EventCreateRejected({ kept, reason: commitRejection(error) }),
+								error._tag === "EventStale" ||
+								error._tag === "EventBadRequest" ||
+								error._tag === "EventReferenceUnavailable"
+									? new EventCreateRejected({ kept, reason: commitRejection(error) })
+									: error,
 							),
 						)
 					: persisted.pipe(Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest));
