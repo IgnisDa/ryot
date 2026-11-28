@@ -850,7 +850,8 @@ layer(
 				});
 				expect(yield* h.inputs).toHaveLength(1);
 				expect(yield* h.created).toEqual([]);
-				expect(yield* h.triggers).toHaveLength(1);
+				expect(yield* h.triggers).toEqual([]);
+				expect(yield* h.requests).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -978,7 +979,8 @@ layer(
 					reason: { entityId: hiddenSession, code: "session-entity-not-found" },
 				});
 				expect(yield* h.created).toEqual([]);
-				expect(yield* h.triggers).toHaveLength(1);
+				expect(yield* h.triggers).toEqual([]);
+				expect(yield* h.requests).toHaveLength(1);
 			}),
 		testTimeout,
 	);

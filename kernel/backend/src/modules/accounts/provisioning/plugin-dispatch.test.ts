@@ -691,8 +691,8 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const { run } = yield* installedBootstrap;
-				expect(yield* runUserBootstrapScript(run)).toEqual({
-					error: { message: "A user bootstrap script must return { changes? }" },
+				expect(yield* runUserBootstrapScript(run)).toMatchObject({
+					error: { phase: "output", kind: "invalid-output" },
 				});
 				expect(yield* (yield* BootstrapCommits).committed).toEqual([]);
 			}),
