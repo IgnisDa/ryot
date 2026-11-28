@@ -144,6 +144,6 @@ it.
 RyotQL exposes `event.projection` and `event.projectionStatus`. Its status is `ready` once its subject
 row has folded, `pending` while the subject waits for a fold or the row is missing, `failed`
 when the subject's last fold failed, and `none` when the schema declares no projection. Backups
-export subject fold state in `fold-values.ndjson`, preserving history that cannot be rebuilt from
-events, such as suppressed occurrences. Restore and merge remap referenced IDs through absorbed state
+export subject fold state in `fold-values.ndjson`, preserving state that cannot be rebuilt from
+events. Restore and merge remap referenced IDs through absorbed state
 before refolding. Event and relationship projections are rebuilt.

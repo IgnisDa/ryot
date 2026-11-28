@@ -65,12 +65,12 @@ trusted writer and revision; they cannot borrow kernel or another plugin's domai
 {
   "entities": [
     {
-      "key": "bottle",
+      "key": "item",
       "kind": "custom",
-      "name": "Bottle",
+      "name": "Item",
       "entitySchema": {
-        "owner": { "kind": "plugin", "pluginId": "local-whiskey-id" },
-        "slug": "bottle"
+        "owner": { "kind": "plugin", "pluginId": "local-plugin-id" },
+        "slug": "item"
       },
       "properties": {}
     }
@@ -260,7 +260,7 @@ deterministic durable IDs lets the replacement backend locate and interrupt the 
 ## Plugin checkpoints
 
 Plugin orchestration saves explicit collection, sorting, normalization, and application cursors.
-Media and fitness keep their bounded external sorting and immutable source captures. Each checkpoint
+External sorting stays bounded and source captures are immutable. Each checkpoint
 advances only after its captures, committed application receipts, and required confirmations are
 recorded. A restart loads the saved phase rather than replaying earlier phases. The current unfinished
 step retains private call outcomes for interruption and delivery safety. The execution owner keeps

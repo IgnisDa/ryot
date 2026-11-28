@@ -219,25 +219,23 @@ In process stay the manifest decode, which the rest of ingestion (policy, schema
 persistence and catalog invalidation) reads and Effect Schema cannot decode without its checks; the
 deployment rules for active system packages, `validateSystemPluginDeployment` (unique package IDs,
 configuration environment keys and HTTP rate-limit lookups); and each package's manifest references.
-These run before the worker jobs and report the same errors in the same order as before. Boot's
-kernel definition replacement runs through `validateActiveSystemPlugins`, which takes the lease
-before the lock. User installations still check sources and definition sets in process through
-`normalizePluginSource` and `buildValidatedDefinitionSnapshot`: their scoped validation blocks for 75
-to 100 ms, while the worker would take about 290 ms warm or 450 ms cold, add its memory per install
-and serialize concurrent users' installs behind one worker.
+These run before the worker jobs, so their errors are reported first. Boot's kernel definition
+replacement runs through `validateActiveSystemPlugins`, which takes the lease before the lock. User
+installations check sources and definition sets in process through `normalizePluginSource` and
+`buildValidatedDefinitionSnapshot`: their scoped validation is shorter than a worker round trip, and
+a worker would add its memory per install and serialize concurrent users' installs behind one
+process.
 
-On the shipped Media archive an update's longest event-loop stall is about 160 ms, the in-process
-manifest decode, down from 1.3 s; Fitness is about 40 ms. A failed check or invalid set keeps its
-`PluginValidationError` and message. CPU time and memory above the worker limits also fail as
-`PluginValidationError`; a worker that cannot start, exits, outlasts its elapsed-time limit or answers
-with an invalid result fails with `CompilerWorkerUnavailable`, which ingestion raises as a defect so
-its transaction rolls back like a database failure.
+A failed check or invalid set keeps its `PluginValidationError` and message. CPU time and memory
+above the worker limits also fail as `PluginValidationError`; a worker that cannot start, exits,
+outlasts its elapsed-time limit or answers with an invalid result fails with
+`CompilerWorkerUnavailable`, which ingestion raises as a defect so its transaction rolls back like a
+database failure.
 
-The worker exits when its lease ends. It peaks at 600 to 660 MB during a Media update and about 370 MB
-for boot's full set. Nothing outlives a job; the peak is garbage from receiving and parsing the 30 MB
-request and decoding the manifest, which the definition-set job then runs on top of, since Bun
-returns little freed memory to the system. That memory would otherwise stay resident on a small server for an operation that runs at boot and on rare
-administrative installs. Starting it costs about 130 ms.
+The worker exits when its lease ends, so nothing outlives a job. Its peak memory is garbage from
+receiving and parsing the request and decoding the manifest, which the definition-set job then runs
+on top of, and Bun returns little freed memory to the system; a resident worker would keep that
+memory for an operation that runs only at boot and on rare administrative installs.
 
 Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
 `makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and

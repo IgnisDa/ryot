@@ -35,8 +35,9 @@ orderKey)`. Physical identity and audit timestamps remain separate. Backups pres
 order even when restore remaps physical event IDs.
 
 `event_scope` tracks a revision per user, plugin owner, and entity-or-session reference. Source writes
-advance old and new scopes, including deletions and reference moves. Read-dependent user commands
-can use that scalar revision as their atomic baseline instead of carrying every source event ID.
+advance old and new scopes, including deletions and reference moves. A change set's `events.baselines`
+name that scalar revision for each entity whose history it read, instead of carrying every source
+event ID; the commit fails as `entity-stale` when a scope moved since.
 
 Snapshot reads do not lock event rows. Preparation can therefore read history while a commit holds
 entity locks. Persistence locks entity references before event rows and rechecks captured revisions;
@@ -66,14 +67,10 @@ account/catalog admission and before taking any entity/session row locks. It loc
 session, and selected input references in entity-ID order using `FOR NO KEY UPDATE`.
 
 Then acquire any group-owned entity/session locks, call `lockEventRows` with the same complete batch,
-and persist the writes. Stream locks are sorted before event-row locks. Single-row repository writers
-also acquire reference locks before resolving fanout; outer multi-write owners must pre-lock the whole
-batch to preserve global order. The lower-level `EventStreamRepository.lockSourceReferences(sources)`
-and `lockSourceReferencesForEvents(eventIds, sources?)` expose that same reference-lock stage.
-
-Reference locks precede fanout reads, so concurrent writes reaching the same output stream serialize
-before resolving their targets. Publication needs the affected stream lock and revision fence, so all
-old claims become stale in the same transaction as the input change.
+and persist the writes. Single-row repository writers also lock references before their event row;
+outer multi-write owners must pre-lock the whole batch to preserve global order. The exported
+`lockEventReferences(session, sources)` is that same reference-lock stage for backup restore, which
+writes events outside the repository.
 
 ## Atomic event groups
 

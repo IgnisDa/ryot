@@ -98,7 +98,6 @@ const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
 		? { ...item.input.draft, populatedAt: before.populatedAt }
 		: item.input.draft;
 
-/** An update whose draft matches the snapshot it was prepared from writes nothing and plans no hooks. */
 export const makePersistMutation = <E, R, Result>({
 	keys,
 	planner,
