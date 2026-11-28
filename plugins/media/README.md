@@ -800,26 +800,21 @@ container links are created or deleted, since an inventory change alone complete
 request holds at most 100 entities, so relationship sync batches are capped at 100 items.
 
 A full replay (a new subject, a revision whose fold changed, a content change) reads the whole history.
-`backend/fold/incremental.ts` handles a change list without it:
+`backend/fold/incremental.ts` handles a change list without it, and the value carries no events or
+coverage state between runs, so its size does not grow with an unfinished run or with the episodes a
+Show or Podcast covers:
 
-- An append, every changed event created after every existing consumption event, continues each
-  touched title or episode from its stored unfinished run. The value keeps, per entity, its latest
-  run of unsourced events unless a completion ends it, plus the earlier events at the instant it
-  starts, which same-instant rules need. It reads only existing events at the appended instants, none
-  for the newest event, and an append to a source run reads that run. On a Show or Podcast, coverage
-  resumes from the value's coverage carry (covered episodes, basis and used occurrences) and visits only
-  the appended events and the completions they source; when the append completes the title, the fold
-  replays instead.
-- Any other change replays each touched entity from the latest unsourced completion before its earliest
+- Each touched title or episode replays from the latest unsourced completion before its earliest
   change to the present, plus touched source runs in full. Runs that hold an earlier event contribute
   nothing; their contributions stand. On an Anime or Manga, a changed completion decides whether every
-  earlier progress completes, so that replay starts at the previous explicit completion. A Show or
-  Podcast replays in full, because coverage spans every episode.
-
-The carry grows with an unfinished run and with every episode a Show or Podcast covers, so a value
-whose encoded size passes half of `FOLD_LIMITS.valueBytes` is stored without its tails and coverage
-carry and marked `carryDropped`. The next consumption change then replays in full, which keeps a
-long-running title or a show with thousands of watched episodes under the fold value limit.
+  earlier progress completes, so that replay starts at the previous explicit completion.
+- A Show or Podcast replays in full, because coverage spans every episode, unless the change is an
+  append, every changed event created after every existing consumption event, that cannot complete
+  the title. An append that completes or progresses no episode cannot; one that does can only
+  restore a lapsed coverage occurrence, complete a title that just became terminal, or complete a
+  terminal title once no required episode is left uncovered in the current cycle, which
+  `mediaFoldUncoveredRecipe` reads from the written history, counting the episodes the append
+  progresses as covered. The append still records the episode completions it sources as counted.
 
 Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
 history work; links refresh on every run.

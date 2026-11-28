@@ -5,7 +5,7 @@ import {
 	updateEventChange,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FoldEventImage } from "@ryot-app/plugin-backend-sdk/folds";
+import type { FoldEventImage } from "@ryot-app/plugin-backend-sdk/folds";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { EntityId, EventId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
@@ -39,40 +39,10 @@ export const Occurrence = Schema.Struct({
 });
 export type Occurrence = typeof Occurrence.Type;
 
-/** Where an episodic subject's coverage stood after its latest event, so an append resumes from it. */
-const CoverageCarry = Schema.Struct({
-	used: Schema.Array(Schema.String),
-	basis: Schema.NullOr(Schema.String),
-	covered: Schema.Array(
-		Schema.Struct({
-			source: Schema.String,
-			episodeId: Schema.String,
-			dateUnknown: Schema.Boolean,
-			consumedOn: Schema.Array(Schema.String),
-		}),
-	),
-});
-type CoverageCarry = typeof CoverageCarry.Type;
-
-const emptyCoverageCarry: CoverageCarry = { used: [], basis: null, covered: [] };
-
-/**
- * `tails` holds each entity's latest unfinished run of unsourced events, which an append continues, with
- * the earlier events that occurred at the instant it starts; `coverage` is the episodic coverage carry.
- * `carryDropped` marks a value stored without either, which the next run replays to rebuild.
- */
 export const MediaFoldValue = Schema.Struct({
 	occurrences: Schema.Array(Occurrence),
-	coverage: Schema.optionalKey(CoverageCarry),
 	terminal: Schema.optionalKey(Schema.Boolean),
-	carryDropped: Schema.optionalKey(Schema.Literal(true)),
 	coverageSources: Schema.optionalKey(Schema.Array(Schema.String)),
-	tails: Schema.optionalKey(
-		Schema.Record(
-			Schema.String,
-			Schema.Struct({ run: Schema.Array(FoldEventImage), lead: Schema.Array(FoldEventImage) }),
-		),
-	),
 });
 export type MediaFoldValue = typeof MediaFoldValue.Type;
 
@@ -200,12 +170,15 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	readonly previous: MediaFoldValue;
 	/** Limits progress occurrences to those sourced by these events; the value then holds only them. */
 	readonly scope?: ReadonlySet<string>;
+	/**
+	 * Judges no coverage, only recording the episode completions `fresh` events source, for a caller
+	 * that has ruled out a coverage completion.
+	 */
+	readonly fresh?: ReadonlySet<string>;
 	readonly events: ReadonlyArray<FoldEvent>;
 	/** Completions restored under a key whose source has since changed ID still answer to that occurrence. */
 	readonly renamedKeys?: ReadonlyMap<string, string>;
 	readonly inventory: Effect.Effect<ReadonlyArray<string>, E, R>;
-	/** Resumes coverage from `carry`, visiting only `fresh` events and the completions they source. */
-	readonly coverage?: { readonly carry: CoverageCarry; readonly fresh: ReadonlySet<string> };
 }) {
 	const inScope = (value: undefined | Occurrence) =>
 		value !== undefined &&
@@ -379,32 +352,38 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	].sort(compareHistory);
 
 	const coverageSources = new Set<string>();
-	const carry = input.coverage?.carry ?? emptyCoverageCarry;
-	let carried = carry;
-	if (input.subject.episodic) {
+	const sourceOf = (event: FoldEvent) => {
+		const key = completionKeyOf(event);
+		return key === undefined ? event.id : progressSources.get(key)?.id;
+	};
+	if (input.subject.episodic && input.fresh !== undefined) {
+		for (const event of effective) {
+			const source = sourceOf(event);
+			if (
+				event.eventSchemaSlug === "complete" &&
+				event.entityId !== input.subject.id &&
+				source !== undefined &&
+				input.fresh.has(source)
+			) {
+				coverageSources.add(source);
+			}
+		}
+	} else if (input.subject.episodic) {
 		let live: undefined | ReadonlyArray<string>;
-		const used = new Set<string>(carry.used);
+		const used = new Set<string>();
 		const frozen = input.previous.occurrences.filter(
 			(value) => value.rule === "coverage" && value.inventory !== undefined,
 		);
-		let coverage = new Map(
-			carry.covered.map(({ episodeId, ...value }) => [episodeId, value] as const),
-		);
-		let basis: undefined | Occurrence =
-			carry.basis === null ? undefined : frozen.find(({ key }) => key === carry.basis);
+		let coverage = new Map<
+			string,
+			{ readonly source: string; readonly dateUnknown: boolean; readonly consumedOn: string[] }
+		>();
+		let basis: undefined | Occurrence;
 		const seenSources = new Set(input.previous.coverageSources);
 		const becameTerminal = input.subject.terminal && input.previous.terminal !== true;
-		const fresh = input.coverage?.fresh;
 		for (const event of effective) {
 			if (event.eventSchemaSlug !== "progress" && event.eventSchemaSlug !== "complete") {
 				continue;
-			}
-			if (fresh !== undefined) {
-				const key = completionKeyOf(event);
-				const origin = key === undefined ? event.id : progressSources.get(key)?.id;
-				if (origin === undefined || !fresh.has(origin)) {
-					continue;
-				}
 			}
 			if (event.entityId === input.subject.id) {
 				if (event.eventSchemaSlug === "complete" && completionKeyOf(event) === undefined) {
@@ -507,13 +486,6 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			coverage = new Map();
 			basis = undefined;
 		}
-		carried = {
-			basis: basis?.key ?? null,
-			used: [...used].sort(compareText),
-			covered: [...coverage]
-				.map(([episodeId, value]) => Object.assign({ episodeId }, value))
-				.sort((left, right) => compareText(left.episodeId, right.episodeId)),
-		};
 	}
 
 	const wanted = new Map(desired.map((value) => [value.occurrence.key, value]));
@@ -590,11 +562,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		value: {
 			occurrences: sortedOccurrences([...occurrences, ...kept]),
 			...(input.subject.episodic
-				? {
-						coverage: carried,
-						terminal: input.subject.terminal,
-						coverageSources: [...coverageSources].sort(),
-					}
+				? { terminal: input.subject.terminal, coverageSources: [...coverageSources].sort() }
 				: {}),
 		} satisfies MediaFoldValue,
 		automatic: new Map(

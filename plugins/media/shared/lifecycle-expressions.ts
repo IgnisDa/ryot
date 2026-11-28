@@ -405,7 +405,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
  * The state of the episode's latest progress or completion in the parent's session while that event
  * follows the parent's latest completion, otherwise `untracked`.
  */
-const currentCycleEpisodeState = (
+export const currentCycleEpisodeState = (
 	episode: TableReference,
 	parent: TableReference,
 	alias: string,

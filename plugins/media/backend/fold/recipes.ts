@@ -25,7 +25,11 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { RelationshipId } from "@ryot-app/plugin-kit/schema";
 
-import { episodicEpisodeQuery, type EpisodicKindConfig } from "../../shared/lifecycle-expressions";
+import {
+	currentCycleEpisodeState,
+	episodicEpisodeQuery,
+	type EpisodicKindConfig,
+} from "../../shared/lifecycle-expressions";
 import { mediaFoldEventSchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
 
@@ -180,6 +184,53 @@ export const mediaFoldInventoryRecipe = (input: { readonly config: EpisodicKindC
 		},
 	});
 };
+/** One required episode of the subject, other than `excluded`, that its current cycle has not completed. */
+export const mediaFoldUncoveredRecipe = (input: {
+	readonly config: EpisodicKindConfig;
+	readonly excluded: ReadonlyArray<string>;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			subjectEntityId: {
+				type: "string",
+				validation: { required: true },
+				label: catalogMessage("query-parameter.entity"),
+				description: "Subject Entity Id for this selection",
+			},
+		},
+	});
+	const parent = table("entity", "foldUncoveredParent");
+	const episode = table("entity", "foldUncoveredEpisode");
+	const scope = episodicEpisodeQuery(input.config, parent, episode, "foldUncovered");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ episodes }) => Result.succeed(episodes.items.length > 0),
+		queries: {
+			episodes: selectedRows(episode, {
+				limit: 1,
+				orderBy: [ascending(column(episode, "id"))],
+				selection: { id: selectedField(column(episode, "id"), Schema.String) },
+				joins: [
+					join("inner", parent, eq(column(parent, "id"), inputParameters.value("subjectEntityId"))),
+					...scope.joins,
+				],
+				where: and(
+					scope.where,
+					not(
+						eq(
+							currentCycleEpisodeState(episode, parent, "foldUncoveredCurrent"),
+							literal("complete"),
+						),
+					),
+					...(input.excluded.length === 0
+						? []
+						: [not(inArray(column(episode, "id"), input.excluded.map(literal)))]),
+				),
+			}),
+		},
+	});
+};
+
 export const mediaFoldLibraryLinksRecipe = (() => {
 	const inputParameters = parameters({
 		fields: {

@@ -1,20 +1,14 @@
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import {
-	FOLD_LIMITS,
-	foldChangeImages,
-	type FoldEventChange,
-	type FoldEventImage,
-} from "@ryot-app/plugin-backend-sdk/folds";
-import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { foldChangeImages, type FoldEventChange } from "@ryot-app/plugin-backend-sdk/folds";
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { isPositional } from "../../shared/media-schema-slugs";
-import { consumptionContributions, type FoldTail } from "./consumption";
+import { consumptionContributions } from "./consumption";
 import {
 	compareHistory,
 	deriveHistory,
 	type FoldEvent,
-	MediaFoldValue,
+	type MediaFoldValue,
 	sortedOccurrences,
 } from "./history";
 
@@ -22,6 +16,13 @@ import {
 export type MediaHistoryReads<E, R> = {
 	readonly inventory: Effect.Effect<ReadonlyArray<string>, E, R>;
 	readonly history: Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
+	/**
+	 * Whether an episodic subject has a required episode other than `excluded` that its current cycle
+	 * has not completed, with every change already written.
+	 */
+	readonly uncovered: (input: {
+		readonly excluded: ReadonlyArray<string>;
+	}) => Effect.Effect<boolean, E, R>;
 	/** An entity's unsourced completions that occurred at or before `until`. */
 	readonly completions: (input: {
 		readonly until: string;
@@ -52,8 +53,6 @@ type HistorySubject = {
 };
 
 const sinceLimit = 20;
-
-const carryBudgetBytes = FOLD_LIMITS.valueBytes / 2;
 
 const iso = (value: string) => new Date(Date.parse(value)).toISOString();
 
@@ -87,12 +86,11 @@ const earliest = (events: ReadonlyArray<FoldEvent>) =>
 /**
  * Folds a subject's whole history, or with `changes` only the runs they touch:
  *
- * - An append continues each touched entity from its stored unfinished run. It reads only events at
- *   the instants it lands on, none when it is newest; an append to a source run reads that run.
- * - Otherwise each touched entity replays from the completion before its earliest change to the
- *   present. A changed explicit completion of a positional title decides whether every earlier
- *   progress completes, so that replay starts at the previous explicit completion.
- * - Coverage of an episodic subject resumes from its carry on an append and replays in full otherwise.
+ * - Each touched entity replays from the completion before its earliest change to the present, plus
+ *   touched source runs in full. A changed explicit completion of a positional title decides whether
+ *   every earlier progress completes, so that replay starts at the previous explicit completion.
+ * - An episodic subject's coverage spans every episode, so it replays in full unless `keepsCoverage`
+ *   shows the change cannot alter its coverage completions.
  */
 export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(input: {
 	readonly subject: HistorySubject;
@@ -109,11 +107,10 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			events: (yield* input.reads.history).map(normalizedEvent),
 			...(input.renamedKeys === undefined ? {} : { renamedKeys: input.renamedKeys }),
 		});
-		const { tails, contributions } = yield* consumptionContributions(derived);
 		return {
-			contributions,
+			value: derived.value,
 			changes: derived.changes,
-			value: yield* bounded(withTails(derived.value, tails)),
+			contributions: yield* consumptionContributions(derived),
 		};
 	});
 	if (input.changes === null) {
@@ -125,32 +122,8 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	if (added.length === 0 && retracted.length === 0) {
 		return { changes: [], contributions: [], value: input.previous };
 	}
-	if (input.previous.carryDropped === true) {
-		return yield* replay;
-	}
 	const changedIds = new Set([...added, ...retracted].map(({ id }) => id));
-	const first = earliest(added);
-	const later =
-		retracted.length > 0 || first === undefined
-			? []
-			: (yield* input.reads.since({
-					limit: sinceLimit,
-					from: first.occurredAt,
-					excluded: [...changedIds],
-				})).map(normalizedEvent);
-	const simultaneous = later.filter((event) =>
-		added.some(({ occurredAt }) => occurredAt === event.occurredAt),
-	);
-	const append =
-		retracted.length === 0 &&
-		later.length < sinceLimit &&
-		added.every((event) => later.every((existing) => compareHistory(event, existing) > 0)) &&
-		!added.some(
-			(event) =>
-				isExplicitCompletion(event) &&
-				(simultaneous.length > 0 || (isUnsourced(event) && isPositional(event.entitySchemaSlug))),
-		);
-	if (input.subject.episodic && !append) {
+	if (input.subject.episodic && !(yield* keepsCoverage(input, added, retracted, changedIds))) {
 		return yield* replay;
 	}
 	const entities = [...new Set([...added, ...retracted].map(({ entityId }) => entityId))].sort();
@@ -167,20 +140,6 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		const items = added.filter(
 			(event) => event.entityId === entityId && event.eventSchemaSlug === "item-complete",
 		);
-		if (append) {
-			const tail = input.previous.tails?.[entityId] ?? { run: [], lead: [] };
-			for (const event of [...simultaneous, ...tail.lead]) {
-				if (event.entityId === entityId && !tail.run.some(({ id }) => id === event.id)) {
-					window.set(event.id, event);
-					context.add(event.id);
-				}
-			}
-			for (const event of [...tail.run, ...sourced.map(normalizedEvent), ...touched]) {
-				window.set(event.id, event);
-				context.delete(event.id);
-			}
-			continue;
-		}
 		const oldest = earliest(touched);
 		const positional =
 			touched.some((event) => isPositional(event.entitySchemaSlug)) &&
@@ -237,34 +196,19 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		previous: input.previous,
 		events: [...window.values()],
 		inventory: input.reads.inventory,
-		...(input.subject.episodic
-			? {
-					coverage: {
-						fresh: new Set(added.map(({ id }) => id)),
-						carry: input.previous.coverage ?? { used: [], basis: null, covered: [] },
-					},
-				}
-			: {}),
+		...(input.subject.episodic ? { fresh: new Set(added.map(({ id }) => id)) } : {}),
 	});
-	if (derived.coverageOccurrences.length > 0) {
-		return yield* replay;
-	}
-	const { tails, contributions } = yield* consumptionContributions({ ...derived, context });
 	const occurrences = sortedOccurrences([
 		...input.previous.occurrences.filter(
 			(value) => !(value.rule === "progress" && scope.has(value.sourceEventId)),
 		),
 		...derived.value.occurrences,
 	]);
-	const kept = Object.entries(input.previous.tails ?? {}).filter(
-		([entityId]) => !entities.includes(entityId),
-	);
 	const value: MediaFoldValue = {
 		occurrences,
 		...(input.subject.episodic
 			? {
 					terminal: input.subject.terminal,
-					coverage: derived.value.coverage ?? { used: [], basis: null, covered: [] },
 					coverageSources: [
 						...new Set([...(input.previous.coverageSources ?? []), ...derived.coverageSources]),
 					].sort(),
@@ -272,53 +216,72 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			: {}),
 	};
 	return {
-		contributions,
+		value,
 		changes: derived.changes,
-		value: yield* bounded(withTails(value, new Map([...kept, ...tails]))),
+		contributions: yield* consumptionContributions({ ...derived, context }),
 	};
 });
 
-const encodeValue = Schema.encodeEffect(Schema.fromJsonString(MediaFoldValue));
-
 /**
- * Drops the carry (tails and coverage) from a value past `carryBudgetBytes`, so a long unfinished run
- * or a show with thousands of covered episodes stays under the fold value limit; the next run replays.
+ * Whether an episodic subject's change leaves its coverage completions as they are, so only the
+ * entities it touches replay. It must be an append, every changed event created after every existing
+ * consumption event, and an append that completes an episode can still complete the subject: by
+ * restoring a lapsed coverage occurrence, by the subject newly becoming terminal, or on a terminal
+ * subject once every required episode is covered. An episode the append progresses may complete, so
+ * it does not count as uncovered.
  */
-const bounded = Effect.fnUntraced(function* (value: MediaFoldValue) {
-	const bytes = new TextEncoder().encode(yield* encodeValue(value)).length;
-	if (bytes <= carryBudgetBytes) {
-		return value;
+const keepsCoverage = Effect.fnUntraced(function* <E, R>(
+	input: {
+		readonly subject: HistorySubject;
+		readonly previous: MediaFoldValue;
+		readonly reads: MediaHistoryReads<E, R>;
+	},
+	added: ReadonlyArray<FoldEvent>,
+	retracted: ReadonlyArray<FoldEvent>,
+	changedIds: ReadonlySet<string>,
+) {
+	const first = earliest(added);
+	const later =
+		retracted.length > 0 || first === undefined
+			? []
+			: (yield* input.reads.since({
+					limit: sinceLimit,
+					from: first.occurredAt,
+					excluded: [...changedIds],
+				})).map(normalizedEvent);
+	const simultaneous = later.some((event) =>
+		added.some(({ occurredAt }) => occurredAt === event.occurredAt),
+	);
+	const append =
+		retracted.length === 0 &&
+		later.length < sinceLimit &&
+		added.every((event) => later.every((existing) => compareHistory(event, existing) > 0)) &&
+		!(simultaneous && added.some(isExplicitCompletion));
+	if (!append) {
+		return false;
 	}
-	const { tails: _tails, coverage: _coverage, ...rest } = value;
-	return { ...rest, carryDropped: true } satisfies MediaFoldValue;
+	const episodes = added.filter(
+		(event) =>
+			event.entityId !== input.subject.id &&
+			(event.eventSchemaSlug === "complete" || event.eventSchemaSlug === "progress"),
+	);
+	if (episodes.length === 0) {
+		return true;
+	}
+	if (
+		(input.subject.terminal && input.previous.terminal !== true) ||
+		input.previous.occurrences.some(
+			({ rule, status }) => rule === "coverage" && status !== "active",
+		)
+	) {
+		return false;
+	}
+	return (
+		!input.subject.terminal ||
+		(yield* input.reads.uncovered({
+			excluded: episodes
+				.filter(({ eventSchemaSlug }) => eventSchemaSlug === "progress")
+				.map(({ entityId }) => entityId),
+		}))
+	);
 });
-
-const storedEvents = (events: ReadonlyArray<FoldEvent>) =>
-	events.map((event): FoldEventImage => ({
-		revision: event.revision,
-		orderKey: event.orderKey,
-		id: EventId.make(event.id),
-		properties: event.properties,
-		occurredAt: iso(event.occurredAt),
-		eventSchemaSlug: event.eventSchemaSlug,
-		entityId: EntityId.make(event.entityId),
-		entitySchemaSlug: event.entitySchemaSlug,
-		orderCreatedAt: iso(event.orderCreatedAt),
-		sessionEntityId: event.sessionEntityId === null ? null : EntityId.make(event.sessionEntityId),
-	}));
-
-const withTails = (value: MediaFoldValue, tails: ReadonlyMap<string, FoldTail>): MediaFoldValue => {
-	const { tails: _previous, ...rest } = value;
-	const entries = [...tails].sort(([left], [right]) => (left < right ? -1 : 1));
-	return entries.length === 0
-		? rest
-		: {
-				...rest,
-				tails: Object.fromEntries(
-					entries.map(([entityId, { run, lead }]) => [
-						entityId,
-						{ run: storedEvents(run), lead: storedEvents(lead) },
-					]),
-				),
-			};
-};

@@ -1,11 +1,11 @@
 import { describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FOLD_LIMITS, FoldEventChange, FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
+import { FoldEventChange, FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { type FoldEvent, MediaFoldValue } from "./history";
+import { compareHistory, type FoldEvent, type MediaFoldValue } from "./history";
 import { applyHistoryChanges } from "./history.test-support";
 import { foldMediaHistory, type MediaHistoryReads, normalizedEvent } from "./incremental";
 
@@ -31,6 +31,7 @@ const consumption = (event: FoldEvent) =>
 
 /** Answers each read from the current history, the way the subject's RyotQL recipes would. */
 const reads = (
+	subjectId: string,
 	history: ReadonlyArray<FoldEvent>,
 	inventory: ReadonlyArray<string>,
 	counts: { rows: number },
@@ -82,6 +83,31 @@ const reads = (
 						time(event.occurredAt) <= time(until),
 				),
 			),
+		uncovered: ({ excluded }) =>
+			Effect.sync(() => {
+				const session = history.filter(
+					(event) =>
+						event.sessionEntityId === subjectId &&
+						(event.eventSchemaSlug === "progress" || event.eventSchemaSlug === "complete"),
+				);
+				const restarts = session.filter(
+					(event) => event.entityId === subjectId && event.eventSchemaSlug === "complete",
+				);
+				const latest = new Map<string, FoldEvent>();
+				for (const event of session) {
+					const prior = latest.get(event.entityId);
+					if (
+						event.entityId !== subjectId &&
+						restarts.every((restart) => compareHistory(restart, event) < 0) &&
+						(prior === undefined || compareHistory(event, prior) > 0)
+					) {
+						latest.set(event.entityId, event);
+					}
+				}
+				return inventory.some(
+					(id) => !excluded.includes(id) && latest.get(id)?.eventSchemaSlug !== "complete",
+				);
+			}),
 	};
 };
 
@@ -115,7 +141,7 @@ const settle = Effect.fnUntraced(function* (
 			subject,
 			previous: current.value,
 			changes: mode === "full" ? null : changes,
-			reads: reads(current.history, inventory, counts),
+			reads: reads(subject.id, current.history, inventory, counts),
 		});
 		yield* Schema.decodeEffect(FoldResult)({
 			value: null,
@@ -237,29 +263,9 @@ const showEpisodes = ["e1", "e2", "e3"];
 
 const podcastEpisodes = ["p1", "p2", "p3", "p4"];
 
-const movieProgress = (id: string, hour: number, progressPercent: number) =>
-	normalizedEvent({
-		...base(id, new Date(Date.UTC(2026, 0, 1, hour)).toISOString(), {
-			entityId: "movie",
-			sessionEntityId: null,
-			entitySchemaSlug: "movie",
-		}),
-		eventSchemaSlug: "progress",
-		properties: {
-			progressPercent,
-			consumptionBasis: { total: 120, unit: "minutes", property: "runtime" },
-		},
-	});
-
 /** A 32-character ID, as the kernel generates them, so value sizes match stored ones. */
 const storedId = (prefix: string, index: number) =>
 	`${prefix}-${String(index).padStart(5, "0")}`.padEnd(32, "0");
-
-const valueBytes = (value: MediaFoldValue) =>
-	Effect.map(
-		Schema.encodeEffect(Schema.fromJsonString(MediaFoldValue))(value),
-		(encoded) => new TextEncoder().encode(encoded).length,
-	);
 
 const episodeCompletion = (index: number) => {
 	const occurredAt = new Date(Date.UTC(2020, 0, 1) + index * 86_400_000).toISOString();
@@ -349,7 +355,7 @@ const compare = Effect.fnUntraced(function* (input: {
 			changes: null,
 			previous: full.value,
 			subject: input.subject,
-			reads: reads(full.history, inventory, { rows: 0 }),
+			reads: reads(input.subject.id, full.history, inventory, { rows: 0 }),
 		});
 		expect(replayed.changes).toEqual([]);
 		expect(replayed.value).toEqual(full.value);
@@ -396,49 +402,6 @@ describe("incremental media history", () => {
 		testTimeout,
 	);
 
-	it.effect(
-		"continues an append from the stored run without reading history",
-		() =>
-			Effect.gen(function* () {
-				const subject = {
-					id: "movie",
-					terminal: false,
-					episodic: false,
-					entitySchemaSlug: "movie",
-				};
-				let store = empty;
-				for (const [id, hour, percent] of [
-					["first", 1, 20],
-					["second", 2, 50],
-				] as const) {
-					store = yield* settle(
-						"incremental",
-						subject,
-						[],
-						store,
-						[...store.history, movieProgress(id, hour, percent)],
-						{ rows: 0 },
-					);
-				}
-				expect(store.value.tails?.["movie"]?.run.map(({ id }) => id)).toEqual<unknown>([
-					"first",
-					"second",
-				]);
-				const counts = { rows: 0 };
-				store = yield* settle(
-					"incremental",
-					subject,
-					[],
-					store,
-					[...store.history, movieProgress("third", 3, 70)],
-					counts,
-				);
-				expect(counts.rows).toBe(0);
-				expect([...store.contributions.keys()]).toEqual(["first", "second", "third"]);
-			}),
-		testTimeout,
-	);
-
 	it.effect.each([
 		{
 			length: 1000,
@@ -455,16 +418,14 @@ describe("incremental media history", () => {
 			subject: { id: "book", terminal: false, episodic: false, entitySchemaSlug: "book" },
 		},
 	])(
-		"drops the carry of $kind past its budget and replays the next append to a full replay's result",
+		"stores no carry for $kind and folds the next append without replaying the subject's history, to a full replay's result",
 		({ event, length, subject, inventory }) =>
 			Effect.gen(function* () {
 				const history = Array.from({ length }, (_, index) => event(index));
 				const stored = yield* settle("full", subject, inventory, empty, history, { rows: 0 });
-				expect(stored.value.carryDropped).toBe(true);
-				expect(stored.value).not.toHaveProperty("tails");
-				expect(stored.value).not.toHaveProperty("coverage");
-				expect(yield* valueBytes(stored.value)).toBeLessThanOrEqual(FOLD_LIMITS.valueBytes / 2);
-
+				expect(Object.keys(stored.value).sort()).toEqual(
+					subject.episodic ? ["coverageSources", "occurrences", "terminal"] : ["occurrences"],
+				);
 				const appended = [...history, event(length)];
 				const counts = { rows: 0 };
 				const incremental = yield* settle(
@@ -476,10 +437,41 @@ describe("incremental media history", () => {
 					counts,
 				);
 				const full = yield* settle("full", subject, inventory, stored, appended, { rows: 0 });
-				expect(counts.rows).toBeGreaterThanOrEqual(appended.length);
+				expect(counts.rows).toBeLessThan(subject.episodic ? 50 : appended.length * 2);
 				expect(incremental.value).toEqual(full.value);
 				expect(incremental.contributions).toEqual(full.contributions);
-				expect(incremental.value.carryDropped).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"replays a terminal show's append that covers its last required episode, and folds one that leaves an episode uncovered without replaying",
+		() =>
+			Effect.gen(function* () {
+				const subject = { id: "show", episodic: true, terminal: true, entitySchemaSlug: "show" };
+				const inventory = Array.from({ length: 10 }, (_, index) => storedId("episode", index));
+				const history = Array.from({ length: 8 }, (_, index) => episodeCompletion(index));
+				const stored = yield* settle("full", subject, inventory, empty, history, { rows: 0 });
+				const steps = [
+					[...history, episodeCompletion(8)],
+					[...history, episodeCompletion(8), episodeCompletion(9)],
+				];
+				let incremental = stored;
+				let full = stored;
+				const rowsRead: Array<number> = [];
+				for (const step of steps) {
+					const counts = { rows: 0 };
+					incremental = yield* settle("incremental", subject, inventory, incremental, step, counts);
+					full = yield* settle("full", subject, inventory, full, step, { rows: 0 });
+					rowsRead.push(counts.rows);
+					expect(incremental.value).toEqual(full.value);
+					expect(incremental.history).toEqual(full.history);
+				}
+				expect(rowsRead[0]).toBeLessThan(history.length);
+				expect(rowsRead[1]).toBeGreaterThanOrEqual(steps[1]?.length ?? 0);
+				expect(
+					incremental.value.occurrences.filter(({ rule }) => rule === "coverage"),
+				).toHaveLength(1);
 			}),
 		testTimeout,
 	);

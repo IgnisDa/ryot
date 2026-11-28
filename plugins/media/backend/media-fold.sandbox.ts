@@ -24,6 +24,7 @@ import {
 	mediaFoldInventoryRecipe,
 	mediaFoldLibraryLinksRecipe,
 	mediaFoldSubjectRecipe,
+	mediaFoldUncoveredRecipe,
 } from "./fold/recipes";
 import { MediaSandboxError } from "./lib/failures";
 
@@ -96,6 +97,14 @@ export default defineScript({
 							mediaFoldEventsRecipe({ ...consumption, from, limit, excluded }),
 							{ subjectEntityId },
 						).pipe(Effect.map(({ items }) => items)),
+					uncovered: ({ excluded }) =>
+						config === undefined
+							? Effect.succeed(true)
+							: executeRyotqlRecipe(
+									host.executeRyotql,
+									mediaFoldUncoveredRecipe({ config, excluded }),
+									{ subjectEntityId },
+								),
 					inventory:
 						config === undefined
 							? Effect.succeed([])

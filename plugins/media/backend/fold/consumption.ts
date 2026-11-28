@@ -20,11 +20,6 @@ import {
 import { MediaSandboxError } from "../lib/failures";
 import { compareHistory, compareText, type FoldEvent } from "./history";
 
-export type FoldTail = {
-	readonly run: ReadonlyArray<FoldEvent>;
-	readonly lead: ReadonlyArray<FoldEvent>;
-};
-
 const isConsumption = (slug: string) => consumptionEventSlugs.some((value) => value === slug);
 
 const groupOf = (event: FoldEvent) => {
@@ -41,9 +36,7 @@ const allocationFailure = (cause: unknown) =>
 /**
  * Allocates each consumption event's contribution, title by title, in source-run groups and then
  * history order. Retained boundaries close their progress runs, and automatic completions join them.
- * A run holding a `context` event is only partly known, so it contributes nothing. `tails` holds each
- * entity's latest run of unsourced events unless a completion ends it, with the earlier events that
- * occurred at the instant it starts.
+ * A run holding a `context` event is only partly known, so it contributes nothing.
  */
 export const consumptionContributions = Effect.fn("consumptionContributions")(function* (input: {
 	readonly context?: ReadonlySet<string>;
@@ -64,20 +57,18 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 		byEntity.set(event.entityId, rows);
 	}
 	const contributions: Array<FoldResult["events"][number]> = [];
-	const tails = new Map<string, FoldTail>();
-	for (const [entityId, rows] of byEntity) {
+	for (const rows of byEntity.values()) {
 		rows.sort(
 			(left, right) =>
 				compareText(left.group, right.group) || compareHistory(left.event, right.event),
 		);
 		const runs: Array<{
-			group: string;
 			runKey: string;
 			events: Array<FoldEvent>;
 			observations: Array<ConsumptionObservation>;
 		}> = [];
 		let cursor: ConsumptionRunCursor = { unit: null, runKey: null, closedBy: null };
-		for (const { event, group } of rows) {
+		for (const { event } of rows) {
 			const automatic = input.automatic.get(event.id);
 			const observation = yield* Schema.decodeUnknownEffect(ConsumptionObservation)({
 				id: event.id,
@@ -99,24 +90,8 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				last.observations.push(observation);
 				last.events.push(event);
 			} else {
-				runs.push({ group, events: [event], runKey: next.runKey, observations: [observation] });
+				runs.push({ events: [event], runKey: next.runKey, observations: [observation] });
 			}
-		}
-		const unsourced = runs.filter(({ group }) => group === "");
-		const tail = unsourced.at(-1);
-		const start = tail?.events[0];
-		if (
-			tail !== undefined &&
-			start !== undefined &&
-			tail.events.at(-1)?.eventSchemaSlug !== "complete"
-		) {
-			tails.set(entityId, {
-				run: tail.events,
-				lead: unsourced
-					.slice(0, -1)
-					.flatMap(({ events }) => events)
-					.filter(({ occurredAt }) => occurredAt === start.occurredAt),
-			});
 		}
 		for (const run of runs) {
 			if (run.events.some(({ id }) => input.context?.has(id) === true)) {
@@ -141,5 +116,5 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 			}
 		}
 	}
-	return { tails, contributions };
+	return contributions;
 });

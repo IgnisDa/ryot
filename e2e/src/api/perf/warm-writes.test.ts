@@ -49,7 +49,6 @@ const WARMUP = Number(process.env.WARM_WRITES_WARMUP ?? "3");
 const SAMPLES = Number(process.env.WARM_WRITES_SAMPLES ?? "20");
 const ONLY = process.env.WARM_WRITES_ONLY?.split(",").filter(Boolean);
 const USER_RANKS = (process.env.WARM_WRITES_USER_RANKS ?? "0").split(",").map(Number);
-const OVERSIZED_FOLD_BYTES = 65_536;
 
 const reviewCreate = defineOperationRecipe({
 	output: MediaReviewOutput,
@@ -114,13 +113,7 @@ const ReviewRows = Schema.Array(
 		}),
 	}),
 );
-const HistoryRows = Schema.Array(
-	Schema.Struct({
-		id: Schema.String,
-		history: Schema.Finite,
-		bytes: Schema.optional(Schema.Finite),
-	}),
-);
+const HistoryRows = Schema.Array(Schema.Struct({ id: Schema.String, history: Schema.Finite }));
 const EntityRows = Schema.Array(Schema.Struct({ id: Schema.String }));
 const UserRows = Schema.Array(Schema.Struct({ userId: Schema.String }));
 const SetRows = Schema.Array(
@@ -240,10 +233,7 @@ const episodeScenario = Effect.fn("episodeScenario")(function* (
 	return show === undefined || episodeId === undefined
 		? undefined
 		: activityScenario(
-				{
-					subjectHistory: show.history,
-					...(show.bytes === undefined ? {} : { foldStateBytes: show.bytes }),
-				},
+				{ subjectHistory: show.history },
 				{
 					kind: "episodes",
 					when: { kind: "now" },
@@ -259,23 +249,8 @@ const showByHistory = (db: PerfDatabase, userId: string, order: "asc" | "desc") 
 			HistoryRows,
 			`select d.subject_entity_id as id, count(*)::float8 as history from derived_value d
 			join entity s on s.id = d.subject_entity_id and s.entity_schema_slug = 'show'
-			join derived_value sv on sv.target_id = d.subject_entity_id and sv.kind = 'subject'
-				and octet_length(sv.value::text) < $2
 			where d.kind = 'event' and d.user_id = $1 group by 1 order by history ${order}, 1 limit 1`,
-			[userId, OVERSIZED_FOLD_BYTES],
-		)
-		.pipe(Effect.map((rows) => rows[0]));
-
-const oversizedShow = (db: PerfDatabase, userId: string) =>
-	db
-		.query(
-			HistoryRows,
-			`select sv.target_id as id, octet_length(sv.value::text)::float8 as bytes,
-				(select count(*) from derived_value d where d.subject_entity_id = sv.target_id and d.kind = 'event')::float8 as history
-			from derived_value sv join entity s on s.id = sv.target_id and s.entity_schema_slug = 'show'
-			where sv.kind = 'subject' and sv.user_id = $1 and octet_length(sv.value::text) > $2
-			order by bytes desc limit 1`,
-			[userId, OVERSIZED_FOLD_BYTES],
+			[userId],
 		)
 		.pipe(Effect.map((rows) => rows[0]));
 
@@ -421,9 +396,6 @@ const scenarios = (db: PerfDatabase, userId: string) =>
 		"review-delete:movie-short": reviewScenario(db, userId, "movie", "asc"),
 		"progress-log:movie-short": completionScenario(db, userId, "movie", "asc"),
 		"progress-log:music-long": completionScenario(db, userId, "music", "desc"),
-		"progress-log:show-oversized": oversizedShow(db, userId).pipe(
-			Effect.flatMap((show) => episodeScenario(db, show)),
-		),
 		"progress-log:show-long": showByHistory(db, userId, "desc").pipe(
 			Effect.flatMap((show) => episodeScenario(db, show)),
 		),
