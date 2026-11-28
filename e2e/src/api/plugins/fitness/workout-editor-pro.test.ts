@@ -21,7 +21,7 @@ import {
 	workoutReference,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const { setOccurredAt: occurredAt } = workoutEditorTimes;
@@ -74,8 +74,9 @@ describe("Workout editor with a valid Pro key", () => {
 				});
 				const createInput = operationInput(template);
 				const created = yield* saveWorkoutEditor(client, createInput);
-				assertCondition(created.kind === "saved", "Expected the Pro template to save");
-				expect(yield* saveWorkoutEditor(client, createInput)).toEqual(created);
+				expect((yield* saveWorkoutEditor(client, createInput)).committed).toEqual(
+					created.committed,
+				);
 				const baseline = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(baseline.baseline.entity.properties["exercises"]).toMatchObject([
 					{
@@ -128,15 +129,16 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				);
 				const edited = yield* saveWorkoutEditor(client, editInput);
-				assertCondition(edited.kind === "saved", "Expected the Pro template edit to save");
-				expect(yield* saveWorkoutEditor(client, editInput)).toEqual(edited);
-				expect(
-					yield* saveWorkoutEditor(client, {
+				expect((yield* saveWorkoutEditor(client, editInput)).committed).toEqual(edited.committed);
+				const stale = yield* Effect.flip(
+					saveWorkoutEditor(client, {
 						...editInput,
 						submissionId: yield* randomUuid,
 						submittedAt: DateTime.formatIso(yield* DateTime.now),
 					}),
-				).toEqual({ kind: "conflict" });
+				);
+				assertTaggedError(stale, "PluginConflictError");
+				expect(stale.reason).toMatchObject({ code: "changes-conflict" });
 
 				const current = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(current.baseline.entity.name).toBe(`${name} edited`);
@@ -161,7 +163,6 @@ describe("Workout editor with a valid Pro key", () => {
 				client,
 				operationInput(workoutData({ occurrences: [], name: "Workout source" })),
 			);
-			assertCondition(sourceWorkout.kind === "saved", "Expected source workout save");
 			const sourceTemplate = yield* saveWorkoutEditor(
 				client,
 				operationInput(
@@ -179,7 +180,6 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				),
 			);
-			assertCondition(sourceTemplate.kind === "saved", "Expected source template save");
 
 			const repeated = yield* saveWorkoutEditor(
 				client,
@@ -190,7 +190,6 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				),
 			);
-			assertCondition(repeated.kind === "saved", "Expected repeated workout save");
 			const fromTemplate = yield* saveWorkoutEditor(
 				client,
 				operationInput(
@@ -200,7 +199,6 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				),
 			);
-			assertCondition(fromTemplate.kind === "saved", "Expected template-based workout save");
 
 			const reference = yield* workoutReference(client);
 			const repeatedLinks = yield* fitnessRecipes.execute(
@@ -246,7 +244,6 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				),
 			);
-			assertCondition(created.kind === "saved", "Expected the source workout save");
 			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const originalSet = requirePresent(
 				baseline.baseline.sets[0],
@@ -273,7 +270,6 @@ describe("Workout editor with a valid Pro key", () => {
 				client,
 				operationInput(replacementData(replacementExerciseId, baseline, originalSet)),
 			);
-			assertCondition(replaced.kind === "saved", "Expected compatible Pro replacement to save");
 			const replacementSet = requirePresent(replaced.sets[0], "Expected the recreated set");
 			expect(replaced.sets).toHaveLength(1);
 			expect(replacementSet.eventId).not.toBe(originalSet.id);
@@ -296,11 +292,16 @@ describe("Workout editor with a valid Pro key", () => {
 				},
 			]);
 
-			const incompatible = yield* saveWorkoutEditor(
-				client,
-				operationInput(replacementData(incompatibleExerciseId, replacedBaseline, replacedSet)),
+			const incompatible = yield* Effect.flip(
+				saveWorkoutEditor(
+					client,
+					operationInput(replacementData(incompatibleExerciseId, replacedBaseline, replacedSet)),
+				),
 			);
-			expect(incompatible).toEqual({ kind: "invalid", code: "invalid-exercise-kind" });
+			assertTaggedError(incompatible, "PluginOperationRejected");
+			expect(incompatible.reason).toMatchObject({
+				key: "rejection.workout-save.invalid-exercise-kind",
+			});
 			const unchanged = yield* loadWorkoutBaseline(client, created.entityId);
 			expect(unchanged.baseline.sets[0]?.entityId).toBe(replacementExerciseId);
 		}),
@@ -320,7 +321,6 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				),
 			);
-			assertCondition(noted.kind === "saved", "Expected Pro set note save");
 			const notedBaseline = yield* loadWorkoutBaseline(client, noted.entityId);
 			expect(notedBaseline.baseline.sets[0]?.properties).toMatchObject({
 				note: "Pro training note",
@@ -332,16 +332,21 @@ describe("Workout editor with a valid Pro key", () => {
 			const unownedVideo: WorkoutData["occurrences"][number]["videos"] = [
 				{ type: "local", key: `permanent/unowned-${yield* randomUuid}.mp4` },
 			];
-			const refused = yield* saveWorkoutEditor(
-				client,
-				operationInput(
-					workoutData({
-						images: unownedImage,
-						occurrences: [workoutOccurrence(exerciseId, [workoutSet()], { videos: unownedVideo })],
-					}),
+			const refused = yield* Effect.flip(
+				saveWorkoutEditor(
+					client,
+					operationInput(
+						workoutData({
+							images: unownedImage,
+							occurrences: [
+								workoutOccurrence(exerciseId, [workoutSet()], { videos: unownedVideo }),
+							],
+						}),
+					),
 				),
 			);
-			expect(refused).toEqual({ kind: "invalid", code: "media-forbidden" });
+			assertTaggedError(refused, "PluginOperationRejected");
+			expect(refused.reason).toMatchObject({ key: "rejection.workout-save.media-forbidden" });
 		}),
 	);
 });

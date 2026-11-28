@@ -32,6 +32,10 @@
 			"types": "./shared/media-genres.ts",
 			"default": "./shared/media-genres.ts"
 		},
+		"./shared/media-history": {
+			"types": "./shared/media-history.ts",
+			"default": "./shared/media-history.ts"
+		},
 		"./backend/lib/anilist-description": {
 			"types": "./backend/lib/anilist-description.ts",
 			"default": "./backend/lib/anilist-description.ts"

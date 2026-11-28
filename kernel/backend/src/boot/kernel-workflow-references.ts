@@ -1,15 +1,10 @@
-import { DbError, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	type ExecutionLane,
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type {
+	ExecutionLane,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	CreateEventsResponse,
-	EventCreateItemError,
-} from "@ryot-app/contract/modules/events/schemas";
-import {
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
-	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
@@ -23,27 +18,20 @@ import {
 	SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 
-import {
-	automationLifecycleCausation,
-	lifecycleActor,
-	rootLifecycleCommand,
-} from "#modules/automations/lifecycle/command";
+import { principalLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { awaitEntityPopulation } from "#modules/entities/providers/population-await";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { EventCreateInput } from "#modules/events/event-create";
-import { EventsService } from "#modules/events/service";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
@@ -62,7 +50,6 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import type { JobQueue } from "#platform/jobs/queue";
 import type { TransientValues } from "#platform/transient-values";
-import { makeActivity } from "#platform/workflow/scope";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
@@ -81,44 +68,24 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 	),
 });
 
-const wireLifecycleCommand = (
-	callerAuthority: ScriptExecutionPrincipal,
+const lifecycleCommand = (
+	principal: ScriptExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	itemIdentity: string,
 	occurredAt: LifecycleCommand["occurredAt"],
-	source: "api" | "import" | "integration" | "provider-refresh",
-	attribution: { importRunId?: ImportRunId; integrationId?: IntegrationId } = {},
-): LifecycleCommand => {
-	const subject = callerAuthority.subject;
-	if (subject.type === "automation-run") {
-		return LifecycleCommand.make({
-			occurredAt,
-			itemIdentity,
-			accountUserId: subject.accountUserId,
-			causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
-		});
-	}
-	const integrationId = subject.type === "user" ? subject.integrationId : undefined;
-	const attributedIntegrationId = integrationId ?? attribution.integrationId;
-	return rootLifecycleCommand({
-		...lifecycleActor(subject.type === "user" ? subject : null),
+	source: "api" | "import" | "provider-refresh",
+	importRunId?: ImportRunId,
+) =>
+	principalLifecycleCommand({
 		lane,
+		source,
+		principal,
 		occurredAt,
 		itemIdentity,
 		executionId: AutomationExecutionId.make(executionId),
-		source: integrationId === undefined ? source : "integration",
-		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
-		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
-		...(source === "provider-refresh"
-			? { providerExecutionId: AutomationExecutionId.make(executionId) }
-			: {}),
+		...(importRunId === undefined ? {} : { importRunId }),
 	});
-};
-
-const lifecycleCommand = (
-	...args: Parameters<typeof wireLifecycleCommand>
-): DomainLifecycleCommand => ({ ...wireLifecycleCommand(...args), writeContext: args[0] });
 
 const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: string) =>
 	lookup.pipe(
@@ -138,7 +105,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		>();
 		const imports = yield* ImportsRepository;
 		const chunks = yield* GenericImportChunks;
-		const events = yield* EventsService;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
 		const artifacts = yield* ExecutionFileStore;
@@ -203,7 +169,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const artifactOwner = artifactOwnerExecutionId ?? _parentExecutionId;
 					const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 					if (
-						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
 						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
 						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW &&
 						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
@@ -328,7 +293,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const results = yield* Effect.forEach(exits, (exit) =>
 							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
 						);
-						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(results).pipe(
+						return yield* Schema.decodeUnknownEffect(JsonValue)(results).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -344,14 +309,14 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");
-						const command = wireLifecycleCommand(
+						const { writeContext, ...command } = lifecycleCommand(
 							callerAuthority,
 							lane,
 							typeof rawRunId === "string" ? rawRunId : executionId,
 							KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 							occurredAt,
 							"import",
-							typeof rawRunId === "string" ? { importRunId: ImportRunId.make(rawRunId) } : {},
+							typeof rawRunId === "string" ? ImportRunId.make(rawRunId) : undefined,
 						);
 						if (!command.accountUserId || typeof rawRunId !== "string") {
 							return yield* new SandboxRunError({
@@ -390,7 +355,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							});
 						}
 						const wireCommand = { ...command, occurredAt: IsoUtcString.make(run.acceptedAt) };
-						const acceptedCommand = { ...wireCommand, writeContext: callerAuthority };
+						const acceptedCommand = { ...wireCommand, writeContext };
 						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)({
 							...rawInput,
 							command: wireCommand,
@@ -488,7 +453,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-							return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+							return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 								Effect.mapError(
 									(error) =>
 										new SandboxRunError({
@@ -532,124 +497,76 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
 							),
 						);
 					}
-					if (workflowSlug === KERNEL_ENTITY_IMPORT_WORKFLOW) {
-						if (!callerPlugin) {
-							return yield* new SandboxRunError({
-								kind: "script-failure",
-								message: "Provider import requires a pinned plugin caller",
-							});
-						}
-						const callerScope = yield* callerSchemaScope(callerPlugin.revisionId);
-						const rawInput = isObjectRecord(input) ? input : {};
-						const providerSlug = Reflect.get(rawInput, "providerSlug");
-						const resolvedProvider =
-							typeof providerSlug === "string"
-								? yield* pluginRuntime
-										.findProviderAvailableToUserByReference(userId, {
-											slug: providerSlug,
-											owner: definitionOwner(callerPlugin.id),
-										})
-										.pipe(
-											Effect.mapBoth({
-												onFailure: (error) =>
-													new SandboxRunError({
-														kind: "infrastructure",
-														message: unknownToMessage(error),
-													}),
-												onSuccess: (provider) =>
-													provider &&
-													provider.pluginId === callerPlugin.id &&
-													callerScope.entitySchemaSlugs.includes(provider.rootEntitySchemaSlug)
-														? {
-																provider,
-																entitySchemaSlug: EntitySchemaSlug.make(
-																	provider.rootEntitySchemaSlug,
-																),
-															}
-														: null,
-											}),
-										)
-								: null;
-						if (typeof providerSlug === "string" && !resolvedProvider) {
-							return yield* new SandboxRunError({
-								kind: "script-failure",
-								message: `Plugin provider not found: ${providerSlug}`,
-							});
-						}
-						const command = lifecycleCommand(
-							callerAuthority,
-							lane,
-							executionId,
-							KERNEL_ENTITY_IMPORT_WORKFLOW,
-							occurredAt,
-							"api",
-						);
-						const payload = yield* Schema.decodeUnknownEffect(ProviderEntityImportWorkflowPayload)({
-							...rawInput,
-							command,
-							executionId,
-							pluginId: callerPlugin.id,
-							entityScope: { userId, type: callerPlugin.scope === "user" ? "user" : "global" },
-							...(resolvedProvider
-								? {
-										providerId: resolvedProvider.provider.id,
-										entitySchemaSlug: resolvedProvider.entitySchemaSlug,
-									}
-								: {}),
-						}).pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({
-										kind: "invalid-input",
-										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
-									}),
-							),
-						);
-						yield* validateAttribution({
-							userId,
-							importRunIds: command.causation.importRunId ? [command.causation.importRunId] : [],
-							integrationIds: command.causation.integrationId
-								? [command.causation.integrationId]
-								: [],
+					if (!callerPlugin) {
+						return yield* new SandboxRunError({
+							kind: "script-failure",
+							message: "Provider import requires a pinned plugin caller",
 						});
-						const result = yield* awaitEntityImport(payload).pipe(
-							Effect.map((entity) => ({ entity, status: "completed" as const })),
-							Effect.catchTag("EntityImportError", (error) =>
-								Effect.succeed({
-									stage: error.stage,
-									message: error.message,
-									status: "failed" as const,
-								}),
-							),
-							Effect.provideContext(populationServices),
-							Effect.provideService(DatabaseSession, database),
-						);
-						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-							),
-						);
+					}
+					const callerScope = yield* callerSchemaScope(callerPlugin.revisionId);
+					const rawInput = isObjectRecord(input) ? input : {};
+					const providerSlug = Reflect.get(rawInput, "providerSlug");
+					const resolvedProvider =
+						typeof providerSlug === "string"
+							? yield* pluginRuntime
+									.findProviderAvailableToUserByReference(userId, {
+										slug: providerSlug,
+										owner: definitionOwner(callerPlugin.id),
+									})
+									.pipe(
+										Effect.mapBoth({
+											onFailure: (error) =>
+												new SandboxRunError({
+													kind: "infrastructure",
+													message: unknownToMessage(error),
+												}),
+											onSuccess: (provider) =>
+												provider &&
+												provider.pluginId === callerPlugin.id &&
+												callerScope.entitySchemaSlugs.includes(provider.rootEntitySchemaSlug)
+													? {
+															provider,
+															entitySchemaSlug: EntitySchemaSlug.make(
+																provider.rootEntitySchemaSlug,
+															),
+														}
+													: null,
+										}),
+									)
+							: null;
+					if (typeof providerSlug === "string" && !resolvedProvider) {
+						return yield* new SandboxRunError({
+							kind: "script-failure",
+							message: `Plugin provider not found: ${providerSlug}`,
+						});
 					}
 					const command = lifecycleCommand(
 						callerAuthority,
 						lane,
 						executionId,
-						KERNEL_EVENT_CREATE_WORKFLOW,
+						KERNEL_ENTITY_IMPORT_WORKFLOW,
 						occurredAt,
 						"api",
 					);
-					const payload = yield* Schema.decodeUnknownEffect(EventCreateInput)({
-						userId,
+					const payload = yield* Schema.decodeUnknownEffect(ProviderEntityImportWorkflowPayload)({
+						...rawInput,
 						command,
-						payload: isObjectRecord(input) ? Reflect.get(input, "payload") : undefined,
+						executionId,
+						pluginId: callerPlugin.id,
+						entityScope: { userId, type: callerPlugin.scope === "user" ? "user" : "global" },
+						...(resolvedProvider
+							? {
+									providerId: resolvedProvider.provider.id,
+									entitySchemaSlug: resolvedProvider.entitySchemaSlug,
+								}
+							: {}),
 					}).pipe(
 						Effect.mapError(
 							(error) =>
@@ -666,18 +583,19 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							? [command.causation.integrationId]
 							: [],
 					});
-					const result = yield* makeActivity({
-						success: CreateEventsResponse,
-						execute: events.create(payload),
-						name: `kernel-event-create-${executionId}`,
-						error: Schema.Union([DbError, EventCreateItemError]),
-					}).pipe(
-						Effect.mapError(
-							(error) =>
-								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+					const result = yield* awaitEntityImport(payload).pipe(
+						Effect.map((entity) => ({ entity, status: "completed" as const })),
+						Effect.catchTag("EntityImportError", (error) =>
+							Effect.succeed({
+								stage: error.stage,
+								message: error.message,
+								status: "failed" as const,
+							}),
 						),
+						Effect.provideContext(populationServices),
+						Effect.provideService(DatabaseSession, database),
 					);
-					return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+					return yield* Schema.decodeUnknownEffect(JsonValue)(result).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),

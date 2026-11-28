@@ -23,6 +23,7 @@ import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions"
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession, setLocalStatementTimeout } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
@@ -212,17 +213,16 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					});
 					const results = yield* Effect.forEach(
 						inputs,
-						(input) => transaction(planner.plan(input)),
+						(input) => transaction(planner.plan({ ...input, transaction: new WriteTransaction() })),
 						{ concurrency: 2 },
 					);
 					expect(results.map(({ runs }) => runs.length).sort((a, b) => a - b)).toEqual([0, 1]);
 					expect(results.find(({ runs }) => runs.length === 0)).toMatchObject({
-						policies: [],
-						trigger: { blockedReason: { hasRequiredHooks: false } },
+						trigger: { blockedReason: { code: "automation-limit-reached" } },
 					});
 					const replayed = yield* Effect.forEach(
 						inputs,
-						(input) => transaction(planner.plan(input)),
+						(input) => transaction(planner.plan({ ...input, transaction: new WriteTransaction() })),
 						{ concurrency: 2 },
 					);
 					expect(replayed).toEqual(
@@ -245,7 +245,6 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 									.map(({ blockedReason }) => blockedReason),
 							).toEqual<unknown>([
 								{
-									hasRequiredHooks: false,
 									code: "automation-limit-reached",
 									omittedHooks: [{ pluginId: null, hookSlug: "automation.notification" }],
 								},
@@ -266,7 +265,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					};
 					const identical = yield* Effect.forEach(
 						[duplicate, duplicate],
-						(input) => transaction(planner.plan(input)),
+						(input) => transaction(planner.plan({ ...input, transaction: new WriteTransaction() })),
 						{ concurrency: 2 },
 					);
 					expect(
@@ -293,7 +292,10 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					const holder = yield* Effect.forkChild(
 						transaction(
 							planner
-								.plan({ trigger: withRoot("holder", "holder-root") })
+								.plan({
+									transaction: new WriteTransaction(),
+									trigger: withRoot("holder", "holder-root"),
+								})
 								.pipe(
 									Effect.andThen(Deferred.succeed(holding, undefined)),
 									Effect.andThen(Deferred.await(release)),
@@ -303,10 +305,15 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					yield* Deferred.await(holding);
 					const planned = yield* transaction(
 						setLocalStatementTimeout(2_000).pipe(
-							Effect.andThen(planner.plan({ trigger: withRoot("reader", "reader-root") })),
+							Effect.andThen(
+								planner.plan({
+									transaction: new WriteTransaction(),
+									trigger: withRoot("reader", "reader-root"),
+								}),
+							),
 						),
 					).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
-					expect(planned).toMatchObject({ runs: [], policies: [], wasCreated: true });
+					expect(planned).toMatchObject({ runs: [], wasCreated: true });
 					yield* Fiber.join(holder);
 				}),
 			testTimeout,
@@ -337,7 +344,12 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					yield* Deferred.await(holding);
 					const failure = yield* transaction(
 						setLocalStatementTimeout(250).pipe(
-							Effect.andThen(planner.plan({ trigger: withRoot("blocked", "blocked-root") })),
+							Effect.andThen(
+								planner.plan({
+									transaction: new WriteTransaction(),
+									trigger: withRoot("blocked", "blocked-root"),
+								}),
+							),
 						),
 					).pipe(Effect.flip, Effect.ensuring(Deferred.succeed(release, undefined)));
 					expect(failure).toEqual<unknown>(
@@ -362,14 +374,20 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					yield* transaction(seedCatalog(statements));
 					const many: Tracer.Span[] = [];
 					yield* transaction(
-						Effect.forEach(["first", "second", "third"], (id) =>
-							planner.plan({ trigger: withRoot(id, `${id}-root`) }),
-						),
+						Effect.suspend(() => {
+							const writes = new WriteTransaction();
+							return Effect.forEach(["first", "second", "third"], (id) =>
+								planner.plan({ transaction: writes, trigger: withRoot(id, `${id}-root`) }),
+							);
+						}),
 					).pipe(Effect.withTracer(makeRecordingTracer(many)));
 					const single: Tracer.Span[] = [];
-					yield* transaction(planner.plan({ trigger: withRoot("single", "single-root") })).pipe(
-						Effect.withTracer(makeRecordingTracer(single)),
-					);
+					yield* transaction(
+						planner.plan({
+							transaction: new WriteTransaction(),
+							trigger: withRoot("single", "single-root"),
+						}),
+					).pipe(Effect.withTracer(makeRecordingTracer(single)));
 					// The ingestion key plus the one `plugin-config:` key, the two `lockCatalog` selects plus
 					// the one `catalog` select, and the per-trigger `automation-root:` lock as the control.
 					expect(counted(many)).toEqual({ shared: 2, catalog: 3, exclusive: 3 });

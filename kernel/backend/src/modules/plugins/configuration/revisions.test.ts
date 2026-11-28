@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import { PLUGIN_CONFIG_MAX_BYTES } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
@@ -24,7 +25,11 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
-import { PluginConfigRevisions, validateRestoredProperties } from "./revisions";
+import {
+	PluginConfigRevisions,
+	pluginConfigTooLargeMessage,
+	validateRestoredProperties,
+} from "./revisions";
 
 const schema = {
 	unknownKeys: "strict",
@@ -110,6 +115,15 @@ const assetConfigSchema: AuthoredAppSchema = {
 	fields: { image: managedAssetProperty },
 };
 
+const noteConfigPackage = () => {
+	const value = revisionPackage("note-config");
+	const configSchema: AuthoredAppSchema = {
+		unknownKeys: "strict",
+		fields: { note: { type: "string", description: "Note", label: { key: "test.note" } } },
+	};
+	return { ...value, manifest: { ...value.manifest, configSchema } };
+};
+
 const assetConfigPackage = () => {
 	const value = revisionPackage("asset-config");
 	return { ...value, manifest: { ...value.manifest, configSchema: assetConfigSchema } };
@@ -138,6 +152,29 @@ layer(revisionDatabaseLayer)((test) => {
 					),
 					new ManagedAssetReferenceRejected(),
 				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects an installation config revision over the stored configuration cap",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const configs = yield* PluginConfigRevisions;
+				const installed = yield* installRevisionPackage(noteConfigPackage(), UserId.make("owner"));
+				const error = yield* Effect.flip(
+					session.transaction(
+						configs.create({
+							ownerUserId: "owner",
+							scope: "installation",
+							pluginRevisionId: installed.revisionId,
+							pluginInstallationId: installed.installation.id,
+							properties: { note: "x".repeat(PLUGIN_CONFIG_MAX_BYTES) },
+						}),
+					),
+				);
+				expect(error.message).toBe(pluginConfigTooLargeMessage);
 			}),
 		testTimeout,
 	);

@@ -395,9 +395,20 @@ export const PluginEntityEditor = strictStruct({
 
 export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
 
+/**
+ * `entityProperties` names the properties of the plugin's entities that the fold reads: of its
+ * subjects, and of the entities and sessions its events are on. A change to one replays the subjects
+ * that read it; any other content change leaves their values as they are.
+ */
 export const PluginEntityFold = strictStruct({
 	scriptSlug: Schema.NonEmptyString,
 	eventSchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+	entityProperties: Schema.Array(
+		strictStruct({
+			entitySchemaSlug: pluginManifestSlug,
+			properties: Schema.NonEmptyArray(Schema.NonEmptyString),
+		}),
+	),
 });
 
 export type PluginEntityFold = Schema.Schema.Type<typeof PluginEntityFold>;
@@ -645,6 +656,8 @@ export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("script"),
+		/** Defined with `defineActivity`, so a workflow may call it with `step.activity`. */
+		activity: Schema.optional(Schema.Literal(true)),
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
 	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
@@ -1022,7 +1035,6 @@ export const PluginHook = Schema.Union([
 		...hookFields,
 		stage: Schema.Literal("after"),
 		retry: Schema.optional(AutomationRetryPolicy),
-		delivery: Schema.Literals(["required", "async"]),
 		batchMaxItems: Schema.optional(safeBatchMaxItems),
 		frequency: Schema.optional(Schema.Literals(["item", "batch"])),
 		executionScope: Schema.optional(Schema.Literals(["user", "global"])),

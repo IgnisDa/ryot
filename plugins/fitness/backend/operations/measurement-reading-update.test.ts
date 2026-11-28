@@ -1,66 +1,53 @@
 import { describe, expect } from "bun:test";
 
-import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
-import { EventId } from "@ryot-app/contract/schema/brands";
-import type { CreateEventItem, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { inMemoryRyotql } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import {
-	executeMeasurementRyotql,
-	inMemoryRyotql,
-	measurementTables,
-} from "./in-memory-ryotql.test-support";
 import updateDefinition, { manifest } from "./measurement-reading-update.sandbox";
-import {
-	MeasurementEntryNotFoundError,
-	MeasurementMetricNotFoundError,
-} from "./measurement-readings";
+import { executeMeasurementRyotql, measurementTables } from "./measurement-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-28T07:30:00.000Z";
 
-type Writes = {
-	readonly deletes: (readonly string[])[];
-	readonly updates: (readonly UpdateEventItem[])[];
-	readonly creates: (readonly CreateEventItem[])[];
-};
+const defaultHost = defineSandboxTestHost(manifest, { executeRyotql: executeMeasurementRyotql });
 
-const recordingHost = (writes: Writes) =>
-	defineSandboxTestHost(manifest, {
-		executeRyotql: executeMeasurementRyotql,
-		updateUserEntity: ({ entityId }) => Effect.succeed({ entityId }),
-		deleteEvents: (ids) =>
-			Effect.sync(() => {
-				writes.deletes.push(ids);
-				return { count: ids.length };
-			}),
-		updateEvents: (items) =>
-			Effect.sync(() => {
-				writes.updates.push(items);
-				return { count: items.length };
-			}),
-		createEvents: (items) =>
-			Effect.sync(() => {
-				writes.creates.push(items);
-				return {
-					count: items.length,
-					outcomes: items.map((_, index): CreateEventsResponse["outcomes"][number] => ({
-						index,
-						status: "written",
-						eventId: EventId.make(`created-event-${index}`),
-					})),
-				};
-			}),
-	});
+const readingUpdate = (eventId: string, value: number) => ({
+	kind: "update",
+	itemIdentity: `update:${eventId}`,
+	item: { eventId, patch: { occurredAt, properties: { remove: [], set: { value } } } },
+});
 
-const emptyWrites = (): Writes => ({ creates: [], deletes: [], updates: [] });
+const readingCreate = (metricId: string, value: number) => ({
+	occurredAt,
+	kind: "create",
+	properties: { value },
+	session: { kind: "root" },
+	itemIdentity: `reading:${metricId}`,
+	eventSchemaSlug: "measurement-reading",
+	entity: { kind: "existing", entityId: metricId },
+});
+
+const entryUpdate = (entryId: string, properties: Record<string, string>) => ({
+	properties,
+	name: "Measurement",
+	entitySchemaSlug: "measurement-entry",
+	target: {
+		kind: "update",
+		entityId: entryId,
+		expected: {
+			name: "Measurement",
+			updatedAt: "2026-04-27T08:00:00.000Z",
+			properties: { occurredAt: "2026-04-27T08:00:00.000Z" },
+		},
+	},
+});
 
 describe("measurement reading update operation", () => {
 	it.live(
-		"loads all 205 imported children before editing and keeps every host batch within 100",
+		"loads all 205 imported children before editing in one change set",
 		() =>
 			Effect.gen(function* () {
 				const metrics = Array.from({ length: 206 }, (_, index) => ({
@@ -78,78 +65,35 @@ describe("measurement reading update operation", () => {
 						eventSchemaPluginId: "fitness-owner",
 						eventSchemaSlug: "measurement-reading",
 					}));
-				const writes = emptyWrites();
-				const entities: unknown[] = [];
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: inMemoryRyotql({
-						event: children,
-						entity: [...(measurementTables.entity ?? []), ...metrics],
+						pluginId: "fitness-owner",
+						tables: { event: children, entity: [...(measurementTables.entity ?? []), ...metrics] },
 					}),
-					deleteEvents: (ids) =>
-						Effect.sync(() => {
-							writes.deletes.push(ids);
-							return { count: ids.length };
-						}),
-					updateUserEntity: (item) =>
-						Effect.sync(() => {
-							entities.push(item);
-							return { entityId: item.entityId };
-						}),
-					updateEvents: (items) =>
-						Effect.sync(() => {
-							writes.updates.push(items);
-							return { count: items.length };
-						}),
-					createEvents: (items) =>
-						Effect.sync(() => {
-							writes.creates.push(items);
-							return {
-								count: items.length,
-								outcomes: items.map((_, index): CreateEventsResponse["outcomes"][number] => ({
-									index,
-									status: "written",
-									eventId: EventId.make(`new-${index}`),
-								})),
-							};
-						}),
 				});
 				const values = [...metrics.slice(0, 204), ...metrics.slice(205)].map(({ id }) => ({
 					value: 0,
 					metricId: id,
 				}));
-				expect(
-					yield* runSandboxTestScript(
-						updateDefinition,
-						{ values, occurredAt, entryId: "entry-1", comment: "After run" },
-						host,
-						execution,
-					),
-				).toEqual({ count: 206 });
-				expect(writes.updates.map((batch) => batch.length)).toEqual([100, 100, 4]);
-				expect(writes.deletes).toEqual([["child-204"]]);
-				expect(writes.creates).toEqual([
-					[
-						{
-							occurredAt,
-							entityId: "metric-205",
-							properties: { value: 0 },
-							sessionEntityId: "entry-1",
-							eventSchemaSlug: "measurement-reading",
-						},
-					],
+				const result = yield* runSandboxTestScript(
+					updateDefinition,
+					{ values, occurredAt, entryId: "entry-1", comment: "After run" },
+					host,
+					execution,
+				);
+				expect(result.output).toEqual({ count: 206 });
+				const events = result.changes?.events;
+				expect(events?.changes.filter(({ kind }) => kind === "update")).toHaveLength(204);
+				expect(events?.changes.filter(({ kind }) => kind === "delete")).toEqual<unknown>([
+					{ kind: "delete", eventId: "child-204", itemIdentity: "delete:child-204" },
 				]);
-				expect(entities).toEqual([
-					{
-						entityId: "entry-1",
-						name: "Measurement",
-						properties: { occurredAt, comment: "After run" },
-						expected: {
-							name: "Measurement",
-							updatedAt: "2026-04-27T08:00:00.000Z",
-							properties: { occurredAt: "2026-04-27T08:00:00.000Z" },
-						},
-					},
+				expect(events?.changes.filter(({ kind }) => kind === "create")).toEqual<unknown>([
+					readingCreate("metric-205", 0),
 				]);
+				expect(events?.baselines).toEqual<unknown>([{ revision: 0, entityId: "entry-1" }]);
+				expect(result.changes?.entity).toEqual<unknown>(
+					entryUpdate("entry-1", { occurredAt, comment: "After run" }),
+				);
 			}),
 		testTimeout,
 	);
@@ -158,8 +102,6 @@ describe("measurement reading update operation", () => {
 		"updates kept values and time, removes cleared values, and adds new metrics",
 		() =>
 			Effect.gen(function* () {
-				const writes = emptyWrites();
-
 				expect(
 					yield* runSandboxTestScript(
 						updateDefinition,
@@ -169,24 +111,23 @@ describe("measurement reading update operation", () => {
 							entryId: "entry-1",
 							values: [{ value: 0, metricId: "weight" }],
 						},
-						recordingHost(writes),
+						defaultHost,
 						execution,
 					),
-				).toEqual({ count: 2 });
-				expect(writes).toEqual({
-					creates: [],
-					deletes: [["reading-2"]],
-					updates: [
-						[
-							{
-								eventId: "reading-1",
-								patch: { occurredAt, properties: { remove: [], set: { value: 0 } } },
-							},
-						],
-					],
+				).toEqual<unknown>({
+					output: { count: 2 },
+					changes: {
+						entity: entryUpdate("entry-1", { occurredAt, comment: "Fasted" }),
+						events: {
+							baselines: [{ revision: 4, entityId: "entry-1" }],
+							changes: [
+								readingUpdate("reading-1", 0),
+								{ kind: "delete", eventId: "reading-2", itemIdentity: "delete:reading-2" },
+							],
+						},
+					},
 				});
 
-				const added = emptyWrites();
 				expect(
 					yield* runSandboxTestScript(
 						updateDefinition,
@@ -198,52 +139,39 @@ describe("measurement reading update operation", () => {
 								{ value: 80, metricId: "waist" },
 							],
 						},
-						recordingHost(added),
+						defaultHost,
 						execution,
 					),
-				).toEqual({ count: 2 });
-				expect(added).toEqual({
-					deletes: [],
-					updates: [
-						[
-							{
-								eventId: "reading-3",
-								patch: { occurredAt, properties: { remove: [], set: { value: 71 } } },
-							},
-						],
-					],
-					creates: [
-						[
-							{
-								occurredAt,
-								entityId: "waist",
-								properties: { value: 80 },
-								sessionEntityId: "entry-2",
-								eventSchemaSlug: "measurement-reading",
-							},
-						],
-					],
+				).toEqual<unknown>({
+					output: { count: 2 },
+					changes: {
+						entity: entryUpdate("entry-2", { occurredAt }),
+						events: {
+							baselines: [{ revision: 0, entityId: "entry-2" }],
+							changes: [readingCreate("waist", 80), readingUpdate("reading-3", 71)],
+						},
+					},
 				});
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects foreign readings or metrics before writing anything",
+		"rejects foreign readings or metrics",
 		() =>
 			Effect.gen(function* () {
-				const writes = emptyWrites();
-				const host = recordingHost(writes);
-
 				const foreignReading = yield* Effect.flip(
 					runSandboxTestScript(
 						updateDefinition,
 						{ occurredAt, entryId: "fake-reading", values: [{ value: 70, metricId: "weight" }] },
-						host,
+						defaultHost,
 						execution,
 					),
 				);
-				expect(foreignReading).toBeInstanceOf(MeasurementEntryNotFoundError);
+				expect(foreignReading).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.measurement-entry.missing" },
+				});
 				const foreignMetric = yield* Effect.flip(
 					runSandboxTestScript(
 						updateDefinition,
@@ -255,42 +183,14 @@ describe("measurement reading update operation", () => {
 								{ value: 1, metricId: "exercise-1" },
 							],
 						},
-						host,
+						defaultHost,
 						execution,
 					),
 				);
-				expect(foreignMetric).toBeInstanceOf(MeasurementMetricNotFoundError);
-
-				expect(writes).toEqual(emptyWrites());
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"writes no events when the entry compare-and-set fails",
-		() =>
-			Effect.gen(function* () {
-				const writes = emptyWrites();
-				const host = defineSandboxTestHost(manifest, {
-					executeRyotql: executeMeasurementRyotql,
-					updateUserEntity: () => Effect.die("stale entry"),
-					deleteEvents: (ids) => Effect.sync(() => ({ count: writes.deletes.push(ids) })),
-					updateEvents: (items) => Effect.sync(() => ({ count: writes.updates.push(items) })),
-					createEvents: (items) =>
-						Effect.sync(() => ({ outcomes: [], count: writes.creates.push(items) })),
+				expect(foreignMetric).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.measurement-metric.missing" },
 				});
-
-				const exit = yield* Effect.exit(
-					runSandboxTestScript(
-						updateDefinition,
-						{ occurredAt, entryId: "entry-1", values: [{ value: 0, metricId: "weight" }] },
-						host,
-						execution,
-					),
-				);
-
-				expect(exit._tag).toBe("Failure");
-				expect(writes).toEqual(emptyWrites());
 			}),
 		testTimeout,
 	);

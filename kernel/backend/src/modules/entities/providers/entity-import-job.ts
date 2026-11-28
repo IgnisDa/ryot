@@ -1,4 +1,4 @@
-import { toSandboxRunError } from "@ryot-app/contract/errors";
+import { toSandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
@@ -6,7 +6,8 @@ import { Cause, Clock, Duration, Effect, type Exit, Layer, Option, Schema } from
 import { DurableClock } from "effect/workflow";
 
 import { childLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { EventsService } from "#modules/events/service";
+import { eventCreateChanges } from "#modules/changes/changes";
+import { ChangeSets } from "#modules/changes/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { AppConfig } from "#platform/config/service";
@@ -62,7 +63,6 @@ type EntityImportOutcome = typeof EntityImportOutcome.Type;
 
 const OutcomeJson = Schema.fromJsonString(Schema.toCodecJson(EntityImportOutcome));
 const outcomeKey = (executionId: string) => `entity-import-outcome/${executionId}`;
-const entryEventKey = (executionId: string) => `entity-import-entry-event/${executionId}`;
 const OUTCOME_TTL = Duration.days(7);
 
 /**
@@ -137,36 +137,27 @@ const measureImportPhase = <A, R>(
 const entryEventFailure = (message: string) =>
 	new EntityImportError({ message, stage: "entry-event" });
 
-// A retried attempt must not create the event again, and events carry no natural key to find it by.
+// A retried attempt replays the entry event's recorded result instead of creating it again.
 const recordEntryEvent = Effect.fnUntraced(function* (
 	payload: ProviderEntityImportWorkflowPayload,
 	entityId: ListedEntity["id"],
 	eventSchemaSlug: EventSchemaSlug,
 	context: JobContext,
 ) {
-	const transient = yield* TransientValues;
-	const key = entryEventKey(context.id);
-	if (
-		context.attempt > 1 &&
-		(yield* transient
-			.get(key)
-			.pipe(Effect.mapError((error) => entryEventFailure(error.message)))) !== null
-	) {
-		return yield* Effect.void;
-	}
-	const result = yield* (yield* EventsService)
-		.create({
-			userId: payload.entityScope.userId,
-			payload: [{ entityId, properties: {}, eventSchemaSlug }],
-			command: { ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
-		})
-		.pipe(Effect.mapError((error) => entryEventFailure(error.message)));
+	const result = yield* (yield* ChangeSets)
+		.commitEventsKeyed(
+			eventCreateChanges(payload.entityScope.userId, [
+				{ entityId, properties: {}, eventSchemaSlug },
+			]),
+			{ ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
+			context.id,
+			{ events: { independent: true } },
+		)
+		.pipe(Effect.mapError((error) => entryEventFailure(unknownToMessage(error))));
 	if (result.failure !== null) {
 		return yield* entryEventFailure(result.failure.reason.code);
 	}
-	return yield* transient
-		.set(key, "created", OUTCOME_TTL)
-		.pipe(Effect.mapError((error) => entryEventFailure(error.message)));
+	return yield* Effect.void;
 });
 
 const awaitPopulation = Effect.fnUntraced(function* (payload: ProviderEntityImportWorkflowPayload) {

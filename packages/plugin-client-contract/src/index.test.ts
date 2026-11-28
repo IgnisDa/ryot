@@ -1026,7 +1026,6 @@ describe("plugin client bridge contract", () => {
 					type: "collection-result",
 					requestId: "collection-1",
 					response: {
-						warnings: [],
 						memberOf: {
 							properties: {},
 							id: "relationship-1",

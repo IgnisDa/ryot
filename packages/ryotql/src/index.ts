@@ -842,7 +842,7 @@ export type Recipe<
 type AnySelectedQuery = SelectedQuery<unknown>;
 type RecipeQueries = Readonly<Record<string, AnySelectedQuery>>;
 type QueryResults<Queries extends RecipeQueries> = {
-	readonly [Key in keyof Queries]: Queries[Key] extends SelectedQuery<infer Success>
+	readonly [Key in keyof Queries]: NonNullable<Queries[Key]> extends SelectedQuery<infer Success>
 		? Success
 		: never;
 };
@@ -1021,10 +1021,13 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
+type UngroupedMeasures<Measures extends SelectedMeasures> = {
 	readonly measures: Measures;
 	readonly groupBy?: undefined;
 };
+
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> =
+	UngroupedMeasures<Measures> & Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures">;
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,

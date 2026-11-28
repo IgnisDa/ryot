@@ -1,37 +1,35 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { DateTime, Effect, Layer, Schema } from "effect";
+import { DateTime, Effect, Layer } from "effect";
 
 import { unexpected } from "#lib/domain/logged-rejection";
 import { lifecycleActor, rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { ChangeSets } from "#modules/changes/service";
 import {
-	type PluginBootstrapDispatch,
 	PluginBootstrapEntities,
 	type PluginBootstrapEntitiesInput,
 } from "#modules/plugins/installations/bootstrap-entities";
 
-import { EntitiesService } from "./service";
-
 export const PluginBootstrapEntitiesLive = Layer.effect(
 	PluginBootstrapEntities,
 	Effect.gen(function* () {
-		const entities = yield* EntitiesService;
-		const execution = yield* LifecycleExecution;
-		const plansSchema = Schema.Array(LifecycleDispatchPlan);
+		const changes = yield* ChangeSets;
 		const ensure = Effect.fn("PluginBootstrapEntities.ensure")(
 			function* (input: PluginBootstrapEntitiesInput) {
 				const { initiator } = lifecycleActor({ userId: input.userId });
-				const committed = yield* entities.commitUserEntities(
-					input.userId,
-					input.entities.map(({ entitySchemaSlug, ...entity }) => ({
-						...entity,
-						entitySchema: {
-							owner: definitionOwner(input.pluginId),
-							slug: EntitySchemaSlug.make(entitySchemaSlug),
+				yield* changes.commit(
+					{
+						userId: input.userId,
+						entities: {
+							ensures: input.entities.map(({ entitySchemaSlug, ...entity }) => ({
+								...entity,
+								entitySchema: {
+									owner: definitionOwner(input.pluginId),
+									slug: EntitySchemaSlug.make(entitySchemaSlug),
+								},
+							})),
 						},
-					})),
+					},
 					{
 						writeContext: null,
 						...rootLifecycleCommand({
@@ -45,24 +43,10 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 						}),
 					},
 				);
-				return yield* Schema.encodeEffect(plansSchema)(committed.flatMap((item) => item.dispatch));
 			},
 			Effect.tapError((error) => Effect.logError("Plugin user bootstrap entities failed", error)),
 			Effect.mapError(unexpected),
 		);
-		const dispatch = Effect.fn("PluginBootstrapEntities.dispatch")(
-			function* (encoded: PluginBootstrapDispatch) {
-				const plans = yield* Schema.decodeUnknownEffect(plansSchema)(encoded);
-				const warnings = yield* execution.dispatch(plans);
-				if (warnings.length > 0) {
-					yield* Effect.logWarning(
-						"User bootstrap entities completed with automation warnings",
-					).pipe(Effect.annotateLogs({ warnings }));
-				}
-			},
-			Effect.tapError((error) => Effect.logError("Plugin user bootstrap dispatch failed", error)),
-			Effect.mapError(unexpected),
-		);
-		return { ensure, dispatch };
+		return { ensure };
 	}),
 );

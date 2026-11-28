@@ -3,8 +3,13 @@ import type {
 	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
-import { RelationshipNotFound } from "@ryot-app/contract/modules/relationships/schemas";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot-app/contract/modules/relationships/schemas";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
+import { zip } from "effect/Array";
 
 import type {
 	CommittedLifecycleWork,
@@ -13,6 +18,7 @@ import type {
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationUserIds } from "#modules/mutations/account-admission";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import {
 	makeRelationshipMutationPrimitives,
@@ -49,20 +55,26 @@ export const makePlannedRelationshipReconciliation = (
 	const persistPlannedReconciliation = Effect.fn(
 		"RelationshipsService.persistPlannedReconciliation",
 	)(function* (
+		transaction: WriteTransaction,
 		groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
 		command: DomainLifecycleCommand,
 		scope: RelationshipReconciliationScope,
 	) {
 		yield* assertActiveTransaction;
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
+		const populationBatchId = stableStringify([
+			command.causation.executionId,
+			command.itemIdentity,
+		]);
 		const pinOf = yield* primitives.verifyWrites(
 			groups.map((group) => ({ command, scopeUserId, owner: group.relationshipSchema.owner })),
+			transaction,
 		);
-		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId));
+		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId), transaction);
 		const references = groups.map((group) => group.relationshipSchema);
 		const schemas =
 			scope.scope === "user"
-				? yield* definitions.findUserRelationshipSchemas(scope.userId, references)
+				? yield* definitions.findUserRelationshipSchemas(scope.userId, references, transaction)
 				: yield* definitions.findGlobalRelationshipSchemas(references);
 		const dispatch: LifecycleDispatchPlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
@@ -75,7 +87,16 @@ export const makePlannedRelationshipReconciliation = (
 				});
 			}
 			const selector = {
-				...group.selector,
+				...(group.selector.type === "self"
+					? {
+							type: "self" as const,
+							entitySchemaSlug: group.selector.entitySchema.slug,
+							entitySchemaPluginId:
+								group.selector.entitySchema.owner.kind === "plugin"
+									? group.selector.entitySchema.owner.pluginId
+									: null,
+						}
+					: group.selector),
 				...scope,
 				relationshipSchemaSlug: group.relationshipSchema.slug,
 				relationshipSchemaPluginId: definition.pluginId ?? null,
@@ -91,6 +112,25 @@ export const makePlannedRelationshipReconciliation = (
 						)
 					: emptyUserEntityScopes();
 			const seen = yield* reconciliationKeys(group);
+			if (selector.type === "self") {
+				const found = yield* entities.getEntityScopes(
+					group.relationships.map(({ sourceEntityId }) => sourceEntityId),
+				);
+				if (
+					group.relationships.some(({ sourceEntityId }) => {
+						const entity = found.get(sourceEntityId);
+						return (
+							entity === undefined ||
+							entity.entitySchemaSlug !== selector.entitySchemaSlug ||
+							entity.entitySchemaPluginId !== selector.entitySchemaPluginId
+						);
+					})
+				) {
+					return yield* new RelationshipBadRequest({
+						reason: { code: "reconciliation-selector-mismatch" },
+					});
+				}
+			}
 			const desired: Array<
 				{
 					properties: Record<string, unknown>;
@@ -117,10 +157,7 @@ export const makePlannedRelationshipReconciliation = (
 						!paging.kept.has(relationship.targetEntityId),
 				);
 			}
-			const upsertMode =
-				paging?.kind === "page" && paging.preserveExisting
-					? ("ensure" as const)
-					: ("upsert" as const);
+			const upsertMode = group.preserveExisting ? ("ensure" as const) : ("upsert" as const);
 			const mutations: Array<{
 				command: DomainLifecycleCommand;
 				input: RelationshipIdentityInput;
@@ -160,8 +197,11 @@ export const makePlannedRelationshipReconciliation = (
 				resource: "relationship" as const,
 				identity: [`group:${groupIndex}`],
 			};
-			const decision = yield* planner.prepareBatch({ ...batchScope, scopes: [scopeUserId] });
-			yield* primitives.lockMutations(mutations);
+			const decision = yield* planner.prepareBatch(transaction, {
+				...batchScope,
+				scopes: [scopeUserId],
+			});
+			yield* primitives.lockMutations(mutations, transaction);
 			const reads = yield* primitives.readEntities(mutations);
 			const rows = yield* repository.findRelationships(mutations.map(({ input }) => input));
 			const prepared: Array<{
@@ -175,7 +215,12 @@ export const makePlannedRelationshipReconciliation = (
 			for (const mutation of mutations) {
 				const row = rows.get(relationshipMutationLockKey(mutation.input));
 				const before = row ? yield* snapshot(row) : null;
-				const validated = yield* primitives.validateMutation(mutation, reads, pinOf(mutation));
+				const validated = yield* primitives.validateMutation(
+					mutation,
+					reads,
+					transaction,
+					pinOf(mutation),
+				);
 				const request = yield* primitives.prepareRequest(
 					{ ...mutation, propertiesSchema: definition.propertiesSchema },
 					before,
@@ -190,12 +235,15 @@ export const makePlannedRelationshipReconciliation = (
 			};
 			let changedIndex = 0;
 			const groupDispatch: LifecycleDispatchPlan[] = [];
+			const planned = yield* primitives.planSources(
+				prepared.map((item) => ({ mutation: item, before: item.before, request: item.request })),
+				rows,
+			);
 			const persisted = yield* primitives.persistSources(
-				prepared.map((item) => ({
+				transaction,
+				zip(prepared, planned).map(([item, source]) => ({
 					mutation: item,
-					before: item.before,
-					request: item.request,
-					validated: item.validated,
+					source: source.kind === "write" ? { ...source, validated: item.validated } : source,
 				})),
 			);
 			for (const [index, item] of prepared.entries()) {
@@ -209,21 +257,25 @@ export const makePlannedRelationshipReconciliation = (
 				}
 				const population = relationshipPopulation(
 					item.command,
+					populationBatchId,
 					counts,
 					existing.length,
 					changedIndex === 0,
 				);
 				changedIndex += 1;
-				const { change, dispatch: itemDispatch } = yield* primitives.planChange({
+				const { change, dispatch: itemDispatch } = yield* primitives.planChange(transaction, {
 					payload,
 					population,
 					mutation: item,
-					requestId: null,
 				});
-				yield* planner.recordBatchChange(decision.id, { index, scopeUserId, payload: change });
+				yield* planner.recordBatchChange(transaction, decision.id, {
+					index,
+					scopeUserId,
+					payload: change,
+				});
 				groupDispatch.push(...itemDispatch);
 			}
-			groupDispatch.push(...(yield* planner.planBatch(batchScope)));
+			groupDispatch.push(...(yield* planner.planBatch(transaction, batchScope)));
 			const groupResult = {
 				upserted: desired.length,
 				created: counts.createdCount,

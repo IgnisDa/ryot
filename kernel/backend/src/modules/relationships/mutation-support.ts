@@ -7,25 +7,24 @@ import {
 import {
 	definitionOwner,
 	definitionOwnerPluginId,
+	type EntitySchemaReference,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
-	CreateRelationshipBody,
+	type CreateRelationshipBody,
 	RelationshipBadRequest,
 	RelationshipNotFound,
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
-import type { createUserRelationshipSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	LifecyclePersistenceError,
 	type LifecyclePlanner,
@@ -53,25 +52,12 @@ import {
 	type RelationshipsRepository,
 } from "./repository";
 
-export const CreateRelationshipInput = Schema.Union([
-	Schema.Struct({
-		...CreateRelationshipBody.fields,
-		properties: Schema.Unknown,
-		scope: Schema.Literal("global"),
-		ifAbsent: Schema.optional(Schema.Boolean),
-	}),
-	Schema.Struct({
-		...CreateRelationshipBody.fields,
-		userId: UserId,
-		properties: Schema.Unknown,
-		scope: Schema.Literal("user"),
-		ifAbsent: Schema.optional(Schema.Boolean),
-	}),
-]);
-export type UpdateRelationshipInput = CreateRelationshipInput;
-export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
 export type UserRelationshipIdentity = Omit<CreateRelationshipBody, "properties">;
-export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
+export type UserRelationshipWrite = UserRelationshipInput & { readonly properties: unknown };
+export type UserRelationshipInput = UserRelationshipIdentity & {
+	readonly scope: "user";
+	readonly userId: UserId;
+};
 export type RelationshipReconciliationScope =
 	{ readonly scope: "global" } | { readonly scope: "user"; readonly userId: UserId };
 export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
@@ -80,30 +66,25 @@ export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly deleted: number;
 	readonly upserted: number;
 }>;
-export type ChangeUserRelationshipBatch = {
-	deletes: ReadonlyArray<UserRelationshipIdentity>;
-	creates: ReadonlyArray<
-		{ properties: unknown } & UserRelationshipIdentity &
-			Pick<Schema.Schema.Type<typeof createUserRelationshipSchema>, "propertiesMode">
-	>;
-};
 export type ReconcileGlobalRelationshipGroup = {
+	/** Writes each relationship only when absent, keeping the properties of one that exists. */
+	preserveExisting?: boolean;
 	relationshipSchema: RelationshipSchemaReference;
-	relationships: ReadonlyArray<{
-		properties: unknown;
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-	}>;
-	selector:
-		| { type: "self" }
-		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
 	/**
 	 * Paged synchronization: a "page" upserts only its relationships and deletes nothing; a "sweep" deletes the
 	 * relationships whose other end is not in `kept`.
 	 */
 	paging?:
-		| { readonly kind: "page"; readonly preserveExisting: boolean }
-		| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
+		{ readonly kind: "page" } | { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
+	relationships: ReadonlyArray<{
+		properties: unknown;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+	}>;
+	/** `self` reconciles the self relationships of entities of `entitySchema`. */
+	selector:
+		| { type: "self"; entitySchema: EntitySchemaReference }
+		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
 };
 
 export const RelationshipMutation = Schema.Struct({
@@ -114,19 +95,17 @@ export const RelationshipMutation = Schema.Struct({
 	expectedTargetEntityId: Schema.optionalKey(EntityId),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
 	mode: Schema.Literals(["upsert", "update", "delete", "merge", "ensure"]),
+	expectedProperties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type Mutation = typeof RelationshipMutation.Type;
 
-export const RelationshipRecordedResult = Schema.Struct({
+export const RelationshipWriteResult = Schema.Struct({
 	operation: Schema.Literals(["create", "update", "delete", "noop"]),
 	relationship: Schema.NullOr(
-		Schema.Struct({
-			...RelationshipScope.fields,
-			updatedAt: Schema.String,
-			properties: Schema.Record(Schema.String, Schema.Unknown),
-		}),
+		Schema.Struct({ ...RelationshipScope.fields, updatedAt: Schema.String }),
 	),
 });
+export type RelationshipWriteResult = typeof RelationshipWriteResult.Type;
 
 export const recordRelationshipImportItem = (
 	keys: IdempotencyKeys["Service"],
@@ -373,7 +352,7 @@ export const relationshipSchemaReference = (
 });
 
 export const relationshipIdentity = (
-	input: DeleteRelationshipInput,
+	input: UserRelationshipIdentity & RelationshipReconciliationScope,
 ): RelationshipIdentityInput => ({
 	...input,
 	relationshipSchemaSlug: input.relationshipSchema.slug,
@@ -387,7 +366,6 @@ export type RelationshipMutationDependencies = {
 	readonly planner: LifecyclePlanner["Service"];
 	readonly admission: AccountAdmission["Service"];
 	readonly entities: EntitiesRepository["Service"];
-	readonly execution: LifecycleExecution["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];
 	readonly repository: RelationshipsRepository["Service"];

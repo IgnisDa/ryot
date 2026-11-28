@@ -17,7 +17,7 @@ import { Context, Effect, Schema } from "effect";
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { runRootTransaction } from "#platform/db/transaction";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 
 const violation = (message: string) =>
 	rejectWithLoggedCause(new EventBadRequest({ reason: { code: "mutation-conflict" } }), message);
@@ -66,12 +66,49 @@ type ValidationScope = {
 	readonly declarations: ReadonlyArray<EventGroupDeclaration>;
 	readonly before: ReadonlyArray<typeof StoredGroupRecord.Type>;
 };
-const PendingEventGroups = Context.Reference<null | Map<UserId, PendingGroups>>(
-	"EventGroupConstraints.Pending",
-	{ defaultValue: () => null },
-);
+const pendingGroups = writeState(() => new Map<UserId, PendingGroups>());
 const selectionKey = (row: Pick<GroupSource, "entitySchemaSlug" | "eventSchemaPluginId">) =>
 	stableStringify([row.eventSchemaPluginId, row.entitySchemaSlug]);
+const pendingFor = (transaction: WriteTransaction, userId: UserId) => {
+	const pending = pendingGroups(transaction);
+	const existing = pending.get(userId);
+	if (existing) {
+		return existing;
+	}
+	const created: PendingGroups = {
+		bindings: [],
+		before: new Map(),
+		eventIds: new Set(),
+		entityIds: new Set(),
+		sessionIds: new Set(),
+		selections: new Set(),
+		declarations: new Map(),
+		createdEventIds: new Set(),
+	};
+	pending.set(userId, created);
+	return created;
+};
+const isCaptured = (
+	transaction: WriteTransaction,
+	input: {
+		readonly userId: UserId;
+		readonly eventIds: ReadonlyArray<EventId>;
+		readonly drafts: ReadonlyArray<GroupSource>;
+		readonly createdEventIds?: ReadonlyArray<EventId>;
+	},
+) => {
+	const pending = pendingFor(transaction, input.userId);
+	return (
+		input.eventIds.every((id) => pending.eventIds.has(id)) &&
+		(input.createdEventIds ?? []).every((id) => pending.createdEventIds.has(id)) &&
+		input.drafts.every(
+			(draft) =>
+				pending.entityIds.has(draft.entityId) &&
+				(draft.sessionEntityId === null || pending.entityIds.has(draft.sessionEntityId)) &&
+				pending.selections.has(selectionKey(draft)),
+		)
+	);
+};
 const valuesSql = (values: ReadonlyArray<string>) =>
 	sql`select jsonb_array_elements_text(${stableStringify(values)}::jsonb)`;
 const sameProperties = (left: SQL, right: SQL, keys: ReadonlyArray<string>) =>
@@ -136,56 +173,19 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 				}
 				return undefined;
 			});
-			const pendingFor = Effect.fnUntraced(function* (userId: UserId) {
-				const pending = yield* PendingEventGroups;
-				if (pending === null) {
-					return yield* new DbError({ message: "Event writes require an event transaction" });
-				}
-				const existing = pending.get(userId);
-				if (existing) {
-					return existing;
-				}
-				const created: PendingGroups = {
-					bindings: [],
-					before: new Map(),
-					eventIds: new Set(),
-					entityIds: new Set(),
-					sessionIds: new Set(),
-					selections: new Set(),
-					declarations: new Map(),
-					createdEventIds: new Set(),
-				};
-				pending.set(userId, created);
-				return created;
-			});
-			const isCaptured = Effect.fn("EventGroupConstraints.isCaptured")(function* (input: {
-				readonly userId: UserId;
-				readonly eventIds: ReadonlyArray<EventId>;
-				readonly drafts: ReadonlyArray<GroupSource>;
-				readonly createdEventIds?: ReadonlyArray<EventId>;
-			}) {
-				const pending = yield* pendingFor(input.userId);
-				return (
-					input.eventIds.every((id) => pending.eventIds.has(id)) &&
-					(input.createdEventIds ?? []).every((id) => pending.createdEventIds.has(id)) &&
-					input.drafts.every(
-						(draft) =>
-							pending.entityIds.has(draft.entityId) &&
-							(draft.sessionEntityId === null || pending.entityIds.has(draft.sessionEntityId)) &&
-							pending.selections.has(selectionKey(draft)),
-					)
-				);
-			});
-			const capture = Effect.fn("EventGroupConstraints.capture")(function* (input: {
-				readonly userId: UserId;
-				readonly eventIds: ReadonlyArray<EventId>;
-				readonly drafts: ReadonlyArray<GroupSource>;
-				readonly entityIds?: ReadonlyArray<EntityId>;
-				readonly createdEventIds?: ReadonlyArray<EventId>;
-				readonly expectedRevisions?: ReadonlyMap<EventId, number>;
-			}) {
+			const capture = Effect.fn("EventGroupConstraints.capture")(function* (
+				transaction: WriteTransaction,
+				input: {
+					readonly userId: UserId;
+					readonly eventIds: ReadonlyArray<EventId>;
+					readonly drafts: ReadonlyArray<GroupSource>;
+					readonly entityIds?: ReadonlyArray<EntityId>;
+					readonly createdEventIds?: ReadonlyArray<EventId>;
+					readonly expectedRevisions?: ReadonlyMap<EventId, number>;
+				},
+			) {
 				yield* requireTransaction;
-				const pending = yield* pendingFor(input.userId);
+				const pending = pendingFor(transaction, input.userId);
 				const eventIds = [...new Set(input.eventIds)].sort();
 				const expected = input.expectedRevisions ?? new Map<EventId, number>();
 				const readIds = [...new Set([...eventIds, ...expected.keys()])];
@@ -448,31 +448,27 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 					createdEventIds: [],
 				});
 			});
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-				runRootTransaction(
-					session,
-					Effect.gen(function* () {
-						const pending = new Map<UserId, PendingGroups>();
-						const result = yield* work.pipe(Effect.provideService(PendingEventGroups, pending));
-						for (const [userId, captured] of [...pending].sort(([left], [right]) =>
-							left.localeCompare(right),
-						)) {
-							yield* validate({
-								userId,
-								allSessions: false,
-								bindings: captured.bindings,
-								eventIds: [...captured.eventIds],
-								entityIds: [...captured.entityIds],
-								sessionIds: [...captured.sessionIds],
-								before: [...captured.before.values()],
-								createdEventIds: [...captured.createdEventIds],
-								declarations: [...captured.declarations.values()],
-							});
-						}
-						return result;
-					}),
-				);
-			return { capture, isCaptured, transaction, validateHistorical };
+			/** Validates every group the transaction's writes captured, once, as its last statements. */
+			const validateCaptured = Effect.fn("EventGroupConstraints.validateCaptured")(function* (
+				transaction: WriteTransaction,
+			) {
+				for (const [userId, captured] of [...pendingGroups(transaction)].sort(([left], [right]) =>
+					left.localeCompare(right),
+				)) {
+					yield* validate({
+						userId,
+						allSessions: false,
+						bindings: captured.bindings,
+						eventIds: [...captured.eventIds],
+						entityIds: [...captured.entityIds],
+						sessionIds: [...captured.sessionIds],
+						before: [...captured.before.values()],
+						createdEventIds: [...captured.createdEventIds],
+						declarations: [...captured.declarations.values()],
+					});
+				}
+			});
+			return { capture, isCaptured, validateCaptured, validateHistorical };
 		}),
 	},
 ) {}

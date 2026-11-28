@@ -32,6 +32,7 @@ import { PluginIngestionService } from "./packages/ingestion-service";
 import { PluginRepository } from "./packages/repository";
 import { SystemPlugins } from "./packages/system";
 import { SystemPluginBootstrap } from "./packages/system-bootstrap";
+import { PluginValidationWorker } from "./packages/validation-worker";
 
 export const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
 	Layer.provide(IntegrationsRepository.layer),
@@ -72,6 +73,7 @@ export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
 			SystemPlugins.layer,
 			PluginCatalogInvalidatorLive,
 			pluginIngestionRetirement,
+			PluginValidationWorker.layer,
 		),
 	),
 );

@@ -41,6 +41,7 @@ it("declares strict, positioned input schemas and export documentation for every
 		storygraph: "storygraph",
 		myanimelist: "myanimelist",
 		media_tracker: "mediatracker",
+		"media-history": "media-history",
 		audiobookshelf: "audiobookshelf",
 	} as const;
 
@@ -96,6 +97,7 @@ it("declares every upload field with its extensions and required state", () => {
 		"trakt.exportUploadToken": { minLength: 1, required: true, extensions: ["zip"] },
 		"movary.historyUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"movary.ratingsUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"media-history.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
 		"movary.watchlistUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"myanimelist.animeUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },
 		"myanimelist.mangaUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },

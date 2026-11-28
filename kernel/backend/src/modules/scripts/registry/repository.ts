@@ -1,4 +1,5 @@
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
+import { isActivityScript } from "@ryot-app/contract/modules/plugins/execution";
 import {
 	type SandboxExecutionSubject,
 	sandboxSubjectUserId,
@@ -18,10 +19,10 @@ import { alias } from "drizzle-orm/pg-core";
 import { Cache, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
-import type {
+import {
 	ScriptExecutionPrincipal,
-	ScriptInstallationInitialization,
-	ScriptPluginRevision,
+	type ScriptInstallationInitialization,
+	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -38,12 +39,13 @@ const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
 
 type StoredScriptMetadata = (typeof schema.sandboxScript.$inferSelect)["metadata"];
 
-export const isWorkflowCallTargetKind = (
+export const isWorkflowCallTarget = (
 	request: WorkflowDurableCallRequest,
-	kind: StoredScriptMetadata["kind"],
+	metadata: Pick<StoredScriptMetadata, "kind" | "activity">,
 ) =>
-	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
-	(request.kind === "activity" && kind === "script");
+	((request.kind === "child" || request.kind === "workflow-child") &&
+		metadata.kind === "workflow") ||
+	(request.kind === "activity" && isActivityScript(metadata));
 
 export const pinnedRevisionScript = (revisionId: string) =>
 	sql`exists (select 1 from ${schema.sandboxScript} s where s.plugin_revision_id = ${revisionId}
@@ -380,7 +382,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							)
 							.limit(1),
 					);
-					if (!target || !isWorkflowCallTargetKind(request, target.metadata.kind)) {
+					if (!target || !isWorkflowCallTarget(request, target.metadata)) {
 						return null;
 					}
 					return {
@@ -391,7 +393,49 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 				},
 			);
 
-			return { getScript, getScriptPin, getSchemaScope, isPluginScript, resolveWorkflowCallScript };
+			/**
+			 * The principal a pinned script runs under for `subject`, or null when the subject has no
+			 * executable pin; a pin the subject may not run under fails as `invalid-input`.
+			 */
+			const pinnedPrincipal = Effect.fn("SandboxRepository.pinnedPrincipal")(function* (
+				scriptId: SandboxScriptId,
+				subject: SandboxExecutionSubject,
+				pinned: {
+					readonly initialization?: ScriptInstallationInitialization;
+					readonly expectedRevision?: Pick<
+						ScriptPluginRevision,
+						"id" | "revisionId" | "configRevisionId"
+					>;
+				} = {},
+			) {
+				const pin = yield* getScriptPin(
+					scriptId,
+					pinned.expectedRevision,
+					subject,
+					pinned.initialization,
+				);
+				if (pin === null) {
+					return null;
+				}
+				return yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject }).pipe(
+					Effect.mapError(
+						() =>
+							new SandboxRunError({
+								kind: "invalid-input",
+								message: `Script ${pin.scriptSlug} cannot run for this execution`,
+							}),
+					),
+				);
+			});
+
+			return {
+				getScript,
+				getScriptPin,
+				getSchemaScope,
+				isPluginScript,
+				pinnedPrincipal,
+				resolveWorkflowCallScript,
+			};
 		}),
 	},
 ) {

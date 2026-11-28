@@ -1,28 +1,50 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
+import type { DbError } from "@ryot-app/contract/errors";
 import type {
 	IngestionIssue,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { AutomationExecutionId, ImportRunId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	AutomationExecutionId,
+	EntitySchemaSlug,
+	ImportRunId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { assert } from "@ryot-app/testing/assert";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
-import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { CommitConflict } from "#modules/changes/conflict";
+import { ChangeSets } from "#modules/changes/service";
+import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
+import {
+	type RecordedStatement,
+	StatementLog,
+} from "#modules/entities/statement-recording.test-support";
 import {
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "#modules/events/event-groups.test-support";
-import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -32,6 +54,7 @@ import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
 import { importRun } from "#schema/tables/imports";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { runGenericImportChunk } from "./generic-import-workflow";
@@ -41,8 +64,32 @@ import { genericImportOperationIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 
-const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
-	const fixture = yield* eventGroupFixture();
+const noteSchemas = [
+	{
+		slug: "note",
+		name: { key: "test.note" },
+		propertiesSchema: {
+			fields: {
+				image: managedAssetProperty,
+				text: { type: "string", description: "Text", label: { key: "test.text" } },
+			},
+		},
+	},
+] as const;
+
+/**
+ * Applies a chunk of one item built for the fixture. Every application runs each activity again, as
+ * a retry after a commit whose activity result was lost.
+ */
+const chunkFixture = Effect.fnUntraced(function* (
+	eventSchemas: Parameters<typeof eventGroupFixture>[0],
+	itemOf: (
+		fixture: Effect.Success<ReturnType<typeof eventGroupFixture>>,
+		occurredAt: string,
+	) => GenericImportWriteItem,
+	identities: ReadonlyArray<string>,
+) {
+	const fixture = yield* eventGroupFixture(eventSchemas);
 	const revision = fixture.command.writeContext.pluginRevision;
 	assert(revision);
 	const accountUserId = fixture.command.accountUserId;
@@ -69,73 +116,12 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 		}),
 		writeContext: fixture.command.writeContext,
 	};
-	const item: GenericImportWriteItem = {
-		itemIndex: 0,
-		recordId: "record",
-		sourceLabel: "fixture",
-		sourceIdentifier: "record",
-		subjectEntityAlias: "session",
-		relationships: [
-			{
-				properties: {},
-				operationId: "link",
-				targetAlias: "other",
-				sourceAlias: "subject",
-				outcome: { unit: "links", recordKind: "links" },
-				relationshipSchemaSlug: fixture.relationshipSchemaSlug,
-			},
-		],
-		entities: [
-			{
-				properties: {},
-				name: "Subject",
-				alias: "subject",
-				existingOnly: true,
-				operationId: "subject",
-				entityId: fixture.subjectId,
-				entitySchemaSlug: "subject",
-			},
-			{
-				name: "Other",
-				alias: "other",
-				properties: {},
-				operationId: "other",
-				entitySchemaSlug: "subject",
-			},
-			{
-				properties: {},
-				alias: "session",
-				operationId: "session",
-				name: "Imported session",
-				entitySchemaSlug: "session",
-				outcome: { unit: "sessions", recordKind: "sessions" },
-			},
-		],
-		events: [
-			{
-				operationId: "anchor",
-				entityAlias: "subject",
-				eventSchemaSlug: "anchor",
-				sessionEntityAlias: "session",
-				occurredAt: command.occurredAt,
-				properties: { position: 0, kind: "primary", evidence: "recorded" },
-			},
-			...Array.from({ length: memberCount }, (_, index) => ({
-				entityAlias: "subject",
-				eventSchemaSlug: "member",
-				sessionEntityAlias: "session",
-				occurredAt: command.occurredAt,
-				operationId: `member-${index}`,
-				outcome: { unit: "members", recordKind: "members" },
-				properties: { position: 0, amount: index, kind: "primary" },
-			})),
-		],
-	};
+	const item = itemOf(fixture, command.occurredAt);
 	const outcomes = new Map<string, IngestionOutcome>();
+	const activities: Array<{ readonly name: string; readonly exit: unknown }> = [];
 	const issues = new Map<string, IngestionIssue>();
 	const scope = { runId, userId: fixture.userId };
 	const importLayer = Layer.mergeAll(
-		Layer.mock(EventsService)({}),
 		Layer.mock(ImportSourceStateStore)({
 			load: () =>
 				Effect.succeed({
@@ -150,12 +136,15 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 			read: () => Effect.succeed(Buffer.from(JSON.stringify({ failures: [], items: [item] }))),
 		}),
 		Layer.mock(ImportsRepository)({
+			lockOutcomes: () => Effect.void,
 			getBatch: () => Effect.succeed(null),
 			startBatch: () => Effect.succeed(true),
 			projectBatch: () => Effect.succeed(true),
 			registerBatch: () => Effect.succeed(true),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 			getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
+			recordedOutcomeIds: (_scope, ids) =>
+				Effect.sync(() => new Set(ids.filter((id) => outcomes.has(id)))),
 			recordIssue: (_scope, issue) =>
 				Effect.sync(() => {
 					issues.set(issue.id, issue);
@@ -191,6 +180,16 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 				),
 		}),
 		Layer.succeed(WorkflowInstance, WorkflowInstance.initial(ScriptExecutionWorkflow, runId)),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				activityExecute: (activity) =>
+					Effect.map(Effect.exit(activity.execute), (exit) => {
+						activities.push({ exit, name: activity.name });
+						return new Workflow.Complete({ exit });
+					}),
+			}),
+		),
 	);
 	const apply = runGenericImportChunk({
 		...scope,
@@ -205,23 +204,223 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 			yield* Layer.build(IntegrationEventWrites.layer.pipe(Layer.provideMerge(importLayer))),
 		),
 	);
-	const operationIdentities = [
-		"session",
-		"anchor",
-		"link",
-		...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
-	].map((id) => genericImportOperationIdentity(runId, item, id));
 	const committed = Effect.flatMap(IdempotencyKeys.make, (keys) =>
-		keys.importItems({ runId, userId: fixture.userId, itemIdentities: operationIdentities }),
+		keys.importItems({
+			runId,
+			userId: fixture.userId,
+			itemIdentities: identities.map((id) => genericImportOperationIdentity(runId, item, id)),
+		}),
 	);
-	return { ...fixture, apply, outcomes, committed };
+	return { ...fixture, apply, outcomes, committed, activities };
+});
+
+const recordFixture = (memberCount: number) =>
+	chunkFixture(
+		undefined,
+		(fixture, occurredAt): GenericImportWriteItem => ({
+			itemIndex: 0,
+			recordId: "record",
+			sourceLabel: "fixture",
+			sourceIdentifier: "record",
+			subjectEntityAlias: "session",
+			relationships: [
+				{
+					properties: {},
+					operationId: "link",
+					targetAlias: "other",
+					sourceAlias: "subject",
+					outcome: { unit: "links", recordKind: "links" },
+					relationshipSchemaSlug: fixture.relationshipSchemaSlug,
+				},
+			],
+			entities: [
+				{
+					properties: {},
+					name: "Subject",
+					alias: "subject",
+					existingOnly: true,
+					operationId: "subject",
+					entityId: fixture.subjectId,
+					entitySchemaSlug: "subject",
+				},
+				{
+					name: "Other",
+					alias: "other",
+					properties: {},
+					operationId: "other",
+					entitySchemaSlug: "subject",
+				},
+				{
+					properties: {},
+					alias: "session",
+					operationId: "session",
+					name: "Imported session",
+					entitySchemaSlug: "session",
+					outcome: { unit: "sessions", recordKind: "sessions" },
+				},
+			],
+			events: [
+				{
+					occurredAt,
+					operationId: "anchor",
+					entityAlias: "subject",
+					eventSchemaSlug: "anchor",
+					sessionEntityAlias: "session",
+					properties: { position: 0, kind: "primary", evidence: "recorded" },
+				},
+				...Array.from({ length: memberCount }, (_, index) => ({
+					occurredAt,
+					entityAlias: "subject",
+					eventSchemaSlug: "member",
+					sessionEntityAlias: "session",
+					operationId: `member-${index}`,
+					outcome: { unit: "members", recordKind: "members" },
+					properties: { position: 0, amount: index, kind: "primary" },
+				})),
+			],
+		}),
+		[
+			"session",
+			"anchor",
+			"link",
+			...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
+		],
+	);
+
+/**
+ * A standalone item: a created entity linked to the fixture's subject, found by name, and a note on
+ * the subject with `properties`.
+ */
+const noteFixture = (properties: GenericImportWriteItem["events"][number]["properties"]) =>
+	chunkFixture(
+		noteSchemas,
+		(fixture, occurredAt): GenericImportWriteItem => ({
+			itemIndex: 0,
+			recordId: "note",
+			sourceLabel: "fixture",
+			sourceIdentifier: "note",
+			subjectEntityAlias: "created",
+			events: [
+				{
+					occurredAt,
+					properties,
+					operationId: "note",
+					entityAlias: "found",
+					eventSchemaSlug: "note",
+					outcome: { unit: "notes", recordKind: "notes" },
+				},
+			],
+			relationships: [
+				{
+					properties: {},
+					operationId: "link",
+					targetAlias: "found",
+					sourceAlias: "created",
+					outcome: { unit: "links", recordKind: "links" },
+					relationshipSchemaSlug: fixture.relationshipSchemaSlug,
+				},
+			],
+			entities: [
+				{
+					properties: {},
+					alias: "created",
+					name: "Imported",
+					operationId: "created",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+				},
+				{
+					properties: {},
+					alias: "found",
+					name: "Ignored",
+					operationId: "found",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+					match: { properties: {}, name: "subject", nameNormalization: "slug" },
+				},
+			],
+		}),
+		["created", "found", "link", "note"],
+	);
+
+/**
+ * A standalone item creating one entity and adding it to " Shelf ", which does not exist, and to the
+ * user's existing collections "Existing" and "Strict", the last of which requires a member field.
+ */
+const membershipFixture = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	yield* session.transaction(
+		Effect.flatMap(DefinitionRepository, (definitions) =>
+			definitions.replaceKernelDefinitions(kernelDefinitionSource()),
+		),
+	);
+	const fixture = yield* chunkFixture(
+		undefined,
+		(): GenericImportWriteItem => ({
+			events: [],
+			itemIndex: 0,
+			relationships: [],
+			recordId: "member",
+			sourceLabel: "fixture",
+			sourceIdentifier: "member",
+			subjectEntityAlias: "created",
+			entities: [
+				{
+					properties: {},
+					alias: "created",
+					name: "Imported",
+					operationId: "created",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+				},
+			],
+			collectionMemberships: ["Shelf", "Existing", "Strict"].map((name) => ({
+				entityAlias: "created",
+				operationId: name.toLowerCase(),
+				collectionName: name === "Shelf" ? " Shelf " : name,
+				outcome: { unit: "memberships", recordKind: "memberships" },
+			})),
+		}),
+		["created", "shelf", "existing", "strict"],
+	);
+	yield* session.run((db) =>
+		db.insert(tables.entity).values(
+			[
+				{ fields: [], name: "Existing" },
+				{ name: "Strict", fields: [{ key: "note", type: "text", label: "Note", required: true }] },
+			].map(({ name, fields }) => ({
+				name,
+				userId: fixture.userId,
+				entitySchemaSlug: "collection",
+				properties: { membershipFields: fields },
+			})),
+		),
+	);
+	const collections = Effect.flatMap(DatabaseSession, (database) =>
+		database.run((db) =>
+			db
+				.select({ id: tables.entity.id, name: tables.entity.name })
+				.from(tables.entity)
+				.where(
+					and(
+						eq(tables.entity.userId, fixture.userId),
+						eq(tables.entity.entitySchemaSlug, "collection"),
+					),
+				),
+		),
+	);
+	return { ...fixture, collections };
 });
 
 layer(
 	Layer.provideMerge(
 		Layer.mergeAll(
-			Layer.provideMerge(SandboxRepository.layer, eventGroupWorkflowLayer),
-			Layer.mock(CollectionsService)({}),
+			Layer.provideMerge(
+				CollectionsService.layer.pipe(
+					Layer.provide(Layer.merge(CollectionsRepository.layer, RelationshipSchemaReader.layer)),
+				),
+				Layer.provideMerge(SandboxRepository.layer, eventGroupWorkflowLayer),
+			),
 			Layer.mock(JobQueue)({}),
 			Layer.mock(TransientValues)({}),
 			Layer.mock(EntityImportWorkflowOperations)({}),
@@ -289,6 +488,375 @@ layer(
 							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
 					)).filter((row) => row.entitySchemaSlug === "session"),
 				).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"matches an entity in the item's commit and replays the commit when its activity runs again",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* noteFixture({ text: "Noted" });
+				yield* fixture.apply;
+				expect([...fixture.outcomes.values()]).toEqual([]);
+				expect((yield* fixture.committed).map(({ result }) => result).sort()).toEqual([
+					"created",
+					"created",
+					"created",
+					"unchanged",
+				]);
+				const database = yield* DatabaseSession;
+				const written = Effect.all([
+					database.run((db) =>
+						db
+							.select()
+							.from(tables.entity)
+							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
+					),
+					database.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
+					),
+				]);
+				const [entities, events] = yield* written;
+				expect(entities.map(({ name }) => name).sort()).toEqual(["Imported", "Subject"]);
+				expect(events).toHaveLength(1);
+				const links = yield* database.run((db) =>
+					db
+						.delete(tables.relationship)
+						.where(eq(tables.relationship.targetEntityId, fixture.subjectId))
+						.returning({ source: tables.relationship.sourceEntityId }),
+				);
+				const imported = entities.find(({ name }) => name === "Imported");
+				assert(imported);
+				expect(links).toEqual([{ source: imported.id }]);
+				yield* fixture.apply;
+				expect(yield* written).toEqual([entities, events]);
+				expect(
+					yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.relationship)
+							.where(eq(tables.relationship.targetEntityId, fixture.subjectId)),
+					),
+				).toEqual([]);
+				const [first, replayed] = fixture.activities
+					.filter(({ name }) => name === "commit-generic-import-item-0")
+					.map(({ exit }) => exit);
+				expect(replayed).toEqual(first);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails only the event of a standalone item naming another user's managed asset",
+		() =>
+			Effect.gen(function* () {
+				const foreign = yield* insertManagedAsset(UserId.make("generic-import-asset-owner"));
+				const fixture = yield* noteFixture({ image: foreign });
+				yield* fixture.apply;
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual([
+					"created",
+					"unchanged",
+					"created",
+				]);
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual([["note", "unsuccessful", { key: null, code: "database-commit-failed" }]]);
+				const database = yield* DatabaseSession;
+				expect(
+					yield* database.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
+					),
+				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails only the event of a standalone item whose subject entity the user cannot see",
+		() =>
+			Effect.gen(function* () {
+				const unseen = yield* randomUuid;
+				const fixture = yield* chunkFixture(
+					noteSchemas,
+					(_fixture, occurredAt): GenericImportWriteItem => ({
+						itemIndex: 0,
+						recordId: "note",
+						relationships: [],
+						sourceLabel: "fixture",
+						sourceIdentifier: "note",
+						subjectEntityAlias: "created",
+						entities: [
+							{
+								properties: {},
+								alias: "created",
+								name: "Imported",
+								operationId: "created",
+								entitySchemaSlug: "subject",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+						],
+						events: [
+							{
+								occurredAt,
+								operationId: "note",
+								entityAlias: "created",
+								eventSchemaSlug: "note",
+								subjectEntityId: unseen,
+								properties: { text: "Noted" },
+								outcome: { unit: "notes", recordKind: "notes" },
+							},
+						],
+					}),
+					["created", "note"],
+				);
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual([["note", "unsuccessful", { key: null, code: "database-commit-failed" }]]);
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual(["created"]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails an item naming an entity schema its plugin does not declare and writes none of it",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* chunkFixture(
+					undefined,
+					(): GenericImportWriteItem => ({
+						events: [],
+						itemIndex: 0,
+						relationships: [],
+						recordId: "undeclared",
+						sourceLabel: "fixture",
+						subjectEntityAlias: "created",
+						sourceIdentifier: "undeclared",
+						entities: [
+							{
+								properties: {},
+								alias: "created",
+								name: "Imported",
+								operationId: "created",
+								entitySchemaSlug: "subject",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+							{
+								properties: {},
+								name: "Collection",
+								alias: "collection",
+								operationId: "collection",
+								entitySchemaSlug: "collection",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+						],
+					}),
+					["created", "collection"],
+				);
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual(
+					["created", "collection"].map((operationId) => [
+						operationId,
+						"unsuccessful",
+						{ key: null, code: "database-commit-failed" },
+					]),
+				);
+				expect(yield* fixture.committed).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"commits an item's collection memberships with the item, taking each authority lock once, and leaves out one its collection rejects",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* membershipFixture;
+				const log = yield* StatementLog;
+				const earlier = (yield* log.transactions).length;
+				yield* fixture.apply;
+				const commits = (yield* log.transactions)
+					.slice(earlier)
+					.filter((statements) =>
+						statements.some(({ statement }) => statement.startsWith('insert into "relationship"')),
+					);
+				expect(commits).toHaveLength(1);
+				const [commit] = commits;
+				assert(commit);
+				const count = (matches: (recorded: RecordedStatement) => boolean) =>
+					commit.filter(matches).length;
+				expect(
+					["ryot-plugin-ingestion", `ryot-plugin-ingestion:user:${fixture.userId}`].map((key) =>
+						count(
+							({ params, statement }) =>
+								statement.includes("pg_advisory_xact_lock_shared") && params.includes(key),
+						),
+					),
+				).toEqual([1, 1]);
+				expect(
+					count(
+						({ params, statement }) =>
+							statement.includes("pg_advisory_xact_lock_shared") &&
+							params.includes(`plugin-config:${fixture.installed.pluginId}`),
+					),
+				).toBe(1);
+				expect(
+					[
+						'from "plugin_revision" inner join "plugin"',
+						'for share of "plugin_installation"',
+						'from "user" where "user"."id" = $1 limit $2 for share',
+						'from "sandbox_script" left join "kernel_script"',
+						'from "plugin" inner join "plugin_revision"',
+					].map((fragment) => count(({ statement }) => statement.includes(fragment))),
+				).toEqual([0, 1, 1, 1, 0]);
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual([["strict", "unsuccessful", { key: null, code: "membership-event-failed" }]]);
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual([
+					"created",
+					"created",
+					"created",
+				]);
+				const collections = yield* fixture.collections;
+				expect(collections.map(({ name }) => name).sort()).toEqual(["Existing", "Shelf", "Strict"]);
+				const database = yield* DatabaseSession;
+				const [imported] = yield* database.run((db) =>
+					db
+						.select({ id: tables.entity.id })
+						.from(tables.entity)
+						.where(
+							and(
+								eq(tables.entity.name, "Imported"),
+								eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId),
+							),
+						),
+				);
+				assert(imported);
+				const memberOf = yield* database.run((db) =>
+					db
+						.select({ target: tables.relationship.targetEntityId })
+						.from(tables.relationship)
+						.where(
+							and(
+								eq(tables.relationship.sourceEntityId, imported.id),
+								eq(tables.relationship.relationshipSchemaSlug, "member-of"),
+							),
+						),
+				);
+				const joined = collections
+					.filter(({ name }) => name !== "Strict")
+					.map(({ id }) => id)
+					.sort();
+				expect(memberOf.map(({ target }) => target).sort()).toEqual(joined);
+				const added = yield* database.run((db) =>
+					db
+						.select({ entityId: tables.event.entityId, properties: tables.event.properties })
+						.from(tables.event)
+						.where(eq(tables.event.eventSchemaSlug, "add-entity-to-collection")),
+				);
+				expect(added.map(({ entityId }) => entityId).sort()).toEqual(joined);
+				expect(added[0]?.properties).toMatchObject({
+					entityId: imported.id,
+					entitySchemaSlug: "subject",
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a commit whose installation was revoked or account disabled after preparation",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* eventGroupFixture(undefined);
+				const session = yield* DatabaseSession;
+				const changeSets = yield* ChangeSets;
+				const owned = definitionOwner(fixture.installed.pluginId);
+				const installation = and(
+					eq(tables.pluginInstallation.pluginId, fixture.installed.pluginId),
+					eq(tables.pluginInstallation.userId, fixture.userId),
+				);
+				const commitRevoking = (revoke: Effect.Effect<unknown, DbError>, name: string) => {
+					let locks = 0;
+					return Effect.exit(
+						changeSets.commitOnce(
+							{
+								userId: fixture.userId,
+								entity: {
+									name,
+									properties: {},
+									target: { kind: "create" },
+									entitySchema: { owner: owned, slug: EntitySchemaSlug.make("subject") },
+								},
+							},
+							{ ...fixture.command, itemIdentity: name },
+							{ load: Effect.succeed(null), record: () => Effect.succeed("recorded") },
+							{
+								precondition: {
+									written: () => Effect.void,
+									check: () => Effect.succeed(true),
+									lock: () =>
+										++locks === 2 ? Effect.asVoid(session.detached(revoke)) : Effect.void,
+								},
+							},
+						),
+					);
+				};
+				const written = (name: string) =>
+					session.run((db) =>
+						db
+							.select({ id: tables.entity.id })
+							.from(tables.entity)
+							.where(eq(tables.entity.name, name)),
+					);
+				const conflict = new CommitConflict({ reason: { code: "mutation-conflict" } });
+				assertExitFails(
+					yield* commitRevoking(
+						session.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set({ uninstalledAt: new Date() })
+								.where(installation),
+						),
+						"Uninstalled",
+					),
+					conflict,
+				);
+				expect(yield* written("Uninstalled")).toEqual([]);
+				yield* session.run((db) =>
+					db.update(tables.pluginInstallation).set({ uninstalledAt: null }).where(installation),
+				);
+				assertExitFails(
+					yield* commitRevoking(
+						session.run((db) =>
+							db
+								.update(tables.user)
+								.set({ disabledAt: new Date() })
+								.where(eq(tables.user.id, fixture.userId)),
+						),
+						"Disabled",
+					),
+					conflict,
+				);
+				expect(yield* written("Disabled")).toEqual([]);
 			}),
 		testTimeout,
 	);

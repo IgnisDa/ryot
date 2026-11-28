@@ -35,7 +35,7 @@ import {
 	createWorkoutEntityFixture,
 	findWorkoutSetEventSchema,
 } from "~/fixtures/plugins/fitness/workouts";
-import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
 
@@ -159,7 +159,6 @@ it.live("rejects direct occurrence rebinding and last-set or anchor deletion", (
 				],
 			}),
 		);
-		assertCondition(saved.kind === "saved", "Expected the constrained workout to save");
 		const before = yield* listEventsForEntity(client, exerciseId, undefined, 100);
 		const occurrences = byExerciseOrder(
 			yield* readWorkoutOccurrences(client, exerciseId, saved.entityId),
@@ -210,7 +209,6 @@ it.live("serializes concurrent direct deletions so one set and its occurrence re
 			client,
 			workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet(), workoutSet()])] }),
 		);
-		assertCondition(saved.kind === "saved", "Expected the concurrent-delete workout to save");
 		const originalOccurrences = yield* readWorkoutOccurrences(client, exerciseId, saved.entityId);
 		const before = yield* loadWorkoutBaseline(client, saved.entityId);
 		expect(before.baseline.sets).toHaveLength(2);
@@ -251,7 +249,6 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 				],
 			}),
 		);
-		assertCondition(saved.kind === "saved", "Expected the repeated-exercise workout to save");
 
 		const occurrences = byExerciseOrder(
 			yield* readWorkoutOccurrences(client, exerciseId, saved.entityId),
@@ -328,7 +325,6 @@ it.live("summarizes workout card muscles across more than one page of occurrence
 				),
 			}),
 		);
-		assertCondition(saved.kind === "saved", "Expected large workout to save");
 		const reference = yield* workoutReference(client);
 		const cards = yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 			workoutIds: [saved.entityId],
@@ -359,7 +355,6 @@ it.live("freezes prior occurrences and rankings when exercise taxonomy changes",
 			client,
 			workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 		);
-		assertCondition(oldWorkout.kind === "saved", "Expected the original workout to save");
 		const oldOccurrences = yield* readWorkoutOccurrences(client, exerciseId, oldWorkout.entityId);
 		const oldOccurrence = requirePresent(oldOccurrences[0], "Expected the old workout occurrence");
 		expect(oldOccurrence).toMatchObject({ occurredAt: workoutEditorTimes.startedAt });
@@ -407,7 +402,6 @@ it.live("freezes prior occurrences and rankings when exercise taxonomy changes",
 				],
 			}),
 		);
-		assertCondition(newWorkout.kind === "saved", "Expected the new workout to save");
 		const newOccurrences = yield* readWorkoutOccurrences(client, exerciseId, newWorkout.entityId);
 		const newOccurrence = requirePresent(newOccurrences[0], "Expected the new workout occurrence");
 		const changedTaxonomy = {
@@ -468,7 +462,6 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 				],
 			}),
 		);
-		assertCondition(created.kind === "saved", "Expected the historical workout to save");
 		const originalOccurrences = byExerciseOrder(
 			yield* readWorkoutOccurrences(client, exerciseId, created.entityId),
 		);
@@ -487,7 +480,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 			"Expected the second set",
 		);
 
-		const reordered = yield* saveWorkoutData(
+		yield* saveWorkoutData(
 			client,
 			workoutData({
 				target: editTarget(original),
@@ -498,7 +491,6 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 				],
 			}),
 		);
-		assertCondition(reordered.kind === "saved", "Expected historical reorder to save");
 		const reorderedOccurrences = byExerciseOrder(
 			yield* readWorkoutOccurrences(client, exerciseId, created.entityId),
 		);
@@ -524,7 +516,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 		);
 		expect(reorderedFirstSet.id).toBe(secondSet.id);
 		expect(reorderedSecondSet.id).toBe(firstSet.id);
-		const edited = yield* saveWorkoutData(
+		yield* saveWorkoutData(
 			client,
 			workoutData({
 				target: editTarget(reorderedBaseline),
@@ -535,7 +527,6 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 				],
 			}),
 		);
-		assertCondition(edited.kind === "saved", "Expected the unrelated historical edit to save");
 		const afterUnrelatedEdit = byExerciseOrder(
 			yield* readWorkoutOccurrences(client, exerciseId, created.entityId),
 		);
@@ -571,7 +562,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 			afterUnrelatedEdit[1],
 			"Expected the occurrence to remove",
 		);
-		const removed = yield* saveWorkoutData(
+		yield* saveWorkoutData(
 			client,
 			workoutData({
 				target: editTarget(beforeRemoval),
@@ -581,7 +572,6 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 				],
 			}),
 		);
-		assertCondition(removed.kind === "saved", "Expected position removal to save");
 		const remainingOccurrences = yield* readWorkoutOccurrences(
 			client,
 			exerciseId,
@@ -616,7 +606,6 @@ it.live(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 			);
-			assertCondition(deletedWorkout.kind === "saved", "Expected the workout to save");
 			const survivingWorkout = yield* saveWorkoutData(
 				client,
 				workoutData({
@@ -631,7 +620,6 @@ it.live(
 					],
 				}),
 			);
-			assertCondition(survivingWorkout.kind === "saved", "Expected the surviving workout to save");
 			const reference = yield* workoutReference(client);
 
 			expect(

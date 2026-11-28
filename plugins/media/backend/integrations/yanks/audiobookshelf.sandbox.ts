@@ -1,6 +1,6 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -13,6 +13,7 @@ import { baseUrl, executionStartedAt, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Audiobookshelf yank",
 	slug: "integration.audiobookshelf",
 });
@@ -110,7 +111,7 @@ const itemRef = (item: typeof Item.Type, ownership: boolean): null | ImportEntit
 		: null;
 };
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
@@ -308,5 +309,5 @@ export default defineScript({
 				{ failures, entityGroups },
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

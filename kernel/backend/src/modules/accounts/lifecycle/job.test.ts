@@ -31,7 +31,7 @@ import {
 	UserLifecycleJobOperationsLive,
 } from "./job";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 const userId = UserId.make("user-1");
 const payload = { operationId: "operation-1" };
@@ -61,14 +61,6 @@ const scriptedOperationsLayer = (
 				recordFailure: (failure) => Ref.update(failures, (all) => [...all, failure]),
 			});
 			return Layer.mergeAll(
-				Layer.mock(UserLifecycleService)({
-					ensureAccessRevoked: () =>
-						Effect.succeed(
-							partialFake<
-								Effect.Success<ReturnType<UserLifecycleService["Service"]["ensureAccessRevoked"]>>
-							>({}),
-						),
-				}),
 				Layer.mock(UserLifecycleJobOperations, scripted),
 				Layer.succeed(RecordedJobOperations, {
 					calls: Ref.get(calls),
@@ -84,6 +76,7 @@ layer(
 			fail: () => record("fail"),
 			complete: () => record("complete"),
 			cleanupObjects: () => record("objects"),
+			purgeApiKeyCaches: () => record("purge"),
 			finishResetUser: () => Effect.die("unused"),
 			deleteDatabaseUser: () => record("database"),
 			recreateResetUser: () => Effect.die("unused"),
@@ -93,11 +86,12 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"deletes database ownership only after physical cleanup",
+		"purges API-key caches before it starts and deletes database ownership only after physical cleanup",
 		() =>
 			Effect.gen(function* () {
 				yield* runUserLifecycleJob(payload, { attempt: 1, id: "job-1" });
 				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
+					"purge",
 					"begin",
 					"objects",
 					"database",
@@ -115,6 +109,7 @@ layer(
 			return {
 				fail: () => record("fail"),
 				complete: () => record("complete"),
+				purgeApiKeyCaches: () => Effect.void,
 				finishResetUser: () => Effect.die("unused"),
 				deleteDatabaseUser: () => record("database"),
 				recreateResetUser: () => Effect.die("unused"),
@@ -150,6 +145,7 @@ layer(
 layer(
 	scriptedOperationsLayer(({ recordFailure }) =>
 		Effect.succeed({
+			purgeApiKeyCaches: () => Effect.void,
 			complete: () => Effect.die("unused"),
 			begin: () => Effect.fail(unexpected()),
 			cleanupObjects: () => Effect.die("unused"),
@@ -177,12 +173,55 @@ layer(
 	);
 });
 
+layer(
+	scriptedOperationsLayer(({ record }) =>
+		Effect.gen(function* () {
+			const purgeAttempts = yield* Ref.make(0);
+			return {
+				fail: () => record("fail"),
+				complete: () => record("complete"),
+				cleanupObjects: () => record("objects"),
+				finishResetUser: () => Effect.die("unused"),
+				deleteDatabaseUser: () => record("database"),
+				recreateResetUser: () => Effect.die("unused"),
+				bootstrapResetUser: () => Effect.die("unused"),
+				begin: () => record("begin").pipe(Effect.as("delete" as const)),
+				purgeApiKeyCaches: () =>
+					Ref.updateAndGet(purgeAttempts, (count) => count + 1).pipe(
+						Effect.tap((attempt) => record(`purge-${attempt}`)),
+						Effect.flatMap((attempt) => (attempt === 1 ? Effect.fail(unexpected()) : Effect.void)),
+					),
+			};
+		}),
+	),
+)((test) => {
+	test.effect(
+		"starts nothing until an attempt purges API-key caches",
+		() =>
+			Effect.gen(function* () {
+				const first = yield* Effect.exit(runUserLifecycleJob(payload, { attempt: 1, id: "job-1" }));
+				expect(first._tag).toBe("Failure");
+				yield* runUserLifecycleJob(payload, { attempt: 2, id: "job-1" });
+				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
+					"purge-1",
+					"purge-2",
+					"begin",
+					"objects",
+					"database",
+					"complete",
+				]);
+			}),
+		testTimeout,
+	);
+});
+
 const resetResult = { userId, resetUrl: null, email: "user@example.com" };
 
 layer(
 	scriptedOperationsLayer(({ record }) =>
 		Effect.succeed({
 			fail: () => Effect.die("unused"),
+			purgeApiKeyCaches: () => Effect.void,
 			cleanupObjects: () => record("objects"),
 			deleteDatabaseUser: () => record("database"),
 			begin: () => Effect.succeed("reset" as const),
@@ -239,7 +278,6 @@ const liveOperationsLayer = <R, E>(dependencies: {
 
 const deleteOperation = {
 	databaseCleanupCompletedAt: null,
-	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	operation: {
 		userId,
 		failure: null,
@@ -252,7 +290,6 @@ const deleteOperation = {
 		startedAt: "2026-08-24T00:00:01.000Z",
 	},
 	metadata: {
-		apiKeys: [],
 		accounts: [],
 		usesLocalAuth: true,
 		recreatedAccountId: "account-1",
@@ -328,10 +365,8 @@ layer(
 });
 
 const resetOperation = {
-	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
 	metadata: {
-		apiKeys: [],
 		locators: [],
 		accounts: [],
 		usesLocalAuth: true,

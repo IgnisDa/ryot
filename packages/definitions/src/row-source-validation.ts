@@ -1,11 +1,17 @@
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { documentReadsClock, documentTables } from "@ryot-app/contract/modules/ryotql/authored";
 import type { FieldSelection, NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	rowSourceDocument,
 	type RowSourceQuery,
 } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	storedValidationContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
+import { dataChangeTables } from "@ryot-app/ryotql/catalog";
 import {
 	queryExpressionKind,
 	savedViewDataSourceAccess,
@@ -37,11 +43,15 @@ const rowSourceIssue = (
 	if ("orderBy" in query.output || "pagination" in query.output) {
 		return "ordering and pagination are owned by the kernel";
 	}
-	const projections = authoredValidationBranches(
-		rowSourceDocument(query),
-		storedValidationContext(() =>
-			Result.fail(new Error("Stored row sources cannot select another source")),
-		),
+	const projections = Result.flatMap(
+		validateAuthoredDocument(rowSourceDocument(query)),
+		(validated) =>
+			authoredValidationBranches(
+				validated,
+				storedValidationContext(() =>
+					Result.fail(new Error("Stored row sources cannot select another source")),
+				),
+			),
 	);
 	if (Result.isFailure(projections)) {
 		return projections.failure.message;
@@ -107,9 +117,22 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 		),
 	]);
 
-export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>
-	timeBindingIssue(schedule) ??
-	rowSourceIssue(schedule, [
+export const signalScheduleIssue = (
+	schedule: Omit<SignalScheduleDefinition, "readSchemaSlugs">,
+) => {
+	const timeIssue = timeBindingIssue(schedule);
+	if (timeIssue !== undefined) {
+		return timeIssue;
+	}
+	const document = rowSourceDocument(schedule.query);
+	if (documentReadsClock(document)) {
+		return "query must not read the clock; the kernel owns the due window";
+	}
+	const table = [...documentTables(document)].find((name) => !dataChangeTables.has(name));
+	if (table !== undefined) {
+		return `query must read only entity, relationship and event tables, not '${table}'`;
+	}
+	return rowSourceIssue(schedule, [
 		["dueAt", schedule.dueAt, "date"],
 		["instantAt", schedule.instantAt ?? null, "date"],
 		["occurrence", schedule.occurrence, "text"],
@@ -118,3 +141,4 @@ export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>
 			([property, key]) => [`property ${property}`, key, null] as const,
 		),
 	]);
+};

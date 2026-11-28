@@ -85,7 +85,7 @@ describe("client plugin operations", () => {
 
 			expect(installation).toMatchObject({ health: "ready", isHidden: false });
 
-			const { result } = yield* client.call((c) =>
+			const { result, committed } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { name: "Ryot" } },
 					params: { ...pluginPackageSegments(installation.packageId), operationSlug: "greet" },
@@ -93,6 +93,7 @@ describe("client plugin operations", () => {
 			);
 
 			expect(result).toEqual({ greeting: "Hello, Ryot" });
+			expect(committed).toEqual({ events: [] });
 		}),
 	);
 

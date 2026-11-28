@@ -18,22 +18,23 @@ import { assert } from "@ryot-app/testing/assert";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { type CommitResult, emptyCommitResult } from "#modules/changes/receipts";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import type { PluginSource } from "#modules/plugins/packages/types";
 import { fixtureClientArtifact, withCatalogs } from "#modules/plugins/source.test-support";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { databaseLayer, type MockOverrides } from "#testing/effect";
@@ -51,20 +52,20 @@ const entitySchema = {
 const scriptId = SandboxScriptId.make("script-id");
 
 const mockAuth = Layer.mock(AuthService);
-const mockEntities = Layer.mock(EntitiesService);
 const mockPluginIngestion = Layer.mock(PluginIngestionService);
 const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
 const mockPluginCrons = Layer.mock(PluginCronService);
 const mockSandbox = Layer.mock(ScriptExecutionService);
 const mockTranslations = Layer.mock(TranslationsRepository);
-const mockRelationships = Layer.mock(RelationshipsService);
+const mockChangeSets = Layer.mock(ChangeSets);
+const mockRelationships = Layer.mock(RelationshipsRepository);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
-		entities?: MockOverrides<typeof mockEntities>;
+		changeSets?: MockOverrides<typeof mockChangeSets>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
@@ -82,14 +83,9 @@ const makeServiceLayer = (
 				databaseLayer,
 				Layer.succeed(PgClient.PgClient, partialFake<PgClient.PgClient>({})),
 				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
-				Layer.mock(LifecycleExecution)({
-					after: () => Effect.die("unused"),
-					executePolicy: () => Effect.die("unused"),
-					skipQueuedPolicies: () => Effect.die("unused"),
-				}),
+				Layer.mock(LifecycleExecution)({}),
 				mockEntitiesRepository({ ...overrides.entitiesRepository }),
 				mockAuth({ handler: () => Promise.reject(new Error("unused")) }),
-				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
 					trigger: (pluginId, cronSlug) =>
@@ -100,6 +96,7 @@ const makeServiceLayer = (
 				mockPluginInstallations({ ...overrides.pluginInstallations }),
 				mockPluginRepository({ ...overrides.pluginRepository }),
 				mockTranslations({ ...overrides.translations }),
+				mockChangeSets({ ...overrides.changeSets }),
 				mockRelationships({ ...overrides.relationships }),
 				mockRelationshipSchemas({ ...overrides.relationshipSchemas }),
 			),
@@ -349,16 +346,24 @@ const unpopulatedEntity = {
 	properties: { title: "Entity" },
 };
 
+const committed = (
+	result: Partial<Pick<CommitResult, "deleted" | "entities">> = {},
+): CommitResult => ({ ...emptyCommitResult, ...result });
+
 const entityUpdates = recordingServiceLayer<unknown>((record) => ({
 	entitiesRepository: {
+		getById: () => Effect.succeed(unpopulatedEntity),
 		stampRelatedPopulated: (stampedEntityId, relatedPopulatedAt) =>
 			record({ stampedEntityId, relatedPopulatedAt }),
 	},
-	entities: {
-		getByIdAnyScope: () => Effect.succeed(unpopulatedEntity),
-		update: (input) =>
-			record(input).pipe(
-				Effect.as({ warnings: [], entity: { ...unpopulatedEntity, populatedAt } }),
+	changeSets: {
+		commit: (input, command) =>
+			record({ input, command }).pipe(
+				Effect.as(
+					committed({
+						entities: [{ itemIdentity: "update", entity: { ...unpopulatedEntity, populatedAt } }],
+					}),
+				),
 			),
 	},
 }));
@@ -371,15 +376,32 @@ layer(entityUpdates.layer)((test) => {
 				const service = yield* TestSupportService;
 				yield* service.setEntityPopulatedAt(entityId, populatedAt, "base");
 				expect((yield* entityUpdates.recorded).at(-1)).toMatchObject({
-					entityId,
-					scope: "global",
-					name: unpopulatedEntity.name,
-					populatedAt: populatedAtDate,
-					properties: unpopulatedEntity.properties,
-					lifecycle: {
+					command: {
 						writeContext: null,
 						itemIdentity: '["test-support:set-entity-populated-at","entity-id"]',
 						causation: { source: "api", initiator: { id: null, kind: "system" } },
+					},
+					input: {
+						userId: null,
+						entities: {
+							updates: [
+								{
+									populatedAt,
+									entitySchema,
+									name: unpopulatedEntity.name,
+									properties: unpopulatedEntity.properties,
+									target: {
+										entityId,
+										kind: "update",
+										expected: {
+											name: unpopulatedEntity.name,
+											updatedAt: unpopulatedEntity.updatedAt,
+											properties: unpopulatedEntity.properties,
+										},
+									},
+								},
+							],
+						},
 					},
 				});
 				expect(yield* entityUpdates.recorded).toHaveLength(1);
@@ -417,9 +439,11 @@ const providerEntity = {
 };
 
 const globalEntityCreates = recordingServiceLayer<unknown>((record) => ({
-	entities: {
-		createGlobal: (input) =>
-			record(input).pipe(Effect.as({ warnings: [], entity: providerEntity })),
+	changeSets: {
+		commit: (input, command) =>
+			record({ input, command }).pipe(
+				Effect.as(committed({ entities: [{ itemIdentity: "create", entity: providerEntity }] })),
+			),
 	},
 }));
 
@@ -439,16 +463,25 @@ layer(globalEntityCreates.layer)((test) => {
 					}),
 				).toEqual(providerEntity);
 				expect((yield* globalEntityCreates.recorded).at(-1)).toMatchObject({
-					providerId,
-					entitySchema,
-					populatedAt: null,
-					name: providerEntity.name,
-					externalId: providerEntity.externalId,
-					properties: providerEntity.properties,
-					lifecycle: {
+					command: {
 						writeContext: null,
-						itemIdentity: '["test-support:create-global-entity","create"]',
+						itemIdentity: "test-support:create-global-entity",
 						causation: { source: "api", initiator: { id: null, kind: "system" } },
+					},
+					input: {
+						userId: null,
+						entities: {
+							creates: [
+								{
+									entitySchema,
+									populatedAt: null,
+									name: providerEntity.name,
+									externalId: providerEntity.externalId,
+									properties: providerEntity.properties,
+									provider: { providerId, updateExisting: false },
+								},
+							],
+						},
 					},
 				});
 			}),
@@ -471,13 +504,19 @@ const rootFactEntity = {
 
 const populatedCreates = recordingServiceLayer<unknown>((record) => ({
 	entitiesRepository: { stampRelatedPopulated: () => Effect.void },
-	entities: {
-		createGlobal: (input) =>
-			record(input).pipe(
-				Effect.as({
-					warnings: [],
-					entity: { ...rootFactEntity, populatedAt: "2026-07-21T00:00:00.000Z" },
-				}),
+	changeSets: {
+		commit: (input, command) =>
+			record({ input, command }).pipe(
+				Effect.as(
+					committed({
+						entities: [
+							{
+								itemIdentity: "create",
+								entity: { ...rootFactEntity, populatedAt: "2026-07-21T00:00:00.000Z" },
+							},
+						],
+					}),
+				),
 			),
 	},
 }));
@@ -495,8 +534,8 @@ layer(populatedCreates.layer)((test) => {
 				});
 				expect(yield* populatedCreates.recorded).toMatchObject([
 					{
-						lifecycle: { itemIdentity: '["test-support:create-global-entity","create"]' },
-						populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-07-21T00:00:00.000Z")),
+						command: { itemIdentity: "test-support:create-global-entity" },
+						input: { entities: { creates: [{ populatedAt: "2026-07-21T00:00:00.000Z" }] } },
 					},
 				]);
 			}),
@@ -518,9 +557,14 @@ const relationship = {
 	sourceEntityId: entityId,
 	relationshipSchemaPluginId,
 	createdAt: "2026-07-20T12:00:00.000Z",
+	updatedAt: "2026-07-20T12:00:00.000Z",
 	id: RelationshipId.make("relationship-id"),
 	targetEntityId: EntityId.make("target-id"),
 };
+
+type StoredRelationship = NonNullable<
+	Effect.Success<ReturnType<RelationshipsRepository["Service"]["findRelationship"]>>
+>;
 
 const mutationCommands = recordingServiceLayer<{
 	input?: unknown;
@@ -528,16 +572,24 @@ const mutationCommands = recordingServiceLayer<{
 	command?: DomainLifecycleCommand;
 	kind: "delete" | "relationship" | "relationship-schema";
 	reference?: ContractPayload<"testSupport", "upsertGlobalRelationship">["relationshipSchema"];
-}>((record) => ({
-	entities: {
-		deleteByIds: (_ids, command) =>
-			record({ command, kind: "delete" }).pipe(Effect.as({ warnings: [], deletedCount: 1 })),
-	},
+}>((record, recorded) => ({
+	entitiesRepository: { getById: () => Effect.succeed(rootFactEntity) },
 	relationships: {
-		create: (input, command) =>
-			record({ input, command, kind: "relationship" }).pipe(
-				Effect.as({ relationship, warnings: [] }),
-			),
+		findRelationship: () =>
+			Effect.map(recorded, (calls) => {
+				const { wasInserted: _, ...stored } = relationship;
+				return calls.some(({ kind }) => kind === "relationship")
+					? partialFake<StoredRelationship>(stored)
+					: null;
+			}),
+	},
+	changeSets: {
+		commit: (input, command) =>
+			input.entities?.deletes
+				? record({ input, command, kind: "delete" }).pipe(
+						Effect.as(committed({ deleted: input.entities.deletes.map((item) => item.entityId) })),
+					)
+				: record({ input, command, kind: "relationship" }).pipe(Effect.as(committed())),
 	},
 	relationshipSchemas: {
 		findByReference: (reference, userId) =>
@@ -577,8 +629,8 @@ layer(mutationCommands.layer)((test) => {
 					reference: relationshipSchema,
 				});
 				expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
-					scope: "global",
-					relationshipSchema,
+					userId: null,
+					globalRelationships: [{ relationshipSchema, paging: { kind: "page" } }],
 				});
 				const commandFor = (kind: "delete" | "relationship") =>
 					commands.findLast((entry) => entry.kind === kind)?.command;
@@ -595,6 +647,10 @@ layer(mutationCommands.layer)((test) => {
 					initiator: { id: null, kind: "system" },
 				});
 				expect(commandFor("delete")?.writeContext).toBeNull();
+				expect(commands.find((entry) => entry.kind === "delete")?.input).toEqual({
+					userId: null,
+					entities: { deletes: [{ entityId, entitySchema }] },
+				});
 			}),
 		testTimeout,
 	);

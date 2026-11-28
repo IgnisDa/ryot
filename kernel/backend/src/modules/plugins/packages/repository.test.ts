@@ -411,10 +411,8 @@ describe("plugin repository revisions", () => {
 						db
 							.insert(tables.automationRun)
 							.values({
-								stage: "after",
 								id: "kernel-run",
 								status: "failed",
-								delivery: "async",
 								scriptSlug: newer.slug,
 								artifactsExpireAt: expired,
 								triggerId: "kernel-trigger",

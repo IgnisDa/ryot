@@ -17,8 +17,7 @@ import { Effect, Layer, Result, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { ChangeSets } from "#modules/changes/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -81,8 +80,7 @@ for (const scope of ["system", "user"] as const) {
 		Layer.provide(
 			Layer.mergeAll(
 				DomainWriteChecksLive,
-				Layer.mock(LifecyclePlanner)({}),
-				Layer.mock(LifecycleExecution)({}),
+				Layer.mock(ChangeSets)({}),
 				Layer.mock(ScriptExecutionService)({
 					executeScript: (input) =>
 						Effect.sync(() => {

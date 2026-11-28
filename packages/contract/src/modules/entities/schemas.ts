@@ -1,15 +1,7 @@
-import { Message } from "@ryot-app/i18n/message";
 import { Schema, SchemaGetter } from "effect";
 
-import {
-	AutomationRunId,
-	EntityId,
-	EntitySchemaSlug,
-	PluginId,
-	SandboxProviderId,
-} from "../../schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId, SandboxProviderId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import { AutomationWarning } from "../automations/lifecycle";
 import { DefinitionOwner, EntitySchemaReference } from "../plugins/references";
 
 const EntityBadRequestReason = Schema.Union([
@@ -26,16 +18,9 @@ const EntityBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-collection-name") }),
 	Schema.Struct({ code: Schema.Literal("entity-has-history") }),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),
-	Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
 	Schema.Struct({
-		code: Schema.Literals([
-			"automation-limit",
-			"invalid-policy-transform",
-			"mutation-conflict",
-			"enclosing-transaction",
-		]),
+		code: Schema.Literals(["automation-limit", "mutation-conflict", "enclosing-transaction"]),
 	}),
-	Schema.Struct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
 	Schema.Struct({ field: Schema.Literal("name"), code: Schema.Literal("name-required") }),
 	Schema.Struct({
 		code: Schema.Literal("incomplete-provenance"),
@@ -114,10 +99,7 @@ export const ListedEntity = Schema.Struct({
 
 export type ListedEntity = typeof ListedEntity.Type;
 
-export const EntityMutationResult = Schema.Struct({
-	entity: ListedEntity,
-	warnings: Schema.Array(AutomationWarning),
-});
+export const EntityMutationResult = Schema.Struct({ entity: ListedEntity });
 export type EntityMutationResult = typeof EntityMutationResult.Type;
 
 export const EnrichmentState = Schema.Struct({

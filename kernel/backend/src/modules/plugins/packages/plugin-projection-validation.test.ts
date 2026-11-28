@@ -12,8 +12,12 @@ const score = { description: "Score", type: "number" as const, label: { key: "te
 
 const manifestWithFold = (input: {
 	readonly eventSchemaSlugs?: readonly [string, ...string[]];
-	readonly capabilities?: ReadonlyArray<"createEvents" | "executeRyotql">;
+	readonly capabilities?: ReadonlyArray<"httpCall" | "executeRyotql">;
 	readonly fields?: Record<string, { type: "number"; description: string; label: { key: string } }>;
+	readonly entityProperties?: ReadonlyArray<{
+		readonly entitySchemaSlug: string;
+		readonly properties: readonly [string, ...string[]];
+	}>;
 }) => {
 	const fixture = fixtureManifest();
 	const [script] = fixture.scripts;
@@ -33,7 +37,13 @@ const manifestWithFold = (input: {
 		entitySchemas: [
 			{
 				...entity,
-				fold: { scriptSlug: fold.slug, eventSchemaSlugs: input.eventSchemaSlugs ?? ["changed"] },
+				fold: {
+					scriptSlug: fold.slug,
+					eventSchemaSlugs: input.eventSchemaSlugs ?? ["changed"],
+					entityProperties: input.entityProperties ?? [
+						{ properties: ["kind"], entitySchemaSlug: entity.slug },
+					],
+				},
 			},
 			...entities,
 		],
@@ -73,12 +83,22 @@ it.effect(
 					Effect.exit(validatePluginManifestReferences(manifestWithFold(input))),
 					issuesOf,
 				);
-			expect(yield* issues({ capabilities: ["createEvents"] })).toEqual([
+			expect(yield* issues({ capabilities: ["httpCall"] })).toEqual([
 				"Entity fold must use only read-only host capabilities and cannot call other scripts",
 			]);
 			expect(yield* issues({ eventSchemaSlugs: ["missing"] })).toEqual([
 				"Entity fold input schema missing is not declared",
 			]);
+			expect(
+				yield* issues({
+					entityProperties: [{ properties: ["kind", "size"], entitySchemaSlug: "fixture-entity" }],
+				}),
+			).toEqual(["Entity fold reads fixture-entity property size, which is not declared"]);
+			expect(
+				yield* issues({
+					entityProperties: [{ properties: ["kind"], entitySchemaSlug: "missing" }],
+				}),
+			).toEqual(["Entity fold reads missing property kind, which is not declared"]);
 			expect(yield* issues({ fields: { note: score } })).toEqual([
 				"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
 			]);

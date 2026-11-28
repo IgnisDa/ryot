@@ -7,9 +7,8 @@ import {
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
@@ -40,9 +39,7 @@ import {
 } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
-import type { SandboxAdmission } from "./queues";
-import { SandboxExecutionResult } from "./result";
-import type { DirectScriptExecutor } from "./workflow";
+import { sandboxExecutionFailure, SandboxExecutionResult } from "./result";
 import {
 	executeScriptExecutionWorkflow,
 	SandboxWorkflowPinning,
@@ -52,18 +49,6 @@ import {
 const jobNotFound = () => notFound(kernelMessage("error.scripts.job-not-found"));
 const scriptNotFound = () => notFound(kernelMessage("error.scripts.not-found"));
 const contextInvalid = () => badRequest(kernelMessage("error.scripts.context-invalid"));
-
-const sandboxExecutionFailure = (error: SandboxRunError) => ({
-	logs: [],
-	value: null,
-	status: "completed" as const,
-	error: {
-		kind: error.kind,
-		message: error.message,
-		phase: "execute" as const,
-		...(error.data === undefined ? {} : { data: error.data }),
-	},
-});
 
 const toPluginWorkflowResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
 	toWorkflowRunResult(result, { onFailure: String, onSuccess: (output) => ({ output }) });
@@ -105,7 +90,7 @@ const scriptExecutionPayload = Effect.fnUntraced(function* (input: ScriptExecuti
 	if (contextError) {
 		return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 	}
-	const scriptInput = yield* Schema.decodeUnknownEffect(jsonValueSchema)(input.input).pipe(
+	const scriptInput = yield* Schema.decodeUnknownEffect(JsonValue)(input.input).pipe(
 		Effect.mapError(
 			() =>
 				new SandboxRunError({
@@ -127,17 +112,6 @@ const scriptExecutionPayload = Effect.fnUntraced(function* (input: ScriptExecuti
 		...(input.initialization ? { initialization: input.initialization } : {}),
 	};
 });
-
-/** Runs a script once without a workflow; see `DirectScriptExecutor` for which scripts may. */
-export const executeScriptDirectly = (
-	executor: DirectScriptExecutor["Service"],
-	input: ScriptExecutionInput,
-	admission: SandboxAdmission,
-) =>
-	scriptExecutionPayload(input).pipe(
-		Effect.flatMap((payload) => executor.execute(payload, input.executionId, admission)),
-		Effect.catchTag("SandboxRunError", (error) => Effect.succeed(sandboxExecutionFailure(error))),
-	);
 
 export class ScriptExecutionService extends Context.Service<ScriptExecutionService>()(
 	"@ryot-app/kernel-backend/modules/scripts/executions/service/ScriptExecutionService",
@@ -175,11 +149,11 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 				if (contextError) {
 					return yield* contextInvalid();
 				}
-				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
+				const input = yield* Schema.decodeUnknownEffect(JsonValue)(context).pipe(
 					Effect.mapError(contextInvalid),
 				);
 				const script = yield* repository.getScript(payload.scriptId);
-				if (!script) {
+				if (!script || script.metadata.kind === "operation") {
 					return yield* scriptNotFound();
 				}
 				const executionId = generateId();

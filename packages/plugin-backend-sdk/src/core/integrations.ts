@@ -25,6 +25,7 @@ export const integrationRecordSchema = strictStruct({
 });
 export type IntegrationRecord = Schema.Schema.Type<typeof integrationRecordSchema>;
 export const listIntegrationsOptionsSchema = strictStruct({
+	cursor: Schema.optional(Schema.String),
 	isDisabled: Schema.optional(Schema.Boolean),
 	provider: Schema.optional(integrationProviderSchema),
 });
@@ -42,7 +43,10 @@ export const invalidateOAuthAccessTokenArgsSchema = Schema.Tuple([
 	strictStruct({ field: nonEmptyString, accessToken: nonEmptyString }),
 ]);
 export const invalidateOAuthAccessTokenResultSchema = hostResultSchema(Schema.Null);
-export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
+export const listIntegrationsDataSchema = strictStruct({
+	items: Schema.Array(integrationRecordSchema),
+	pageInfo: strictStruct({ hasMore: Schema.Boolean, nextCursor: Schema.NullOr(Schema.String) }),
+});
 export const getCurrentIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
 export const listIntegrationsArgsSchema = Schema.Tuple([

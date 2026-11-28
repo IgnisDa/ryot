@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/modules/entities/editor";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
+	AutomationHookSlug,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -25,8 +26,11 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Ref } from "effect";
 
+import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { ChangeSets } from "#modules/changes/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -38,13 +42,15 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import {
 	command,
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	userId,
+	writeRelationship,
 } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { EntityEditorService } from "./service";
@@ -127,6 +133,11 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 								operation: "delete",
 								resource: "relationship",
 								relationshipSchemaSlug: "item-part",
+							},
+							{
+								operation: "delete",
+								resource: "relationship",
+								relationshipSchemaSlug: "item-child",
 							},
 							{ operation: "emit", resource: "signal", signalSchemaSlug: "editor.signal" },
 						] as const,
@@ -230,6 +241,7 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 
 const makeEditor = Effect.fnUntraced(function* (
 	overrides: {
+		readonly policies?: LifecyclePolicies["Service"];
 		readonly keys?: Partial<IdempotencyKeys["Service"]>;
 		readonly entities?: Partial<EntitiesService["Service"]>;
 		readonly execution?: Partial<LifecycleExecution["Service"]>;
@@ -238,18 +250,20 @@ const makeEditor = Effect.fnUntraced(function* (
 	} = {},
 ) {
 	const execution = { ...(yield* LifecycleExecution), ...overrides.execution };
-	const entities = {
-		...(yield* EntitiesService.make.pipe(Effect.provideService(LifecycleExecution, execution))),
-		...overrides.entities,
-	};
+	const policies = overrides.policies ?? (yield* LifecyclePolicies);
+	const entities = { ...(yield* EntitiesService), ...overrides.entities };
 	const relationships = { ...(yield* RelationshipsService), ...overrides.relationships };
 	const repository = { ...(yield* RelationshipsRepository), ...overrides.relationshipsRepository };
 	const keys = { ...(yield* IdempotencyKeys), ...overrides.keys };
-	return yield* EntityEditorService.make.pipe(
-		Effect.provideService(IdempotencyKeys, keys),
+	const changeSets = yield* ChangeSets.make.pipe(
+		Effect.provideService(LifecyclePolicies, policies),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(EntitiesService, entities),
 		Effect.provideService(RelationshipsService, relationships),
+	);
+	return yield* EntityEditorService.make.pipe(
+		Effect.provideService(ChangeSets, changeSets),
+		Effect.provideService(IdempotencyKeys, keys),
 		Effect.provideService(RelationshipsRepository, repository),
 	);
 });
@@ -377,7 +391,7 @@ const editorCase = (
 
 const freshLayer = () =>
 	Layer.merge(IdempotencyKeys.layer, RyotQLService.layer).pipe(
-		Layer.provideMerge(relationshipDatabaseLayer()),
+		Layer.provideMerge(relationshipChangeSetsLayer()),
 	);
 
 describe("EntityEditorService", () => {
@@ -430,6 +444,46 @@ describe("EntityEditorService", () => {
 				name: "Different",
 			}).pipe(Effect.flip);
 			expect(conflict).toBeInstanceOf(EntityEditorRefused);
+		}),
+	);
+
+	editorCase(
+		"replays a save and a remove exactly once when the key is recorded after the early read",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			yield* insert("once-parent", item, userId);
+			const log = yield* dispatched;
+			const editor = yield* makeEditor({
+				execution: { dispatch: log.dispatch },
+				keys: { read: () => Effect.succeed(null) },
+			});
+			const input = partSubmission(owner, {
+				target: { kind: "create" },
+				relationships: [childGroup("once-parent")],
+			});
+			const first = yield* submitEdit(editor, "once-save", input);
+			assert(first.output.kind === "saved");
+			const saved = yield* tablesState;
+			expect(yield* submitEdit(editor, "once-save", input)).toEqual(first);
+			const replayed = yield* tablesState;
+			expect(replayed.entityRows).toEqual(saved.entityRows);
+			expect(replayed.relationshipRows).toEqual(saved.relationshipRows);
+			expect(yield* log.calls).toHaveLength(1);
+
+			const { entityId } = first.output;
+			const removal = {
+				owner,
+				entityId,
+				expectedUpdatedAt: (yield* storedExpected(entityId)).updatedAt,
+			};
+			expect((yield* submitDelete(editor, "once-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			expect((yield* submitDelete(editor, "once-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			expect(yield* log.calls).toHaveLength(2);
+			expect((yield* tablesState).entityRows.some(({ id }) => id === entityId)).toBe(false);
 		}),
 	);
 
@@ -814,8 +868,7 @@ describe("EntityEditorService", () => {
 			const failing = yield* makeEditor({
 				execution: { dispatch: log.dispatch },
 				relationships: {
-					persistPreparedUserCreate: () => new DbError({ message: "injected create failure" }),
-					persistPreparedUserDelete: () => new DbError({ message: "injected delete failure" }),
+					persistPrepared: () => new DbError({ message: "injected create failure" }),
 				},
 			});
 			const before = yield* tablesState;
@@ -854,20 +907,20 @@ describe("EntityEditorService", () => {
 		"rejects relationship changes made after loading without changing the entity or newer links",
 		Effect.gen(function* () {
 			const { owner, insert } = yield* setup();
-			const relationships = yield* RelationshipsService;
 			const editor = yield* makeEditor();
 			for (const change of ["added", "updated", "deleted"] as const) {
 				const entity = yield* insert(`loaded-${change}`, item, userId);
 				const partEntity = yield* insert(`loaded-part-${change}`, part, userId);
 				assert(entity && partEntity);
 				const identity = {
+					userId,
 					sourceEntityId: entity.id,
 					targetEntityId: partEntity.id,
 					relationshipSchema: { slug: itemPart, owner: definitionOwner(owner) },
 				};
 				if (change !== "added") {
-					yield* relationships.createUser(
-						userId,
+					yield* writeRelationship(
+						"upsert",
 						{ ...identity, properties: { role: "old" } },
 						command(`loaded-seed-${change}`),
 					);
@@ -878,18 +931,11 @@ describe("EntityEditorService", () => {
 						targets: change === "added" ? [] : [target(partEntity.id, "old")],
 					},
 				];
-				if (change === "deleted") {
-					yield* relationships.delete(
-						{ ...identity, userId, scope: "user" },
-						command(`loaded-change-${change}`),
-					);
-				} else {
-					yield* relationships.createUser(
-						userId,
-						{ ...identity, properties: { role: "new" } },
-						command(`loaded-change-${change}`),
-					);
-				}
+				yield* writeRelationship(
+					change === "deleted" ? "delete" : "upsert",
+					{ ...identity, properties: { role: "new" } },
+					command(`loaded-change-${change}`),
+				);
 				const before = yield* tablesState;
 				const input = submission(owner, {
 					name: "Should not save",
@@ -956,7 +1002,7 @@ describe("EntityEditorService", () => {
 								Effect.tap(() =>
 									input.lock
 										? Effect.void
-										: repository.createRelationship({
+										: repository.createRelationship(new WriteTransaction(), {
 												userId,
 												scope: "user",
 												properties: {},
@@ -1002,15 +1048,15 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareUserSave: (input) =>
+					prepareSave: (preparation, input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareUserSave(input)),
+							Effect.andThen(entities.prepareSave(preparation, input)),
 						),
 				},
 				relationships: {
-					prepareUserCreate: (input, lifecycle, created) =>
-						Ref.update(seen, (all) => [...all, lifecycle]).pipe(
-							Effect.andThen(relationships.prepareUserCreate(input, lifecycle, created)),
+					prepareUserChanges: (preparation, changes, created) =>
+						Ref.update(seen, (all) => [...all, ...changes.map((change) => change.command)]).pipe(
+							Effect.andThen(relationships.prepareUserChanges(preparation, changes, created)),
 						),
 				},
 			});
@@ -1083,16 +1129,15 @@ describe("EntityEditorService", () => {
 			const entity = yield* insert("policy-item", item, userId, "Policy");
 			assert(entity);
 			const editor = yield* makeEditor({
-				execution: {
-					executePolicy: () =>
-						Effect.succeed({
-							action: "transform" as const,
-							patch: {
-								resource: "entity" as const,
-								draft: { properties: { set: {}, remove: ["code"] } },
-							},
-						}),
-				},
+				policies: decidingPolicies((yield* LifecyclePolicies).match, () =>
+					Effect.succeed({
+						action: "transform" as const,
+						patch: {
+							resource: "entity" as const,
+							draft: { properties: { set: {}, remove: ["code"] } },
+						},
+					}),
+				),
 			});
 			const before = yield* tablesState;
 			const result = yield* submitEdit(
@@ -1207,9 +1252,9 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareUserSave: (input) =>
+					prepareSave: (preparation, input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareUserSave(input)),
+							Effect.andThen(entities.prepareSave(preparation, input)),
 						),
 				},
 			});
@@ -1389,6 +1434,43 @@ describe("EntityEditorService", () => {
 				)).output,
 			).toEqual({ kind: "saved", entityId: partId });
 			expect(yield* incoming).toEqual([["item-child", "parent-a", userId]]);
+		}),
+	);
+
+	editorCase(
+		"deletes an entity's declared links as relationship deletes, so their hooks run",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			yield* insert("hooked-parent", item, userId);
+			const log = yield* dispatched;
+			const editor = yield* makeEditor({ execution: { dispatch: log.dispatch } });
+			const created = yield* submitEdit(
+				editor,
+				"hooked-child",
+				partSubmission(owner, {
+					target: { kind: "create" },
+					relationships: [childGroup("hooked-parent")],
+				}),
+			);
+			assert(created.output.kind === "saved");
+			const { entityId } = created.output;
+			const removal = {
+				owner,
+				entityId,
+				expectedUpdatedAt: (yield* storedExpected(entityId)).updatedAt,
+			};
+			expect((yield* submitDelete(editor, "hooked-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			const [, deleted] = yield* log.calls;
+			expect(deleted?.flatMap(({ runs }) => runs.map(({ hookSlug }) => hookSlug))).toEqual([
+				AutomationHookSlug.make("editor.notify"),
+			]);
+			expect(
+				(yield* tablesState).relationshipRows.some(
+					({ targetEntityId }) => targetEntityId === entityId,
+				),
+			).toBe(false);
 		}),
 	);
 

@@ -92,7 +92,6 @@ const intent: UploadIntentResponse = {
 
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
 const collection = CollectionResponse.make({
-	warnings: [],
 	properties: {},
 	providerId: null,
 	externalId: null,
@@ -104,7 +103,6 @@ const collection = CollectionResponse.make({
 	entitySchemaSlug: EntitySchemaSlug.make("collection"),
 });
 const membership = MembershipResponse.make({
-	warnings: [],
 	memberOf: {
 		properties: {},
 		relationshipSchemaPluginId: null,

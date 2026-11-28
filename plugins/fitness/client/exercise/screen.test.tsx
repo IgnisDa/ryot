@@ -492,10 +492,11 @@ describe("exercise details view", () => {
 				});
 				act(() => {
 					page.send({
-						outcome: "success",
+						outcome: "failure",
 						type: "operation-result",
+						reason: "operation-rejected",
 						requestId: request.requestId,
-						value: { kind: "missing-exercise" },
+						message: { namespace: "fitness", key: "rejection.exercise-override.missing-exercise" },
 					});
 				});
 				yield* Effect.promise(() =>
@@ -522,9 +523,10 @@ describe("exercise details view", () => {
 				expect(retried.input).toEqual(request.input);
 				act(() => {
 					page.send({
+						value: {},
 						outcome: "success",
 						type: "operation-result",
-						value: { kind: "saved" },
+						committed: { events: [] },
 						requestId: retried.requestId,
 					});
 				});
@@ -700,8 +702,9 @@ describe("exercise merge", () => {
 					setup.page.send({
 						outcome: "success",
 						type: "operation-result",
+						committed: { events: [] },
 						requestId: request.requestId,
-						value: { kind: "merged", mergeInto: "global-1" },
+						value: { mergeInto: "global-1" },
 					});
 				});
 				expect(yield* navigations(setup.page)).toEqual<unknown>([
@@ -722,10 +725,11 @@ describe("exercise merge", () => {
 				const request = yield* confirmMerge(setup);
 				act(() => {
 					setup.page.send({
-						outcome: "success",
+						outcome: "failure",
 						type: "operation-result",
+						reason: "operation-rejected",
 						requestId: request.requestId,
-						value: { kind: "kind-mismatch" },
+						message: { namespace: "fitness", key: "rejection.exercise-merge.kind-mismatch" },
 					});
 				});
 				yield* Effect.promise(() =>

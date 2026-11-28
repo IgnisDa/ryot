@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { badRequest, DbError, validationFailed } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PLUGIN_USER_SETTINGS_MAX_BYTES } from "@ryot-app/contract/modules/plugins/user-settings";
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
@@ -13,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
@@ -23,11 +25,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
-import {
-	PLUGIN_USER_SETTINGS_MAX_BYTES,
-	PluginUserSettingsPatchError,
-	PluginUserSettingsWriter,
-} from "./user-settings-writer";
+import { PluginUserSettingsPatchError, PluginUserSettingsWriter } from "./user-settings-writer";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
@@ -160,19 +158,31 @@ const patch = (input: {
 	readonly accountUserId?: UserId;
 	readonly values: Readonly<Record<string, JsonValue>>;
 }) =>
-	Effect.flatMap(PluginUserSettingsWriter, (writer) =>
-		writer.patch({
-			values: input.values,
-			userId: input.userId,
-			pluginId: input.pluginId,
-			pluginRevisionId: input.revisionId,
-			accountUserId: input.accountUserId ?? input.userId,
-		}),
-	);
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const writer = yield* PluginUserSettingsWriter;
+		return yield* session
+			.transaction(
+				writer
+					.lockForPatch(input.userId, new WriteTransaction())
+					.pipe(
+						Effect.andThen(
+							writer.patchWithin({
+								values: input.values,
+								userId: input.userId,
+								pluginId: input.pluginId,
+								pluginRevisionId: input.revisionId,
+								accountUserId: input.accountUserId ?? input.userId,
+							}),
+						),
+					),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+	});
 
 const rejected = (message: string) => new PluginUserSettingsPatchError({ message });
 
-describe("PluginUserSettingsWriter.patch", () => {
+describe("PluginUserSettingsWriter.patchWithin", () => {
 	layer(writerLayer)((test) => {
 		test.effect(
 			"writes only the executing user's own installation and invalidates their catalog",

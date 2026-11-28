@@ -1,8 +1,8 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { mediaImportedCopyKey } from "../../shared/media-copy";
 import { mediaCopiesRecipe, mediaCopyBatchSize } from "../../shared/media-copy-recipes";
@@ -13,11 +13,12 @@ import { MediaImportAdapterBatch, MediaImportWriteChunkActivityInput } from "./s
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.write-chunks",
 	name: "Write media import chunks",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	output: sandboxScratchManifestSchema,
 	input: MediaImportWriteChunkActivityInput,
@@ -94,5 +95,5 @@ export default defineScript({
 				chunk,
 			);
 			return yield* writeMediaCapture([{ contents, name: "writes.json" }]);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

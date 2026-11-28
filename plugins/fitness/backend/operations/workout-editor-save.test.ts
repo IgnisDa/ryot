@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import { EntitlementRequiredError, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { EntitlementRequiredError } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -104,12 +105,23 @@ const page = (items: readonly unknown[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
+const run = (...args: Parameters<typeof definition.run>) => definition.run(...args);
+
+const save = (...args: Parameters<typeof definition.run>) =>
+	run(...args).pipe(Effect.map(({ output }) => output));
+
+const rejected = (code: string) => ({
+	_tag: "OperationRejectedError",
+	reason: { key: `rejection.workout-save.${code}` },
+});
+
 const harness = (
 	options: {
 		pro?: boolean;
-		partial?: boolean;
-		lateConflict?: boolean;
+		current?: null;
+		assetForbidden?: boolean;
 		baseline?: WorkoutEditorBaseline;
+		identities?: readonly WorkoutEditorEvent[];
 		occurrences?: readonly WorkoutEditorEvent[];
 		exercises?: readonly WorkoutEditorExercise[];
 	} = {},
@@ -118,13 +130,12 @@ const harness = (
 	const events = new Map<string, WorkoutEditorEvent>(
 		(options.baseline?.sets ?? []).map((set) => [set.id, set]),
 	);
-	let partial = options.partial ?? false;
 	const rowsFor = (key: string): readonly unknown[] => {
 		if (key === "scope") {
 			return [{ revision: 7 }];
 		}
 		if (key === "entity") {
-			return options.baseline === undefined ? [] : [options.baseline.entity];
+			return options.baseline && options.current !== null ? [options.baseline.entity] : [];
 		}
 		if (key === "exercises") {
 			return (
@@ -171,7 +182,7 @@ const harness = (
 			});
 		}
 		if (key === "identities") {
-			return [...events.values()].map((set) =>
+			return (options.identities ?? [...events.values()]).map((set) =>
 				Object.assign(
 					{},
 					{ id: set.id, entityId: set.entityId, sessionEntityId: set.sessionEntityId },
@@ -183,37 +194,18 @@ const harness = (
 	};
 	const host = defineSandboxTestHost(manifest, {
 		getEntitlements: () => Effect.succeed(options.pro === true ? ["pro"] : []),
-		verifyManagedAssets: (assets) =>
-			Effect.sync(() => {
-				calls.push({ args: [assets], method: "assets" });
-				return null;
-			}),
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
 					Object.keys(bindTestRequest(document).queries).map((key) => [key, page(rowsFor(key))]),
 				),
 			}),
-		commitUserChanges: (command) =>
+		verifyManagedAssets: (assets) =>
 			Effect.suspend(() => {
-				calls.push({ args: [command], method: "commit" });
-				if (partial) {
-					partial = false;
-					return Effect.fail({ message: "Interrupted" });
-				}
-				if (options.lateConflict) {
-					return Effect.fail({
-						data: { code: "entity-stale" },
-						message: "Not a business contract",
-					});
-				}
-				return Effect.succeed({
-					entityId,
-					events: command.events.creates.map((item, index) => ({
-						itemIdentity: item.itemIdentity,
-						eventId: EventId.make(`new-set-${index}`),
-					})),
-				});
+				calls.push({ args: [assets], method: "assets" });
+				return options.assetForbidden
+					? Effect.fail({ message: "Forbidden", data: { code: "asset-forbidden" } })
+					: Effect.succeed(null);
 			}),
 	});
 	return { host, calls };
@@ -233,15 +225,13 @@ describe("workout editor save", () => {
 						exerciseKind: "reps_and_weight",
 					},
 				};
-				const { host, calls } = harness({
+				const { host } = harness({
 					baseline,
 					occurrences: [{ ...occurrence, entityId: EntityId.make("different-exercise") }],
 				});
-				expect(yield* definition.run(yield* input(true), host)).toMatchObject({
-					kind: "invalid",
-					code: "invalid-source",
-				});
-				expect(calls.filter(({ method }) => method === "commit")).toEqual([]);
+				expect(yield* Effect.flip(save(yield* input(true), host))).toMatchObject(
+					rejected("invalid-source"),
+				);
 			}),
 		));
 
@@ -252,8 +242,8 @@ describe("workout editor save", () => {
 				assert(source.data.kind === "workout");
 				const first = source.data.occurrences[0];
 				assert(first);
-				const { host, calls } = harness({ baseline });
-				const result = yield* definition.run(
+				const { host } = harness({ baseline });
+				const result = yield* run(
 					{
 						...source,
 						data: {
@@ -266,15 +256,15 @@ describe("workout editor save", () => {
 					},
 					host,
 				);
-				expect(result.kind).toBe("saved");
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+				expect(result.output).toEqual({});
+				expect(result.changes).toEqual<unknown>(
 					objectContaining({
 						events: objectContaining({
 							baselines: [objectContaining({ entityId, revision: 7 })],
 							changes: arrayContaining([
 								{
 									kind: "update",
-									itemIdentity: "occurrence-update:occurrence-0",
+									itemIdentity: "update:occurrence-0",
 									item: {
 										eventId: "occurrence-0",
 										patch: { properties: { remove: [], set: { exerciseOrder: 1 } } },
@@ -319,40 +309,37 @@ describe("workout editor save", () => {
 						targets: [{ role: "primary", entityId: `target-${exerciseOrder}` }],
 					},
 				}));
-				const { host, calls } = harness({ occurrences, baseline: repeated });
-				expect(
-					yield* definition.run(
-						{
-							...source,
-							data: {
-								...source.data,
-								target: {
-									entityId,
-									kind: "update",
-									conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(repeated)),
-								},
-								occurrences: [
-									{
-										...first,
-										clientId: "second",
-										sourceExerciseOrder: 1,
-										sets: first.sets.map((set) => ({
-											...set,
-											eventId: second.id,
-											clientId: "second-set",
-										})),
-									},
-									first,
-								],
+				const { host } = harness({ occurrences, baseline: repeated });
+				const result = yield* run(
+					{
+						...source,
+						data: {
+							...source.data,
+							target: {
+								entityId,
+								kind: "update",
+								conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(repeated)),
 							},
+							occurrences: [
+								{
+									...first,
+									clientId: "second",
+									sourceExerciseOrder: 1,
+									sets: first.sets.map((set) => ({
+										...set,
+										eventId: second.id,
+										clientId: "second-set",
+									})),
+								},
+								first,
+							],
 						},
-						host,
-					),
-				).toMatchObject({ kind: "saved" });
-				const command = calls.find(({ method }) => method === "commit")?.args[0];
-				expect(command).toMatchObject({
-					events: { creates: [], baselines: [{ entityId, revision: 7 }] },
-				});
+					},
+					host,
+				);
+				expect(result.output).toEqual({});
+				const command = result.changes;
+				expect(command).toMatchObject({ events: { baselines: [{ entityId, revision: 7 }] } });
 				for (const [oldOrder, eventId] of [original.id, second.id].entries()) {
 					expect(command).toEqual<unknown>(
 						objectContaining({
@@ -360,7 +347,7 @@ describe("workout editor save", () => {
 								changes: arrayContaining([
 									{
 										kind: "update",
-										itemIdentity: `occurrence-update:anchor-${oldOrder}`,
+										itemIdentity: `update:anchor-${oldOrder}`,
 										item: {
 											eventId: `anchor-${oldOrder}`,
 											patch: { properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } } },
@@ -394,36 +381,34 @@ describe("workout editor save", () => {
 			Effect.gen(function* () {
 				const source = yield* input(true);
 				assert(source.data.kind === "workout");
-				const { host, calls } = harness({ baseline });
-				expect(
-					yield* definition.run(
-						{
-							...source,
-							data: {
-								...source.data,
-								occurrences: source.data.occurrences.map((occurrence) =>
-									Object.assign({}, occurrence, {
-										sets: occurrence.sets.map((set) =>
-											Object.assign({}, set, {
-												note: undefined,
-												eventId: undefined,
-												confirmedAt: setTime,
-												clientId: "replacement",
-											}),
-										),
-									}),
-								),
-							},
+				const { host } = harness({ baseline });
+				const result = yield* run(
+					{
+						...source,
+						data: {
+							...source.data,
+							occurrences: source.data.occurrences.map((occurrence) =>
+								Object.assign({}, occurrence, {
+									sets: occurrence.sets.map((set) =>
+										Object.assign({}, set, {
+											note: undefined,
+											eventId: undefined,
+											confirmedAt: setTime,
+											clientId: "replacement",
+										}),
+									),
+								}),
+							),
 						},
-						host,
-					),
-				).toMatchObject({ kind: "saved" });
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+					},
+					host,
+				);
+				expect(result.output).toEqual({});
+				expect(result.changes).toEqual<unknown>(
 					objectContaining({
 						events: objectContaining({
 							baselines: [objectContaining({ entityId, revision: 7 })],
-							changes: [objectContaining({ kind: "delete", eventId: original.id })],
-							creates: [
+							changes: [
 								objectContaining({
 									eventSchemaSlug: "workout-set",
 									itemIdentity: "set:replacement",
@@ -433,6 +418,7 @@ describe("workout editor save", () => {
 										exerciseKind: "reps_and_weight",
 									}),
 								}),
+								objectContaining({ kind: "delete", eventId: original.id }),
 							],
 						}),
 					}),
@@ -440,19 +426,14 @@ describe("workout editor save", () => {
 			}),
 		));
 
-	it("commits the workout, sets, and completion atomically, accepting zeros", () =>
+	it("returns the workout, sets, and completion as one change set, accepting zeros", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness();
-				const result = yield* definition.run(yield* input(), host);
-				expect(result).toMatchObject({
-					entityId,
-					kind: "saved",
-					sets: [{ eventId: "new-set-1", clientId: "client-set-1" }],
-				});
-				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
-				const command = calls[0]?.args[0];
-				expect(command).toMatchObject({
+				const result = yield* run(yield* input(), host);
+				expect(result.output).toEqual({});
+				expect(calls).toEqual([]);
+				expect(result.changes).toMatchObject({
 					entity: {
 						name: "Workout",
 						target: { kind: "create" },
@@ -460,8 +441,9 @@ describe("workout editor save", () => {
 						properties: { startedAt: time },
 					},
 					events: {
-						creates: [
+						changes: [
 							{
+								kind: "create",
 								eventSchemaSlug: "workout-exercise",
 								itemIdentity: "occurrence:occurrence-1",
 								properties: {
@@ -472,6 +454,7 @@ describe("workout editor save", () => {
 								},
 							},
 							{
+								kind: "create",
 								session: { kind: "root" },
 								eventSchemaSlug: "workout-set",
 								itemIdentity: "set:client-set-1",
@@ -479,6 +462,7 @@ describe("workout editor save", () => {
 								entity: { kind: "existing", entityId: exerciseId },
 							},
 							{
+								kind: "create",
 								itemIdentity: "complete",
 								entity: { kind: "root" },
 								eventSchemaSlug: "workout-completed",
@@ -493,8 +477,8 @@ describe("workout editor save", () => {
 			Effect.gen(function* () {
 				const source = yield* input();
 				assert(source.data.kind === "workout");
-				const { host, calls } = harness();
-				const result = yield* definition.run(
+				const { host } = harness();
+				const result = yield* run(
 					{
 						...source,
 						data: {
@@ -510,12 +494,16 @@ describe("workout editor save", () => {
 					},
 					host,
 				);
-				expect(result).toMatchObject({ kind: "saved" });
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+				expect(result.output).toEqual({});
+				expect(result.changes).toEqual<unknown>(
 					objectContaining({
 						events: objectContaining({
-							creates: arrayContaining([
-								objectContaining({ occurredAt: setTime, itemIdentity: "set:client-set-1" }),
+							changes: arrayContaining([
+								objectContaining({
+									kind: "create",
+									occurredAt: setTime,
+									itemIdentity: "set:client-set-1",
+								}),
 							]),
 						}),
 					}),
@@ -538,33 +526,42 @@ describe("workout editor save", () => {
 					})),
 				};
 				const { host, calls } = harness();
-				expect(yield* definition.run({ ...source, data }, host)).toMatchObject({ kind: "saved" });
+				expect(yield* save({ ...source, data }, host)).toMatchObject({});
 				expect(calls.find(({ method }) => method === "assets")?.args[0]).toEqual([image, video]);
 			}),
 		));
-	it("retries an atomic commit with identical arguments after a failed Effect", () =>
+	it("returns identical changes when the same submission runs again", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const { host, calls } = harness({ partial: true });
+				const { host } = harness();
 				const submitted = yield* input();
-				expect(yield* Effect.result(definition.run(submitted, host))).toMatchObject({
-					_tag: "Failure",
-				});
-				expect(yield* definition.run(submitted, host)).toMatchObject({ kind: "saved" });
-				const commits = calls.filter(({ method }) => method === "commit");
-				expect(commits).toHaveLength(2);
-				expect(commits[0]?.args).toEqual(commits[1]?.args);
+				expect(yield* run(submitted, host)).toEqual(yield* run(submitted, host));
+			}),
+		));
+	it("refuses a forbidden managed asset", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = yield* input();
+				assert(source.data.kind === "workout");
+				const { host } = harness({ pro: true, assetForbidden: true });
+				expect(
+					yield* Effect.flip(
+						run(
+							{ ...source, data: { ...source.data, images: [{ type: "s3", key: "other.jpg" }] } },
+							host,
+						),
+					),
+				).toMatchObject(rejected("media-forbidden"));
 			}),
 		));
 	it("preserves imported notes, occurrence media, set times, and active duration on a free historical edit", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ baseline });
-				expect(yield* definition.run(yield* input(true), host)).toMatchObject({ kind: "saved" });
-				const commit = calls.find(({ method }) => method === "commit");
-				expect(commit?.args[0]).toMatchObject({
+				const result = yield* run(yield* input(true), host);
+				expect(result.output).toEqual({});
+				expect(result.changes).toMatchObject({
 					events: {
-						creates: [],
 						changes: [
 							{
 								kind: "update",
@@ -612,11 +609,9 @@ describe("workout editor save", () => {
 						),
 					},
 				};
-				expect(yield* definition.run(unchangedInput, unchanged.host)).toMatchObject({
-					kind: "saved",
-				});
-				expect(unchanged.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: { changes: [] },
+				expect(yield* run(unchangedInput, unchanged.host)).toMatchObject({
+					output: {},
+					changes: { events: { changes: [] } },
 				});
 			}),
 		));
@@ -636,11 +631,9 @@ describe("workout editor save", () => {
 						}),
 					),
 				};
-				const allowed = harness({ baseline });
-				expect(yield* definition.run({ ...source, data }, allowed.host)).toMatchObject({
-					kind: "saved",
-				});
-				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+				const allowed = yield* run({ ...source, data }, harness({ baseline }).host);
+				expect(allowed.output).toEqual({});
+				expect(allowed.changes).toEqual<unknown>(
 					objectContaining({
 						events: objectContaining({
 							changes: [
@@ -657,24 +650,21 @@ describe("workout editor save", () => {
 						}),
 					}),
 				);
-				const removedSet = harness({ baseline });
 				const removalData = {
 					...data,
 					occurrences: data.occurrences.map((occurrence) => ({ ...occurrence, sets: [] })),
 				};
 				expect(
-					yield* definition.run({ ...source, data: removalData }, removedSet.host),
-				).toMatchObject({ kind: "saved" });
-				expect(removedSet.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: {
-						changes: [
-							{
-								kind: "delete",
-								eventId: "occurrence-0",
-								itemIdentity: "occurrence-delete:occurrence-0",
-							},
-							{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
-						],
+					yield* run({ ...source, data: removalData }, harness({ baseline }).host),
+				).toMatchObject({
+					output: {},
+					changes: {
+						events: {
+							changes: [
+								{ kind: "delete", eventId: "occurrence-0", itemIdentity: "delete:occurrence-0" },
+								{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
+							],
+						},
 					},
 				});
 				const denied = harness({ baseline });
@@ -686,32 +676,43 @@ describe("workout editor save", () => {
 						}),
 					),
 				};
-				expect(
-					yield* Effect.flip(definition.run({ ...source, data: changed }, denied.host)),
-				).toEqual(new EntitlementRequiredError({ entitlement: "pro" }));
+				expect(yield* Effect.flip(save({ ...source, data: changed }, denied.host))).toEqual(
+					new EntitlementRequiredError({ entitlement: "pro" }),
+				);
 				expect(denied.calls).toEqual([]);
 			}),
 		));
-	it("returns typed conflicts rather than parsing diagnostic text", () =>
+	it("fails a workout another user cannot see as a stale baseline", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				for (const code of ["entity-stale", "mutation-conflict"]) {
-					const fixture = harness();
-					const host: ScriptHost = {
-						...fixture.host,
-						commitUserChanges: () =>
-							Effect.fail({ data: { code }, message: "Not a business contract" }),
-					};
-					expect(yield* definition.run(yield* input(), host)).toEqual({ kind: "conflict" });
-				}
+				const { host } = harness({ baseline, current: null, exercises: [] });
+				expect(yield* Effect.flip(run(yield* input(true), host))).toEqual(
+					new StaleBaselineError({ conflict: "entity-not-found" }),
+				);
 			}),
 		));
-	it("reports atomic commit conflicts without partial results", () =>
+	it("fails an edit of an occurrence the workout no longer records as a stale baseline", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const { host, calls } = harness({ lateConflict: true });
-				expect(yield* definition.run(yield* input(), host)).toEqual({ kind: "conflict" });
-				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
+				const { host } = harness({ baseline, occurrences: [] });
+				expect(yield* Effect.flip(run(yield* input(true), host))).toEqual(
+					new StaleBaselineError({ conflict: "event-not-found" }),
+				);
+			}),
+		));
+	it("leaves a kept set that vanished to the commit's baseline checks", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { host } = harness({ baseline, identities: [] });
+				expect(yield* run(yield* input(true), host)).toMatchObject({
+					changes: {
+						entity: { target: { kind: "update", entityId: baseline.entity.id } },
+						events: {
+							baselines: [{ entityId: baseline.entity.id }],
+							expected: { eventIds: baseline.sets.map(({ id }) => id) },
+						},
+					},
+				});
 			}),
 		));
 	it("recaptures occurrence taxonomy and recreates kept sets at their original time when replacing with a same-kind exercise", () =>
@@ -739,27 +740,17 @@ describe("workout editor save", () => {
 					},
 				};
 				const free = harness({ baseline, exercises });
-				expect(yield* Effect.flip(definition.run(submitted, free.host))).toEqual(
+				expect(yield* Effect.flip(save(submitted, free.host))).toEqual(
 					new EntitlementRequiredError({ entitlement: "pro" }),
 				);
 				expect(free.calls).toEqual([]);
-				const allowed = harness({ baseline, exercises, pro: true });
-				expect(yield* definition.run(submitted, allowed.host)).toMatchObject({
-					kind: "saved",
-					sets: [{ eventId: "new-set-1", clientId: "client-set-1" }],
-				});
-				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+				const allowed = yield* run(submitted, harness({ baseline, exercises, pro: true }).host);
+				expect(allowed.output).toEqual({});
+				expect(allowed.changes).toMatchObject({
 					events: {
 						changes: [
 							{
-								kind: "delete",
-								eventId: "occurrence-0",
-								itemIdentity: "occurrence-delete:occurrence-0",
-							},
-							{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
-						],
-						creates: [
-							{
+								kind: "create",
 								eventSchemaSlug: "workout-exercise",
 								itemIdentity: "occurrence:occurrence-1",
 								entity: { kind: "existing", entityId: replacementId },
@@ -771,11 +762,14 @@ describe("workout editor save", () => {
 								},
 							},
 							{
+								kind: "create",
 								occurredAt: setTime,
 								eventSchemaSlug: "workout-set",
 								itemIdentity: "set:client-set-1",
 								entity: { kind: "existing", entityId: replacementId },
 							},
+							{ kind: "delete", eventId: "occurrence-0", itemIdentity: "delete:occurrence-0" },
+							{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
 						],
 					},
 				});
@@ -793,10 +787,9 @@ describe("workout editor save", () => {
 						},
 					],
 				});
-				expect(yield* definition.run(submitted, wrongKind.host)).toEqual({
-					kind: "invalid",
-					code: "invalid-exercise-kind",
-				});
+				expect(yield* Effect.flip(save(submitted, wrongKind.host))).toMatchObject(
+					rejected("invalid-exercise-kind"),
+				);
 				expect(wrongKind.calls).toEqual([]);
 			}),
 		));
@@ -838,19 +831,14 @@ describe("workout editor save", () => {
 					},
 				});
 				const free = harness();
-				expect(yield* Effect.flip(definition.run(submitted, free.host))).toEqual(
+				expect(yield* Effect.flip(save(submitted, free.host))).toEqual(
 					new EntitlementRequiredError({ entitlement: "pro" }),
 				);
 				expect(free.calls).toEqual([]);
-				const allowed = harness({ pro: true });
-				expect(yield* definition.run(submitted, allowed.host)).toEqual({
-					entityId,
-					sets: [],
-					kind: "saved",
-				});
-				expect(allowed.calls.map(({ method }) => method)).toEqual(["commit"]);
-				expect(allowed.calls[0]?.args[0]).toMatchObject({
-					events: { creates: [], changes: [] },
+				const allowed = yield* run(submitted, harness({ pro: true }).host);
+				expect(allowed.output).toEqual({});
+				expect(allowed.changes).toMatchObject({
+					events: { changes: [] },
 					entity: {
 						entitySchemaSlug: "workout-template",
 						properties: {

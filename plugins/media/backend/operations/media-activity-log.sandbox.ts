@@ -1,12 +1,12 @@
 import {
-	type CreateEventItem,
-	EVENT_MUTATION_SANDBOX_LIMITS,
-	recoverPartialCreateEvents,
+	createEventChange,
+	type EventCreate,
+	existingEntity,
 	type ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -22,6 +22,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { CONSUMED_ON_LIST_LIMIT, consumedOnSettingKey } from "../../shared/consumed-on-settings";
 import { mediaPositionError } from "../../shared/consumption";
@@ -40,7 +41,6 @@ import {
 } from "../../shared/media-activity-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 const EPISODE_MEMBERSHIP_PAGE_SIZE = 100;
 
@@ -128,6 +128,17 @@ const episodeMembersRecipe = (input: { readonly config: EpisodicKindConfig }) =>
 		},
 	});
 };
+type ActivityEvent = EventCreate;
+
+const activityEvent = (
+	id: string,
+	event: Pick<ActivityEvent, "occurredAt" | "properties" | "eventSchemaSlug">,
+): ActivityEvent =>
+	createEventChange(`${event.eventSchemaSlug}:${id}`, {
+		...event,
+		entity: existingEntity(EntityId.make(id)),
+	});
+
 const completeEvent = (
 	id: string,
 	when: MediaActivityWhen,
@@ -136,28 +147,30 @@ const completeEvent = (
 		readonly timeSpent?: number | undefined;
 		readonly consumedOn?: undefined | readonly string[];
 	},
-): CreateEventItem => ({
-	entityId: id,
-	eventSchemaSlug: "complete",
-	occurredAt: when.kind === "date" ? when.finishedOn : submittedAt,
-	properties: {
-		...(extras.consumedOn === undefined ? {} : { consumedOn: extras.consumedOn }),
-		...(extras.timeSpent === undefined ? {} : { timeSpent: extras.timeSpent }),
-		...(when.kind === "date" && when.startedOn !== undefined ? { startedOn: when.startedOn } : {}),
-		...(when.kind === "unknown" ? { dateUnknown: true } : {}),
-		...(when.kind === "date" && when.calendarDate !== undefined
-			? { calendarDate: when.calendarDate }
-			: {}),
-	},
-});
+): ActivityEvent =>
+	activityEvent(id, {
+		eventSchemaSlug: "complete",
+		occurredAt: when.kind === "date" ? when.finishedOn : submittedAt,
+		properties: {
+			...(extras.consumedOn === undefined ? {} : { consumedOn: extras.consumedOn }),
+			...(extras.timeSpent === undefined ? {} : { timeSpent: extras.timeSpent }),
+			...(when.kind === "date" && when.startedOn !== undefined
+				? { startedOn: when.startedOn }
+				: {}),
+			...(when.kind === "unknown" ? { dateUnknown: true } : {}),
+			...(when.kind === "date" && when.calendarDate !== undefined
+				? { calendarDate: when.calendarDate }
+				: {}),
+		},
+	});
 
-type ActivityHost = Pick<ScriptHost, "createEvents" | "executeRyotql">;
+type ActivityHost = Pick<ScriptHost, "executeRyotql">;
 
-type SettingsHost = Pick<ScriptHost, "log" | "getUserSettings" | "updateUserSettings">;
+type SettingsHost = Pick<ScriptHost, "log" | "getUserSettings">;
 
 type BuiltEvents = {
 	readonly schemaSlug?: string | undefined;
-	readonly events: readonly CreateEventItem[];
+	readonly events: readonly ActivityEvent[];
 };
 
 const findTarget = (host: ActivityHost, id: string) =>
@@ -177,7 +190,7 @@ const buildEvents = (
 		if (entry.kind === "status") {
 			yield* findTarget(host, entry.entityId);
 			return {
-				events: [{ properties: {}, entityId: entry.entityId, eventSchemaSlug: entry.status }],
+				events: [activityEvent(entry.entityId, { properties: {}, eventSchemaSlug: entry.status })],
 			};
 		}
 		if (entry.kind === "complete") {
@@ -219,8 +232,7 @@ const buildEvents = (
 			return {
 				schemaSlug,
 				events: [
-					{
-						entityId: entry.entityId,
+					activityEvent(entry.entityId, {
 						eventSchemaSlug: "progress",
 						occurredAt: entry.when?.kind === "date" ? entry.when.finishedOn : submittedAt,
 						properties: {
@@ -239,7 +251,7 @@ const buildEvents = (
 								: { progressPercent: entry.progressPercent }),
 							...(entry.position === undefined ? {} : { position: entry.position }),
 						},
-					},
+					}),
 				],
 			};
 		}
@@ -275,7 +287,7 @@ const buildEvents = (
 		};
 	});
 
-const rememberConsumedOn = (
+const rememberedConsumedOn = (
 	host: SettingsHost,
 	schemaSlug: string,
 	consumedOn: readonly string[],
@@ -283,7 +295,7 @@ const rememberConsumedOn = (
 	Effect.gen(function* () {
 		const key = consumedOnSettingKey(schemaSlug);
 		if (key === undefined) {
-			return;
+			return undefined;
 		}
 		const settings = yield* host.getUserSettings();
 		const current = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.String))(settings[key]);
@@ -298,9 +310,7 @@ const rememberConsumedOn = (
 				added.push(value);
 			}
 		}
-		if (added.length > 0) {
-			yield* host.updateUserSettings({ [key]: [...current, ...added] });
-		}
+		return added.length === 0 ? undefined : { [key]: [...current, ...added] };
 	}).pipe(
 		Effect.catch((error) =>
 			host
@@ -314,29 +324,9 @@ const rememberConsumedOn = (
 						},
 					},
 				])
-				.pipe(Effect.ignore),
+				.pipe(Effect.ignore, Effect.as(undefined)),
 		),
 	);
-
-const writeInChunks = (
-	events: readonly CreateEventItem[],
-	options: { readonly submittedAt: string; readonly submissionId: string },
-	host: ActivityHost,
-) =>
-	Effect.gen(function* () {
-		let count = 0;
-		for (let start = 0; start < events.length; start += EVENT_MUTATION_SANDBOX_LIMITS.items) {
-			const chunk = events.slice(start, start + EVENT_MUTATION_SANDBOX_LIMITS.items);
-			const written = yield* host
-				.createEvents(chunk)
-				.pipe(Effect.catch(recoverPartialCreateEvents));
-			count += written.count;
-			if (written.count !== chunk.length) {
-				return { count, status: "incomplete" as const };
-			}
-		}
-		return { count, status: "saved" as const };
-	});
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -351,16 +341,14 @@ export default defineOperation({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const { events, schemaSlug } = yield* buildEvents(input, host);
-			const result = yield* writeInChunks(events, input, host);
 			const { entry } = input;
-			if (
-				result.status === "saved" &&
-				schemaSlug !== undefined &&
-				entry.kind !== "status" &&
-				entry.consumedOn !== undefined
-			) {
-				yield* rememberConsumedOn(host, schemaSlug, entry.consumedOn);
-			}
-			return result;
+			const settings =
+				schemaSlug !== undefined && entry.kind !== "status" && entry.consumedOn !== undefined
+					? yield* rememberedConsumedOn(host, schemaSlug, entry.consumedOn)
+					: undefined;
+			return {
+				output: { count: events.length },
+				changes: { ...(settings === undefined ? {} : { settings }), events: { changes: events } },
+			};
 		}),
 });

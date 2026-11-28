@@ -3,7 +3,9 @@ import {
 	type AppSchema,
 	isEventReferenceProperty,
 } from "@ryot-app/contract/schema/property-schema";
-import { Context, Schema } from "effect";
+import { Schema } from "effect";
+
+import { writeState } from "#platform/db/write-transaction";
 
 export type ClearedEventReference = EventPropertyReference & {
 	readonly referencingEventId: string;
@@ -23,10 +25,7 @@ export const eventReferenceBadRequest = () =>
 	new EventBadRequest({ reason: { code: "invalid-properties" } });
 
 /** References a transaction's deletions removed, cleared from their referrers before it settles. */
-export const PendingEventReferenceClears = Context.Reference<null | Array<ClearedEventReference>>(
-	"EventReferences.PendingClears",
-	{ defaultValue: () => null },
-);
+export const pendingReferenceClears = writeState((): Array<ClearedEventReference> => []);
 
 export const eventPropertyReferences = (
 	schema: AppSchema,

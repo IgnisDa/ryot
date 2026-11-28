@@ -1,6 +1,12 @@
 import { afterEach, describe, expect } from "bun:test";
 
-import { PluginId, PluginPackageId, PublicationId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EventId,
+	PluginId,
+	PluginPackageId,
+	PublicationId,
+} from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -17,7 +23,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
-import { RyotClientError } from "../client/errors";
+import { ChangesConflict, OperationRejected, RyotClientError } from "../client/errors";
 import { createPluginNavigationStore } from "../navigation/store";
 import { testBridgeLocale, waitForMessagePortMacrotask } from "../testing";
 import { createPluginRuntime } from "./session";
@@ -952,7 +958,9 @@ describe("plugin Effect request engine", () => {
 					{ startImmediately: true },
 				);
 				yield* waitForMessagePortMacrotask;
-				yield* Effect.forEach([operation, storage, upload], Fiber.interrupt);
+				yield* Fiber.interrupt(operation);
+				yield* Fiber.interrupt(storage);
+				yield* Fiber.interrupt(upload);
 				expect(sent(messages, "operation-request")).toHaveLength(1);
 				expect(sent(messages, "storage-request")).toHaveLength(1);
 				expect(sent(messages, "upload-request")).toHaveLength(1);
@@ -1328,6 +1336,7 @@ describe("plugin Effect request engine", () => {
 					outcome: "success",
 					type: "operation-result",
 					requestId: "operation-1",
+					committed: { events: [] },
 					value: { invalid: undefined },
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
@@ -1363,7 +1372,71 @@ describe("plugin Effect request engine", () => {
 					reason: "operation-rejected",
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
-					failure: new RyotClientError({ rejection, reason: "operation-rejected" }),
+					failure: new OperationRejected({ rejection }),
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"delivers the committed identifiers of an operation to the plugin",
+		() =>
+			Effect.gen(function* () {
+				const { channel, runtime } = yield* openRuntime();
+				const committed = {
+					entityId: EntityId.make("entity-1"),
+					events: [{ itemIdentity: "item-1", eventId: EventId.make("event-1") }],
+				};
+				const pending = yield* Effect.forkChild(
+					runtime.client.operations.invokeCommitted({
+						input: null,
+						slug: "greet",
+						output: Schema.String,
+						inputSchema: Schema.Null,
+						packageId: "test/fixture",
+					}),
+					{ startImmediately: true },
+				);
+				yield* waitForMessagePortMacrotask;
+				channel.port1.postMessage({
+					committed,
+					value: "hello",
+					outcome: "success",
+					type: "operation-result",
+					requestId: "operation-1",
+				});
+				expect(yield* Fiber.join(pending)).toEqual({ committed, output: "hello" });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"surfaces a changes conflict as a client error",
+		() =>
+			Effect.gen(function* () {
+				const { channel, runtime } = yield* openRuntime();
+				const pending = yield* Effect.forkChild(
+					Effect.result(
+						runtime.client.operations.invoke({
+							input: null,
+							slug: "greet",
+							output: Schema.String,
+							inputSchema: Schema.Null,
+							packageId: "test/fixture",
+						}),
+					),
+					{ startImmediately: true },
+				);
+				yield* waitForMessagePortMacrotask;
+				channel.port1.postMessage({
+					outcome: "failure",
+					type: "operation-result",
+					requestId: "operation-1",
+					reason: "changes-conflict",
+					conflict: "state-conflict",
+				});
+				expect(yield* Fiber.join(pending)).toMatchObject({
+					failure: new ChangesConflict({ conflict: "state-conflict" }),
 				});
 			}),
 		testTimeout,
@@ -1403,6 +1476,7 @@ describe("plugin Effect request engine", () => {
 					outcome: "success",
 					type: "operation-result",
 					requestId: "operation-1",
+					committed: { events: [] },
 				});
 				expect(yield* Fiber.join(operation)).toBe("hello");
 				const membership = yield* Effect.forkChild(

@@ -1,17 +1,18 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { listZipEntries } from "@ryot-app/plugin-backend-sdk/fflate";
 import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaControlInput, MediaControlOutput } from "./references";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.control",
 	name: "Read media import settings and archive directory",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaControlInput,
 	output: MediaControlOutput,
@@ -33,5 +34,5 @@ export default defineScript({
 				Schema.fromJsonString(Schema.Record(Schema.String, jsonValueSchema)),
 			)(new TextDecoder("utf-8", { fatal: true }).decode(range.bytes));
 			return { settings, next: null, entries: [] };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

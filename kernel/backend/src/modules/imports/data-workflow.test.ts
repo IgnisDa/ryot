@@ -1,5 +1,7 @@
 import { expect } from "bun:test";
 
+import { DbError } from "@ryot-app/contract/errors";
+import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/schemas";
 import type {
 	IngestionBatch,
 	IngestionIssue,
@@ -21,17 +23,17 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import type { Changes } from "#modules/changes/changes";
+import type { CommitResult } from "#modules/changes/receipts";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { RelationshipsService } from "#modules/relationships/service";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
@@ -70,6 +72,7 @@ const snapshot = buildDefinitionSnapshot({
 					name: { key: "test.recorded" },
 					propertiesSchema: {
 						fields: {
+							image: managedAssetProperty,
 							related: {
 								type: "object",
 								label: "Related",
@@ -100,30 +103,50 @@ const command = rootLifecycleCommand({
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
-const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
+const emptyCommit: CommitResult = {
+	merged: [],
+	signals: [],
+	cleared: [],
+	deleted: [],
+	entities: [],
+	outcomes: [],
+	relationships: [],
+	committed: { events: [] },
+};
+const event = (
+	key: string,
+	entityKey = "subject",
+	properties: Readonly<Record<string, unknown>> = {},
+): DataGraphRecord => ({
 	kind: "event",
 	record: {
 		key,
 		entityKey,
 		eventSchemaSlug: "recorded",
 		occurredAt: ingestionTestNow,
-		properties: { related: { entity: "related" } },
+		properties: { ...properties, related: { entity: "related" } },
 	},
 });
-const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
+const defaultRecords = [
+	event("written"),
+	event("skipped"),
+	event("failed-dependency", "failed"),
+	event("independent"),
+];
+const fixture = Effect.fnUntraced(function* (
+	cancelAfterWrite?: boolean,
+	records: ReadonlyArray<DataGraphRecord> = defaultRecords,
+	failedSkipRecords?: number,
+) {
 	let run = ingestionTestRun();
+	let skipRecordFailures = failedSkipRecords ?? 0;
 	const items: ReturnType<typeof ingestionTestItem>[] = [];
+	const committedEvents: string[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
 	const issues: IngestionIssue[] = [];
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
-	const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
-	const records = [
-		event("written"),
-		event("skipped"),
-		event("failed-dependency", "failed"),
-		event("independent"),
-	];
+	const submitted: Changes[] = [];
 	const batch: IngestionBatch = {
 		ordinal: 1,
 		summary: [],
@@ -149,53 +172,56 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		Layer.mock(IngestionCaptures)({
 			read: () => Effect.succeed(Buffer.from(stableStringify(records))),
 		}),
-		Layer.mock(EntitiesService)({}),
 		Layer.mock(JobQueue)({}),
 		Layer.mock(TransientValues)({}),
 		Layer.mock(LifecycleExecution)({}),
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntityImportWorkflowOperations)({}),
-		Layer.mock(EntitiesRepository)({}),
-		Layer.mock(RelationshipsService)({}),
-		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-		Layer.mock(EventsService)({
-			create: (input) =>
-				Effect.sync(() => {
-					const lifecycle = input.command;
+		Layer.mock(ChangeSets)({
+			commitOnce: (input, _lifecycle, receipt, options) =>
+				Effect.gen(function* () {
 					submitted.push(input);
-					const key =
-						["skipped", "independent"].find((value) => lifecycle.itemIdentity.includes(value)) ??
-						"written";
-					if (key === "skipped") {
-						return {
-							count: 0,
-							warnings: [],
-							failure: null,
-							outcomes: [
-								{
-									index: 0,
-									status: "skipped_by_policy" as const,
-									reason: { namespace: "plugin1", key: "rejection.filtered" },
-								},
-							],
-						};
+					if (
+						options?.precondition &&
+						!(yield* options.precondition.check(new WriteTransaction()))
+					) {
+						return yield* Effect.die("A data import precondition failed");
 					}
-					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
-					if (!items.some(({ id }) => id === item.id)) {
-						items.push(item);
+					const creates = input.events?.changes ?? [];
+					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
+					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
+						if (throws) {
+							return { index, status: "failed", reason: { code: "policy-execution-failed" } };
+						}
+						if (itemIdentity.includes("skipped")) {
+							return {
+								index,
+								status: "skipped_by_policy",
+								reason: { namespace: "plugin1", key: "rejection.filtered" },
+							};
+						}
+						return { index, status: "written", eventId: EventId.make(itemIdentity) };
+					});
+					const recorded = yield* receipt.record({ ...emptyCommit, outcomes: written });
+					for (const outcome of written) {
+						const itemIdentity = creates[outcome.index]?.itemIdentity;
+						if (outcome.status !== "written" || itemIdentity === undefined) {
+							continue;
+						}
+						committedEvents.push(itemIdentity);
+						const item = ingestionTestItem(itemIdentity, "created");
+						if (!items.some(({ id }) => id === item.id)) {
+							items.push(item);
+						}
 					}
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
 					}
-					return {
-						count: 1,
-						warnings: [],
-						failure: null,
-						outcomes: [{ index: 0, status: "written" as const, eventId: EventId.make(key) }],
-					};
+					return recorded;
 				}),
 		}),
 		Layer.mock(ImportsRepository)({
+			lockOutcomes: () => Effect.void,
 			storeBatchResult: () => Effect.void,
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
@@ -215,10 +241,12 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					return true;
 				}),
 			recordOutcome: (_scope, outcome) =>
-				Effect.sync(() => {
-					outcomes.set(outcome.operationId, outcome);
-					return true;
-				}),
+				outcome.result === "skipped" && skipRecordFailures-- > 0
+					? Effect.fail(new DbError({ message: "Injected outcome failure" }))
+					: Effect.sync(() => {
+							outcomes.set(outcome.operationId, outcome);
+							return true;
+						}),
 			getCapture: () =>
 				Effect.succeed({
 					ordinal: 65,
@@ -258,7 +286,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 		},
 	}).pipe(Effect.provideContext(context));
-	return { items, starts, issues, execute, outcomes, submitted, projections };
+	return { items, starts, issues, execute, outcomes, submitted, projections, committedEvents };
 });
 
 it.effect(
@@ -284,8 +312,15 @@ it.effect(
 					"created",
 				),
 			]);
-			expect(test.submitted[0]?.payload[0]?.properties).toEqual({
-				related: { entity: "related-id" },
+			expect(test.submitted).toHaveLength(2);
+			expect(test.submitted[0]?.events?.changes.map(({ itemIdentity }) => itemIdentity)).toEqual(
+				["written", "skipped", "independent"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+			);
+			expect(test.submitted[0]?.events?.changes[0]).toMatchObject({
+				kind: "create",
+				properties: { related: { entity: "related-id" } },
 			});
 			const rejection = {
 				code: "policy-rejected",
@@ -313,10 +348,113 @@ it.effect(
 );
 
 it.effect(
+	"fails every event of a run its commit rejected as a whole, writing none of them again",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture(false, [event("written"), event("skipped"), event("throws")]);
+			yield* test.execute;
+			expect(
+				test.submitted.map((changes) =>
+					(changes.events?.changes ?? []).map(({ itemIdentity }) => itemIdentity),
+				),
+			).toEqual([
+				["written", "skipped", "throws"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+			]);
+			expect(
+				["written", "skipped", "throws"].map(
+					(key) => test.outcomes.get(`data:event:${key}`)?.reason,
+				),
+			).toEqual(Array.from({ length: 3 }, () => ({ key: null, code: "event-policy-failed" })));
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 3 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"fails every event of a run whose commit fails, since the commit records its skipped events",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture(
+				false,
+				[event("written"), event("skipped"), event("independent")],
+				1,
+			);
+			yield* test.execute;
+			expect(test.committedEvents).toEqual([]);
+			expect(test.submitted).toHaveLength(1);
+			expect(
+				["written", "skipped", "independent"].map(
+					(key) => test.outcomes.get(`data:event:${key}`)?.reason,
+				),
+			).toEqual(Array.from({ length: 3 }, () => ({ key: null, code: "database-commit-failed" })));
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 3 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"commits an event naming managed assets with the rest of its run",
+	() =>
+		Effect.gen(function* () {
+			const image = { type: "s3", key: "permanent/user-1_image.png" };
+			const test = yield* fixture(false, [
+				event("written"),
+				event("attached", "subject", { image }),
+				event("independent"),
+			]);
+			yield* test.execute;
+			expect(
+				test.submitted.map((changes) =>
+					(changes.events?.changes ?? []).map(({ itemIdentity }) => itemIdentity),
+				),
+			).toEqual([
+				["written", "attached", "independent"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+			]);
+			expect(test.submitted[0]?.events?.changes[1]).toMatchObject({ properties: { image } });
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 3, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
 	"stops future Data records after cancellation and projects the just-committed item",
 	() =>
 		Effect.gen(function* () {
-			const test = yield* fixture(true);
+			const test = yield* fixture(true, [
+				event("written"),
+				{
+					kind: "entity",
+					record: {
+						key: "later",
+						kind: "existing",
+						entityId: "later-id",
+						entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
+					},
+				},
+				event("independent"),
+			]);
 			yield* test.execute;
 			expect(test.submitted).toHaveLength(1);
 			expect(test.items).toHaveLength(1);
@@ -341,7 +479,7 @@ it.effect(
 			const entityKeys = Array.from({ length: 50 }, (_, index) => `entity-${index}`);
 			const captured = new Map<string, Parameters<IngestionCaptures["Service"]["publish"]>[0]>();
 			const registered: string[] = [];
-			const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
+			const submitted: Changes[] = [];
 			const outcomes = new Map<string, IngestionOutcome>();
 			let sealed = false;
 			const integrationId = IntegrationId.make("integration");
@@ -399,20 +537,16 @@ it.effect(
 					}),
 				),
 				Layer.mock(IngestionExecution)({}),
-				Layer.mock(EntitiesService)({}),
 				Layer.mock(LifecycleExecution)({}),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(EntityImportWorkflowOperations)({}),
 				Layer.mock(JobQueue)({}),
 				Layer.mock(TransientValues)({}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(RelationshipsService)({}),
-				Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-				Layer.mock(EventsService)({
-					create: (input) =>
-						Effect.sync(() => {
+				Layer.mock(ChangeSets)({
+					commitOnce: (input, _lifecycle, receipt) =>
+						Effect.suspend(() => {
 							submitted.push(input);
-							return { count: 1, outcomes: [], warnings: [], failure: null };
+							return receipt.record(emptyCommit);
 						}),
 				}),
 				Layer.mock(DefinitionRepository)({ getUserSnapshot: () => Effect.succeed(snapshot) }),
@@ -493,9 +627,9 @@ it.effect(
 			);
 			expect(registered).toEqual(["data-plan:0", "data-segment:1"]);
 			expect(submitted).toHaveLength(1);
-			expect(submitted[0]?.payload[0]).toMatchObject({
-				entityId: "id:entity-49",
+			expect(submitted[0]?.events?.changes[0]).toMatchObject({
 				properties: { related: { entity: "id:entity-0" } },
+				entity: { kind: "existing", entityId: "id:entity-49" },
 			});
 			expect(sealed).toBe(true);
 			expect(outcomes.get("data-plan:0:unknown")?.result).toBe("unsuccessful");

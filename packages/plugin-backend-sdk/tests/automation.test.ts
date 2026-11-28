@@ -5,15 +5,17 @@ import {
 	automationPolicyBatchInputSchema,
 	automationPolicyBatchResultSchema,
 	automationPolicyInputSchema,
-	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,
+	notifySignals,
+	SignalNotificationError,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { signalAutomationInput } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { sandboxManifestSchema } from "../src/core";
+import { changesOutputSchema, sandboxManifestSchema } from "../src/core";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const manifest = defineManifest({
@@ -28,7 +30,7 @@ const manifest = defineManifest({
 		},
 	},
 });
-const run = () => Effect.succeed(null);
+const run = () => Effect.succeed({});
 const policyRun = () => Effect.succeed({ items: [] });
 
 describe("automation definitions", () => {
@@ -39,9 +41,6 @@ describe("automation definitions", () => {
 				for (const capability of [
 					"log",
 					"httpCall",
-					"createEvents",
-					"emitSignal",
-					"sendNotification",
 					"setCachedValue",
 					"claimPersistentValue",
 					"scratch",
@@ -64,8 +63,6 @@ describe("automation definitions", () => {
 		() =>
 			Effect.gen(function* () {
 				const context = {
-					runId: "run-1",
-					triggerId: "trigger-1",
 					hookSlug: "test.policy",
 					executionUserId: "user-1",
 					occurredAt: "2026-09-15T00:00:00.000Z",
@@ -103,7 +100,9 @@ describe("automation definitions", () => {
 						.automation.payload,
 				).toMatchObject({ category: "request" });
 				yield* Effect.flip(
-					Schema.decodeUnknownEffect(automationInputSchema)({ automation: request }),
+					Schema.decodeUnknownEffect(automationInputSchema)({
+						automation: { ...request, runId: "run-1", triggerId: "trigger-1" },
+					}),
 				);
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(automationPolicyInputSchema)({
@@ -137,8 +136,8 @@ describe("automation definitions", () => {
 		expect(automation).toMatchObject({
 			run,
 			manifest,
+			output: changesOutputSchema,
 			input: automationInputSchema,
-			output: automationResultSchema,
 			definitionType: SANDBOX_SCRIPT_DEFINITION,
 		});
 		expect(policy).toMatchObject({
@@ -194,6 +193,44 @@ describe("automation definitions", () => {
 					properties: { title: "Snapshot" },
 				});
 				expect(input.automation.hookMetadata).toEqual({ title: "Updated" });
+			}),
+		testTimeout,
+	);
+});
+
+const signal = (properties: Readonly<Record<string, unknown>>) =>
+	signalAutomationInput({
+		properties,
+		hookSlug: "test-notification",
+		signalSchemaSlug: "count.changed",
+	});
+
+describe("signal notifications", () => {
+	const notification = defineAutomation({
+		run: notifySignals({
+			"count.changed": {
+				properties: Schema.Struct({ count: Schema.Finite }),
+				notify: ({ count }) => ({ params: { count }, key: "notification.count" }),
+			},
+		}),
+		manifest: defineManifest({
+			kind: "automation",
+			slug: "test-notification",
+			name: "Test notification",
+			automationType: "automation",
+			inputProjection: { signal: { properties: ["count"] } },
+		}),
+	});
+	it.effect(
+		"formats a signal's decoded properties and fails typed on properties it cannot decode",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* notification.run(yield* signal({ count: 2 }))).toEqual({
+					changes: { notifications: [{ params: { count: 2 }, key: "notification.count" }] },
+				});
+				const failure = yield* Effect.flip(notification.run(yield* signal({ count: "two" })));
+				expect(failure).toBeInstanceOf(SignalNotificationError);
+				expect(failure.message).toContain("count.changed has invalid properties");
 			}),
 		testTimeout,
 	);

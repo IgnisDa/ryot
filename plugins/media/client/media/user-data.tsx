@@ -1,11 +1,10 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isChangesConflict, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
 	formatError,
 	type RyotSubmission,
-	useLocalMessage,
 	usePluginIdentity,
 	useRyot,
 	useRyotSchedule,
@@ -58,10 +57,25 @@ const mediaUserDataMutation = createRyotMutation<
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
 	mediaLibraryMemberEntitySchemaSlugs.some((candidate) => candidate === slug);
 
-const submissionErrorFallback = (text: MediaText, error: Error) =>
-	error instanceof RyotClientError && error.reason === "transport"
-		? text("user-data.error-transport")
-		: text("user-data.error-retry");
+/** A retained submission's outcome is unknown, so only it asks for a retry. */
+const submissionErrorFallback = (text: MediaText, error: Error, retained: boolean) => {
+	if (retained) {
+		return error instanceof RyotClientError && error.reason === "transport"
+			? text("user-data.error-transport")
+			: text("user-data.error-retry");
+	}
+	const conflict = isChangesConflict(error) ? error.conflict : undefined;
+	if (conflict === "state-conflict") {
+		return text("user-data.error-state-conflict");
+	}
+	if (conflict === "entity-not-found") {
+		return text("user-data.error-entity-not-found");
+	}
+	if (conflict === "child-mapping-conflict") {
+		return text("user-data.error-child-mapping-conflict");
+	}
+	return text("user-data.error-failed");
+};
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
 	const { media } = props;
@@ -69,7 +83,6 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 	const text = useMediaMessages();
 	const reminders = useMediaReminders({ entityId: media.id });
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
-	const localMessage = useLocalMessage(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const submission = useRyotSubmission(mediaUserDataMutation);
@@ -81,11 +94,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 
 	useEffect(() => {
 		const output = submission.data;
-		if (
-			output?.status !== "saved" ||
-			confirmation === undefined ||
-			handledOutput.current === output
-		) {
+		if (output === undefined || confirmation === undefined || handledOutput.current === output) {
 			return;
 		}
 		handledOutput.current = output;
@@ -191,15 +200,12 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.reset();
 		submission.submit(confirmation.intent);
 	};
-	const rejectedMessage =
-		submission.data?.status === "rejected" ? localMessage(submission.data.reason) : undefined;
-	const errorMessage =
-		rejectedMessage ??
-		(submission.error === null
-			? undefined
-			: formatError(t, submission.error, submissionErrorFallback(text, submission.error)));
-	const activeConfirmation = submission.data?.status === "saved" ? undefined : confirmation;
 	const retained = submission.status === "retained";
+	const errorMessage =
+		submission.error === null
+			? undefined
+			: formatError(t, submission.error, submissionErrorFallback(text, submission.error, retained));
+	const activeConfirmation = submission.data === undefined ? confirmation : undefined;
 
 	return (
 		<>

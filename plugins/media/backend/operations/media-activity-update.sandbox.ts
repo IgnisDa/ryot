@@ -1,8 +1,17 @@
-import type { ScriptHost, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	type EventChange,
+	expectedEventFields,
+	type ScriptHost,
+	updateEventChange,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
+import {
+	entityEventScopeRevisionRecipe,
+	executeRyotqlRecipe,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { mediaPositionError } from "../../shared/consumption";
 import {
@@ -15,20 +24,17 @@ import {
 	mediaProgressRuleError,
 } from "../../shared/media-activity-fields";
 import {
-	MediaActivityLogOutput,
+	MediaActivityEditOutput,
 	type MediaActivityPatch,
 	MediaActivityUpdateInput,
 } from "../../shared/media-activity-operations";
 import { catalogMessage } from "../../shared/messages.generated";
 import { resolveEpisodeParentRecipe } from "../contracts/episode-parent-recipe";
-import { reject } from "../lib/failures";
 import {
 	activityCombinations,
 	type EditTarget,
 	loadEditTargets,
-	rejectHostFailure,
 	requireDeclaredProperties,
-	writePrecondition,
 } from "./media-activity-edits";
 import { reviewsNamingConsumption } from "./media-review-consumption";
 
@@ -99,6 +105,8 @@ const retargetedEpisode = (
 	});
 
 type PropertiesPatch = { remove: string[]; set: Record<string, Schema.Json> };
+
+type EventUpdatePatch = Extract<EventChange, { readonly kind: "update" }>["item"]["patch"];
 
 const assign = (patch: PropertiesPatch, key: string, value: null | Schema.Json) => {
 	if (value === null) {
@@ -200,10 +208,10 @@ const buildPatch = (
 		}
 		const hasProperties = properties.remove.length > 0 || Object.keys(properties.set).length > 0;
 		return {
-			...(entityId === undefined ? {} : { entityId }),
+			...(entityId === undefined ? {} : { entityId: EntityId.make(entityId) }),
 			...(occurredAt === undefined ? {} : { occurredAt }),
 			...(hasProperties ? { properties } : {}),
-		} satisfies UpdateEventItem["patch"];
+		} satisfies EventUpdatePatch;
 	});
 
 export const manifest = defineManifest({
@@ -214,7 +222,7 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: MediaActivityLogOutput,
+	output: MediaActivityEditOutput,
 	input: MediaActivityUpdateInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
@@ -235,17 +243,35 @@ export default defineOperation({
 			if (Object.keys(patch).length === 0) {
 				return yield* reject(catalogMessage("rejection.activity.nothing-to-change"));
 			}
-			const unlinked =
-				patch.entityId === undefined ? [] : yield* reviewsNamingConsumption(host, target.id);
-			const { count } = yield* host
-				.updateEvents([
-					{ patch, eventId: target.id, expected: writePrecondition(input.expected) },
-					...unlinked.map((eventId) => ({
-						eventId,
-						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
-					})),
-				])
-				.pipe(Effect.catch(rejectHostFailure));
-			return { status: "saved" as const, count: count - unlinked.length };
+			const eventId = EventId.make(target.id);
+			const moved = patch.entityId !== undefined;
+			const scopeRevision = moved
+				? yield* executeRyotqlRecipe(host.executeRyotql, entityEventScopeRevisionRecipe, {
+						entityId: input.expected.entityId,
+					})
+				: undefined;
+			const unlinked = moved ? yield* reviewsNamingConsumption(host, target.id) : [];
+			return {
+				output: { count: 1 },
+				changes: {
+					events: {
+						changes: [
+							updateEventChange(eventId, patch, expectedEventFields(input.expected)),
+							...unlinked.map((reviewId) =>
+								updateEventChange(EventId.make(reviewId), {
+									properties: { set: {}, remove: ["consumptionEventId"] },
+								}),
+							),
+						],
+						...(scopeRevision === undefined
+							? {}
+							: {
+									baselines: [
+										{ revision: scopeRevision, entityId: EntityId.make(input.expected.entityId) },
+									],
+								}),
+					},
+				},
+			};
 		}),
 });

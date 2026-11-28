@@ -78,7 +78,7 @@ it.effect(
 						return { claimed: true as const };
 					}),
 			});
-			const output = yield* runSandboxTestScript(spotify, {}, host, {
+			const { output } = yield* runSandboxTestScript(spotify, {}, host, {
 				...execution,
 				startedAt: "2026-01-01T12:00:00Z",
 			});
@@ -92,7 +92,7 @@ it.effect(
 			const bytes = fs.scratch.get("records.jsonl");
 			assert(bytes);
 			fs.files.set("records", bytes);
-			const prepared = yield* reader.run({
+			const { output: prepared } = yield* reader.run({
 				offset: 0,
 				itemIndex: 0,
 				dedupKey: null,
@@ -154,7 +154,7 @@ it.effect(
 			yield* TestClock.adjust("1 hour");
 			expect(
 				yield* runSandboxTestScript(spotify, { ingestionConfirmation: confirmed }, host, execution),
-			).toEqual({ chunkFiles: [] });
+			).toEqual({ output: { chunkFiles: [] } });
 			yield* runSandboxTestScript(spotify, { ingestionConfirmation: confirmed }, host, execution);
 			expect(saved.size).toBe(1);
 			expect(ttls).toEqual([30 * 24 * 60 * 60 - 3600]);

@@ -30,7 +30,8 @@ const hostLayer = Layer.mergeAll(
 	revisionDatabaseLayer,
 	Layer.succeed(PluginUserSettingsWriter, {
 		save: () => Effect.die("unused"),
-		patch: () => Effect.die("unused"),
+		patchWithin: () => Effect.die("unused"),
+		lockForPatch: () => Effect.die("unused"),
 	}),
 	Layer.succeed(ImportSourceStateStore, {
 		load: () => Effect.die("unused"),

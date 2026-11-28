@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -17,22 +18,26 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
+import {
+	commitEventChanges,
+	createEvents,
+	eventDelete,
+	eventUpdate,
+} from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import {
-	createGroupEvents,
+	commitChanges,
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "./event-groups.test-support";
 import { EventMutations } from "./mutations";
-import { EventsService } from "./service";
 
 const noteSchema: AuthoredAppSchema = {
 	fields: {
@@ -77,7 +82,7 @@ const referenceFixture = Effect.fnUntraced(function* (
 		properties: Record<string, unknown>,
 		entityId: EntityId = fixture.subjectId,
 	) {
-		return yield* createGroupEvents({
+		return yield* createEvents({
 			userId: fixture.userId,
 			command: yield* nextCommand,
 			payload: [{ entityId, properties, eventSchemaSlug: EventSchemaSlug.make(slug) }],
@@ -169,14 +174,11 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const rejected = yield* fixture.create("note", { about: foreign });
 				expect(rejected.failure?.reason).toEqual({ code: "invalid-properties" });
 
-				const events = yield* EventsService;
 				const update = (set: Record<string, string>, remove: ReadonlyArray<string>) =>
 					Effect.flatMap(fixture.nextCommand, (writeCommand) =>
-						events.edit(
-							{ eventId: note, patch: { properties: { set, remove: [...remove] } } },
-							fixture.userId,
-							writeCommand,
-						),
+						commitEventChanges(fixture.userId, writeCommand, [
+							eventUpdate({ eventId: note, patch: { properties: { set, remove: [...remove] } } }),
+						]),
 					);
 				yield* update({ about: second }, []);
 				expect(yield* fixture.references([note])).toEqual([
@@ -190,7 +192,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect(yield* fixture.references([note])).toEqual([]);
 				yield* update({ about: second }, []);
 				yield* Effect.flatMap(fixture.nextCommand, (writeCommand) =>
-					events.delete({ eventId: note, userId: fixture.userId }, writeCommand),
+					commitEventChanges(fixture.userId, writeCommand, [eventDelete(note)]),
 				);
 				expect(yield* fixture.references([note])).toEqual([]);
 			}),
@@ -206,11 +208,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Kept", about: occurrence });
 				const before = yield* fixture.stored(note);
 				assert(before);
-				const events = yield* EventsService;
-				yield* events.delete(
-					{ eventId: occurrence, userId: fixture.userId },
-					yield* fixture.nextCommand,
-				);
+				yield* commitEventChanges(fixture.userId, yield* fixture.nextCommand, [
+					eventDelete(occurrence),
+				]);
 				expect(yield* fixture.stored(note)).toEqual({
 					properties: { text: "Kept" },
 					revision: before.revision + 1,
@@ -220,19 +220,18 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const batched = yield* fixture.createId("occurrence", { amount: 2 });
 				const batchedNote = yield* fixture.createId("note", { text: "Gone", about: batched });
 				expect(
-					(yield* events.deleteBatch(
-						[batched, batchedNote],
-						fixture.userId,
-						yield* fixture.nextCommand,
-					)).count,
-				).toBe(2);
+					yield* commitEventChanges(fixture.userId, yield* fixture.nextCommand, [
+						eventDelete(batched),
+						eventDelete(batchedNote),
+					]),
+				).toHaveLength(2);
 				expect(yield* fixture.stored(batchedNote)).toBeUndefined();
 			}),
 		testTimeout,
 	);
 
 	test.effect(
-		"clears references to events a fold deletes in the same transaction",
+		"clears references to events a fold deletes in the transaction that applies its changes",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* referenceFixture();
@@ -240,21 +239,17 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Derived", about: occurrence });
 				const foldCommand = yield* fixture.nextCommand;
 				const mutations = yield* EventMutations.make.pipe(
-					Effect.provideService(Folds, {
-						...unfoldedFolds,
-						within: (work, apply) =>
-							Effect.gen(function* () {
-								const result = yield* work;
-								yield* apply({
-									command: foldCommand,
-									userId: fixture.userId,
-									changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
-								}).pipe(Effect.orDie);
-								return result;
-							}),
-					}),
+					Effect.provideService(Folds, unfoldedFolds),
 				);
-				yield* mutations.transaction(Effect.void);
+				yield* mutations.transaction(
+					(transaction) =>
+						mutations.applyFoldChanges(transaction, {
+							command: foldCommand,
+							userId: fixture.userId,
+							changes: [{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" }],
+						}),
+					"queue",
+				);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Derived" });
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();
 			}),
@@ -275,19 +270,34 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 
 				const cleared = yield* createOn({ amount: 1 });
 				const clearedNote = yield* fixture.createId("note", { about: cleared });
-				yield* (yield* EntityUserDataService).clearEntityUserDataForCommand(
-					fixture.userId,
-					{ entityId: other, entitySchemaSlug: subjectSchemaSlug },
-					yield* fixture.nextCommand,
-				);
+				yield* commitChanges({
+					command: yield* fixture.nextCommand,
+					input: {
+						entities: { clears: [{ entityId: other, entitySchemaSlug: subjectSchemaSlug }] },
+					},
+				});
 				expect((yield* fixture.stored(clearedNote))?.properties).toEqual({});
 
 				const cascaded = yield* createOn({ amount: 2 });
 				const cascadedNote = yield* fixture.createId("note", { about: cascaded });
-				expect(
-					(yield* (yield* EntitiesService).deleteByIds([other], yield* fixture.nextCommand))
-						.deletedCount,
-				).toBe(1);
+				const deleted = yield* (yield* ChangeSets).commit(
+					{
+						userId: fixture.userId,
+						entities: {
+							deletes: [
+								{
+									entityId: other,
+									entitySchema: {
+										slug: subjectSchemaSlug,
+										owner: definitionOwner(fixture.installed.pluginId),
+									},
+								},
+							],
+						},
+					},
+					yield* fixture.nextCommand,
+				);
+				expect(deleted.deleted).toEqual([other]);
 				expect((yield* fixture.stored(cascadedNote))?.properties).toEqual({});
 				expect(yield* fixture.references([clearedNote, cascadedNote])).toEqual([]);
 			}),
@@ -302,31 +312,27 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Draft", about: occurrence });
 				const foldCommand = yield* fixture.nextCommand;
 				const mutations = yield* EventMutations.make.pipe(
-					Effect.provideService(Folds, {
-						...unfoldedFolds,
-						within: (work, apply) =>
-							Effect.gen(function* () {
-								const result = yield* work;
-								yield* apply({
-									command: foldCommand,
-									userId: fixture.userId,
-									changes: [
-										{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
-										{
-											kind: "update",
-											itemIdentity: "fold-update",
-											item: {
-												eventId: note,
-												patch: { properties: { remove: [], set: { text: "Edited" } } },
-											},
-										},
-									],
-								}).pipe(Effect.orDie);
-								return result;
-							}),
-					}),
+					Effect.provideService(Folds, unfoldedFolds),
 				);
-				yield* mutations.transaction(Effect.void);
+				yield* mutations.transaction(
+					(transaction) =>
+						mutations.applyFoldChanges(transaction, {
+							command: foldCommand,
+							userId: fixture.userId,
+							changes: [
+								{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
+								{
+									kind: "update",
+									itemIdentity: "fold-update",
+									item: {
+										eventId: note,
+										patch: { properties: { remove: [], set: { text: "Edited" } } },
+									},
+								},
+							],
+						}),
+					"queue",
+				);
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Edited" });
 				expect(yield* fixture.references([note])).toEqual([]);
 				expect(yield* fixture.stored(occurrence)).toBeUndefined();
@@ -372,7 +378,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				});
 				const holder = yield* fixture.insertSubject("session");
 				const destination = yield* fixture.insertSubject("subject");
-				const traced = yield* createGroupEvents({
+				const traced = yield* createEvents({
 					userId: fixture.userId,
 					command: yield* fixture.nextCommand,
 					payload: [
@@ -386,16 +392,20 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const [trace] = traced.outcomes;
 				assert(trace?.status === "written");
 				const note = yield* fixture.createId("note", { text: "Moved", about: trace.eventId });
-				const merged = yield* (yield* EntityUserDataService).mergeEntityUserDataForCommand(
-					fixture.userId,
-					{
-						mergeInto: destination,
-						mergeFrom: fixture.subjectId,
-						entitySchemaSlug: subjectSchemaSlug,
+				yield* commitChanges({
+					command: yield* fixture.nextCommand,
+					input: {
+						entities: {
+							merges: [
+								{
+									mergeInto: destination,
+									mergeFrom: fixture.subjectId,
+									entitySchemaSlug: subjectSchemaSlug,
+								},
+							],
+						},
 					},
-					yield* fixture.nextCommand,
-				);
-				expect(merged.movedEventsCount).toBe(1);
+				});
 				expect(yield* fixture.stored(trace.eventId)).toBeUndefined();
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Moved" });
 				expect(yield* fixture.references([note])).toEqual([]);
@@ -432,9 +442,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				yield* Deferred.await(locked);
 				const deletion = yield* Effect.forkScoped(
 					Effect.flatMap(fixture.nextCommand, (deleteCommand) =>
-						Effect.flatMap(EventsService, (events) =>
-							events.delete({ eventId: occurrence, userId: fixture.userId }, deleteCommand),
-						),
+						commitEventChanges(fixture.userId, deleteCommand, [eventDelete(occurrence)]),
 					),
 				);
 				yield* database

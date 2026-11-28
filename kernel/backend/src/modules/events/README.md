@@ -10,10 +10,13 @@ An event schema declares `projection: { propertiesSchema }` to receive a derived
 schema must be strict, non-empty, contain at most 20 fields, and have no field names in common with
 the source event schema.
 
-An entity schema declares `fold: { scriptSlug, eventSchemaSlugs }`, and its entities are the fold's
-subjects. An event of a listed slug, owned by the same plugin, belongs to its session entity when the
-session's schema folds that slug, and otherwise to its own entity. The script must be owned by that
-plugin; validation limits it to read-only host capabilities and disallows workflow dependencies.
+An entity schema declares `fold: { scriptSlug, eventSchemaSlugs, entityProperties }`, and its entities
+are the fold's subjects. An event of a listed slug, owned by the same plugin, belongs to its session
+entity when the session's schema folds that slug, and otherwise to its own entity. `entityProperties`
+lists `{ entitySchemaSlug, properties }` for the properties of the plugin's entities the fold reads: of
+its subjects and of the entities and sessions its events are on. Validation requires each to be a
+declared property of a declared schema. The script must be owned by that plugin; validation limits it
+to read-only host capabilities and disallows workflow dependencies.
 
 ## Event IDs and ordering
 
@@ -35,12 +38,27 @@ orderKey)`. Physical identity and audit timestamps remain separate. Backups pres
 order even when restore remaps physical event IDs.
 
 `event_scope` tracks a revision per user, plugin owner, and entity-or-session reference. Source writes
-advance old and new scopes, including deletions and reference moves. Read-dependent user commands
-can use that scalar revision as their atomic baseline instead of carrying every source event ID.
+advance old and new scopes, including deletions and reference moves. A change set's `events.baselines`
+name that scalar revision for each entity whose history it read, instead of carrying every source
+event ID; the commit fails as `entity-stale` when a scope moved since.
 
 Snapshot reads do not lock event rows. Preparation can therefore read history while a commit holds
 entity locks. Persistence locks entity references before event rows and rechecks captured revisions;
-an edit or deletion that changed after preparation fails as stale.
+an edit or deletion whose event or referenced entity changed after preparation fails as stale, and a
+create fails as a conflict. HTTP event updates and deletes commit one event change through
+`ChangeSets.commit`, which retries a stale one whose field `expected` still holds (see
+[change sets](../changes/README.md)).
+
+`EventMutations.prepare` takes `EventMutation` changes: the contract's creates, updates and deletes,
+plus two kernel-writer forms. A `move` remaps an event's entity and session references
+(`mergeFrom` to `mergeInto`, then each `references` pair) and may replace its properties; a move that
+changes nothing is skipped, and policies see it as an update. A delete with `cascadeEntityIds` is
+authorized by the cascaded entity instead: the event must reference one of those entities, which must
+be visible to the event's user and share the event's plugin owner (or the event is a kernel
+collection event), and the writer must be allowed to write that entity's owner. `kernelCollection`
+lets a plugin writer change the kernel collection events its own entity data carries, as entity
+cascades and user-data clears and merges do, and create the membership event of a collection
+membership it commits.
 
 ### Mutation lock order
 
@@ -52,14 +70,10 @@ account/catalog admission and before taking any entity/session row locks. It loc
 session, and selected input references in entity-ID order using `FOR NO KEY UPDATE`.
 
 Then acquire any group-owned entity/session locks, call `lockEventRows` with the same complete batch,
-and persist the writes. Stream locks are sorted before event-row locks. Single-row repository writers
-also acquire reference locks before resolving fanout; outer multi-write owners must pre-lock the whole
-batch to preserve global order. The lower-level `EventStreamRepository.lockSourceReferences(sources)`
-and `lockSourceReferencesForEvents(eventIds, sources?)` expose that same reference-lock stage.
-
-Reference locks precede fanout reads, so concurrent writes reaching the same output stream serialize
-before resolving their targets. Publication needs the affected stream lock and revision fence, so all
-old claims become stale in the same transaction as the input change.
+and persist the writes. Single-row repository writers also lock references before their event row;
+outer multi-write owners must pre-lock the whole batch to preserve global order. The exported
+`lockEventReferences(session, sources)` is that same reference-lock stage for backup restore, which
+writes events outside the repository.
 
 ## Atomic event groups
 
@@ -68,11 +82,13 @@ anchor per user, exact plugin owner, and session, independently of the anchor's 
 dependent schemas belong to the same entity schema. Each dependent must match one anchor's entity
 and declared properties, and each anchor must retain at least one dependent of each declared schema.
 
-Event writes run inside the events-owned transaction (`EventsService.transaction` or
-`EventMutations.transaction`), which validates every touched group once as its last statement and
-fails with the typed error. Persisting a source mutation captures its user, entity, session, and
-prior anchor bindings into that transaction's collector; persisting outside it fails. Multi-write
-owners call `captureEventGroups`/`captureGroups` first for the whole batch, which prelocks the old and
+Event writes run inside the events-owned transaction (`EventMutations.transaction`), which validates every touched group once as its last statement and
+fails with the typed error. It creates the transaction's `WriteTransaction` and hands it to every
+write; the event repository and `EventMutations` take it explicitly, and the group collector, fold
+marks and reference clears are per-transaction state keyed on it, so no event write can run outside
+one. Persisting a source mutation captures its user, entity, session, and prior anchor bindings into
+that transaction's collector. Multi-write
+owners call `captureGroups` first for the whole batch, which prelocks the old and
 proposed source references through `EventsRepository.lockMutationReferences` and the affected
 entity/session rows in canonical order before stream and event rows. Later persists of already
 captured items skip capture. Capture keeps only changed source rows and their first-seen anchor
@@ -87,9 +103,9 @@ atomic command. Entity cascades and merges finalize after the whole source chang
 Violations fail as a generic `EventBadRequest` mutation conflict and roll back source writes.
 
 Before policies run outside this transaction and do not establish cardinality or binding consistency.
-An event create runs its before policies in chunks of at most 50 items, so one invocation fits the
-sandbox context limit; a subject's items share a chunk. All accepted items then commit in one
-transaction.
+A change set runs its event policies in chunks of at most 50 items, so one invocation fits the sandbox
+context limit; a subject's items share a chunk, so a subject with more than 50 items gets one that
+size. All accepted items then commit in one transaction (see [change sets](../changes/README.md)).
 Historical restore validates final consistency with SQL, without comparing or recapturing immutable
 properties from live metadata.
 
@@ -111,10 +127,10 @@ Deleting a referenced event locks its referrers' entity rows with its own before
 removes its index rows after the event row, so a concurrent referrer that locked the target is seen
 once it commits. The events transaction collects the released referrers
 and, after its work and after each applied fold change, removes those properties from referrers that
-still hold them: their revision advances, their scopes are touched and their subjects refold before
-the transaction settles. The clear runs no policies or hooks. This covers direct and batch deletes,
+still hold them: their revision advances, their scopes are touched and their subjects are queued for
+folding with the transaction's other changes. The clear runs no policies or hooks. This covers direct and batch deletes,
 events a fold deletes, entity cascades and user-data clears; a referrer deleted in the same
-transaction is simply gone. A delete outside an events transaction clears immediately. Merges move
+transaction is simply gone. Merges move
 events by ID, so references to moved events stay valid; references to the transient evidence a merge
 resets are cleared.
 
@@ -124,54 +140,4 @@ no foreign key on the referenced event, so archive order does not matter.
 
 ## Folds
 
-`modules/derived-values` owns the fold. The script receives `{ subjectEntityId, value }`, where
-`value` is what it returned last time, and reads anything else through RyotQL inside the writing
-transaction. It returns:
-
-- `value`: its own state, at most 256 KiB.
-- `events`: one `{ eventId, properties }` for each subject event whose schema declares a projection.
-- `relationships`: one `{ relationshipId, properties }` for each of the user's links from the subject
-  whose schema declares a projection.
-- `changes`: at most 500 event creates, updates and deletes in the user-command format. These
-  fold-owned events skip before-policies and after-hooks.
-
-When `changes` is not empty, the kernel applies them and runs the fold again. The second run must
-return no changes, so a fold settles in at most two runs.
-
-Every event write runs in the events transaction. The write marks the old and new subjects of each
-changed event, and the transaction folds them after its work and before the event-group check. A
-relationship write marks its source entity when the schema declares a projection. Outside an events
-transaction, marking queues a `fold` job instead. An event create on the background lane, such as an
-import, integration or async hook, also queues one `fold` job per subject, so bulk writes hold no locks
-while scripts run. `requestFolds` and the owning plugin's
-`requestFoldsForAllUsers` queue jobs for changes that come from outside the subject's events.
-Installing a new plugin revision or restoring a backup queues one `fold-rebuild` job per user, which
-refolds subjects discovered from that plugin's events and projected relationships. Relationships
-without listened-to events still need their projections rebuilt.
-
-An inline fold runs in the sandbox's direct path. A script reads through a savepoint marked read-only
-inside the writing transaction, so it sees that write's own changes, and the savepoint is rolled back
-so the mark cannot outlive the read. Reads run at the transaction's READ COMMITTED isolation. On the
-interactive lane, a run that finds no sandbox capacity rolls back the writing transaction before
-retrying. A parked plugin caller defers the host call to release its capacity first. Retries are
-bounded; a fold that cannot finish rolls back the source write, so a successful save includes its
-required derived state.
-Fold jobs reserve sandbox admission before opening the writing transaction; they execute from current
-transactional reads rather than applying a speculative result. When the subject row is locked, the
-job releases its reservation and retries outside the transaction without spending an attempt. Fold jobs
-are coalesced per user and subject, run four at a time, and retry up to eight times, one second apart.
-The last failed attempt marks the subject failed. Each settled job publishes the user-scoped
-derived-data-updated hint (see [entity interest](../../../../client/src/modules/entity-watches/README.md)).
-
-`derived_value` holds one row per target: the subject's own row (`kind = 'subject'`, holding `value`
-and `status`) and one row per event or relationship output. Each row records its subject, plugin
-revision. A fold replaces only the rows whose value changed
-and deletes the rest of the subject's rows.
-
-RyotQL exposes `event.projection` and `event.projectionStatus`. A value is visible while its plugin
-revision is the active one, including while a newer fold is pending. Its status is `ready` once its
-subject row has folded, `pending` while a fold job is queued for the subject or the row is missing,
-`failed` when the subject's last fold job failed, and `none` when the schema declares no projection.
-Backups export subject fold state in `fold-values.ndjson`, preserving history that cannot be rebuilt
-from events, such as suppressed occurrences. Restore and merge remap referenced IDs through absorbed
-state before refolding. Event and relationship projections are rebuilt.
+`modules/derived-values` runs folds; see its [README](../derived-values/README.md).

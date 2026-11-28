@@ -13,7 +13,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
-import { bindDocument } from "@ryot-app/ryotql/binding";
+import { bindDocument, validateAuthoredDocument } from "@ryot-app/ryotql/binding";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Result, Schema } from "effect";
@@ -137,7 +137,9 @@ describe("Effect-native client capabilities", () => {
 			Effect.gen(function* () {
 				let refreshes = 0;
 				const client = createRyotClient(
-					createTestRyotAdapter({ invokeOperation: () => Effect.succeed("result") }),
+					createTestRyotAdapter({
+						invokeOperation: () => Effect.succeed({ value: "result", committed: { events: [] } }),
+					}),
 				);
 				const unsubscribe = client.mutationCompleted.subscribe(() => {
 					refreshes++;
@@ -376,10 +378,16 @@ describe("Effect-native client capabilities", () => {
 									right: { name: "name", type: "parameter" },
 								});
 								const bound = Result.getOrThrow(
-									bindDocument(stampRyotQLDocument("plugin", request.source.document), request, {
-										now: bindingNow,
-										reportingTimeZone: "UTC",
-									}),
+									Result.flatMap(
+										validateAuthoredDocument(
+											stampRyotQLDocument("plugin", request.source.document),
+										),
+										(validated) =>
+											bindDocument(validated, request, {
+												now: bindingNow,
+												reportingTimeZone: "UTC",
+											}),
+									),
 								);
 								expect(bound.document.queries["items"]).toMatchObject({
 									output: { pagination: { limit: 3, after: "cursor" } },
@@ -422,7 +430,7 @@ describe("Effect-native client capabilities", () => {
 						invokeOperation: () =>
 							Effect.sync(() => {
 								calls++;
-								return { greeting: 42 };
+								return { value: { greeting: 42 }, committed: { events: [] } };
 							}),
 					}),
 				);
@@ -476,7 +484,9 @@ describe("Effect-native client capabilities", () => {
 			Effect.gen(function* () {
 				let hints = 0;
 				const client = createRyotClient(
-					createTestRyotAdapter({ invokeOperation: () => Effect.succeed("saved") }),
+					createTestRyotAdapter({
+						invokeOperation: () => Effect.succeed({ value: "saved", committed: { events: [] } }),
+					}),
 				);
 				client.mutationCompleted.subscribe(() => hints++);
 				expect(

@@ -38,6 +38,7 @@ import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
 import { SystemPlugins } from "./system";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
+import { PluginValidationWorker } from "./validation-worker";
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
@@ -110,7 +111,6 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 			{
 				stage: "after",
 				name: "Created",
-				delivery: "async",
 				slug: "dependent.created",
 				scriptSlug: "fixture.automation",
 				targets: [{ entitySchemaSlug, resource: "entity", operation: "create" }],
@@ -475,6 +475,7 @@ const makeLayer = (input?: {
 		}),
 	);
 	return PluginIngestionService.layer.pipe(
+		Layer.provide(PluginValidationWorker.layer),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
 		Layer.provideMerge(Layer.merge(databaseLayer, pluginBackendCompilerPlatformLayer)),
@@ -716,7 +717,6 @@ layer(makeLayer({ initialInstalled: [installedExample] }))((test) => {
 						...fixtureManifest().hooks,
 						{
 							stage: "after",
-							delivery: "async",
 							name: "Item created",
 							slug: "fixture.item-created",
 							scriptSlug: "fixture.automation",
@@ -871,7 +871,7 @@ layer(makeLayer({ initialInstalled: [danglingFormatterPlugin] }))((test) => {
 		() => {
 			return Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
-				const exit = yield* Effect.exit(ingestion.validateActiveSystemPlugins());
+				const exit = yield* Effect.exit(ingestion.validateActiveSystemPlugins(Effect.void));
 
 				assert(Exit.isFailure(exit));
 				const failure = Cause.findErrorOption(exit.cause);
@@ -1314,7 +1314,6 @@ layer(makeLayer())((test) => {
 							{
 								stage: "after",
 								name: "Missing",
-								delivery: "async",
 								scriptSlug: "missing",
 								slug: "fixture.missing",
 								targets: [

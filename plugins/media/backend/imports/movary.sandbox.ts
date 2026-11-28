@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -6,10 +7,11 @@ import { adaptMovaryExports } from "./movary";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.movary",
 	name: "Collect Movary export",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -25,5 +27,5 @@ export default defineScript({
 					ratingsCsv: input.fileIndex === 1 ? text : "title,tmdb_id,user_rating",
 				}),
 			["historyUploadToken", "ratingsUploadToken", "watchlistUploadToken"][input.fileIndex],
-		),
+		).pipe(Effect.map((output) => ({ output }))),
 });

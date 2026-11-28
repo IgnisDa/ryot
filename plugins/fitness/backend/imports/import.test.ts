@@ -143,8 +143,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 					const settingsInput = yield* Schema.decodeUnknownEffect(FitnessSettingsInput)(
 						request.args.input,
 					);
-					const observed = yield* settingsScript.run(settingsInput);
-					value = observed;
+					value = (yield* settingsScript.run(settingsInput)).output;
 				} else {
 					const stageInput = yield* Schema.decodeUnknownEffect(FitnessStageInput)(
 						request.args.input,

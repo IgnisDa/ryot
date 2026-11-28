@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { ChangesConflict, OperationRejected, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -70,7 +70,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
-							return { count: 2, status: "saved" };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -100,7 +100,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							requests.push(request);
-							return { count: 4, status: "saved" };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -140,15 +140,15 @@ it.live(
 				{
 					query: () => entityQuery(),
 					navigate: (mode, target) => navigation.push({ mode, target }),
-					invokeOperation: (request) =>
-						Effect.sync(() => {
-							operations.push(request);
-							return { count: 3, status: "saved" };
-						}),
 					pickEntity: (request) =>
 						Effect.sync(() => {
 							picks.push(request);
 							return { kind: "selected", entityIds: ["target-1"] };
+						}),
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							operations.push(request);
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -218,7 +218,7 @@ it.live.each([
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							operations.push(request);
-							return { count: 0, status: "saved" };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -239,41 +239,70 @@ it.live.each([
 	testTimeout,
 );
 
-it.live(
-	"keeps an actionable merge conflict in the confirmation",
-	() =>
-		Effect.gen(function* () {
-			const message = "Some child data has no unique match. Refresh the media items and try again.";
-			const mounted = mountRyotClient(
-				{
-					query: () => entityQuery(),
-					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
-					invokeOperation: () =>
-						Effect.succeed({
-							status: "rejected",
-							reason: { key: "rejection.user-data.child-mapping-conflict" },
-						}),
-				},
-				<MediaUserDataControl media={summary()} />,
-			);
-			try {
-				clickRyotElement(
-					yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
-				);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(document.body, "alertdialog")).not.toBeNull()),
-				);
-				clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
-				);
-				expect(queryByRole(document.body, "alertdialog")).not.toBeNull();
-			} finally {
-				mounted.unmount();
-			}
+const conflictError = (conflict: ChangesConflict["conflict"]) => new ChangesConflict({ conflict });
+
+for (const [failure, error, message] of [
+	[
+		"a state-conflict conflict",
+		conflictError("state-conflict"),
+		"Your data changed. Refresh this page and try again.",
+	],
+	[
+		"a child-mapping-conflict conflict",
+		conflictError("child-mapping-conflict"),
+		"Some child data has no unique match. Refresh the media items and try again.",
+	],
+	[
+		"an entity-not-found conflict",
+		conflictError("entity-not-found"),
+		"One of these media items no longer exists. Refresh and try again.",
+	],
+	["an entity-stale conflict", conflictError("entity-stale"), "Couldn't finish this change."],
+	[
+		"a refusal with its reason",
+		new OperationRejected({
+			rejection: { namespace: "kernel", key: "error.entity-user-data.identity-mismatch" },
 		}),
-	testTimeout,
-);
+		"These items do not match. Choose a destination with the same identity.",
+	],
+	[
+		"a definite failure without asking for a retry",
+		new RyotClientError({ reason: "operation-failed" }),
+		"Couldn't finish this change.",
+	],
+] as const) {
+	it.live(
+		`keeps the confirmation open and explains ${failure} while merging`,
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountRyotClient(
+					{
+						query: () => entityQuery(),
+						invokeOperation: () => Effect.fail(error),
+						pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
+					},
+					<MediaUserDataControl media={summary()} />,
+				);
+				try {
+					clickRyotElement(
+						yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(queryByRole(document.body, "alertdialog")).not.toBeNull()),
+					);
+					clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
+					yield* Effect.promise(() =>
+						waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
+					);
+					expect(queryByRole(document.body, "alertdialog")).not.toBeNull();
+					expect(getByRole(document.body, "button", { name: "Merge data" })).toBeTruthy();
+				} finally {
+					mounted.unmount();
+				}
+			}),
+		testTimeout,
+	);
+}
 
 it.live(
 	"retries the same immutable operation after a transport failure",
@@ -287,7 +316,7 @@ it.live(
 							requests.push(request);
 							return requests.length === 1
 								? Effect.fail(new RyotClientError({ reason: "transport" }))
-								: Effect.succeed({ count: 1, status: "saved" });
+								: Effect.succeed({ value: {}, committed: { events: [] } });
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -320,8 +349,7 @@ it.live(
 				{
 					invokeOperation: () =>
 						Effect.fail(
-							new RyotClientError({
-								reason: "operation-rejected",
+							new OperationRejected({
 								rejection: { namespace: "kernel", key: "client.demo-protection.unavailable" },
 							}),
 						),

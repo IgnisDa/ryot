@@ -25,8 +25,12 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 
-import { libraryLinkExists } from "../shared/entity-selections";
-import { libraryMembershipJoin } from "../shared/library-summary";
+import { libraryLinkExists, libraryLinkSource } from "../shared/entity-selections";
+import {
+	joinedLibraryLink,
+	librarySummary,
+	storedLibrarySummaryValue,
+} from "../shared/library-summary";
 import {
 	occursAt,
 	podcastEpisodicKindConfig,
@@ -51,17 +55,21 @@ const releaseSchedule = (input: {
 	readonly slug: string;
 	readonly where: Predicate;
 	readonly root: TableReference;
-	readonly from: TableReference;
 	readonly dueAt: ScalarExpression;
+	readonly joins?: readonly Join[];
 	readonly instantAt?: ScalarExpression;
 	readonly occurrence: ScalarExpression;
 	readonly precision: "date" | "instant";
 	readonly confirmedAt?: ScalarExpression;
-	readonly joins?: readonly [Join, ...Join[]];
 	readonly subject: ReturnType<typeof subjectOf>;
 	readonly positions?: Readonly<Record<string, ScalarExpression>>;
 }) => {
 	const positions = Object.entries(input.positions ?? {});
+	const monitored = libraryLinkSource(
+		input.root,
+		`${input.root.alias}Monitoring`,
+		"media-monitoring",
+	);
 	return {
 		dueAt: "dueAt",
 		...(input.instantAt === undefined ? {} : { instantAt: "instantAt" }),
@@ -76,12 +84,9 @@ const releaseSchedule = (input: {
 			...Object.fromEntries(positions.map(([property]) => [property, property])),
 		},
 		query: {
-			from: input.from,
-			...(input.joins ? { joins: input.joins } : {}),
-			where: and(
-				input.where,
-				libraryLinkExists(input.root, `${input.root.alias}Monitoring`, "media-monitoring"),
-			),
+			from: monitored.from,
+			where: and(monitored.where, input.where),
+			joins: [...monitored.joins, ...(input.joins ?? [])],
 			output: {
 				type: "rows",
 				fields: [
@@ -111,9 +116,8 @@ const episodeReleases = (
 	return releaseSchedule({
 		precision: "date",
 		root: source.parent,
-		from: source.query.from,
 		dueAt: source.time.date,
-		joins: source.query.joins,
+		joins: source.parentJoins,
 		instantAt: source.time.instant,
 		...(config.kind === "show"
 			? {
@@ -138,7 +142,6 @@ const episodeReleases = (
 const animeReleases = () => {
 	const source = animeAiringSource();
 	return releaseSchedule({
-		from: source.anime,
 		root: source.anime,
 		where: source.where,
 		precision: "instant",
@@ -155,7 +158,6 @@ const flatReleases = () => {
 	const source = flatReleaseSource();
 	return releaseSchedule({
 		precision: "date",
-		from: source.entity,
 		root: source.entity,
 		where: source.where,
 		slug: "flat-releases",
@@ -165,13 +167,11 @@ const flatReleases = () => {
 	});
 };
 
-const summaryValue = (membership: TableReference, name: string) =>
-	jsonPath(column(membership, "projection"), name);
-
 const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	const entity = table("entity", "entity");
-	const library = libraryMembershipJoin(entity, "staleLibrary");
-	const lastActivityAt = summaryValue(library.membership, "lastActivityAt");
+	const library = libraryLinkSource(entity, "staleLibrary", "in-media-library");
+	const link = joinedLibraryLink(library.link);
+	const summary = librarySummary(link);
 	return {
 		dueAt: "dueAt",
 		delayDays: days,
@@ -183,23 +183,28 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 		subject: subjectOf("entity", builtinMediaEntitySchemaSlugs),
 		properties: { days: "days", entityName: "entityName", lifecycleState: "lifecycleState" },
 		query: {
-			from: entity,
-			joins: [library.join],
+			from: library.from,
+			joins: library.joins,
 			where: and(
+				library.where,
 				schemaOwnerPredicate(entity, "entitySchemaPluginId", self),
 				inArray(
 					column(entity, "entitySchemaSlug"),
 					builtinMediaEntitySchemaSlugs.map((slug) => literal(slug)),
 				),
-				eq(castText(summaryValue(library.membership, "lifecycleState")), literal(state)),
+				eq(summary.lifecycleState, literal(state)),
 			),
 			output: {
 				type: "rows",
 				fields: [
-					field("dueAt", castDate(lastActivityAt)),
+					field("dueAt", summary.lastActivityAt),
 					field(
 						"occurrence",
-						concat(column(entity, "id"), literal(`:${state}:`), castText(lastActivityAt)),
+						concat(
+							column(entity, "id"),
+							literal(`:${state}:`),
+							castText(storedLibrarySummaryValue(link, "lastActivityAt")),
+						),
 					),
 					field("days", literal(days)),
 					field("lifecycleState", literal(state)),
@@ -210,12 +215,15 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	} satisfies PluginSignalSchedule;
 };
 
+/** Due when the title's stored next release arrives. */
 const episodesAvailable = (
 	config: typeof showEpisodicKindConfig | typeof podcastEpisodicKindConfig,
 ) => {
 	const parent = table("entity", config.parentSchemaSlug);
-	const library = libraryMembershipJoin(parent, "availableLibrary");
-
+	const library = libraryLinkSource(parent, "availableLibrary", "in-media-library");
+	const link = joinedLibraryLink(library.link);
+	const summary = librarySummary(link);
+	const stored = (name: "date" | "instant") => storedLibrarySummaryValue(link, "nextRelease", name);
 	return {
 		dueAt: "dueAt",
 		precision: "date",
@@ -226,20 +234,28 @@ const episodesAvailable = (
 		slug: `${config.kind}-episodes-available`,
 		subject: subjectOf(config.parentSchemaSlug, [config.parentSchemaSlug]),
 		query: {
-			from: parent,
-			joins: [library.join],
+			from: library.from,
+			joins: library.joins,
 			where: and(
+				library.where,
 				entitySchemaPredicate(parent, config.parentSchemaSlug, self),
-				eq(castText(summaryValue(library.membership, "lifecycleState")), literal("caught_up")),
+				eq(summary.lifecycleState, literal("caught_up")),
 				not(libraryLinkExists(parent, "availableMonitoring", "media-monitoring")),
 			),
 			output: {
 				type: "rows",
 				fields: [
-					field("dueAt", castDate(summaryValue(library.membership, "nextAiringDate"))),
-					field("instantAt", castDate(summaryValue(library.membership, "nextAiringAt"))),
+					field("dueAt", coalesce(summary.nextRelease.date, summary.nextRelease.instant)),
+					field("instantAt", summary.nextRelease.instant),
 					field("entityName", column(parent, "name")),
-					field("occurrence", castText(summaryValue(library.membership, "nextAiringEpisodeId"))),
+					field(
+						"occurrence",
+						concat(
+							column(parent, "id"),
+							literal(":"),
+							castText(coalesce(stored("instant"), stored("date"))),
+						),
+					),
 				],
 			},
 		},

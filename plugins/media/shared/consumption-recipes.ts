@@ -177,7 +177,7 @@ export const mediaTypeJoin = (entity: Table, alias: string, reference: PluginIde
 			Schema.String,
 		),
 		join: join(
-			"inner",
+			"left",
 			schema,
 			and(
 				eq(column(schema, "slug"), column(entity, "entitySchemaSlug")),

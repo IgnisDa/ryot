@@ -11,13 +11,8 @@ import { execution } from "../../tests/backend/automations/automation-test-utils
 import definition, { manifest } from "./media-copy-write.sandbox";
 
 const pageInfo = { limit: 50, hasMore: false, nextCursor: null };
-const hostFor = (copies: readonly MediaCopyRow[], writes: unknown[]) =>
+const hostFor = (copies: readonly MediaCopyRow[]) =>
 	defineSandboxTestHost(manifest, {
-		changeUserRelationships: (batches) =>
-			Effect.sync(() => {
-				writes.push(...batches);
-				return [{ created: 1, updated: 0, deleted: 0 }];
-			}),
 		executeRyotql: (request) =>
 			Effect.gen(function* () {
 				const { queries } = yield* Schema.decodeEffect(RyotQLDocument)(
@@ -35,94 +30,122 @@ const hostFor = (copies: readonly MediaCopyRow[], writes: unknown[]) =>
 			}),
 	});
 
+const library = { kind: "existing", entityId: "library" };
+const title = { kind: "existing", entityId: "title" };
+
 it.live("adds independently addressable copies of one title", () =>
 	Effect.gen(function* () {
-		const writes: unknown[] = [];
-		const host = hostFor([], writes);
-		expect(
-			yield* runSandboxTestScript(
-				definition,
-				{
-					action: "add",
-					copyId: "disc",
-					entityId: "title",
-					details: { resolution: "2160", format: "uhd-blu-ray" },
-				},
-				host,
-				execution,
-			),
-		).toEqual({ copyId: "manual:disc" });
-		expect(
-			yield* runSandboxTestScript(
-				definition,
-				{
-					action: "add",
-					copyId: "file",
-					entityId: "title",
-					details: { format: "digital", resolution: "1080" },
-				},
-				host,
-				execution,
-			),
-		).toEqual({ copyId: "manual:file" });
-		expect(writes).toMatchObject([
-			{
-				creates: [
-					{ relationshipSchemaSlug: "in-media-library" },
-					{
-						key: "manual:disc",
-						targetEntityId: "title",
-						properties: { resolution: "2160", format: "uhd-blu-ray" },
+		const host = hostFor([]);
+		for (const [copyId, details] of [
+			["disc", { resolution: "2160", format: "uhd-blu-ray" }],
+			["file", { format: "digital", resolution: "1080" }],
+		] as const) {
+			expect(
+				yield* runSandboxTestScript(
+					definition,
+					{ copyId, details, action: "add", entityId: "title" },
+					host,
+					execution,
+				),
+			).toEqual<unknown>({
+				output: { copyId: `manual:${copyId}` },
+				changes: {
+					relationships: {
+						upserts: [
+							{
+								source: title,
+								properties: {},
+								target: library,
+								propertiesMode: "merge",
+								relationshipSchemaSlug: "in-media-library",
+							},
+							{
+								target: title,
+								source: library,
+								key: `manual:${copyId}`,
+								propertiesMode: "replace",
+								relationshipSchemaSlug: "media-copy",
+								properties: { ...details, origin: "manual" },
+							},
+						],
 					},
-				],
-			},
-			{
-				creates: [
-					{ relationshipSchemaSlug: "in-media-library" },
-					{
-						key: "manual:file",
-						targetEntityId: "title",
-						properties: { format: "digital", resolution: "1080" },
-					},
-				],
-			},
-		]);
+				},
+			});
+		}
 	}),
 );
 
 it.live("removes only the selected copy", () =>
 	Effect.gen(function* () {
-		const writes: unknown[] = [];
-		const host = hostFor(
-			[
-				{
-					name: "Title",
-					id: "manual:file",
-					entityId: "title",
-					entitySchemaSlug: "movie",
-					properties: { origin: "manual" },
-				},
-			],
-			writes,
-		);
-		yield* runSandboxTestScript(
-			definition,
-			{ action: "remove", copyId: "manual:file" },
-			host,
-			execution,
-		);
-		expect(writes).toEqual([
+		const host = hostFor([
 			{
-				creates: [],
-				deletes: [
-					{
-						key: "manual:file",
-						targetEntityId: "title",
-						sourceEntityId: "library",
-						relationshipSchemaSlug: "media-copy",
-					},
-				],
+				name: "Title",
+				id: "manual:file",
+				entityId: "title",
+				entitySchemaSlug: "movie",
+				properties: { origin: "manual" },
 			},
 		]);
+		expect(
+			yield* runSandboxTestScript(
+				definition,
+				{ action: "remove", copyId: "manual:file" },
+				host,
+				execution,
+			),
+		).toEqual<unknown>({
+			output: { copyId: "manual:file" },
+			changes: {
+				relationships: {
+					deletes: [
+						{
+							target: title,
+							source: library,
+							key: "manual:file",
+							relationshipSchemaSlug: "media-copy",
+						},
+					],
+				},
+			},
+		});
+	}),
+);
+
+it.live("updates a copy only while it keeps the origin it read", () =>
+	Effect.gen(function* () {
+		const host = hostFor([
+			{
+				name: "Title",
+				id: "import:disc",
+				entityId: "title",
+				entitySchemaSlug: "movie",
+				properties: { format: "dvd", source: "trakt", origin: "import" },
+			},
+		]);
+		expect(
+			yield* runSandboxTestScript(
+				definition,
+				{ action: "update", copyId: "import:disc", details: { format: "blu-ray" } },
+				host,
+				execution,
+			),
+		).toEqual<unknown>({
+			output: { copyId: "import:disc" },
+			changes: {
+				relationships: {
+					upserts: [
+						{
+							target: title,
+							source: library,
+							key: "import:disc",
+							propertiesMode: "replace",
+							relationshipSchemaSlug: "media-copy",
+							expected: { properties: { origin: "import" } },
+							properties: { source: "trakt", origin: "import", format: "blu-ray" },
+						},
+					],
+				},
+			},
+		});
 	}),
 );

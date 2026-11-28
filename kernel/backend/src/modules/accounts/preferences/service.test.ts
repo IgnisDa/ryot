@@ -18,6 +18,8 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { FoldMarks } from "#modules/derived-values/marks";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { UserSettingsService } from "./service";
 
@@ -33,6 +35,7 @@ class FakeAuthSettings extends Context.Service<
 	FakeAuthSettings,
 	{
 		readonly imageUpdates: Effect.Effect<ReadonlyArray<{ image: string; userId: UserId }>>;
+		readonly refreshZones: Effect.Effect<ReadonlyArray<{ userId: UserId; timeZone: TimeZone }>>;
 		readonly preferenceUpdates: Effect.Effect<
 			ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
 		>;
@@ -51,6 +54,9 @@ const serviceLayer = () =>
 						const imageUpdates = yield* Ref.make<ReadonlyArray<{ image: string; userId: UserId }>>(
 							[],
 						);
+						const refreshZones = yield* Ref.make<
+							ReadonlyArray<{ userId: UserId; timeZone: TimeZone }>
+						>([]);
 						return Context.make(
 							AuthService,
 							partialFake<AuthService["Service"]>({
@@ -60,8 +66,16 @@ const serviceLayer = () =>
 									Ref.update(preferenceUpdates, (all) => [...all, { userId, preferences }]),
 							}),
 						).pipe(
+							Context.add(
+								FoldMarks,
+								partialFake<FoldMarks["Service"]>({
+									resolveRefreshes: (userId: UserId, timeZone: TimeZone) =>
+										Ref.update(refreshZones, (all) => [...all, { userId, timeZone }]),
+								}),
+							),
 							Context.add(FakeAuthSettings, {
 								imageUpdates: Ref.get(imageUpdates),
+								refreshZones: Ref.get(refreshZones),
 								preferenceUpdates: Ref.get(preferenceUpdates),
 							}),
 						);
@@ -69,25 +83,25 @@ const serviceLayer = () =>
 				),
 			),
 		),
-		BunCrypto.layerSecureRandom,
+		Layer.merge(BunCrypto.layerSecureRandom, fakeDatabaseSession({})),
 	);
 
 layer(serviceLayer())((test) => {
 	test.effect(
-		"writes an explicit reporting time zone as an ordinary patch",
+		"writes an explicit reporting time zone and resolves the user's fold refresh times in it",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* UserSettingsService;
 				const user = makeUser(defaultUserPreferences);
-				yield* service.updatePreferences(user, {
-					reportingTimeZone: TimeZone.make("Pacific/Auckland"),
-				});
-				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-					{
-						userId: user.id,
-						preferences: { reportingTimeZone: TimeZone.make("Pacific/Auckland") },
-					},
+				const timeZone = TimeZone.make("Pacific/Auckland");
+				yield* service.updatePreferences(user, { reportingTimeZone: timeZone });
+				yield* service.updatePreferences(user, { weekStart: 1 });
+				const settings = yield* FakeAuthSettings;
+				expect(yield* settings.preferenceUpdates).toEqual([
+					{ userId: user.id, preferences: { reportingTimeZone: timeZone } },
+					{ userId: user.id, preferences: { weekStart: 1 } },
 				]);
+				expect(yield* settings.refreshZones).toEqual([{ timeZone, userId: user.id }]);
 			}),
 		testTimeout,
 	);

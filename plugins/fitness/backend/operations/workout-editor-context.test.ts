@@ -23,7 +23,7 @@ it("returns trusted availability and own resolved settings without writing them"
 				{},
 				defineSandboxTestHost(manifest, { getUserSettings: () => Effect.succeed(settings) }),
 			);
-			expect(result).toEqual<unknown>({ settings });
+			expect(result).toEqual<unknown>({ output: { settings } });
 		}),
 	);
 });

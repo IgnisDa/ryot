@@ -103,8 +103,8 @@ const collectionQueriesLayer = Layer.unwrap(
 		const database = {
 			select: (selection: Record<string, unknown>) => ({
 				from: () => ({
-					where: (condition: { getSQL: () => Statement }) => ({
-						limit: () => {
+					where: (condition: { getSQL: () => Statement }) => {
+						const query = () => {
 							const { sql } = dialect.sqlToQuery(condition.getSQL());
 							const columns = Object.keys(selection);
 							let rows: ReadonlyArray<typeof memberEntityRow | typeof pluginCollectionRow> = [
@@ -120,8 +120,9 @@ const collectionQueriesLayer = Layer.unwrap(
 							return Ref.update(entries, (all) => [...all, { sql, columns }]).pipe(
 								Effect.andThen(Effect.succeed(rows)),
 							);
-						},
-					}),
+						};
+						return Object.assign(query(), { limit: query });
+					},
 				}),
 			}),
 		};
@@ -177,8 +178,8 @@ layer(collectionQueriesLayer)((test) => {
 				const repository = yield* CollectionsRepository;
 				const userId = UserId.make("user");
 				expect(
-					yield* repository.findCollectionByNameForUser({ userId, name: "Favorites" }),
-				).toBeNull();
+					yield* repository.findCollectionsByNameForUser({ userId, names: ["Favorites"] }),
+				).toEqual([]);
 				expect(
 					yield* repository.getCollectionById(EntityId.make("plugin-collection"), userId),
 				).toBeNull();
@@ -245,7 +246,7 @@ layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)
 				const repository = yield* CollectionsRepository;
 				const userId = UserId.make("owner");
 				const shelf = EntityId.make("shelf");
-				expect(yield* repository.getOrderRevision(shelf, userId)).toBe(3);
+				expect(yield* repository.getOrderRevision(shelf, userId)).toBe(1);
 				expect(yield* repository.getOrderRevision(EntityId.make("empty"), userId)).toBe(0);
 				expect(yield* repository.getOrderRevision(shelf, UserId.make("recipient"))).toBeNull();
 				expect(
@@ -256,7 +257,7 @@ layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)
 					}),
 				).toEqual<unknown>({ id: "c", properties: { rank: 0, note: "unranked" } });
 				expect(
-					yield* repository.findCollectionByNameForUser({ userId, name: "Shelf" }),
+					(yield* repository.findCollectionsByNameForUser({ userId, names: ["Shelf"] }))[0],
 				).toMatchObject({ id: shelf });
 			}),
 		testTimeout,

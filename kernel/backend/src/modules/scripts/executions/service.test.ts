@@ -10,9 +10,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { jsonByteLength } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
@@ -250,6 +250,31 @@ layer(
 )((test) => {
 	test.effect(
 		"rejects inactive plugin scripts before starting the workflow",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const exit = yield* Effect.exit(
+					service.enqueue(executingUserId, { scriptId, context: {} }, "interactive"),
+				);
+
+				assertExitFails(exit, notFound(kernelMessage("error.scripts.not-found")));
+				expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeServiceLayer({
+		repository: mockRepository({
+			isPluginScript: () => Effect.succeed(false),
+			getScript: () =>
+				Effect.succeed({ ...storedScript, metadata: { kind: "operation", runtimeImports: [] } }),
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"rejects operation scripts, which commit only through the operations service",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* ScriptExecutionService;

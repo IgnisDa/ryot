@@ -85,7 +85,6 @@ describe("background submission bridge contract", () => {
 		const settled = { submissionId: "s-1", type: "background-operation-settled" };
 		for (const outcome of [
 			{ status: "succeeded" },
-			{ status: "incomplete" },
 			{ status: "failed", reason: "transport" },
 			{ status: "failed", reason: "operation-failed" },
 			{ status: "failed", reason: "malformed-result" },

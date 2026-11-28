@@ -43,6 +43,6 @@ test("publishes the input and output schemas used by every operation script", ()
 			(candidate) => candidate.scriptSlug === script.manifest.slug,
 		);
 		expect(operation?.input).toEqual<unknown>(operationJsonSchema(script.input));
-		expect(operation?.output).toEqual<unknown>(operationJsonSchema(script.output));
+		expect(operation?.output).toEqual<unknown>(operationJsonSchema(script.output.fields.output));
 	}
 });

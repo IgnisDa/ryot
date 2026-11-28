@@ -1,10 +1,11 @@
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { SignalChange } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { isPositional } from "../../shared/media-schema-slugs";
-import { refoldLibraryTitles } from "../lib/library-titles";
+import { libraryTitleFolds } from "../lib/library-titles";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -15,7 +16,6 @@ export const manifest = defineManifest({
 	inputProjection: {
 		entity: {
 			parentEntityProperties: ["seasonNumber"],
-			compareProperties: [{ property: "images", equality: "unordered-array" }],
 			properties: [
 				"productionStatus",
 				"publishYear",
@@ -23,6 +23,12 @@ export const manifest = defineManifest({
 				"chapters",
 				"episodeNumber",
 				"publishDate",
+			],
+			compareProperties: [
+				{ property: "images", equality: "unordered-array" },
+				{ equality: "json", property: "airingAt" },
+				{ equality: "json", property: "publishDate" },
+				{ equality: "json", property: "episodeNumber" },
 			],
 		},
 	},
@@ -42,24 +48,33 @@ const parentMediaSlugs = new Set([
 	"visual-novel",
 ]);
 
+/** Episode properties a title's library summary reads; the kernel refolds a title whose own content changes. */
+const summaryProperties = ["airingAt", "publishDate", "episodeNumber"];
+
 const stringValue = (value: JsonValue | undefined) => (typeof value === "string" ? value : null);
 const numberValue = (value: JsonValue | undefined) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) => {
-		return Effect.suspend(() => {
+	run: ({ automation }, host) =>
+		Effect.gen(function* () {
 			const source = automation.payload;
 			if (source.resource !== "entity" || source.operation !== "update") {
-				return Effect.succeed(null);
+				return {};
 			}
-			const refreshSummaries = refoldLibraryTitles(
-				host,
-				new Set([source.population?.scopeEntity.id ?? source.after.id]),
-			);
+			const episode =
+				source.after.entitySchemaSlug === "show-episode" ||
+				source.after.entitySchemaSlug === "podcast-episode";
+			const folds =
+				episode && summaryProperties.some((name) => source.changedProperties.includes(name))
+					? yield* libraryTitleFolds(
+							host,
+							new Set([source.population?.scopeEntity.id ?? source.after.id]),
+						)
+					: {};
 			if (!source.population?.rootPreviouslyPopulated) {
-				return Effect.as(refreshSummaries, null);
+				return { changes: folds };
 			}
 			const population = source.population;
 
@@ -67,15 +82,12 @@ export default defineAutomation({
 			const after = source.after;
 			const scope = population.scopeEntity;
 			const season = getSeasonContext(population.parentEntity);
-			const emissions: Array<ReturnType<typeof host.emitSignal>> = [];
+			const signals: Array<SignalChange> = [];
 			const emit = (
 				schemaSlug: string,
 				discriminator: string,
 				properties: Record<string, JsonValue>,
-			) =>
-				emissions.push(
-					host.emitSignal({ properties, schemaSlug, discriminator, subjectEntityId: scope.id }),
-				);
+			) => signals.push({ properties, schemaSlug, discriminator, subjectEntityId: scope.id });
 
 			if (parentMediaSlugs.has(after.entitySchemaSlug)) {
 				const oldStatus = stringValue(before.properties["productionStatus"]);
@@ -122,11 +134,7 @@ export default defineAutomation({
 				}
 			}
 
-			if (
-				(after.entitySchemaSlug === "show-episode" ||
-					after.entitySchemaSlug === "podcast-episode") &&
-				!isSpecialSeason(season)
-			) {
+			if (episode && !isSpecialSeason(season)) {
 				const episodeNumber =
 					numberValue(after.properties["episodeNumber"]) ??
 					numberValue(before.properties["episodeNumber"]);
@@ -162,10 +170,6 @@ export default defineAutomation({
 				}
 			}
 
-			return Effect.as(
-				Effect.all([refreshSummaries, ...emissions], { concurrency: "unbounded" }),
-				null,
-			);
-		});
-	},
+			return { changes: { ...folds, ...(signals.length > 0 ? { signals } : {}) } };
+		}),
 });

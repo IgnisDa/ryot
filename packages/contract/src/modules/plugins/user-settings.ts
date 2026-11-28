@@ -4,6 +4,8 @@ import { JsonValue } from "../../schema/json";
 import type { AppSchema } from "../../schema/property-schema";
 import { parseAppSchemaProperties } from "../../schema/property-values";
 
+export const PLUGIN_USER_SETTINGS_MAX_BYTES = 64 * 1024;
+
 export const resolvePluginUserSettings = Effect.fn("resolvePluginUserSettings")(function* (
 	settingsSchema: AppSchema<unknown>,
 	values: unknown,

@@ -8,8 +8,17 @@ The entity persistence operation builds change evidence in the source-write tran
 Matching hook plans, dispatch references, and batch evidence commit with the source. Result codecs do not contain universal before/after outcomes.
 Prepared policy inputs still retain the source snapshot needed to detect concurrent changes.
 
-Provider root-write activities retain the entity snapshot and dispatch references.
-Collection preparation projects the entity result to its identifier before journaling it.
+Provider population commits its entities through `commitPopulation`, and each collection write
+commits as one change set; neither journals an entity result.
+
+`EntitiesService` prepares and persists entity writes; every caller commits them through
+`ChangeSets` (see [change sets](../changes/README.md)). Each prepared token lists its policy items
+(`entityPolicyItems`); `matchEntityPolicies` matches a change set's entity policies in batches,
+`ChangeSets` runs them, and `acceptEntityPolicies` turns their decisions into the acceptance each
+persist step applies before it validates the final draft again under the catalog lock. Preparation
+steps take the commit's `WritePreparation` and persist steps its `WriteTransaction`: a writer's pin is
+read once per preparation and reused by the commit while it stays current, and the user's installed
+plugins are read once per preparation and once per transaction.
 
 # Provider ownership
 
@@ -22,7 +31,7 @@ created through the user API.
 # Immutable properties
 
 A top-level entity property marked `immutable` keeps its stored value on user-scope updates:
-`EntitiesService.update` and the entity editor save fail with `immutable-property` when the final,
+a kernel entity update and the entity editor save fail with `immutable-property` when the final,
 post-policy properties change or omit a stored value. The flag comes from the union of the pinned and
 active schema. Provider upserts, including user-scope `updateExisting`, and global writes are unaffected
 because the provider owns that data.
@@ -67,6 +76,14 @@ A delete carries the loaded `updatedAt`; a newer entity returns `stale`. It retu
 entity has any history or any user relationship other than its declared editor links, so children
 must be removed first. Entity deletion re-checks history in its commit transaction and never cascades
 events. A delete carries its own key; an identical retry returns the stored result.
+
+Both actions commit through `ChangeSets.commitOnce` with the editor's idempotency key as the receipt:
+a save sends the entity and its relationship diff (`replace` upserts and deletes) as one change set,
+and a delete sends an entity delete with `preserveHistory` and deletes of its declared links, so their
+relationship hooks run as they do when a save removes a link. The key is recorded in the commit
+transaction, so a retry that races the first commit replays once. The precondition rechecks
+availability and the relationship basis under lock; when it fails nothing is recorded, and a second
+availability check tells `invalid` from `stale`.
 
 # Graph retention
 

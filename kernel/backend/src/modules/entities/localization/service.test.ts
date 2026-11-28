@@ -211,7 +211,13 @@ const makeServiceLayer = (
 								];
 							}
 							if (table === tables.pluginRevision) {
-								return [{ authority: sandboxAuthority, id: principal.pluginRevision.revisionId }];
+								return [
+									{
+										authority: sandboxAuthority,
+										id: principal.pluginRevision.revisionId,
+										activeRevisionId: principal.pluginRevision.revisionId,
+									},
+								];
 							}
 							if (table === tables.pluginInstallation) {
 								return [

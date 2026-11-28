@@ -70,6 +70,7 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"asset-forbidden": kernelMessage("client.plugins.error.asset-forbidden"),
 	"plugin-not-found": kernelMessage("client.plugins.error.plugin-not-found"),
 	"home-view-hidden": kernelMessage("client.plugins.error.home-view-hidden"),
+	"changes-conflict": kernelMessage("client.plugins.error.changes-conflict"),
 	"validation-failed": kernelMessage("client.plugins.error.validation-failed"),
 	"already-installed": kernelMessage("client.plugins.error.already-installed"),
 	"entity-referenced": kernelMessage("client.plugins.error.entity-referenced"),

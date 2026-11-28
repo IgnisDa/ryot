@@ -81,7 +81,7 @@ const workflowEntry = (specifier: string) =>
 		'import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";',
 		`import { label } from "${specifier}";`,
 		'export const manifest = defineManifest({ kind: "workflow", slug: "flow", name: "Flow" });',
-		"export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.String, run: () => Effect.succeed(typeof label) });",
+		"export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.String, run: () => Effect.succeed({ output: typeof label }) });",
 	].join("\n");
 
 const effectModule =

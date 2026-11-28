@@ -12,10 +12,10 @@ import { Effect, Layer } from "effect";
 
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { ChangeSets } from "#modules/changes/service";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import type { ImportItemResult } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -34,7 +34,7 @@ export const ingestionTestScope = {
 export const unusedDataImportServices = Layer.mergeAll(
 	Layer.mock(EntitiesService)({}),
 	Layer.mock(EntitiesRepository)({}),
-	Layer.mock(EventsService)({}),
+	Layer.mock(ChangeSets)({}),
 	Layer.mock(RelationshipsService)({}),
 	Layer.mock(ManagedAssetsService)({}),
 	Layer.mock(LifecycleExecution)({}),

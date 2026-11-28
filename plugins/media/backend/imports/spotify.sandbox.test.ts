@@ -43,7 +43,7 @@ it.live(
 				}
 				let input = mediaStageInput({ itemIndex: file ? 40 : 0 });
 				for (;;) {
-					const result = yield* spotify.run(input);
+					const { output: result } = yield* spotify.run(input);
 					records.push(...(yield* fs.records()));
 					if (result.done) {
 						break;
@@ -70,7 +70,7 @@ it.live(
 			let dedupKey: null | string = null;
 			const events = [];
 			for (;;) {
-				const batch: typeof MediaReadBatchOutput.Type = yield* reader.run({
+				const { output: batch }: { output: typeof MediaReadBatchOutput.Type } = yield* reader.run({
 					offset,
 					dedupKey,
 					itemIndex,

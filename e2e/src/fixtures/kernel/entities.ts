@@ -43,7 +43,7 @@ export const createEntity = (client: Client, body: CreateEntityInput) =>
 
 		requirePresent(result.entity.id, "Failed to create entity");
 
-		return { ...withRecordProperties(result.entity), warnings: result.warnings };
+		return withRecordProperties(result.entity);
 	});
 
 export const getEntity = (client: Client, entityId: string) =>
@@ -224,7 +224,6 @@ export const seedEntity = (
 					c.testSupport.createGlobalEntity({ payload }),
 				);
 		const entity = "entity" in result ? result.entity : result;
-		const warnings = "warnings" in result ? result.warnings : undefined;
 
 		return {
 			id: entity.id,
@@ -234,7 +233,6 @@ export const seedEntity = (
 			externalId: input.externalId,
 			providerId: input.providerId,
 			entitySchemaSlug: entity.entitySchemaSlug,
-			...(warnings !== undefined ? { warnings } : {}),
 		};
 	});
 

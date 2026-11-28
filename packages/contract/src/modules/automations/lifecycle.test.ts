@@ -12,12 +12,12 @@ import {
 	AutomationPolicyInput,
 	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
+	AutomationRequestPayload,
 	AutomationRetryPolicy,
 	AutomationRun,
 	AutomationRunAttempt,
 	AutomationTrigger,
 	AutomationTriggerPayload,
-	AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "./lifecycle";
 
@@ -72,18 +72,15 @@ const drafts = [
 
 describe("lifecycle payload boundaries", () => {
 	it.effect(
-		"records pinned run attribution without permitting delayed policy attempts",
+		"records pinned run attribution",
 		() =>
 			Effect.gen(function* () {
 				const run = {
 					id: "run-1",
-					stage: "before",
 					attemptCount: 1,
 					status: "failed",
 					skipReason: null,
-					retryPolicy: null,
-					hookName: "Policy",
-					delivery: "policy",
+					hookName: "Hook",
 					nextAttemptAt: null,
 					queuedAt: timestamp,
 					pluginId: "plugin-1",
@@ -98,6 +95,7 @@ describe("lifecycle payload boundaries", () => {
 					artifactsExpireAt: timestamp,
 					pluginRevisionId: "revision-1",
 					pluginConfigRevisionId: "config-1",
+					retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 				};
 				expect(yield* Schema.decodeUnknownEffect(AutomationRun)(run)).toEqual<unknown>(run);
 				const kernelOwnership = {
@@ -105,53 +103,43 @@ describe("lifecycle payload boundaries", () => {
 					pluginRevisionId: null,
 					pluginConfigRevisionId: null,
 				};
-				for (const stage of [
-					{},
-					{ stage: "after", delivery: "async", retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY },
-					{ stage: "after", delivery: "required", retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY },
-				]) {
-					for (const sandboxScriptId of ["script-1", null]) {
-						const kernelRun = { ...run, ...stage, ...kernelOwnership, sandboxScriptId };
-						expect(yield* Schema.decodeUnknownEffect(AutomationRun)(kernelRun)).toEqual<unknown>(
-							kernelRun,
-						);
-						if (sandboxScriptId === null) {
-							for (const status of ["queued", "running"]) {
-								yield* Effect.flip(
-									Schema.decodeUnknownEffect(AutomationRun)({ ...kernelRun, status }),
-								);
-							}
+				for (const sandboxScriptId of ["script-1", null]) {
+					const kernelRun = { ...run, ...kernelOwnership, sandboxScriptId };
+					expect(yield* Schema.decodeUnknownEffect(AutomationRun)(kernelRun)).toEqual<unknown>(
+						kernelRun,
+					);
+					if (sandboxScriptId === null) {
+						for (const status of ["queued", "running"]) {
+							yield* Effect.flip(
+								Schema.decodeUnknownEffect(AutomationRun)({ ...kernelRun, status }),
+							);
 						}
 					}
-					for (const pluginId of [null, "plugin-1"]) {
-						for (const pluginRevisionId of [null, "revision-1"]) {
-							for (const pluginConfigRevisionId of [null, "config-1"]) {
-								if (
-									(pluginId === null) === (pluginRevisionId === null) &&
-									(pluginId === null) === (pluginConfigRevisionId === null)
-								) {
-									continue;
-								}
-								yield* Effect.flip(
-									Schema.decodeUnknownEffect(AutomationRun)({
-										...run,
-										...stage,
-										pluginId,
-										pluginRevisionId,
-										pluginConfigRevisionId,
-									}),
-								);
+				}
+				for (const pluginId of [null, "plugin-1"]) {
+					for (const pluginRevisionId of [null, "revision-1"]) {
+						for (const pluginConfigRevisionId of [null, "config-1"]) {
+							if (
+								(pluginId === null) === (pluginRevisionId === null) &&
+								(pluginId === null) === (pluginConfigRevisionId === null)
+							) {
+								continue;
 							}
+							yield* Effect.flip(
+								Schema.decodeUnknownEffect(AutomationRun)({
+									...run,
+									pluginId,
+									pluginRevisionId,
+									pluginConfigRevisionId,
+								}),
+							);
 						}
 					}
 				}
 				for (const change of [
 					{ status: "queued", sandboxScriptId: null },
 					{ status: "running", sandboxScriptId: null },
-					{ retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY },
-					{ nextAttemptAt: timestamp },
-					{ attemptCount: 2 },
-					{ delivery: "required" },
+					{ retryPolicy: null },
 					{ pluginRevisionId: null },
 					{ pluginConfigRevisionId: null },
 				]) {
@@ -160,8 +148,6 @@ describe("lifecycle payload boundaries", () => {
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(AutomationRun)({
 						...run,
-						stage: "after",
-						delivery: "async",
 						sandboxScriptId: null,
 						nextAttemptAt: timestamp,
 						retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
@@ -170,8 +156,6 @@ describe("lifecycle payload boundaries", () => {
 				expect(
 					yield* Schema.decodeUnknownEffect(AutomationRun)({
 						...run,
-						stage: "after",
-						delivery: "async",
 						sandboxScriptId: null,
 						retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 					}),
@@ -290,9 +274,10 @@ describe("lifecycle payload boundaries", () => {
 		"requires the trusted execution principal in policy and after invocations",
 		() =>
 			Effect.gen(function* () {
-				for (const [schema, payload] of [
+				for (const [schema, run, payload] of [
 					[
 						AutomationInput,
+						{ runId: "run-1", triggerId: "trigger-1" },
 						{
 							category: "change",
 							resource: "entity",
@@ -307,6 +292,7 @@ describe("lifecycle payload boundaries", () => {
 					],
 					[
 						AutomationPolicyInput,
+						{},
 						{
 							resource: "entity",
 							category: "request",
@@ -318,13 +304,12 @@ describe("lifecycle payload boundaries", () => {
 					for (const executionUserId of [null, "user-1"]) {
 						const input = {
 							automation: {
+								...run,
 								payload,
 								causation,
-								runId: "run-1",
 								executionUserId,
 								hookSlug: "item.hook",
 								occurredAt: timestamp,
-								triggerId: "trigger-1",
 							},
 						};
 						expect(yield* Schema.decodeUnknownEffect(schema)(input)).toEqual<unknown>(input);
@@ -457,15 +442,16 @@ describe("lifecycle payload boundaries", () => {
 					changedProperties: ["count"],
 					draft: { ...drafts[0]?.draft, properties: { projected: true } },
 				};
+				const { runId: _runId, triggerId: _triggerId, ...policy } = input.automation;
 				expect(
 					yield* Schema.decodeUnknownEffect(AutomationPolicyInput)({
-						automation: { ...input.automation, payload: projectedRequest },
+						automation: { ...policy, payload: projectedRequest },
 					}),
 				).toMatchObject({ automation: { payload: { changedProperties: ["count"] } } });
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(AutomationPolicyInput)({
 						automation: {
-							...input.automation,
+							...policy,
 							payload: { ...projectedRequest, changedProperties: undefined },
 						},
 					}),
@@ -494,10 +480,18 @@ describe("lifecycle payload boundaries", () => {
 			Effect.gen(function* () {
 				const before = { ...draft, id: "record-1", createdAt: timestamp, updatedAt: timestamp };
 				const after = { ...before, properties: { changed: true } };
-				for (const payload of [
+				const requests = [
 					{ draft, resource, category: "request", operation: "create" },
 					{ draft, before, resource, category: "request", operation: "update" },
 					{ resource, draft: before, category: "request", operation: "delete" },
+				];
+				for (const payload of requests) {
+					expect(
+						yield* Schema.decodeUnknownEffect(AutomationRequestPayload)(payload),
+					).toEqual<unknown>(payload);
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+				}
+				for (const payload of [
 					{ after, resource, category: "change", operation: "create" },
 					{ after, before, resource, category: "change", operation: "update" },
 					{ before, resource, category: "change", operation: "delete" },
@@ -510,6 +504,11 @@ describe("lifecycle payload boundaries", () => {
 					{ after, resource, category: "change", operation: "update" },
 					{ after, before, resource, category: "change", operation: "create" },
 					{ after, resource, category: "change", operation: "delete" },
+					{ after, resource, operation: "emit", category: "signal" },
+				]) {
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+				}
+				for (const payload of [
 					{ draft, resource, category: "request", operation: "update" },
 					{
 						resource,
@@ -517,9 +516,8 @@ describe("lifecycle payload boundaries", () => {
 						operation: "create",
 						draft: { ...draft, parentRunId: "untrusted" },
 					},
-					{ after, resource, operation: "emit", category: "signal" },
 				]) {
-					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationTriggerPayload)(payload));
+					yield* Effect.flip(Schema.decodeUnknownEffect(AutomationRequestPayload)(payload));
 				}
 			}),
 		testTimeout,
@@ -731,44 +729,6 @@ describe("lifecycle payload boundaries", () => {
 				]) {
 					yield* Effect.flip(Schema.decodeEffect(AutomationRetryPolicy)(retry));
 				}
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"limits warning disclosure to stable identities",
-		() =>
-			Effect.gen(function* () {
-				const blocked = {
-					hasRequiredHooks: true,
-					triggerId: "trigger-1",
-					code: "automation-limit-reached",
-					omittedHooks: [
-						{ pluginId: null, hookSlug: "automation.notification" },
-						{ pluginId: "plugin-1", hookSlug: "automation.notification" },
-					],
-				};
-				expect(yield* Schema.decodeUnknownEffect(AutomationWarning)(blocked)).toEqual<unknown>(
-					blocked,
-				);
-				const warning = { runId: "run-1", hookSlug: "item.notify", code: "required-hook-failed" };
-				expect(yield* Schema.decodeUnknownEffect(AutomationWarning)(warning)).toEqual<unknown>(
-					warning,
-				);
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(AutomationWarning)({ ...warning, error: "secret" }),
-				);
-				yield* Effect.flip(
-					Schema.decodeEffect(AutomationWarning)({
-						triggerId: "trigger-1",
-						hasRequiredHooks: false,
-						code: "automation-limit-reached",
-						omittedHooks: Array.from({ length: 101 }, () => ({
-							pluginId: "plugin-1",
-							hookSlug: "item.notify",
-						})),
-					}),
-				);
 			}),
 		testTimeout,
 	);

@@ -11,7 +11,6 @@ import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import {
 	decodePluginCatalogs,
 	PLUGIN_ARCHIVE_LIMITS,
-	type PluginArchiveCatalogs,
 	type PluginArchiveCompiledScript,
 	type PluginArchiveError,
 } from "@ryot-app/plugin-archive";
@@ -73,7 +72,7 @@ export const toPluginScriptDescriptor = (
 
 export const pluginContentHash = (
 	manifest: PluginManifest,
-	catalogs: PluginArchiveCatalogs,
+	catalogs: Readonly<Record<string, unknown>>,
 	compiledScripts: ReadonlyArray<PluginArchiveCompiledScript> = [],
 	compiledClient?: PluginClientArtifact,
 ) =>
@@ -140,7 +139,7 @@ export const verifyPluginClientArtifact = (
 };
 
 /** Archive catalogs are untrusted: decode them, reapply the limits, and resolve manifest text. */
-const catalogIssues = (manifest: PluginManifest, catalogs: PluginArchiveCatalogs) => {
+const catalogIssues = (manifest: PluginManifest, catalogs: Readonly<Record<string, unknown>>) => {
 	const decoded = decodePluginCatalogs(catalogs);
 	if (Result.isFailure(decoded)) {
 		return decoded.failure.issues;
@@ -150,10 +149,29 @@ const catalogIssues = (manifest: PluginManifest, catalogs: PluginArchiveCatalogs
 	);
 };
 
-export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
-	source: PluginSource,
+type CheckedPluginSource = {
+	readonly catalogs: Readonly<Record<string, unknown>>;
+	readonly compiledClient?: undefined | PluginClientArtifact;
+	readonly compiledScripts?: undefined | ReadonlyArray<PluginArchiveCompiledScript>;
+};
+
+const pairCompiledScripts = (
+	manifest: PluginManifest,
+	compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>,
+) => {
+	const compiledByEntry = new Map(compiledScripts.map((script) => [script.entry, script]));
+	const scripts = manifest.scripts.flatMap((declared) => {
+		const compiled = compiledByEntry.get(declared.entry);
+		return compiled === undefined ? [] : [{ declared, compiled }];
+	});
+	return { scripts, compiledByEntry };
+};
+
+/** Checks a package's catalogs, compiled scripts and client artifact, and returns its content hash. */
+export const checkPluginSource = Effect.fn("PluginPipeline.checkPluginSource")(function* (
+	manifest: PluginManifest,
+	source: CheckedPluginSource,
 ) {
-	const manifest = yield* decodePluginManifest(source.manifest);
 	const messageIssues = catalogIssues(manifest, source.catalogs);
 	if (messageIssues.length > 0) {
 		return yield* new PluginValidationError({ issues: messageIssues });
@@ -163,11 +181,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	if (source.compiledScripts === undefined) {
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
-	const compiledByEntry = new Map(source.compiledScripts.map((script) => [script.entry, script]));
-	const scripts = manifest.scripts.flatMap((declared) => {
-		const compiled = compiledByEntry.get(declared.entry);
-		return compiled === undefined ? [] : [{ declared, compiled }];
-	});
+	const { scripts, compiledByEntry } = pairCompiledScripts(manifest, source.compiledScripts);
 	if (
 		new Set(manifest.scripts.map(({ entry }) => entry)).size !== manifest.scripts.length ||
 		compiledByEntry.size !== source.compiledScripts.length ||
@@ -269,20 +283,28 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			});
 		}
 	}
-	const contentHash = pluginContentHash(
-		manifest,
-		source.catalogs,
-		source.compiledScripts,
-		compiledClient,
-	);
-	return {
-		scripts,
-		manifest,
-		catalogs: source.catalogs,
-		compiledScripts: source.compiledScripts,
-		...(compiledClient ? { compiledClient } : {}),
-		contentHash,
-	};
+	return pluginContentHash(manifest, source.catalogs, source.compiledScripts, compiledClient);
+});
+
+/** Assembles a source whose manifest decoded and whose checks returned its content hash. */
+export const checkedPluginSource = (
+	manifest: PluginManifest,
+	source: PluginSource,
+	contentHash: string,
+) => ({
+	manifest,
+	contentHash,
+	catalogs: source.catalogs,
+	compiledScripts: source.compiledScripts,
+	scripts: pairCompiledScripts(manifest, source.compiledScripts ?? []).scripts,
+	...(source.compiledClient ? { compiledClient: source.compiledClient } : {}),
+});
+
+export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
+	source: PluginSource,
+) {
+	const manifest = yield* decodePluginManifest(source.manifest);
+	return checkedPluginSource(manifest, source, yield* checkPluginSource(manifest, source));
 });
 
 export const normalizePluginPackage = (

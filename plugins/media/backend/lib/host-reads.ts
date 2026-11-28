@@ -1,4 +1,4 @@
-import type { EventSchemaRecord, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
@@ -18,17 +18,3 @@ export const fetchEntity = (host: Pick<ScriptHost, "executeRyotql">, entityId: s
 				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
 		}),
 	);
-
-export const eventSchemaBySlug = (
-	host: Pick<ScriptHost, "listEventSchemas">,
-	entitySchemaSlug: string,
-	slug: string,
-) =>
-	host
-		.listEventSchemas([entitySchemaSlug])
-		.pipe(
-			Effect.map(
-				(schemas): null | EventSchemaRecord =>
-					schemas.find((schema) => schema.slug === slug) ?? null,
-			),
-		);

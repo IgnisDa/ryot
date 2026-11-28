@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { type ScriptHost, upsertedGlobalEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { rowsResponse } from "@ryot-app/ryotql-recipes/test-utils";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
@@ -11,6 +12,11 @@ import { manifest } from "./shared";
 import translate, { manifest as translateManifest } from "./translate.sandbox";
 import trending, { manifest as trendingManifest } from "./trending.sandbox";
 
+const emptyTrending = rowsResponse("trending", [], {
+	limit: 100,
+	hasMore: false,
+	nextCursor: null,
+});
 type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({
@@ -573,25 +579,12 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
-	it("upserts TMDB trending movies and returns deduplicated entity ids in fetch order", () => {
+	it("returns the TMDB trending movies it fetched, deduplicated in fetch order", () => {
 		const requestedPages: string[] = [];
-		const upserts: Parameters<ScriptHost["upsertGlobalEntities"]>[0][] = [];
 		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => Effect.succeed(emptyTrending),
 			getPluginConfig: ({ required: keys = [] }) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			upsertGlobalEntities: (items) =>
-				Effect.sync(() => {
-					upserts.push(items);
-					return items.map(({ externalId }) =>
-						externalId === "4"
-							? { status: "skipped" as const }
-							: {
-									wasInserted: true,
-									status: "upserted" as const,
-									entityId: externalId === "2" ? "entity-1" : `entity-${externalId}`,
-								},
-					);
-				}),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				expect(requestUrl.pathname).toBe("/3/trending/movie/day");
@@ -614,39 +607,44 @@ describe("movie.tmdb sandbox script", () => {
 			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
-					expect(upserts).toEqual([
-						[
-							{
-								properties: {},
-								externalId: "1",
-								populatedAt: null,
-								name: "First Movie",
-								entitySchemaSlug: "movie",
-							},
-							{
-								properties: {},
-								externalId: "2",
-								populatedAt: null,
-								name: "Second Movie",
-								entitySchemaSlug: "movie",
-							},
-							{
-								properties: {},
-								externalId: "4",
-								populatedAt: null,
-								name: "Third Movie",
-								entitySchemaSlug: "movie",
-							},
-							{
-								properties: {},
-								externalId: "5",
-								populatedAt: null,
-								name: "Fourth Movie",
-								entitySchemaSlug: "movie",
-							},
-						],
+					expect(result.changes?.globalEntities).toEqual([
+						{
+							properties: {},
+							externalId: "1",
+							populatedAt: null,
+							name: "First Movie",
+							entitySchemaSlug: "movie",
+						},
+						{
+							properties: {},
+							externalId: "2",
+							populatedAt: null,
+							name: "Second Movie",
+							entitySchemaSlug: "movie",
+						},
+						{
+							properties: {},
+							externalId: "4",
+							populatedAt: null,
+							name: "Third Movie",
+							entitySchemaSlug: "movie",
+						},
+						{
+							properties: {},
+							externalId: "5",
+							populatedAt: null,
+							name: "Fourth Movie",
+							entitySchemaSlug: "movie",
+						},
 					]);
-					expect(result).toEqual({ status: "fetched", entityIds: ["entity-1", "entity-5"] });
+					expect(result.output).toEqual({ itemCount: 4, status: "fetched" });
+					expect(
+						result.changes?.globalRelationships?.[0]?.relationships.map(({ source }) => source),
+					).toEqual(
+						result.changes?.globalEntities?.map(({ externalId }) =>
+							upsertedGlobalEntity("movie", externalId),
+						),
+					);
 					return undefined;
 				}),
 			),
@@ -668,7 +666,7 @@ describe("movie.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ status: "failed" });
+					expect(result).toEqual({ output: { status: "failed" } });
 					expect(logs).toEqual([
 						[
 							{
@@ -678,31 +676,6 @@ describe("movie.tmdb sandbox script", () => {
 							},
 						],
 					]);
-					return undefined;
-				}),
-			),
-		);
-	});
-
-	it("fails instead of skipping when the trending entity upsert fails", () => {
-		const logs: Parameters<ScriptHost["log"]>[0][] = [];
-		const host = defineSandboxTestHost(manifest, {
-			upsertGlobalEntities: () => Effect.fail({ message: "upsert rejected" }),
-			httpCall: () => httpSuccess({ results: [{ id: 1, title: "First Movie" }] }),
-			log: (entries) =>
-				Effect.sync(() => {
-					logs.push(entries);
-					return null;
-				}),
-			getPluginConfig: ({ required: keys = [] }) =>
-				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-		});
-		return Effect.runPromise(
-			runSandboxTestScript(trending, {}, host, execution).pipe(
-				Effect.flip,
-				Effect.map((error) => {
-					expect(error).toMatchObject({ message: "upsert rejected" });
-					expect(logs).toEqual([]);
 					return undefined;
 				}),
 			),

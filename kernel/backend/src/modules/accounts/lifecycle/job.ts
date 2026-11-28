@@ -15,7 +15,6 @@ import { bootstrapUser } from "#modules/accounts/provisioning/job";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { DatabaseSession } from "#platform/db/session";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { WorkflowAccounts } from "#platform/workflow/account";
@@ -23,11 +22,12 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { interruptExecutionAndWait } from "#platform/workflow/interruption";
 
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 type UserLifecycleJobOperationsValue = {
 	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
+	purgeApiKeyCaches: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
 	recreateResetUser: (operationId: string) => Effect.Effect<UserId, InternalError>;
 	finishResetUser: (operationId: string) => Effect.Effect<UserResetResult, InternalError>;
@@ -58,7 +58,6 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const notifications = yield* WorkflowExecutionNotifications;
 		const admission = yield* AccountAdmission.make;
 		const bootstrap = yield* UserBootstrap;
-		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
 
@@ -68,6 +67,14 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 					(operation): operation is NonNullable<typeof operation> => operation !== null,
 					() => Effect.die("User lifecycle operation was not found"),
 				),
+			);
+
+		const purgeApiKeyCaches = (operationId: string) =>
+			asUnexpected(
+				Effect.flatMap(requireOperation(operationId), ({ operation }) =>
+					auth.purgeUserApiKeyCaches(operation.userId),
+				),
+				"User lifecycle API-key cache purge failed",
 			);
 
 		const begin = (operationId: string) =>
@@ -180,7 +187,6 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 					const accountUserId = yield* admission.currentAccount(userId);
 					yield* bootstrapUser(userId, accountUserId).pipe(
 						Effect.provideService(UserBootstrap, bootstrap),
-						Effect.provideService(PluginBootstrapEntities, bootstrapEntities),
 					);
 				}),
 				"Reset user bootstrap failed",
@@ -215,6 +221,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			complete,
 			cleanupObjects,
 			finishResetUser,
+			purgeApiKeyCaches,
 			recreateResetUser,
 			bootstrapResetUser,
 			deleteDatabaseUser,
@@ -230,7 +237,6 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 ) {
 	yield* Effect.annotateCurrentSpan({ jobId: job.id, operationId: payload.operationId });
 	const operations = yield* UserLifecycleJobOperations;
-	const service = yield* UserLifecycleService;
 	const step = Effect.fnUntraced(function* <A, E>(
 		effect: Effect.Effect<A, E>,
 		code: UserLifecycleOperationFailure["code"],
@@ -246,11 +252,11 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 		return Option.none<A>();
 	});
 
-	const revoked = yield* step(
-		service.ensureAccessRevoked(payload.operationId),
+	const purged = yield* step(
+		operations.purgeApiKeyCaches(payload.operationId),
 		"operation-start-failed",
 	);
-	if (Option.isNone(revoked)) {
+	if (Option.isNone(purged)) {
 		return;
 	}
 	const started = yield* step(operations.begin(payload.operationId), "operation-start-failed");

@@ -4,21 +4,21 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import { AutomationExecutionId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Message, unavailableMessage } from "@ryot-app/i18n/message";
 import {
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { KernelSignals } from "#modules/automations/kernel-signals";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { runDataImportWorkflow } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -179,7 +179,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					source: run.source,
 					sourcePayloadHandle,
 					runId: payload.runId,
-				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)));
+				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(JsonValue)));
 				const result = yield* sandbox
 					.executeWorkflow({
 						input,
@@ -270,20 +270,21 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					}),
 				),
 			});
-			const signals = yield* SignalEmissionService;
-			yield* signals.emitSignal({
-				principal: { kind: "user", userId: payload.userId },
-				properties: { providerName, integrationId: integration.id },
-				reference: {
-					owner: { kind: "kernel" },
-					slug: SignalSchemaSlug.make("integration.disabled"),
-				},
-				command: {
-					...command,
-					writeContext: null,
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-					itemIdentity: stableStringify([command.itemIdentity, "signal", "integration.disabled"]),
-				},
+			yield* makeActivity({
+				success: Schema.Void,
+				error: IntegrationRunError,
+				name: "integration-disabled-signal",
+				execute: Effect.flatMap(KernelSignals.make, (kernelSignals) =>
+					kernelSignals.commit({
+						command,
+						userId: payload.userId,
+						properties: { providerName, integrationId: integration.id },
+						reference: {
+							owner: { kind: "kernel" },
+							slug: SignalSchemaSlug.make("integration.disabled"),
+						},
+					}),
+				).pipe(Effect.mapError(toIntegrationWorkflowError)),
 			});
 		}
 	},

@@ -27,31 +27,26 @@ import {
 	AssistantWorkflowDefinitionsLive,
 } from "#modules/assistant/layer";
 import { AssistantProviderConfiguration } from "#modules/assistant/provider-configuration";
-import { DirectPolicyAttempts } from "#modules/automations/execution";
 import {
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
 	AutomationRunOperationsServiceLive,
 	LifecycleServicesLive,
 	NotificationSubscriptionsServiceLive,
-	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
-import {
-	AutomationRunJobLive,
-	DirectPolicyAttemptsInstalledLive,
-} from "#modules/automations/run-job-live";
+import { AutomationRunJobLive } from "#modules/automations/run-job-live";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
+import { ChangeSetsLive, ScriptChangesLive } from "#modules/changes/layer";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldJobsLive } from "#modules/derived-values/jobs";
-import { FoldExecutorInstalledLive, Folds } from "#modules/derived-values/service";
+import { FoldMarks } from "#modules/derived-values/marks";
+import { Folds } from "#modules/derived-values/service";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import {
 	DeclaredLifecycleWorkProvidedLive,
-	EntitiesServiceMigrationLive,
-	EntitiesServiceRuntimeLive,
 	EntityGraphCollectorLive,
 	PluginBootstrapEntitiesRuntimeLive,
 } from "#modules/entities/layer";
@@ -67,8 +62,7 @@ import {
 	ProviderEntitySearchServiceLive,
 } from "#modules/entities/providers/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
-import { EventMutationsLive, EventsServiceLive } from "#modules/events/layer";
+import { EventMutationsLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
@@ -138,8 +132,8 @@ import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerProvidedLive, PluginCronServiceLive } from "#modules/scheduler/layer";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxReplayJobsLive } from "#modules/scripts/executions/queues";
-import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxWorkflowPinningLive, ScriptExecutionServiceLive } from "#modules/scripts/layer";
@@ -170,7 +164,6 @@ import { FrequentCronJobLive } from "./frequent-cron-job";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import {
-	DirectScriptDispatcherLive,
 	RuntimeSandboxExecutorLive,
 	SandboxDurableHostDispatcherProvidedLive,
 } from "./script-host";
@@ -245,23 +238,9 @@ const SandboxWorkflowDependenciesLive = Layer.mergeAll(
 	),
 );
 
-const DirectScriptExecutorLive = DirectScriptExecutor.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			SandboxWorkflowDependenciesLive,
-			ExecutableArtifacts.layer,
-			DirectScriptDispatcherLive,
-		),
-	),
-);
-
 const AutomationRunOperationsLive = Layer.provide(
 	AutomationRunOperationsServiceLive,
-	Layer.merge(ScriptExecutionServiceLive, DirectScriptExecutorLive),
-);
-
-const FoldExecutorProvidedLive = FoldExecutorInstalledLive.pipe(
-	Layer.provide(DirectScriptExecutorLive),
+	ScriptChangesLive,
 );
 
 const ServicesLive = Layer.mergeAll(
@@ -270,13 +249,12 @@ const ServicesLive = Layer.mergeAll(
 	AssistantSavePageLive,
 	AuthServiceLive,
 	BackupServicesLive,
+	ChangeSetsLive,
 	CollectionsServiceLive,
-	EntitiesServiceRuntimeLive,
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
 	EntityPopulationLive,
-	EventsServiceLive,
 	InstanceAdminServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(
@@ -304,14 +282,12 @@ const ServicesLive = Layer.mergeAll(
 	SignalScheduleWorkerLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
-	SignalEmissionServiceLive,
 	TranslationsServiceLive,
 	UploadServicesLive,
 	ManagedAssetCollectorLive,
 	EntityGraphCollectorLive,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
-	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
 	PagesServiceLive,
 	PageAuthoringServiceLive,
@@ -342,6 +318,11 @@ const ServicesWithTestSupportLive = Layer.merge(
 	Layer.provide(PluginBootstrapEntitiesRuntimeLive),
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
+	Layer.provideMerge(
+		ScriptCalls.layer.pipe(
+			Layer.provide(Layer.merge(ExecutableArtifacts.layer, StagedRuntimeSandboxExecutorLive)),
+		),
+	),
 );
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
@@ -357,7 +338,10 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 			IntegrationsRepository.layer,
 		),
 	),
-	Layer.provide(SandboxWorkflowDefinitionsLive, SandboxWorkflowDependenciesLive),
+	Layer.provide(
+		SandboxWorkflowDefinitionsLive,
+		Layer.merge(SandboxWorkflowDependenciesLive, ScriptChangesLive),
+	),
 ).pipe(Layer.provide(AdmittedWorkflowCatalogueLive));
 
 const RuntimeSchedulersLive = Layer.mergeAll(
@@ -370,7 +354,9 @@ const RuntimeSchedulersLive = Layer.mergeAll(
 const RuntimeJobsLive = JobWorkerLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			FrequentCronJobLive.pipe(Layer.provide(EnrichmentRequests.layer)),
+			FrequentCronJobLive.pipe(
+				Layer.provide(Layer.merge(EnrichmentRequests.layer, FoldMarks.layer)),
+			),
 			NotificationDeliveryJobProvidedLive,
 			UserLifecycleJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			BackupJobsLive,
@@ -415,14 +401,11 @@ const RuntimeLive = Layer.mergeAll(
 		Layer.provide(RuntimeWorkflowDefinitionsLive),
 	),
 	RuntimeSchedulersLive,
-	DirectPolicyAttemptsInstalledLive,
-	FoldExecutorProvidedLive,
 );
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
 	SavedViewsServiceLive,
-	EntitiesServiceMigrationLive,
 ).pipe(Layer.provide(ContentLifecycleRepositoriesLive));
 
 export const SchemaMigrationLive = MigrationsComplete.layer;
@@ -437,7 +420,6 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	IntegrationsRepository.layer,
 ).pipe(
 	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive),
-	Layer.provideMerge(DirectPolicyAttempts.layer),
 	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
 	Layer.provideMerge(WorkflowEngineLive),

@@ -222,7 +222,7 @@ describe("plugin package conflicts", () => {
 			}),
 	);
 	it.live(
-		"revokes fresh host effects from an admitted historical private writer after quarantine",
+		"lets an admitted historical private writer finish and refuses its next run after quarantine",
 		() =>
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
@@ -253,11 +253,12 @@ describe("plugin package conflicts", () => {
 					"Historical writer missing",
 				);
 				const claim = yield* compilePluginPackage(packages.claim);
-				const admitted = yield* enqueueSandboxScript(userId, {
-					lane: "interactive",
+				const run = {
 					scriptId: script.id,
+					lane: "interactive" as const,
 					context: { entityId: bottle.id, gateUrl: upstream.url },
-				});
+				};
+				const admitted = yield* enqueueSandboxScript(userId, run);
 				yield* Deferred.await(entered);
 				const system = yield* installTestSupportSystemPlugin(claim);
 				yield* Effect.addFinalizer(() =>
@@ -270,12 +271,13 @@ describe("plugin package conflicts", () => {
 						.pipe(Effect.ignore),
 				);
 				yield* Deferred.succeed(release, undefined);
-				const result = yield* pollSandboxResult(userId, admitted.jobId);
-				assertCompleted(result, "quarantined historical writer");
-				expect(result.error).toMatchObject({
-					kind: "resource-unavailable",
-					data: { pluginId: a.pluginId, installationId: a.id, code: "package-identity-conflict" },
-				});
+				const finished = yield* pollSandboxResult(userId, admitted.jobId);
+				assertCompleted(finished, "admitted historical writer");
+				expect(finished.error).toBeNull();
+				expect(finished.value).toMatchObject({ scriptId: script.id });
+				const refused = yield* Effect.flip(enqueueSandboxScript(userId, run));
+				assertTaggedError(refused, "TestSupportNotFound");
+				expect(refused.reason).toMatchObject({ code: "resource-not-found" });
 				expect((yield* namespaceInstallation(client, a.pluginId)).contentHash).toBe(
 					a.installation.contentHash,
 				);

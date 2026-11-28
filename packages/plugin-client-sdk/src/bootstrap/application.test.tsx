@@ -104,7 +104,7 @@ const Home = () => {
 					packageId: "test/fixture",
 					inputSchema: Schema.Struct({}),
 				}),
-				(greeting) => Effect.sync(() => setResult(greeting)),
+				(output) => Effect.sync(() => setResult(output)),
 			),
 		);
 	}, [ryot]);
@@ -481,6 +481,7 @@ describe("bootstrapClientPlugin", () => {
 					outcome: "success",
 					type: "operation-result",
 					requestId: "operation-1",
+					committed: { events: [] },
 				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello")),

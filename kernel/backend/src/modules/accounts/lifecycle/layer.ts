@@ -26,5 +26,5 @@ const UserLifecycleJobOperationsProvidedLive = UserLifecycleJobOperationsLive.pi
 );
 
 export const UserLifecycleJobProvidedLive = UserLifecycleJobLive.pipe(
-	Layer.provide(Layer.merge(UserLifecycleJobOperationsProvidedLive, UserLifecycleServiceLive)),
+	Layer.provide(UserLifecycleJobOperationsProvidedLive),
 );

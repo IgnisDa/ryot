@@ -41,6 +41,7 @@ import {
 	include,
 	integer,
 	isNotNull,
+	isNull,
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
@@ -281,6 +282,133 @@ layer(makeServiceLayer())((test) => {
 	);
 
 	test.effect(
+		"reads the values of one correlated first through one lateral, after picking the page",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const latest = (select: Parameters<typeof first>[1]["select"]) =>
+					first(source, {
+						select,
+						orderBy: [descending(column(source, "occurredAt"))],
+						where: eq(column(source, "entityId"), column(subject, "id")),
+					});
+				yield* service.executeForUser("user-1", null, "plugin", {
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								latest: rows(subject, {
+									orderBy: [ascending(column(subject, "name"))],
+									fields: [
+										field("slug", latest(column(source, "eventSchemaSlug"))),
+										field("session", latest(column(source, "sessionEntityId"))),
+										field("sameSession", latest(column(source, "sessionEntityId"))),
+									],
+								}),
+							},
+						},
+					},
+				});
+				const statements = yield* (yield* RecordedStatements).statements;
+				const statement = statements.findLast((value) => value.includes('"ryotqlPage"'));
+				assert(statement);
+				const [page, outer] = statement.split('FROM "ryotqlPage"');
+				assert(page && outer);
+				expect(page).not.toContain("LEFT JOIN LATERAL");
+				expect(outer.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
+				expect(statement.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(statement).toMatch(/("first\d+_0"\."v1") AS "f1v", \1 AS "f2v"/);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"guards laterals read only in a conditional's branch by its condition and renders each read once",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const scope = { where: eq(column(source, "entityId"), column(subject, "id")) };
+				const latest = (select: Parameters<typeof first>[1]["select"]) =>
+					first(source, {
+						select,
+						where: scope.where,
+						orderBy: [descending(column(source, "occurredAt"))],
+					});
+				const named = isNull(column(subject, "name"));
+				const slug = conditional(named, latest(column(source, "eventSchemaSlug")), literal(""));
+				const events = conditional(named, count(source, scope), literal(0));
+				const execute = (
+					query: Omit<Parameters<typeof rows>[1], "orderBy"> & {
+						readonly orderBy?: Parameters<typeof rows>[1]["orderBy"];
+					},
+				) =>
+					Effect.gen(function* () {
+						yield* service.executeForUser("user-1", null, "plugin", {
+							source: {
+								kind: "inline",
+								document: {
+									queries: {
+										branches: rows(subject, {
+											orderBy: [ascending(column(subject, "id"))],
+											...query,
+										}),
+									},
+								},
+							},
+						});
+						const statement = (yield* (yield* RecordedStatements).statements).findLast((value) =>
+							value.includes("CASE"),
+						);
+						assert(statement);
+						return statement;
+					});
+
+				const branched = yield* execute({
+					where: eq(slug, literal("watched")),
+					orderBy: [ascending(slug), descending(events)],
+					fields: [
+						field("slug", slug),
+						field("events", events),
+						field(
+							"session",
+							conditional(named, latest(column(source, "sessionEntityId")), literal("")),
+						),
+						field("unnamed", conditional(named, literal(0), count(source, scope))),
+					],
+				});
+				expect(branched.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(branched.match(/COUNT\(/g)).toHaveLength(1);
+				expect(branched).toMatch(
+					/LEFT JOIN LATERAL \(SELECT [^]* AND \(t0\.name IS NULL\)\s+ORDER BY [^]* LIMIT 1\) "first\d+_0"/,
+				);
+				expect(branched).toMatch(
+					/CROSS JOIN LATERAL \(SELECT COUNT\(\*\)[^]* AND \(\(t0\.name IS NULL\) OR \(NOT \(t0\.name IS NULL\)\)\)\s*\) "aggregate\d+_0"/,
+				);
+
+				const lone = yield* execute({ fields: [field("events", events), field("slug", slug)] });
+				expect(lone).not.toContain("JOIN LATERAL");
+
+				const fused = yield* execute({
+					fields: [
+						field("slug", slug),
+						field("events", events),
+						field("total", count(source, scope)),
+						field("again", latest(column(source, "createdAt"))),
+					],
+				});
+				expect(fused.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
+				expect(fused.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
+				expect(fused).not.toMatch(/IS NULL\)\s+ORDER BY/);
+				expect(fused).toMatch(/THEN "aggregate\d+_0"\."v0"/);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"starts from the date only when a query closes an occursAt range",
 		() =>
 			Effect.gen(function* () {
@@ -330,6 +458,41 @@ layer(makeServiceLayer())((test) => {
 				expect(forced).toBeGreaterThanOrEqual(0);
 				expect(forced).toBeLessThan(query);
 				expect(reset).toBeGreaterThan(query);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"casts canonical date literals directly and checks any other text",
+		() =>
+			Effect.gen(function* () {
+				const entity = table("entity", "entity");
+				const occursAt = column(entity, "occursAt");
+				const service = yield* RyotQLService;
+				yield* service.executeForUser("user-1", null, "plugin", {
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								entities: rows(entity, {
+									fields: [field("id", column(entity, "id"))],
+									where: and(
+										gte(occursAt, castDate(literal("2026-09-01"))),
+										lt(occursAt, castDate(literal("2026-09-08T00:00:00.000Z"))),
+										lt(occursAt, castDate(literal("2026-02-30"))),
+									),
+								}),
+							},
+						},
+					},
+				});
+				const statement = (yield* (yield* RecordedStatements).statements).findLast((value) =>
+					value.includes("occurs_at"),
+				);
+				assert(statement);
+				expect(statement.match(/occurs_at" >= \$\d+::timestamp with time zone/g)).toHaveLength(1);
+				expect(statement.match(/occurs_at" < \$\d+::timestamp with time zone/g)).toHaveLength(1);
+				expect(statement.match(/pg_input_is_valid/g)).toHaveLength(1);
 			}),
 		testTimeout,
 	);

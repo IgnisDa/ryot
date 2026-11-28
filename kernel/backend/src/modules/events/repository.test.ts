@@ -1,9 +1,12 @@
 import { expect } from "bun:test";
 
+import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
+import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
@@ -11,6 +14,7 @@ import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryp
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -291,10 +295,14 @@ layer(
 					eventSchemaName: { key: "test.review", namespace: "kernel" },
 					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z")),
 				};
-				const transactionError = yield* Effect.flip(repository.createEvent(event));
+				const transactionError = yield* Effect.flip(
+					repository.createEvent(new WriteTransaction(), event),
+				);
 				expect(transactionError).toBeInstanceOf(DbError);
 				expect(transactionError.message).toBe("Event writes require an active transaction");
-				expect((yield* session.transaction(repository.createEvent(event))).id).toBe(event.id);
+				expect(
+					(yield* session.transaction(repository.createEvent(new WriteTransaction(), event))).id,
+				).toBe(event.id);
 			}),
 		testTimeout,
 	);
@@ -362,6 +370,95 @@ layer(
 				expect(
 					yield* ids([{ slug: "checkpoint", pluginId: "plugin-id", entitySchemaSlug: "library" }]),
 				).toEqual(["event-checkpoint", "event-other-entity-schema", "event-review"]);
+			}),
+		testTimeout,
+	);
+});
+
+class RecordedQueries extends Context.Service<
+	RecordedQueries,
+	{
+		readonly plans: (
+			matching: (statement: string) => boolean,
+		) => Effect.Effect<ReadonlyArray<string>, unknown>;
+	}
+>()("@ryot-app/kernel-backend/modules/events/repository.test/RecordedQueries") {}
+
+const explainingDatabaseLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const client = yield* PgClient.PgClient;
+		const queries: Array<{ statement: string; params: undefined | ReadonlyArray<unknown> }> = [];
+		const unsafe = (statement: string, params?: ReadonlyArray<unknown>) => {
+			queries.push({ params, statement });
+			return client.unsafe(statement, params);
+		};
+		const session = yield* DatabaseSession.make.pipe(
+			Effect.provideService(PgClient.PgClient, derivedFake(client, { unsafe })),
+		);
+		return Layer.merge(
+			Layer.succeed(DatabaseSession, session),
+			Layer.succeed(RecordedQueries, {
+				plans: (matching) =>
+					Effect.forEach(
+						queries.filter(({ statement }) => matching(statement)),
+						({ params, statement }) =>
+							Effect.map(
+								client.unsafe<{ readonly "QUERY PLAN": string }>(`explain ${statement}`, params),
+								(rows) => rows.map((row) => row["QUERY PLAN"]).join("\n"),
+							),
+					),
+			}),
+		);
+	}),
+);
+
+layer(
+	EventsRepository.layer.pipe(
+		Layer.provideMerge(explainingDatabaseLayer),
+		Layer.provideMerge(isolatedDatabaseLayer("event_source_lookup")),
+	),
+)((test) => {
+	test.effect(
+		"finds mutation sources and their referrers through indexes",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EventsRepository;
+				yield* session.run((db) =>
+					db.execute(sql`
+						insert into "user" (id, name, email) values ('source-user', 'Source owner', 'source@example.test');
+					`),
+				);
+				yield* session.run((db) =>
+					db.execute(sql`
+						insert into entity (id, name, user_id, entity_schema_slug)
+						select 'entity-' || g, 'Entity', 'source-user', 'record' from generate_series(1, 100) g
+					`),
+				);
+				yield* session.run((db) =>
+					db.execute(sql`
+						insert into event (id, user_id, entity_id, event_schema_slug, occurred_at)
+						select 'event-' || g, 'source-user', 'entity-' || (g % 100 + 1), 'review', now()
+						from generate_series(1, 20000) g
+					`),
+				);
+				yield* session.run((db) =>
+					db.execute(sql`
+						insert into event_reference (referencing_event_id, referenced_event_id, property)
+						select 'event-' || g, 'event-' || (g - 1), 'about' from generate_series(2, 20000) g
+					`),
+				);
+				yield* session.run((db) => db.execute(sql`analyze event, event_reference`));
+				yield* session.transaction(
+					repository.lockMutationReferences({ eventIds: [EventId.make("event-500")] }),
+				);
+				const plans = yield* (yield* RecordedQueries).plans((statement) =>
+					statement.includes('"event_reference"'),
+				);
+				expect(plans).toHaveLength(1);
+				expect(plans[0]).not.toContain("Seq Scan");
+				expect(plans[0]).toContain("Index Scan using event_pkey on event");
+				expect(plans[0]).toContain("event_reference_referenced_event_id_idx");
 			}),
 		testTimeout,
 	);

@@ -130,15 +130,15 @@ it.effect(
 					let result: unknown;
 					if (request.kind === "activity") {
 						if (request.args.scriptSlug === "import.control") {
-							result = yield* control.run(
+							result = (yield* control.run(
 								yield* Schema.decodeUnknownEffect(control.input)(request.args.input),
-							);
+							)).output;
 						} else if (request.args.scriptSlug === "integration.spotify") {
 							const input = yield* Schema.decodeUnknownEffect(spotify.input)(request.args.input);
 							if (input.ingestionConfirmation) {
 								confirms++;
 							}
-							const output = yield* runSandboxTestScript(spotify, input, sourceHost, execution);
+							const { output } = yield* runSandboxTestScript(spotify, input, sourceHost, execution);
 							result = { ...output, chunkHandles: materialize(output.chunkFiles) };
 						} else if (request.args.scriptSlug === "import.read-batch") {
 							const input = yield* Schema.decodeUnknownEffect(reader.input)(request.args.input);
@@ -147,7 +147,7 @@ it.effect(
 								assert(bytes);
 								fs.files.set(key, bytes);
 							}
-							const output = yield* reader.run(input);
+							const { output } = yield* reader.run(input);
 							result = { ...output, chunkHandles: materialize(output.chunkFiles) };
 						} else {
 							expect(request.args.scriptSlug).toBe("import.write-chunks");
@@ -161,7 +161,7 @@ it.effect(
 								assert(bytes);
 								fs.files.set(key, bytes);
 							}
-							const output = yield* writer.run(input, writerHost);
+							const { output } = yield* writer.run(input, writerHost);
 							result = { chunkHandles: materialize(output.chunkFiles) };
 						}
 					} else {

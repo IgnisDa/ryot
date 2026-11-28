@@ -176,7 +176,6 @@ describe("PokemonPicker", () => {
 					type: "collection-result",
 					requestId: second.requestId,
 					response: {
-						warnings: [],
 						memberOf: {
 							properties: {},
 							relationshipSchemaPluginId: null,

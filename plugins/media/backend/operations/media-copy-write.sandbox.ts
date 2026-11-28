@@ -1,6 +1,7 @@
+import { existingEntity, expectedRelationshipProperties } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -14,14 +15,15 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { mediaCopyRelationship } from "../../shared/media-copy";
 import { mediaCopiesRecipe } from "../../shared/media-copy-recipes";
 import { MediaCopyWriteInput, MediaCopyWriteOutput } from "../../shared/media-ownership-operations";
 import { mediaOwnableEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
+import { userMediaLibraryRecipe } from "../../shared/user-media-library";
 
 const ownershipTargetsRecipe = (() => {
 	const inputParameters = parameters({
@@ -75,7 +77,7 @@ export default defineOperation({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const copyId = input.action === "add" ? `manual:${input.copyId}` : input.copyId;
-			const [copies, library] = yield* Effect.all([
+			const [copies, libraryEntity] = yield* Effect.all([
 				executeRyotqlRecipe(host.executeRyotql, mediaCopiesRecipe(reference), { copyKey: copyId }),
 				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe(reference), {}),
 			]);
@@ -84,78 +86,73 @@ export default defineOperation({
 			if (input.action === "add") {
 				if (existing) {
 					if (existing.entityId !== input.entityId) {
-						return yield* new OperationRejectedError({
-							reason: catalogMessage("ownership.id-conflict"),
-						});
+						return yield* reject(catalogMessage("ownership.id-conflict"));
 					}
-					return { copyId };
+					return { output: { copyId } };
 				}
 				const entities = yield* executeRyotqlRecipe(host.executeRyotql, ownershipTargetsRecipe, {
 					entityIds: [input.entityId],
 				});
 				if (entities.length === 0) {
-					return yield* new OperationRejectedError({
-						reason: catalogMessage("ownership.title-not-found"),
-					});
+					return yield* reject(catalogMessage("ownership.title-not-found"));
 				}
 			} else if (!existing) {
 				if (input.action === "remove") {
-					return { copyId };
+					return { output: { copyId } };
 				}
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.copy-not-found"),
-				});
+				return yield* reject(catalogMessage("ownership.copy-not-found"));
 			}
 
 			if (existing?.properties.origin === "integration") {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.source-managed"),
-				});
+				return yield* reject(catalogMessage("ownership.source-managed"));
 			}
 			const { source, legacySources, origin = "manual" } = existing?.properties ?? {};
 			const targetEntityId = input.action === "add" ? input.entityId : existing?.entityId;
 			if (targetEntityId === undefined) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("ownership.copy-not-found"),
-				});
+				return yield* reject(catalogMessage("ownership.copy-not-found"));
 			}
+			const library = existingEntity(EntityId.make(libraryEntity.entityId));
 			const identity = {
 				key: copyId,
-				targetEntityId,
-				sourceEntityId: library.entityId,
+				source: library,
 				relationshipSchemaSlug: mediaCopyRelationship,
+				target: existingEntity(EntityId.make(targetEntityId)),
 			};
-			yield* host.changeUserRelationships([
-				{
-					deletes: input.action === "remove" ? [identity] : [],
-					creates:
-						input.action === "remove"
-							? []
-							: [
-									...(input.action === "add"
-										? [
-												{
-													properties: {},
-													sourceEntityId: targetEntityId,
-													propertiesMode: "merge" as const,
-													targetEntityId: library.entityId,
-													relationshipSchemaSlug: "in-media-library",
-												},
-											]
-										: []),
-									{
-										...identity,
-										propertiesMode: "replace",
-										properties: {
-											...input.details,
-											origin,
-											...(source === undefined ? {} : { source }),
-											...(legacySources === undefined ? {} : { legacySources }),
+			if (input.action === "remove") {
+				return { output: { copyId }, changes: { relationships: { deletes: [identity] } } };
+			}
+			return {
+				output: { copyId },
+				changes: {
+					relationships: {
+						upserts: [
+							...(input.action === "add"
+								? [
+										{
+											properties: {},
+											target: library,
+											source: identity.target,
+											propertiesMode: "merge" as const,
+											relationshipSchemaSlug: "in-media-library",
 										},
-									},
-								],
+									]
+								: []),
+							{
+								...identity,
+								propertiesMode: "replace" as const,
+								...(existing === undefined
+									? {}
+									: { expected: expectedRelationshipProperties(existing.properties, ["origin"]) }),
+								properties: {
+									...input.details,
+									origin,
+									...(source === undefined ? {} : { source }),
+									...(legacySources === undefined ? {} : { legacySources }),
+								},
+							},
+						],
+					},
 				},
-			]);
-			return { copyId };
+			};
 		}),
 });

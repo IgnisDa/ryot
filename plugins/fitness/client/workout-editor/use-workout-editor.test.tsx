@@ -16,6 +16,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { screen, waitFor } from "@testing-library/dom";
@@ -138,6 +139,7 @@ it.live(
 						page.send({
 							outcome: "success",
 							type: "operation-result",
+							committed: { events: [] },
 							requestId: request.requestId,
 							value: {
 								settings: {
@@ -297,6 +299,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 		readonly entered: Deferred.Deferred<void>;
 		readonly release: Deferred.Deferred<void>;
 	},
+	saveFailure?: "changes-conflict",
 ) {
 	const pluginId = PluginId.make("fitness");
 	const page = mountPluginPage(SaveProbe, {
@@ -355,15 +358,26 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 						value: request.action === "get" ? stored : null,
 					});
 				} else if (request.type === "operation-request") {
-					page.send({
-						outcome: "success",
-						type: "operation-result",
-						requestId: request.requestId,
-						value:
-							request.operationSlug === workoutEditorSaveOperationSlug
-								? { sets: [], kind: "saved", entityId: "saved-workout" }
-								: { settings: preferenceSettings },
-					});
+					const isSave = request.operationSlug === workoutEditorSaveOperationSlug;
+					if (isSave && saveFailure !== undefined) {
+						page.send({
+							outcome: "failure",
+							reason: saveFailure,
+							conflict: "entity-stale",
+							type: "operation-result",
+							requestId: request.requestId,
+						});
+					} else {
+						page.send({
+							outcome: "success",
+							type: "operation-result",
+							requestId: request.requestId,
+							value: isSave ? {} : { settings: preferenceSettings },
+							committed: isSave
+								? { events: [], entityId: EntityId.make("saved-workout") }
+								: { events: [] },
+						});
+					}
 				} else if (request.type === "device-request") {
 					page.send({
 						outcome: "success",
@@ -491,6 +505,56 @@ it.live(
 						.clientMessages()
 						.filter((request) => request.type === "storage-request" && request.action === "get"),
 				).toHaveLength(1);
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"keeps the draft and clears its submission when the save conflicts",
+	() =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const harness = yield* saveProbeHarness(clock, undefined, "changes-conflict");
+			const { page, respond } = harness;
+			const saveRequests = () =>
+				page
+					.clientMessages()
+					.filter(
+						(request) =>
+							request.type === "operation-request" &&
+							request.operationSlug === workoutEditorSaveOperationSlug,
+					);
+			try {
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						respond();
+						expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
+					}),
+				);
+				for (const attempt of [1, 2]) {
+					act(() => screen.getByRole("button", { name: "Save First" }).click());
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(saveRequests()).toHaveLength(attempt);
+							expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
+						}),
+					);
+				}
+				const stored = decodeWorkoutEditorDraft(harness.stored);
+				expect(stored._tag).toBe("Success");
+				if (stored._tag === "Success") {
+					expect(stored.success.submission).toBeUndefined();
+				}
+				expect(
+					page
+						.clientMessages()
+						.filter((request) => request.type === "storage-request" && request.action === "remove"),
+				).toEqual([]);
 			} finally {
 				disposePluginBridges();
 				yield* Effect.promise(() => clock.dispose());

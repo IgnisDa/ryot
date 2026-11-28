@@ -169,6 +169,7 @@ const openPage = (answers: Answers = {}, search = "") => {
 				page.send({
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: request.requestId,
 					value: { settings: preferenceSettings },
 				});

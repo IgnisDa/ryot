@@ -6,7 +6,7 @@ import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/l
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 
-import { bindDocument } from "./binding";
+import { bindAuthored } from "./fixture.test-support";
 import {
 	add,
 	aggregate,
@@ -47,7 +47,7 @@ import {
 
 const bound = (authored: RyotQLDocument) =>
 	Result.getOrThrow(
-		bindDocument(authored, {}, { reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") }),
+		bindAuthored(authored, {}, { reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") }),
 	).document;
 
 const selfReference: PluginIdentityReference = { kind: "self" };

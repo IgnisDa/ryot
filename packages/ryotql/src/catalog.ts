@@ -5,17 +5,19 @@ export type RyotQLAudience = "kernel" | "plugin";
 
 export type CatalogFieldKind = "date" | "json" | "text" | "number" | "boolean";
 
-export type CatalogField = {
-	readonly nullable: boolean;
-	readonly demoReadable?: false;
-	readonly kind: CatalogFieldKind;
-	readonly access?: "admin" | "kernel";
-};
-
 export type RyotQLAccess =
 	| { readonly type: "admin" }
 	| { readonly type: "plugin" }
 	| { readonly type: "user"; readonly audience: RyotQLAudience; readonly accessClass: AccessClass };
+
+export type CatalogField = {
+	readonly nullable: boolean;
+	readonly demoReadable?: false;
+	readonly kind: CatalogFieldKind;
+	/** The value reads global rows of every schema, so no query bounds which ones it depends on. */
+	readonly readsEverySchema?: true;
+	readonly access?: "admin" | "kernel";
+};
 
 export type CatalogTable<Field extends CatalogField = CatalogField> = {
 	readonly visibility: CatalogVisibility;
@@ -24,6 +26,12 @@ export type CatalogTable<Field extends CatalogField = CatalogField> = {
 	readonly materializedInIncludes?: true;
 	readonly fields: Readonly<Record<string, Field>>;
 	readonly primaryKey: readonly [string, ...string[]];
+	/**
+	 * Writes to the table's rows record a data change, which decides when a signal schedule is
+	 * evaluated again. `globalSchemaField` names the field holding a global row's schema; a table
+	 * without one holds no global rows.
+	 */
+	readonly dataChanges?: { readonly globalSchemaField?: string };
 };
 
 type CatalogVisibility = {
@@ -456,6 +464,7 @@ export const catalogTables = {
 	},
 	relationship: {
 		primaryKey: ["id"],
+		dataChanges: { globalSchemaField: "relationshipSchemaSlug" },
 		visibility: { admin: true, plugin: true, user: { pluginReadable: true } },
 		fields: {
 			key: { kind: "text", nullable: true },
@@ -473,6 +482,7 @@ export const catalogTables = {
 		},
 	},
 	event: {
+		dataChanges: {},
 		primaryKey: ["id"],
 		visibility: { plugin: true, user: { pluginReadable: true } },
 		fields: {
@@ -604,29 +614,6 @@ export const catalogTables = {
 			originalSchedule: { kind: "json", nullable: true },
 		},
 	},
-	entity: {
-		primaryKey: ["id"],
-		visibility: { plugin: true, user: { pluginReadable: true } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			name: { kind: "text", nullable: false },
-			userId: { kind: "text", nullable: true },
-			occursAt: { kind: "date", nullable: true },
-			externalId: { kind: "text", nullable: true },
-			providerId: { kind: "text", nullable: true },
-			createdAt: { kind: "date", nullable: false },
-			updatedAt: { kind: "date", nullable: false },
-			properties: { kind: "json", nullable: false },
-			populatedAt: { kind: "date", nullable: true },
-			populationStatus: { kind: "json", nullable: false },
-			entitySchemaSlug: { kind: "text", nullable: false },
-			providerCheckedAt: { kind: "date", nullable: true },
-			translationStatus: { kind: "json", nullable: false },
-			entitySchemaPluginId: { kind: "text", nullable: true },
-			relatedPopulationStatus: { kind: "json", nullable: false },
-			collectionOrderRevision: { kind: "number", nullable: false },
-		},
-	},
 	page: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },
@@ -698,6 +685,30 @@ export const catalogTables = {
 			pluginInstallationId: { kind: "text", nullable: true },
 		},
 	},
+	entity: {
+		primaryKey: ["id"],
+		dataChanges: { globalSchemaField: "entitySchemaSlug" },
+		visibility: { plugin: true, user: { pluginReadable: true } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: false },
+			userId: { kind: "text", nullable: true },
+			occursAt: { kind: "date", nullable: true },
+			externalId: { kind: "text", nullable: true },
+			providerId: { kind: "text", nullable: true },
+			createdAt: { kind: "date", nullable: false },
+			updatedAt: { kind: "date", nullable: false },
+			properties: { kind: "json", nullable: false },
+			populatedAt: { kind: "date", nullable: true },
+			populationStatus: { kind: "json", nullable: false },
+			entitySchemaSlug: { kind: "text", nullable: false },
+			providerCheckedAt: { kind: "date", nullable: true },
+			translationStatus: { kind: "json", nullable: false },
+			entitySchemaPluginId: { kind: "text", nullable: true },
+			collectionOrderRevision: { kind: "number", nullable: false },
+			relatedPopulationStatus: { kind: "json", nullable: false, readsEverySchema: true },
+		},
+	},
 	plugin: {
 		primaryKey: ["id"],
 		visibility: { admin: true, user: { pluginReadable: true } },
@@ -726,6 +737,22 @@ export const catalogTables = {
 } as const satisfies Readonly<Record<string, CatalogTable>>;
 
 export type CatalogTableName = keyof typeof catalogTables;
+
+/** The tables whose writes record a data change. */
+export const dataChangeTables: ReadonlySet<string> = new Set(
+	Object.entries<CatalogTable>(catalogTables).flatMap(([name, table]) =>
+		table.dataChanges === undefined ? [] : [name],
+	),
+);
+
+/** The fields whose values read global rows of every schema. */
+export const everySchemaFields: ReadonlySet<string> = new Set(
+	Object.values<CatalogTable>(catalogTables).flatMap((table) =>
+		Object.entries(table.fields).flatMap(([name, field]) =>
+			field.readsEverySchema === true ? [name] : [],
+		),
+	),
+);
 
 export const jsonElementsTable = {
 	visibility: {},

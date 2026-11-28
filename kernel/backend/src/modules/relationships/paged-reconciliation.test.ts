@@ -9,15 +9,16 @@ import { Effect, Ref } from "effect";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,
 	command,
 	relationshipDatabaseLayer,
-	relationshipsServiceWith,
 	sourceEntityId,
 } from "./lifecycle.test-support";
+import { RelationshipsService } from "./service";
 
 const t1 = EntityId.make("paged-t1");
 const t2 = EntityId.make("paged-t2");
@@ -26,16 +27,17 @@ const t4 = EntityId.make("paged-t4");
 const targetIds = [t1, t2, t3, t4];
 
 type Paging =
-	| { readonly kind: "page"; readonly preserveExisting: boolean }
+	| { readonly kind: "page"; readonly preserveExisting?: true }
 	| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 
-const page: Paging = { kind: "page", preserveExisting: false };
+const page: Paging = { kind: "page" };
 
 const group = (
 	relationships: ReadonlyArray<{ rank: number; target: EntityId | undefined }>,
-	paging: Paging,
+	{ preserveExisting, ...paging }: Paging & { readonly preserveExisting?: true },
 ) => ({
 	paging,
+	...(preserveExisting ? { preserveExisting } : {}),
 	relationshipSchema: baseInput.relationshipSchema,
 	selector: {
 		type: "anchored" as const,
@@ -63,13 +65,14 @@ const setup = (scope: string) =>
 					])
 				: Effect.void;
 		};
-		const service = yield* relationshipsServiceWith({
-			planner: {
+		const service = yield* RelationshipsService.make.pipe(
+			Effect.provideService(LifecyclePlanner, {
 				...planner,
 				plan: (input) => planner.plan(input).pipe(Effect.tap(() => record(input))),
-				planChange: (input) => planner.planChange(input).pipe(Effect.tap(() => record(input))),
-			},
-		});
+				planChange: (input, transaction) =>
+					planner.planChange(input, transaction).pipe(Effect.tap(() => record(input))),
+			}),
+		);
 		yield* session.run((db) =>
 			db
 				.insert(tables.entity)
@@ -91,6 +94,7 @@ const setup = (scope: string) =>
 		) =>
 			session.transaction(
 				service.persistPlannedReconciliation(
+					new WriteTransaction(),
 					[group(relationships, paging)],
 					command(`${scope}:${identity}`),
 					{ scope: "global" },

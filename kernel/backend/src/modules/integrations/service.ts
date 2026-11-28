@@ -8,6 +8,7 @@ import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestio
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import {
 	type CreateIntegrationBody,
+	INTEGRATION_LIMITS,
 	type IntegrationExtraSettings,
 	IntegrationNotFoundError,
 	type IntegrationProvider,
@@ -54,6 +55,7 @@ import { IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationSyncRun } from "./jobs";
 import { type IntegrationRecord, IntegrationsRepository } from "./repository";
+import { isIntegrationSettingsTooLarge } from "./settings-schema";
 import { IntegrationSyncJob } from "./sync-job";
 
 const defaultExtraSettings = {
@@ -86,6 +88,20 @@ const validateRegisteredSettings = (
 				Effect.asVoid,
 			)
 		: new IntegrationRequestError({ reason: { provider, code: "provider-not-found" } });
+
+const requireSettingsWithinLimit = (
+	integration: Parameters<typeof isIntegrationSettingsTooLarge>[0],
+) =>
+	isIntegrationSettingsTooLarge(integration)
+		? Effect.fail(
+				new IntegrationRequestError({
+					reason: {
+						code: "integration-settings-too-large",
+						maxBytes: INTEGRATION_LIMITS.settingsBytes,
+					},
+				}),
+			)
+		: Effect.void;
 
 type UpdateIntegrationInput = UpdateIntegrationBody & {
 	readonly lastFinishedAt?: Date | null | undefined;
@@ -209,6 +225,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								}),
 						),
 					);
+					yield* requireSettingsWithinLimit({
+						providerSpecifics: {},
+						name: body.name ?? null,
+						provider: dataJsonSource,
+					});
 					return yield* transaction(
 						repository.createForUser({
 							lot: "sink",
@@ -231,6 +252,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 				yield* validateRegisteredSettings(body.provider.slug, registered, body.providerSpecifics);
+				yield* requireSettingsWithinLimit({
+					name: body.name ?? null,
+					provider: body.provider.slug,
+					providerSpecifics: body.providerSpecifics,
+				});
 				yield* entitlements.require(registered.entitlement);
 				const lot = registered.lot;
 
@@ -321,6 +347,12 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 					providerSpecifics = merged;
 				}
+
+				yield* requireSettingsWithinLimit({
+					provider: existing.provider,
+					name: body.name ?? existing.name,
+					providerSpecifics: providerSpecifics ?? existing.providerSpecifics,
+				});
 
 				if (body.minimumProgress !== undefined || body.maximumProgress !== undefined) {
 					const minimumProgress = body.minimumProgress ?? existing.minimumProgress;

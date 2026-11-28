@@ -23,10 +23,11 @@ import {
 	pluginExportSpecifier,
 } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
-import { Effect, Result } from "effect";
+import { Effect, Result, type Tracer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
@@ -224,6 +225,50 @@ const withClient = (
 describe("revision-backed runtime resolution", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
+			"loads and decodes each revision's sections once and the client section only for listings",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const original = operationPackage("v1");
+					const installed = yield* installRevisionPackage(original, owner);
+					const spans: Tracer.Span[] = [];
+					const tracer = Effect.withTracer(makeRecordingTracer(spans));
+					const loads = () => ({
+						client: spans.filter(({ name }) => name === "PluginRuntimeResolver.loadClientSection")
+							.length,
+						executable: spans.filter(
+							({ name }) => name === "PluginRuntimeResolver.loadExecutableSections",
+						).length,
+					});
+					for (let call = 0; call < 3; call++) {
+						const plugin = yield* runtime
+							.findPluginAvailableToUser(owner, installed.pluginId)
+							.pipe(tracer);
+						expect(plugin?.manifest.operations.length).toBe(1);
+						expect(yield* runtime.listOperationsAvailableToUser(owner).pipe(tracer)).toHaveLength(
+							1,
+						);
+					}
+					expect(loads()).toEqual({ client: 0, executable: 1 });
+					for (let call = 0; call < 3; call++) {
+						const [listed] = yield* runtime.listPluginsAvailableToUser(owner, true).pipe(tracer);
+						expect(listed?.manifest.metadata.name).toEqual(original.manifest.metadata.name);
+					}
+					expect(loads()).toEqual({ client: 1, executable: 1 });
+					const upgraded = yield* installRevisionPackage(
+						operationPackage("v2", original.manifest.metadata.packageId),
+						owner,
+					);
+					expect(upgraded.pluginId).toBe(installed.pluginId);
+					yield* runtime.listPluginsAvailableToUser(owner, true).pipe(tracer);
+					yield* runtime.listPluginsAvailableToUser(owner, true).pipe(tracer);
+					expect(loads()).toEqual({ client: 2, executable: 2 });
+				}),
+			testTimeout,
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
 			"selects same-name providers and operations by owner without system preference",
 			() =>
 				Effect.gen(function* () {
@@ -256,17 +301,6 @@ describe("revision-backed runtime resolution", () => {
 							owner: { kind: "kernel" },
 						}),
 					).toBeNull();
-					expect(
-						(yield* runtime.listSchemaProviders({
-							userId: owner,
-							entitySchemas: [
-								{
-									slug: EntitySchemaSlug.make("whiskey-entity"),
-									owner: definitionOwner(privatePlugin.pluginId),
-								},
-							],
-						})).map(({ provider }) => provider.pluginId),
-					).toEqual([privatePlugin.pluginId]);
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
 							providerId: ownProvider.id,
@@ -332,12 +366,16 @@ describe("revision-backed runtime resolution", () => {
 						(yield* runtime.resolveUserDetailsScript(owner, fixtureProvider.provider.id))
 							.pluginRevisionId,
 					).toBe(installed.revisionId);
+					const fixtureReference = {
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					};
 					expect(
-						(yield* runtime.listSchemaProviders({ userId: owner })).map(
-							({ provider }) => provider.id,
-						),
-					).toEqual([fixtureProvider.provider.id]);
-					expect(yield* runtime.listSchemaProviders({ userId: other })).toEqual([]);
+						(yield* runtime.findProviderAvailableToUserByReference(owner, fixtureReference))?.id,
+					).toBe(fixtureProvider.provider.id);
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(other, fixtureReference),
+					).toBeNull();
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
 							providerId: fixtureProvider.provider.id,
@@ -435,7 +473,12 @@ describe("revision-backed runtime resolution", () => {
 						id: installed.installation.id,
 						health: "needs-configuration",
 					});
-					expect(yield* runtime.listSchemaProviders({ userId: owner })).toEqual([]);
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(owner, {
+							slug: "fixture-provider",
+							owner: definitionOwner(installed.pluginId),
+						}),
+					).toBeNull();
 					yield* installations.remove(installed.installation.id);
 					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
 				}),
@@ -530,7 +573,6 @@ describe("revision-backed runtime resolution", () => {
 					const first = yield* installRevisionPackage(original, owner);
 					const captured = yield* runtime.findPluginAvailableToUser(owner, first.pluginId);
 					assert(captured);
-					expect(captured.clientImports).toEqual([]);
 					const oldScript = yield* runtime.findWorkflowScriptInAvailablePlugin(
 						captured,
 						"notes-flow",
@@ -980,7 +1022,10 @@ describe("catalog reads across revision boundaries", () => {
 					const installed = yield* installRevisionPackage(
 						withClient(original, client, [firstImport], { target: reference }),
 					);
-					const captured = yield* runtime.findPluginAvailableToUser(owner, installed.pluginId);
+					const listed = Effect.map(runtime.listPluginsAvailableToUser(owner, true), (plugins) =>
+						plugins.find(({ id }) => id === installed.pluginId),
+					);
+					const captured = yield* listed;
 					assert(captured);
 					expect(captured.clientImports).toEqual([firstImport]);
 					const next = revisionPackage(
@@ -992,9 +1037,7 @@ describe("catalog reads across revision boundaries", () => {
 					yield* installRevisionPackage(
 						withClient(next, client, [secondImport], { target: reference }),
 					);
-					expect(
-						(yield* runtime.findPluginAvailableToUser(owner, installed.pluginId))?.clientImports,
-					).toEqual([secondImport]);
+					expect((yield* listed)?.clientImports).toEqual([secondImport]);
 					expect(captured.clientImports).toEqual([firstImport]);
 				}),
 			testTimeout,

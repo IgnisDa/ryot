@@ -9,8 +9,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
-import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
-import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
+import { postMigrationStatements } from "#platform/db/post-migration";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -133,30 +132,31 @@ describe("immutable plugin revisions", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(revisionPackage("reinstall"), owner);
-					for (const statement of [
-						...immutableRevisionStatements,
-						...entityOccursAtStatements,
-						...immutableRevisionStatements,
-						...entityOccursAtStatements,
-					]) {
+					for (const statement of [...postMigrationStatements, ...postMigrationStatements]) {
 						yield* session.run((db) => db.execute(sql.raw(statement)));
 					}
 					const triggers = yield* session.run((db) =>
-						db.execute<{ readonly name: string }>(
+						db.execute<{ readonly name: string; readonly tables: number }>(
 							sql`
-						select t.tgname as name from pg_trigger t
+						select t.tgname as name, count(*)::int as tables from pg_trigger t
 						join pg_class c on c.oid = t.tgrelid
 						where c.relnamespace = current_schema()::regnamespace and not t.tgisinternal
+						group by t.tgname
 						order by t.tgname
 					`,
 							"objects",
 						),
 					);
-					expect(triggers.map(({ name }) => name)).toEqual([
-						"collection_order_changed",
-						"ryot_entity_occurs_at",
-						"ryot_entity_occurs_at_revision",
-						"ryot_plugin_revision_immutable",
+					expect(triggers).toEqual([
+						{ tables: 1, name: "collection_order_delete" },
+						{ tables: 1, name: "collection_order_insert" },
+						{ tables: 1, name: "collection_order_update" },
+						{ tables: 8, name: "ryot_data_change_delete" },
+						{ tables: 8, name: "ryot_data_change_insert" },
+						{ tables: 8, name: "ryot_data_change_update" },
+						{ tables: 1, name: "ryot_entity_occurs_at" },
+						{ tables: 1, name: "ryot_entity_occurs_at_revision" },
+						{ tables: 1, name: "ryot_plugin_revision_immutable" },
 					]);
 					const updated = yield* Effect.result(
 						session.run((db) =>

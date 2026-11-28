@@ -1,3 +1,4 @@
+import { AutomationInput } from "@ryot-app/contract/modules/automations/lifecycle";
 import { catalogRegistry, type CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { format } from "@ryot-app/i18n/format";
 import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
@@ -37,26 +38,53 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 	return host;
 }
 
-/** The host of an automation, plus the notification messages it sends. */
-export const recordNotifications = (
-	manifest: Extract<SandboxManifest, { readonly automationType: "automation" }>,
-) => {
-	const messages: LocalMessage[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		sendNotification: (message) => {
-			messages.push(message);
-			return Effect.succeed(null);
-		},
-	});
-	return { host, messages };
-};
-
 /** Renders a plugin's messages from its English catalog, as delivery does for English recipients. */
 export const englishRenderer = (catalog: CompiledCatalog) => {
 	const registry = catalogRegistry([{ catalog, namespace: "plugin", locale: SOURCE_LOCALE }]);
 	return (message: LocalMessage): string =>
 		format(registry, SOURCE_LOCALE, stampNamespace("plugin", message));
 };
+
+/**
+ * The input a signal emission hands an automation: `signalSchemaSlug` emitted with `properties`,
+ * by `actorUserId` for `executionUserId` (both `user-1` unless given).
+ */
+export const signalAutomationInput = (signal: {
+	readonly hookSlug?: string;
+	readonly actorUserId?: string;
+	readonly signalSchemaSlug: string;
+	readonly executionUserId?: null | string;
+	readonly signalSchemaPluginId?: null | string;
+	readonly properties: Readonly<Record<string, unknown>>;
+}) =>
+	Schema.decodeUnknownEffect(AutomationInput)({
+		automation: {
+			runId: "run-1",
+			triggerId: "trigger-1",
+			occurredAt: "2026-09-15T00:00:00.000Z",
+			hookSlug: signal.hookSlug ?? "test.notification",
+			executionUserId: signal.executionUserId === undefined ? "user-1" : signal.executionUserId,
+			causation: {
+				depth: 0,
+				source: "api",
+				parentRunId: null,
+				lane: "background",
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: signal.actorUserId ?? "user-1" },
+			},
+			payload: {
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				properties: signal.properties,
+				signalSchemaSlug: signal.signalSchemaSlug,
+				actorUserId: signal.actorUserId ?? "user-1",
+				signalSchemaPluginId: signal.signalSchemaPluginId ?? null,
+			},
+		},
+	}).pipe(Effect.orDie);
 
 export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): WorkflowReplayHost => ({
 	replayJournal: () =>

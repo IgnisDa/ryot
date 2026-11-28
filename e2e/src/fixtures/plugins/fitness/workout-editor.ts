@@ -14,7 +14,11 @@ import {
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
-import { invokeOperation, type RecipeInput } from "~/fixtures/kernel/operations";
+import {
+	invokeCommittingOperation,
+	invokeOperation,
+	type RecipeInput,
+} from "~/fixtures/kernel/operations";
 import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema, fitnessRecipes } from "./exercises";
@@ -25,11 +29,45 @@ export const workoutEditorTimes = {
 	setOccurredAt: "2026-10-01T10:15:00.000Z",
 };
 
+/**
+ * Saves `input`, returning the commit receipt and, for a workout, the saved set event matched to each
+ * input set at its exercise and set position. Templates store their sets as properties, not events.
+ */
 export const saveWorkoutEditor = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorSaveRecipe>,
 ) =>
-	invokeOperation(client, workoutEditorSaveRecipe, input, { idempotencyKey: input.submissionId });
+	Effect.gen(function* () {
+		const { committed } = yield* invokeCommittingOperation(client, workoutEditorSaveRecipe, input, {
+			idempotencyKey: input.submissionId,
+		});
+		const entityId = requirePresent(committed.entityId, "Expected the saved workout ID");
+		if (input.data.kind === "template") {
+			return { entityId, sets: [], committed };
+		}
+		const stored = yield* fitnessRecipes.collect(
+			client,
+			workoutEditorSetsRecipe({ reference: yield* workoutReference(client) }),
+			{ workoutId: entityId },
+			"sets",
+		);
+		return {
+			entityId,
+			committed,
+			sets: input.data.occurrences.flatMap(({ sets }, exerciseOrder) =>
+				sets.map(({ clientId }, setOrder) => ({
+					clientId,
+					eventId: requirePresent(
+						stored.find(
+							({ properties }) =>
+								properties.exerciseOrder === exerciseOrder && properties.setOrder === setOrder,
+						),
+						`Expected a saved set for input set ${clientId}`,
+					).id,
+				})),
+			),
+		};
+	});
 
 export const loadWorkoutEditorContext = (client: Client) =>
 	invokeOperation(client, workoutEditorContextRecipe, {});

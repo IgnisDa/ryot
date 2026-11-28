@@ -3,6 +3,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run dev.ts",
+		"test": "bun ./test.ts",
 		"build": "bun run tooling/build.ts",
 		"assemble": "bun run tooling/assemble.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix",
@@ -32,6 +33,8 @@
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
 		"dotenv": "18.0.9"
 	}

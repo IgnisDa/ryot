@@ -104,7 +104,7 @@ it.live(
 			const records: MediaSourceRecord[] = [];
 			let calls = 0;
 			for (;;) {
-				const result = yield* imdb.run(input);
+				const { output: result } = yield* imdb.run(input);
 				calls++;
 				records.push(...(yield* fs.records()));
 				if (result.done) {
@@ -201,7 +201,9 @@ it.live(
 					}),
 				),
 			});
-			const result = yield* anilist.run(mediaStageInput({ settings: { timezone: "UTC" } }));
+			const { output: result } = yield* anilist.run(
+				mediaStageInput({ settings: { timezone: "UTC" } }),
+			);
 			expect(result.done).toBe(true);
 			const raw = (yield* fs.records()).sort(compareMediaRecords);
 			fs.files.set("records", encoder.encode(yield* serializeMediaRecords(raw)));
@@ -213,7 +215,7 @@ it.live(
 				}),
 			);
 			fs.files.set("records", fs.scratch.get("records.jsonl") ?? new Uint8Array());
-			const prepared = yield* reader.run({
+			const { output: prepared } = yield* reader.run({
 				offset: 0,
 				itemIndex: 0,
 				dedupKey: null,

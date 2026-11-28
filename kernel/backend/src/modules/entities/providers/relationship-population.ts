@@ -1,4 +1,4 @@
-import { mapDbErrorToSandbox, SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -18,15 +18,17 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
-import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
+import type { GlobalEntityReference } from "#modules/changes/changes";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 
 import { makeProviderExecutionReads } from "./execution-reads";
-import { persistPlannedRelationshipPage } from "./relationship-synchronization";
+import {
+	commitRelatedPopulation,
+	populationCommand,
+	type PopulationOwner,
+	upsertedEntity,
+} from "./population";
 
 type RelatedGroupPaging = { pageIndex: number; generation: string; groupIndex: number };
 
@@ -53,9 +55,9 @@ const findRelationshipSchema = (
 		definitions.relationshipSchemas[definitionKey("relationship", definitionOwner(pluginId), slug)];
 	return definition
 		? Effect.succeed({
-				pluginId: definition.pluginId ?? null,
 				propertiesSchema: definition.propertiesSchema,
 				id: RelationshipSchemaSlug.make(definition.slug),
+				owner: definitionOwner(definition.pluginId ?? null),
 				sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug
 					? EntitySchemaSlug.make(definition.sourceEntitySchemaSlug)
 					: null,
@@ -71,100 +73,74 @@ const findRelationshipSchema = (
 			);
 };
 
-const populationBatch = (population: AutomationPopulationContext, id: string) => ({
-	...population,
-	batch: {
-		id,
-		afterCount: 0,
-		beforeCount: 0,
-		isLeader: true,
-		createdCount: 0,
-		deletedCount: 0,
-		updatedCount: 0,
-	},
-});
+/** The relationship from or to the primary entity, by the group's direction. */
+const oriented = (
+	direction: "incoming" | "outgoing",
+	primary: GlobalEntityReference,
+	related: GlobalEntityReference,
+) =>
+	direction === "outgoing"
+		? { source: primary, target: related }
+		: { source: related, target: primary };
 
-export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (
-	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
-		generation: string;
-		groupIndex: number;
-		pluginId: PluginId;
-		primaryEntityId: EntityId;
-		kept: ReadonlySet<EntityId>;
-		command: DomainLifecycleCommand;
-		population: AutomationPopulationContext;
-		definitions: EntityRelationshipDefinitions;
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">;
-	},
-) {
-	const session = yield* DatabaseSession;
-	const entitiesRepository = yield* EntitiesRepository;
+/** Deletes the authoritative group's relationships whose other end no page kept. */
+export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (input: {
+	generation: string;
+	groupIndex: number;
+	pluginId: PluginId;
+	userId: null | UserId;
+	owner: PopulationOwner;
+	primaryEntityId: EntityId;
+	kept: ReadonlySet<EntityId>;
+	command: DomainLifecycleCommand;
+	population: AutomationPopulationContext;
+	definitions: EntityRelationshipDefinitions;
+	group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">;
+}) {
 	const relationshipSchema = yield* findRelationshipSchema(
 		input.definitions,
 		input.pluginId,
 		input.group.relationshipSchemaSlug,
 	);
-	const scope =
-		input.scope === "user"
-			? ({ scope: "user", userId: input.userId } as const)
-			: ({ scope: "global" } as const);
-	const itemIdentity = pagedItemIdentity(input.primaryEntityId, input.group, input, "sweep");
-	return yield* retryOnDeadlock(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* input.beforeWrite ?? Effect.void;
-				if (
-					!(yield* entitiesRepository.holdsRelatedPopulationGeneration(
-						input.primaryEntityId,
-						input.generation,
-					))
-				) {
-					return { result: [], dispatch: [], superseded: true };
-				}
-				const work = yield* persistPlannedRelationshipPage({
-					...scope,
-					entries: [],
-					direction: input.group.direction,
-					anchorEntityId: input.primaryEntityId,
-					paging: { kind: "sweep", kept: input.kept },
-					relationshipSchemaSlug: relationshipSchema.id,
-					relationshipSchemaPluginId: relationshipSchema.pluginId,
-					command: {
-						...populationLifecycleCommand(
-							input.command,
-							itemIdentity,
-							populationBatch(
-								input.population,
-								stableStringify([input.command.causation.executionId, ...itemIdentity]),
-							),
-						),
-						writeContext: input.command.writeContext,
-					},
-				});
-				return { superseded: false, result: work.result, dispatch: work.dispatch };
-			}),
+	const primary = { kind: "existing" as const, entityId: input.primaryEntityId };
+	const swept = yield* commitRelatedPopulation({
+		owner: input.owner,
+		generation: { generation: input.generation, entityId: input.primaryEntityId },
+		command: populationCommand(
+			input.command,
+			pagedItemIdentity(input.primaryEntityId, input.group, input, "sweep"),
+			input.population,
 		),
-	).pipe(mapDbErrorToSandbox);
+		changes: {
+			userId: input.userId,
+			globalRelationships: [
+				{
+					relationships: [],
+					paging: { kind: "sweep", kept: input.kept },
+					selector: { anchor: primary, type: "anchored", direction: input.group.direction },
+					relationshipSchema: { slug: relationshipSchema.id, owner: relationshipSchema.owner },
+				},
+			],
+		},
+	});
+	return { superseded: swept === null };
 });
 
-export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
-	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
-		pluginId: PluginId;
-		primaryEntityId: EntityId;
-		paging: RelatedGroupPaging;
-		command: DomainLifecycleCommand;
-		population: AutomationPopulationContext;
-		primaryEntitySchemaSlug: EntitySchemaSlug;
-		definitions: EntityRelationshipDefinitions;
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		group: Omit<ProviderDetailsRelatedEntityGroup, "coverage">;
-	},
-) {
+/** Upserts one page of a related group's entities and their relationships to the primary entity. */
+export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
+	pluginId: PluginId;
+	userId: null | UserId;
+	owner: PopulationOwner;
+	primaryEntityId: EntityId;
+	paging: RelatedGroupPaging;
+	command: DomainLifecycleCommand;
+	population: AutomationPopulationContext;
+	primaryEntitySchemaSlug: EntitySchemaSlug;
+	definitions: EntityRelationshipDefinitions;
+	group: Omit<ProviderDetailsRelatedEntityGroup, "coverage">;
+}) {
 	const session = yield* DatabaseSession;
 	const reads = makeProviderExecutionReads(session);
-	const entities = yield* EntitiesService;
-	const entitiesRepository = yield* EntitiesRepository;
 	const relationshipSchema = yield* findRelationshipSchema(
 		input.definitions,
 		input.pluginId,
@@ -173,13 +149,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
-			stableStringify([
-				input.scope,
-				input.scope === "user" ? input.userId : null,
-				input.pluginId,
-				relatedEntity.providerSlug,
-				relatedEntity.externalId,
-			]),
+			stableStringify([relatedEntity.providerSlug, relatedEntity.externalId]),
 			relatedEntity,
 		);
 	}
@@ -262,106 +232,57 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		resolvedRelatedEntities.push({ properties, relatedEntity, schemaProvider });
 	}
 
-	const scope =
-		input.scope === "user"
-			? ({ scope: "user", userId: input.userId } as const)
-			: ({ scope: "global" } as const);
-	const paging = input.paging;
 	const itemIdentity = pagedItemIdentity(
 		input.primaryEntityId,
 		input.group,
-		paging,
-		`page:${paging.pageIndex}`,
+		input.paging,
+		`page:${input.paging.pageIndex}`,
 	);
-	const committed = yield* retryOnDeadlock(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* input.beforeWrite ?? Effect.void;
-				if (
-					!(yield* entitiesRepository.holdsRelatedPopulationGeneration(
-						input.primaryEntityId,
-						paging.generation,
-					))
-				) {
-					return {
-						result: [],
-						superseded: true,
-						entityDispatch: [],
-						relatedEntityIds: [],
-						relationshipDispatch: [],
-					};
-				}
-				const upserts = yield* entities.persistPlannedProviderUpserts({
-					batch: {
-						identity: [...itemIdentity, "entities"],
-						command: { ...input.command, population: input.population },
-					},
-					items: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
-						...scope,
-						populatedAt: null,
-						updateExisting: false,
-						name: relatedEntity.name,
-						externalId: relatedEntity.externalId,
-						providerId: schemaProvider.providerId,
-						properties: relatedEntity.properties ?? {},
-						entitySchema: {
-							slug: schemaProvider.entitySchemaSlug,
-							owner: definitionOwner(input.pluginId),
-						},
-						lifecycle: {
-							...populationLifecycleCommand(
-								input.command,
-								[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
-								input.population,
-							),
-							writeContext: input.command.writeContext,
-						},
-					})),
-				});
-				const entityDispatch = upserts.dispatch;
-				const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-				for (const [index, { properties }] of resolvedRelatedEntities.entries()) {
-					const result = upserts.results[index];
-					if (!result) {
-						return yield* Effect.die("Planned related entity upsert is missing its result");
-					}
-					entries.push({ properties, entityId: result.entity.id });
-				}
-				const relationshipCommand = {
-					...populationLifecycleCommand(
-						input.command,
-						itemIdentity,
-						populationBatch(
-							input.population,
-							stableStringify([input.command.causation.executionId, ...itemIdentity]),
-						),
+	const relatedIdentity = ({ externalId, providerSlug }: ProviderDetailsRelatedEntity) =>
+		stableStringify([input.command.itemIdentity, ...itemIdentity, providerSlug, externalId]);
+	const owner = definitionOwner(input.pluginId);
+	const primary = { kind: "existing" as const, entityId: input.primaryEntityId };
+	const result = yield* commitRelatedPopulation({
+		owner: input.owner,
+		command: populationCommand(input.command, itemIdentity, input.population),
+		generation: { entityId: input.primaryEntityId, generation: input.paging.generation },
+		changes: {
+			userId: input.userId,
+			globalEntities: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
+				populatedAt: null,
+				name: relatedEntity.name,
+				externalId: relatedEntity.externalId,
+				properties: relatedEntity.properties ?? {},
+				itemIdentity: relatedIdentity(relatedEntity),
+				entitySchema: { owner, slug: schemaProvider.entitySchemaSlug },
+				provider: { updateExisting: false, providerId: schemaProvider.providerId },
+			})),
+			globalRelationships: [
+				{
+					paging: { kind: "page" },
+					selector: { anchor: primary, type: "anchored", direction: input.group.direction },
+					relationshipSchema: { slug: relationshipSchema.id, owner: relationshipSchema.owner },
+					...(input.group.synchronization === "additive" ? { preserveExisting: true } : {}),
+					relationships: resolvedRelatedEntities.map(
+						({ properties, relatedEntity, schemaProvider }) => ({
+							properties,
+							...oriented(input.group.direction, primary, {
+								kind: "upserted",
+								externalId: relatedEntity.externalId,
+								providerId: schemaProvider.providerId,
+								entitySchema: { owner, slug: schemaProvider.entitySchemaSlug },
+							}),
+						}),
 					),
-					writeContext: input.command.writeContext,
-				};
-				const relationshipWork = yield* persistPlannedRelationshipPage({
-					...scope,
-					entries,
-					command: relationshipCommand,
-					direction: input.group.direction,
-					anchorEntityId: input.primaryEntityId,
-					relationshipSchemaSlug: relationshipSchema.id,
-					relationshipSchemaPluginId: relationshipSchema.pluginId,
-					paging: { kind: "page", preserveExisting: input.group.synchronization === "additive" },
-				});
-				return {
-					entityDispatch,
-					superseded: false,
-					result: relationshipWork.result,
-					relationshipDispatch: relationshipWork.dispatch,
-					relatedEntityIds: entries.map(({ entityId }) => entityId),
-				};
-			}),
-		),
-	).pipe(mapDbErrorToSandbox);
-	return {
-		result: committed.result,
-		superseded: committed.superseded,
-		relatedEntityIds: committed.relatedEntityIds,
-		dispatch: [...committed.entityDispatch, ...committed.relationshipDispatch],
-	};
+				},
+			],
+		},
+	});
+	if (result === null) {
+		return { superseded: true, relatedEntityIds: [] };
+	}
+	const related = yield* Effect.forEach(resolvedRelatedEntities, ({ relatedEntity }) =>
+		upsertedEntity(result, relatedIdentity(relatedEntity)),
+	);
+	return { superseded: false, relatedEntityIds: related.map(({ id }) => id) };
 });

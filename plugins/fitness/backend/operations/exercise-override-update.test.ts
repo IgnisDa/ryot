@@ -7,14 +7,8 @@ import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { ExerciseOverrideUpdateInputSchema } from "../../shared/workout-editor-context-operations";
 import definition, { manifest } from "./exercise-override-update.sandbox";
 
-const makeHost = (missing?: "exercise" | "membership") => {
-	const writes: unknown[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		changeUserRelationships: (batch) =>
-			Effect.sync(() => {
-				writes.push(batch);
-				return [{ created: 1, deleted: 0 }];
-			}),
+const makeHost = (missing?: "exercise" | "membership") =>
+	defineSandboxTestHost(manifest, {
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
@@ -56,34 +50,31 @@ const makeHost = (missing?: "exercise" | "membership") => {
 				),
 			}),
 	});
-	return { host, writes };
-};
 
 it("merges only supplied nullable overrides into the existing membership", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			const { host, writes } = makeHost();
+			const host = makeHost();
 			const input = yield* Schema.decodeEffect(ExerciseOverrideUpdateInputSchema)({
 				exerciseId: "exercise-1",
 				overrides: { dropRestTime: 0, normalRestTime: null },
 			});
-			expect(yield* definition.run(input, host)).toEqual({ kind: "saved" });
-			expect(writes).toEqual([
-				[
-					{
-						deletes: [],
-						creates: [
+			expect(yield* definition.run(input, host)).toEqual<unknown>({
+				output: {},
+				changes: {
+					relationships: {
+						upserts: [
 							{
 								propertiesMode: "merge",
-								targetEntityId: "library-1",
-								sourceEntityId: "exercise-1",
 								relationshipSchemaSlug: "in-fitness-library",
+								target: { kind: "existing", entityId: "library-1" },
+								source: { kind: "existing", entityId: "exercise-1" },
 								properties: { dropRestTime: 0, normalRestTime: null },
 							},
 						],
 					},
-				],
-			]);
+				},
+			});
 		}),
 	));
 
@@ -92,13 +83,15 @@ it.each(["exercise", "membership"] as const)(
 	(missing) =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const { host, writes } = makeHost(missing);
+				const host = makeHost(missing);
 				const input = yield* Schema.decodeEffect(ExerciseOverrideUpdateInputSchema)({
 					exerciseId: "exercise-1",
 					overrides: { normalRestTime: 0 },
 				});
-				expect(yield* definition.run(input, host)).toEqual({ kind: "missing-exercise" });
-				expect(writes).toEqual([]);
+				expect(yield* Effect.flip(definition.run(input, host))).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.exercise-override.missing-exercise" },
+				});
 			}),
 		),
 );

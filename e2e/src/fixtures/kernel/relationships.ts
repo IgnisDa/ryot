@@ -19,7 +19,7 @@ export const createRelationship = (client: Client, body: CreateRelationshipBody)
 			c.relationships.create({ payload: body }),
 		);
 		const relationship = requirePresent(result.relationship, "Failed to create relationship");
-		return { ...relationship, warnings: result.warnings };
+		return relationship;
 	});
 
 export const insertRelationshipRow = (

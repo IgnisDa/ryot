@@ -178,6 +178,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			const protections = new WeakMap<
 				SandboxAdmissionLease["Service"],
 				{
+					readonly key: ProcessKey;
 					readonly lane: ExecutionLane;
 					readonly protection: Protection;
 					readonly principal: SandboxPrincipal;
@@ -885,15 +886,13 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}),
 						)
 					: reservation;
-				protections.set(lease, { lane, principal, protection });
+				protections.set(lease, { key, lane, principal, protection });
 				return lease;
 			});
 
 			const run = Effect.fn("SandboxSidecarSupervisor.run")(function* <A>(
 				options: SandboxSidecarRun<A>,
 			) {
-				const key = yield* locate(options.principal);
-				const entry = yield* getInstance(key);
 				const protectedLease = protections.get(options.lease);
 				if (
 					protectedLease === undefined ||
@@ -905,6 +904,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						message: "Sandbox admission does not match its principal",
 					});
 				}
+				const key = protectedLease.key;
+				const entry = yield* getInstance(key);
 				const logical: LogicalRun = { cancelled: false, handle: undefined, ticket: undefined };
 				const recovery = {
 					instance: key.instance,

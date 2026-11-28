@@ -13,12 +13,12 @@ export const runIntegrationTestScript = <
 >(
 	script: {
 		readonly input: Input;
-		readonly output: Schema.ConstraintDecoder<SandboxScratchManifest>;
+		readonly output: Schema.ConstraintDecoder<{ readonly output: SandboxScratchManifest }>;
 		readonly run: (
 			input: Input["Type"],
 			host: Host,
 			execution: ExecutionMetadata,
-		) => Effect.Effect<SandboxScratchManifest, Failure>;
+		) => Effect.Effect<{ readonly output: SandboxScratchManifest }, Failure>;
 	},
 	input: Schema.Codec.Encoded<Input>,
 	host: NoInfer<Host>,
@@ -29,7 +29,7 @@ export const runIntegrationTestScript = <
 		const records: MediaSourceRecord[] = [];
 		let value: unknown = input;
 		for (;;) {
-			const output = yield* script
+			const { output } = yield* script
 				.run(yield* Schema.decodeUnknownEffect(script.input)(value), host, execution)
 				.pipe(Effect.flatMap(Schema.decodeUnknownEffect(script.output)));
 			records.push(...(yield* fs.records()));

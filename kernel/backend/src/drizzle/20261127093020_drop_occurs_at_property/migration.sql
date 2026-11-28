@@ -1,1 +1,0 @@
-ALTER TABLE "definition_entity_schema" DROP COLUMN "occurs_at_property";

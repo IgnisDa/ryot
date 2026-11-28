@@ -80,6 +80,15 @@ const authoredManifest = definePlugin({
 			information: { source: "Test source", canonicalLanguage: "en" },
 		},
 	],
+	hooks: [
+		{
+			stage: "after",
+			slug: "test.notify",
+			name: "Test notification",
+			scriptSlug: "automation.test",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
+		},
+	],
 	signalSchemas: [
 		{
 			slug: "test.signal",
@@ -88,16 +97,6 @@ const authoredManifest = definePlugin({
 			name: { key: "test.test-signal" },
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "test.notify",
-		},
-	],
-	hooks: [
-		{
-			stage: "after",
-			delivery: "async",
-			slug: "test.notify",
-			name: "Test notification",
-			scriptSlug: "automation.test",
-			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
 		},
 	],
 	configSchema: {
@@ -198,6 +197,7 @@ const scripts = [
 	{
 		kind: "automation",
 		runtimeImports: [],
+		capabilities: ["log"],
 		name: "Test automation",
 		slug: "automation.test",
 		oauthConnectionFields: [],
@@ -205,7 +205,6 @@ const scripts = [
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
 		optionalPluginConfigKeys: [],
-		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
 		inputProjection: {
 			signal: { properties: [] },
@@ -436,7 +435,6 @@ describe("definePlugin", () => {
 						...manifest.hooks,
 						{
 							stage: "after",
-							delivery: "async",
 							slug: "collection.review",
 							name: "Review collection",
 							scriptSlug: "automation.test",
@@ -451,7 +449,6 @@ describe("definePlugin", () => {
 						},
 						...(["radarr", "sonarr"] as const).map((provider) => ({
 							stage: "after",
-							delivery: "async",
 							slug: `${provider}.push`,
 							name: `Push to ${provider}`,
 							scriptSlug: "automation.test",

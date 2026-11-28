@@ -8,15 +8,12 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
-	entitySchemaProvider,
-	entitySchemaRecord,
 	eventAutomationContext,
-	hostFailure,
 	hostSuccess,
 	httpFailure,
 	httpSuccess,
+	integrationPushRyotql,
 	integrationRecord,
-	ryotqlRows,
 	toRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./sonarr-push.sandbox";
@@ -24,12 +21,7 @@ import definition, { manifest } from "./sonarr-push.sandbox";
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type SonarrHost = Pick<
 	ScriptHost,
-	| "log"
-	| "httpCall"
-	| "executeRyotql"
-	| "getEntitySchemas"
-	| "listIntegrations"
-	| "getUserPreferences"
+	"log" | "httpCall" | "executeRyotql" | "listIntegrations" | "getUserPreferences"
 >;
 
 const showEntity = entityRecord({
@@ -52,13 +44,7 @@ const sonarrIntegration = integrationRecord({
 	},
 });
 
-const schema = entitySchemaRecord({
-	id: "es-show",
-	providers: [
-		entitySchemaProvider("show.tmdb", "script-show-tmdb"),
-		entitySchemaProvider("show.tvdb", "script-show-tvdb"),
-	],
-});
+const providerSlugs = { "script-show-tmdb": "show.tmdb", "script-show-tvdb": "show.tvdb" };
 
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
@@ -98,13 +84,14 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntitySchemas: () => hostSuccess([schema]),
 		log: options.log ?? (() => Effect.succeed(null)),
-		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		executeRyotql: integrationPushRyotql(options.entity, providerSlugs),
 		getUserPreferences: () => hostSuccess({ disableIntegrations: false }),
-		executeRyotql: () => {
-			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
-		},
+		listIntegrations: () =>
+			hostSuccess({
+				items: options.integrations ?? [],
+				pageInfo: { hasMore: false, nextCursor: null },
+			}),
 	});
 
 describe("sonarr-push sandbox script", () => {
@@ -175,7 +162,7 @@ describe("sonarr-push sandbox script", () => {
 					httpCall: () => httpFailure("already exists"),
 				});
 				const result = yield* runAutomation(host, { entityId: "show-1", entitySchemaSlug: "show" });
-				expect(result).toBeNull();
+				expect(result).toEqual({});
 				expect(warnings).toEqual([
 					[
 						{

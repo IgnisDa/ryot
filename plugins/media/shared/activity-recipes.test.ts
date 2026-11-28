@@ -26,6 +26,11 @@ describe("media activity recipe", () => {
 		expect(JSON.stringify(queries)).not.toContain("projectionStatus");
 	});
 
+	it("joins media type labels without letting them filter or drive the event scan", () => {
+		const { queries } = bindRecipe(mediaActivityRecipe({ kind: "self" }), {}).document;
+		expect(queries["mediaTypes"]?.joins?.map(({ type }) => type)).toEqual(["inner", "left"]);
+	});
+
 	it("reads the empty sums of a quiet year as zero", () => {
 		const decoded = bindRecipe(mediaActivityRecipe({ kind: "self" }), {}).decode({
 			data: {

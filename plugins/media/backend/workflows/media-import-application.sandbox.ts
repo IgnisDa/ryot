@@ -46,6 +46,6 @@ export default defineWorkflow({
 					},
 				},
 			});
-			return next.done ? next : yield* step.save(next);
+			return next.done ? { output: next } : yield* step.save(next);
 		}),
 });

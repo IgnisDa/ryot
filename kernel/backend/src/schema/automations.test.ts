@@ -49,8 +49,6 @@ const seedRun = Effect.fn(function* () {
 			yield* db.insert(tables.automationTrigger).values(trigger);
 			return {
 				id: "run",
-				stage: "after",
-				delivery: "async",
 				hookName: "Notify",
 				triggerId: trigger.id,
 				scriptSlug: script.slug,
@@ -76,7 +74,7 @@ describe("automation database constraints", () => {
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
 							const invalid: Array<typeof tables.automationTrigger.$inferInsert> = [
-								{ ...trigger, category: "request" },
+								{ ...trigger, category: "change" },
 								{ ...trigger, operation: "create" },
 								{ ...trigger, payloadPrunedAt: null },
 								{ ...trigger, depth: 1, source: "automation", parentTriggerId: "parent" },
@@ -145,15 +143,6 @@ describe("automation database constraints", () => {
 								{ ...run, pluginConfigRevisionId: other.installation.activeConfigRevisionId },
 								{ ...run, sandboxScriptId: otherScript.id },
 								{ ...run, status: "queued", sandboxScriptId: null },
-								{ ...run, stage: "before", delivery: "policy" },
-								{ ...run, stage: "before", attemptCount: 2, retryPolicy: null, delivery: "policy" },
-								{
-									...run,
-									stage: "before",
-									retryPolicy: null,
-									delivery: "policy",
-									nextAttemptAt: time,
-								},
 							];
 							for (const row of invalid) {
 								expect(

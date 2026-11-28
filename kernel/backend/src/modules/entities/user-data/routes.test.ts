@@ -2,9 +2,11 @@ import { expect } from "bun:test";
 
 import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { PolicyRejected, PolicyUnavailable } from "@ryot-app/contract/modules/changes/policies";
+import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -14,15 +16,19 @@ import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
+import type { Changes } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
+import { ChangeSets } from "#modules/changes/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
 
 import { EntityUserDataRoutesLive } from "./routes";
-import { EntityUserDataService } from "./service";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
+const rejection = { namespace: "kernel", key: "policy.locked" };
 const client = HttpApiTest.groups(AppContract, ["entityUserData"]);
-type RecordedCommand = { action: "clear" | "merge"; command: LifecycleCommand };
+type RecordedCommand = { changes: Changes; command: DomainLifecycleCommand };
 
 class RouteCaller extends Context.Service<
 	RouteCaller,
@@ -63,28 +69,54 @@ const routesLayer = Layer.unwrap(
 			accessClass: "standard",
 		});
 		const commands = yield* Ref.make<ReadonlyArray<RecordedCommand>>([]);
-		const recordCommand = (action: RecordedCommand["action"], command: LifecycleCommand) =>
-			Ref.update(commands, (all) => [...all, { action, command }]);
-		const serviceLayer = Layer.mock(EntityUserDataService)({
-			clearEntityUserData: (_user, entityId, command) =>
-				recordCommand("clear", command).pipe(
+		const serviceLayer = Layer.mock(ChangeSets)({
+			commit: (changes, command) => {
+				const clearedId = changes.entities?.clears?.[0]?.entityId;
+				if (clearedId === "edited") {
+					return Effect.fail(
+						new CommitConflict({
+							reason: { code: "event-stale", eventId: EventId.make("edited") },
+						}),
+					);
+				}
+				if (clearedId === "unavailable") {
+					return Effect.fail(new PolicyUnavailable({ reason: { code: "policy-unavailable" } }));
+				}
+				if (clearedId === "failing") {
+					return Effect.fail(new PolicyRejected({ reason: { code: "policy-execution-failed" } }));
+				}
+				if (clearedId === "refused") {
+					return Effect.fail(
+						new PolicyRejected({ reason: { message: rejection, code: "policy-rejected" } }),
+					);
+				}
+				if (clearedId === "related") {
+					return Effect.fail(
+						new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+					);
+				}
+				return Ref.update(commands, (all) => [...all, { changes, command }]).pipe(
 					Effect.as({
-						entityId,
-						warnings: [],
-						deletedEventsCount: 0,
-						deletedRelationshipsCount: 0,
+						deleted: [],
+						signals: [],
+						entities: [],
+						outcomes: [],
+						relationships: [],
+						committed: { events: [] },
+						cleared: (changes.entities?.clears ?? []).map(({ entityId }) => ({
+							entityId,
+							deletedEventsCount: 0,
+							deletedRelationshipsCount: 0,
+						})),
+						merged: (changes.entities?.merges ?? []).map(({ mergeFrom, mergeInto }) => ({
+							mergeFrom,
+							mergeInto,
+							movedEventsCount: 0,
+							movedRelationshipsCount: 0,
+						})),
 					}),
-				),
-			mergeEntityUserData: (_user, payload, command) =>
-				recordCommand("merge", command).pipe(
-					Effect.as({
-						warnings: [],
-						movedEventsCount: 0,
-						movedRelationshipsCount: 0,
-						mergeFrom: payload.mergeFrom,
-						mergeInto: payload.mergeInto,
-					}),
-				),
+				);
+			},
 		});
 		const auth = makeAuthMiddleware(
 			{
@@ -128,9 +160,20 @@ layer(routesLayer)((test) => {
 				const api = yield* client;
 				const caller = yield* RouteCaller;
 				const clearRequest = { params: { entityId: EntityId.make("entity") } };
-				yield* api.entityUserData.clearEntityUserData(clearRequest);
-				yield* api.entityUserData.mergeEntityUserData({
-					payload: { mergeFrom: EntityId.make("source"), mergeInto: EntityId.make("target") },
+				expect(yield* api.entityUserData.clearEntityUserData(clearRequest)).toEqual({
+					deletedEventsCount: 0,
+					deletedRelationshipsCount: 0,
+					entityId: EntityId.make("entity"),
+				});
+				expect(
+					yield* api.entityUserData.mergeEntityUserData({
+						payload: { mergeFrom: EntityId.make("source"), mergeInto: EntityId.make("target") },
+					}),
+				).toEqual({
+					movedEventsCount: 0,
+					movedRelationshipsCount: 0,
+					mergeFrom: EntityId.make("source"),
+					mergeInto: EntityId.make("target"),
 				});
 				yield* caller.sendAs(recipient, "standard");
 				yield* api.entityUserData.clearEntityUserData(clearRequest);
@@ -141,6 +184,29 @@ layer(routesLayer)((test) => {
 				);
 				expect(failure).toBeInstanceOf(DemoOperationProtected);
 				const commands = yield* caller.recordedCommands;
+				expect(commands.map(({ changes }) => changes)).toEqual([
+					{
+						userId: owner,
+						entities: { clears: [{ entitySchema: null, entityId: EntityId.make("entity") }] },
+					},
+					{
+						userId: owner,
+						entities: {
+							merges: [
+								{
+									entitySchema: null,
+									mergeFrom: EntityId.make("source"),
+									mergeInto: EntityId.make("target"),
+								},
+							],
+						},
+					},
+					{
+						userId: recipient,
+						entities: { clears: [{ entitySchema: null, entityId: EntityId.make("entity") }] },
+					},
+				]);
+				expect(commands.map(({ command }) => command.writeContext)).toEqual([null, null, null]);
 				expect(commands.map(({ command }) => command.itemIdentity)).toEqual([
 					"entity-user-data:clear",
 					"entity-user-data:merge",
@@ -151,6 +217,65 @@ layer(routesLayer)((test) => {
 					{ id: owner, kind: "user" },
 					{ kind: "user", id: recipient },
 				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a concurrent event change as an actionable user-data conflict",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				yield* (yield* RouteCaller).sendAs(owner, "standard");
+				expect(
+					yield* Effect.flip(
+						api.entityUserData.clearEntityUserData({
+							params: { entityId: EntityId.make("edited") },
+						}),
+					),
+				).toEqual(new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a rejected relationship change as a failed relationship merge",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				yield* (yield* RouteCaller).sendAs(owner, "standard");
+				expect(
+					yield* Effect.flip(
+						api.entityUserData.clearEntityUserData({
+							params: { entityId: EntityId.make("related") },
+						}),
+					),
+				).toEqual(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"passes a policy's failure through as rejected or unavailable",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				yield* (yield* RouteCaller).sendAs(owner, "standard");
+				const failure = (entityId: string) =>
+					Effect.flip(
+						api.entityUserData.clearEntityUserData({
+							params: { entityId: EntityId.make(entityId) },
+						}),
+					);
+				expect(yield* failure("unavailable")).toEqual(
+					new PolicyUnavailable({ reason: { code: "policy-unavailable" } }),
+				);
+				expect(yield* failure("failing")).toEqual(
+					new PolicyRejected({ reason: { code: "policy-execution-failed" } }),
+				);
+				expect(yield* failure("refused")).toEqual(
+					new PolicyRejected({ reason: { message: rejection, code: "policy-rejected" } }),
+				);
 			}),
 		testTimeout,
 	);

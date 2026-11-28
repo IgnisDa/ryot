@@ -1,8 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { EventId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -21,24 +19,12 @@ const page = (items: readonly unknown[]) => ({
 	pageInfo: { limit: 500, hasMore: false, nextCursor: null },
 });
 
-const written = (items: readonly CreateEventItem[]) => ({
-	count: items.length,
-	outcomes: items.map((_, index) => ({
-		index,
-		status: "written" as const,
-		eventId: EventId.make(`event-${index}`),
-	})),
-});
-
 const recordingHost = (input: {
+	readonly failSettings?: true;
 	readonly schemaSlug?: string | undefined;
-	readonly failSettings?: "read" | "write" | undefined;
 	readonly settings?: undefined | Record<string, JsonValue>;
 	readonly foreignEpisodeIds?: undefined | readonly string[];
-	readonly createEvents?: (index: number) => undefined | ReturnType<typeof failure>;
 }) => {
-	const creates: (readonly CreateEventItem[])[] = [];
-	const patches: Record<string, JsonValue>[] = [];
 	const logs: unknown[] = [];
 	const memberQueries: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
@@ -48,21 +34,9 @@ const recordingHost = (input: {
 				return null;
 			}),
 		getUserSettings: () =>
-			input.failSettings === "read"
+			input.failSettings
 				? Effect.fail({ message: "Settings unavailable" })
 				: Effect.succeed(input.settings ?? {}),
-		createEvents: (items) =>
-			Effect.suspend(() => {
-				creates.push(items);
-				return input.createEvents?.(creates.length - 1) ?? Effect.succeed(written(items));
-			}),
-		updateUserSettings: (patch) =>
-			input.failSettings === "write"
-				? Effect.fail({ message: "Settings rejected" })
-				: Effect.sync(() => {
-						patches.push(patch);
-						return { saved: true as const };
-					}),
 		executeRyotql: (document) =>
 			Effect.gen(function* () {
 				if (!("members" in bindTestRequest(document).queries)) {
@@ -88,22 +62,8 @@ const recordingHost = (input: {
 				};
 			}),
 	});
-	return { host, logs, creates, patches, memberQueries };
+	return { host, logs, memberQueries };
 };
-
-const failure = (count: number) =>
-	Effect.fail({
-		message: "Event creation failed",
-		data: {
-			count,
-			partial: true,
-			outcomes: Array.from({ length: count }, (_, index) => ({
-				index,
-				status: "written" as const,
-				eventId: EventId.make(`event-${index}`),
-			})),
-		},
-	});
 
 const run = (
 	input: { readonly submittedAt?: string; readonly entry: MediaActivityEntry },
@@ -115,6 +75,26 @@ const run = (
 		host,
 		execution,
 	);
+
+const creates = (input: Parameters<typeof run>[0], host: Parameters<typeof run>[1]) =>
+	run(input, host).pipe(Effect.map((result) => result.changes?.events?.changes));
+
+const settingsPatch = (input: Parameters<typeof run>[0], host: Parameters<typeof run>[1]) =>
+	run(input, host).pipe(Effect.map((result) => result.changes?.settings));
+
+const created = (
+	entityId: string,
+	eventSchemaSlug: string,
+	properties: Record<string, JsonValue>,
+	occurredAt?: string,
+) => ({
+	properties,
+	kind: "create",
+	eventSchemaSlug,
+	entity: { entityId, kind: "existing" },
+	itemIdentity: `${eventSchemaSlug}:${entityId}`,
+	...(occurredAt === undefined ? {} : { occurredAt }),
+});
 
 const rejects = (
 	expectedTag: "SchemaError" | "OperationRejectedError",
@@ -132,10 +112,10 @@ const episodeIds = (count: number) => Array.from({ length: count }, (_, index) =
 
 describe("media activity log", () => {
 	it.live(
-		"writes one complete event at submission time with source and time spent",
+		"returns one complete event at submission time with source and time spent",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "movie" });
+				const { host } = recordingHost({ schemaSlug: "movie" });
 				expect(
 					yield* run(
 						{
@@ -149,49 +129,52 @@ describe("media activity log", () => {
 						},
 						host,
 					),
-				).toEqual({ count: 1, status: "saved" });
-				expect(creates).toEqual([
-					[
-						{
-							entityId: "movie-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "complete",
-							properties: { timeSpent: 95, consumedOn: ["Netflix"] },
+				).toEqual<unknown>({
+					output: { count: 1 },
+					changes: {
+						events: {
+							changes: [
+								created(
+									"movie-1",
+									"complete",
+									{ timeSpent: 95, consumedOn: ["Netflix"] },
+									submittedAt,
+								),
+							],
 						},
-					],
-				]);
+					},
+				});
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"writes picked dates as the occurrence and the start",
+		"returns picked dates as the occurrence and the start",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "book" });
-				yield* run(
-					{
-						entry: {
-							kind: "complete",
-							entityId: "book-1",
-							when: {
-								kind: "date",
-								startedOn: "2026-02-01T12:00:00.000Z",
-								finishedOn: "2026-02-20T12:00:00.000Z",
+				const { host } = recordingHost({ schemaSlug: "book" });
+				expect(
+					yield* creates(
+						{
+							entry: {
+								kind: "complete",
+								entityId: "book-1",
+								when: {
+									kind: "date",
+									startedOn: "2026-02-01T12:00:00.000Z",
+									finishedOn: "2026-02-20T12:00:00.000Z",
+								},
 							},
 						},
-					},
-					host,
-				);
-				expect(creates).toEqual([
-					[
-						{
-							entityId: "book-1",
-							eventSchemaSlug: "complete",
-							occurredAt: "2026-02-20T12:00:00.000Z",
-							properties: { startedOn: "2026-02-01T12:00:00.000Z" },
-						},
-					],
+						host,
+					),
+				).toEqual<unknown>([
+					created(
+						"book-1",
+						"complete",
+						{ startedOn: "2026-02-01T12:00:00.000Z" },
+						"2026-02-20T12:00:00.000Z",
+					),
 				]);
 			}),
 		testTimeout,
@@ -201,21 +184,13 @@ describe("media activity log", () => {
 		"marks an unknown date and records it at submission time",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "movie" });
-				yield* run(
-					{ entry: { kind: "complete", entityId: "movie-1", when: { kind: "unknown" } } },
-					host,
-				);
-				expect(creates).toEqual([
-					[
-						{
-							entityId: "movie-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "complete",
-							properties: { dateUnknown: true },
-						},
-					],
-				]);
+				const { host } = recordingHost({ schemaSlug: "movie" });
+				expect(
+					yield* creates(
+						{ entry: { kind: "complete", entityId: "movie-1", when: { kind: "unknown" } } },
+						host,
+					),
+				).toEqual<unknown>([created("movie-1", "complete", { dateUnknown: true }, submittedAt)]);
 			}),
 		testTimeout,
 	);
@@ -226,7 +201,7 @@ describe("media activity log", () => {
 			Effect.gen(function* () {
 				const accepted = recordingHost({ schemaSlug: "movie" });
 				expect(
-					yield* run(
+					(yield* run(
 						{
 							entry: {
 								kind: "complete",
@@ -235,8 +210,8 @@ describe("media activity log", () => {
 							},
 						},
 						accepted.host,
-					),
-				).toEqual({ count: 1, status: "saved" });
+					)).output,
+				).toEqual<unknown>({ count: 1 });
 
 				const rejected = recordingHost({ schemaSlug: "movie" });
 				yield* rejects(
@@ -271,133 +246,120 @@ describe("media activity log", () => {
 					},
 					rejected.host,
 				);
-				expect(rejected.creates).toEqual([]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"writes a percent progress event, or none for just started",
+		"returns a percent progress event, or none for just started",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "book" });
-				yield* run(
-					{
-						entry: {
-							kind: "progress",
-							entityId: "book-1",
-							progressPercent: 40,
-							consumedOn: ["Kindle"],
-						},
-					},
-					host,
-				);
-				yield* run({ entry: { kind: "progress", entityId: "book-1" } }, host);
-				expect(creates).toEqual([
-					[
+				const { host } = recordingHost({ schemaSlug: "book" });
+				expect(
+					yield* creates(
 						{
-							entityId: "book-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "progress",
-							properties: { progressPercent: 40, consumedOn: ["Kindle"] },
+							entry: {
+								kind: "progress",
+								entityId: "book-1",
+								progressPercent: 40,
+								consumedOn: ["Kindle"],
+							},
 						},
-					],
-					[
-						{
-							properties: {},
-							entityId: "book-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "progress",
-						},
-					],
+						host,
+					),
+				).toEqual<unknown>([
+					created(
+						"book-1",
+						"progress",
+						{ progressPercent: 40, consumedOn: ["Kindle"] },
+						submittedAt,
+					),
 				]);
+				expect(
+					yield* creates({ entry: { kind: "progress", entityId: "book-1" } }, host),
+				).toEqual<unknown>([created("book-1", "progress", {}, submittedAt)]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"writes anime and manga positions without a percent",
+		"returns anime and manga positions without a percent",
 		() =>
 			Effect.gen(function* () {
-				const anime = recordingHost({ schemaSlug: "anime" });
-				yield* run(
-					{
-						entry: {
-							kind: "progress",
-							entityId: "anime-1",
-							position: { position: 7, unit: "episodes" },
-						},
-					},
-					anime.host,
-				);
-				expect(anime.creates).toEqual([
-					[
+				expect(
+					yield* creates(
 						{
-							entityId: "anime-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "progress",
-							properties: { position: { position: 7, unit: "episodes" } },
+							entry: {
+								kind: "progress",
+								entityId: "anime-1",
+								position: { position: 7, unit: "episodes" },
+							},
 						},
-					],
+						recordingHost({ schemaSlug: "anime" }).host,
+					),
+				).toEqual<unknown>([
+					created(
+						"anime-1",
+						"progress",
+						{ position: { position: 7, unit: "episodes" } },
+						submittedAt,
+					),
 				]);
 				const manga = recordingHost({ schemaSlug: "manga" });
-				yield* run(
-					{
-						entry: {
-							kind: "progress",
-							entityId: "manga-1",
-							position: { position: 113.5, unit: "chapters" },
-						},
-					},
-					manga.host,
-				);
-				expect(manga.creates).toEqual([
-					[
+				expect(
+					yield* creates(
 						{
-							entityId: "manga-1",
-							occurredAt: submittedAt,
-							eventSchemaSlug: "progress",
-							properties: { position: { position: 113.5, unit: "chapters" } },
+							entry: {
+								kind: "progress",
+								entityId: "manga-1",
+								position: { position: 113.5, unit: "chapters" },
+							},
 						},
-					],
+						manga.host,
+					),
+				).toEqual<unknown>([
+					created(
+						"manga-1",
+						"progress",
+						{ position: { position: 113.5, unit: "chapters" } },
+						submittedAt,
+					),
 				]);
-				const volumes = recordingHost({ schemaSlug: "manga" });
-				yield* run(
-					{
-						entry: {
-							kind: "progress",
-							entityId: "manga-1",
-							position: { position: 2, unit: "volumes" },
-							when: {
-								kind: "date",
-								calendarDate: "2026-03-09",
-								startedOn: "2026-03-01T00:00:00.000Z",
-								finishedOn: "2026-03-09T00:00:00.000Z",
-							},
-						},
-					},
-					volumes.host,
-				);
-				expect(volumes.creates).toEqual([
-					[
+				expect(
+					yield* creates(
 						{
-							entityId: "manga-1",
-							eventSchemaSlug: "progress",
-							occurredAt: "2026-03-09T00:00:00.000Z",
-							properties: {
-								calendarDate: "2026-03-09",
-								startedOn: "2026-03-01T00:00:00.000Z",
+							entry: {
+								kind: "progress",
+								entityId: "manga-1",
 								position: { position: 2, unit: "volumes" },
+								when: {
+									kind: "date",
+									calendarDate: "2026-03-09",
+									startedOn: "2026-03-01T00:00:00.000Z",
+									finishedOn: "2026-03-09T00:00:00.000Z",
+								},
 							},
 						},
-					],
+						manga.host,
+					),
+				).toEqual<unknown>([
+					created(
+						"manga-1",
+						"progress",
+						{
+							calendarDate: "2026-03-09",
+							startedOn: "2026-03-01T00:00:00.000Z",
+							position: { position: 2, unit: "volumes" },
+						},
+						"2026-03-09T00:00:00.000Z",
+					),
 				]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects progress shapes the schema does not carry without writing",
+		"rejects progress shapes the schema does not carry",
 		() =>
 			Effect.gen(function* () {
 				const anime = recordingHost({ schemaSlug: "anime" });
@@ -426,17 +388,15 @@ describe("media activity log", () => {
 					{ kind: "progress", entityId: "anime-1", position: { position: 2.5, unit: "episodes" } },
 					anime.host,
 				);
-				const manga = recordingHost({ schemaSlug: "manga" });
 				yield* rejects(
 					"OperationRejectedError",
 					{ kind: "progress", entityId: "manga-1", position: { position: 2, unit: "episodes" } },
-					manga.host,
+					recordingHost({ schemaSlug: "manga" }).host,
 				);
-				const book = recordingHost({ schemaSlug: "book" });
 				yield* rejects(
 					"OperationRejectedError",
 					{ kind: "progress", entityId: "book-1", position: { position: 2, unit: "episodes" } },
-					book.host,
+					recordingHost({ schemaSlug: "book" }).host,
 				);
 				const show = recordingHost({ schemaSlug: "show" });
 				yield* rejects(
@@ -460,73 +420,49 @@ describe("media activity log", () => {
 					{ kind: "status", entityId: "gone", status: "dropped" },
 					missing.host,
 				);
-				for (const { creates } of [anime, manga, book, show, missing]) {
-					expect(creates).toEqual([]);
-				}
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"writes a status event without properties, including on a show parent",
+		"returns a status event without properties, including on a show parent",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "show" });
-				yield* run({ entry: { kind: "status", status: "on_hold", entityId: "show-1" } }, host);
-				expect(creates).toEqual([
-					[{ properties: {}, entityId: "show-1", eventSchemaSlug: "on_hold" }],
-				]);
+				const { host } = recordingHost({ schemaSlug: "show" });
+				expect(
+					yield* creates(
+						{ entry: { kind: "status", status: "on_hold", entityId: "show-1" } },
+						host,
+					),
+				).toEqual<unknown>([created("show-1", "on_hold", {})]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"writes one complete event per episode in submission order",
+		"returns all episode events in one change set in submission order",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({ schemaSlug: "show" });
-				yield* run(
+				const ids = Array.from({ length: 250 }, (_, index) => episodeId(249 - index));
+				const { host } = recordingHost({ schemaSlug: "podcast" });
+				const result = yield* run(
 					{
 						entry: {
 							kind: "episodes",
+							episodeEntityIds: ids,
 							consumedOn: ["Disney+"],
-							parentEntityId: "show-1",
 							when: { kind: "unknown" },
-							episodeEntityIds: ["episode-3", "episode-1", "episode-2"],
+							parentEntityId: "podcast-1",
 						},
 					},
 					host,
 				);
-				expect(creates).toEqual([
-					["episode-3", "episode-1", "episode-2"].map((entityId) => ({
-						entityId,
-						occurredAt: submittedAt,
-						eventSchemaSlug: "complete",
-						properties: { dateUnknown: true, consumedOn: ["Disney+"] },
-					})),
-				]);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"splits many episodes into chunks with derived keys and reproduces them on retry",
-		() =>
-			Effect.gen(function* () {
-				const ids = Array.from({ length: 250 }, (_, index) => episodeId(249 - index));
-				const entry: MediaActivityEntry = {
-					kind: "episodes",
-					when: { kind: "now" },
-					episodeEntityIds: ids,
-					parentEntityId: "podcast-1",
-				};
-				const first = recordingHost({ schemaSlug: "podcast" });
-				expect(yield* run({ entry }, first.host)).toEqual({ count: 250, status: "saved" });
-				expect(first.creates.map((chunk) => chunk.length)).toEqual([100, 100, 50]);
-				expect(first.creates.flat().map(({ entityId }) => entityId)).toEqual(ids);
-				const retry = recordingHost({ schemaSlug: "podcast" });
-				yield* run({ entry }, retry.host);
-				expect(retry.creates).toEqual(first.creates);
+				expect(result.output).toEqual<unknown>({ count: 250 });
+				expect(result.changes?.events?.changes).toEqual<unknown>(
+					ids.map((id) =>
+						created(id, "complete", { dateUnknown: true, consumedOn: ["Disney+"] }, submittedAt),
+					),
+				);
 			}),
 		testTimeout,
 	);
@@ -541,7 +477,7 @@ describe("media activity log", () => {
 				Effect.gen(function* () {
 					const { host, memberQueries } = recordingHost({ schemaSlug: "show" });
 					expect(
-						yield* run(
+						(yield* run(
 							{
 								entry: {
 									kind: "episodes",
@@ -551,9 +487,9 @@ describe("media activity log", () => {
 								},
 							},
 							host,
-						),
-					).toEqual({ count, status: "saved" });
-					expect(memberQueries).toEqual(queries);
+						)).output,
+					).toEqual<unknown>({ count });
+					expect(memberQueries).toEqual<unknown>(queries);
 				}),
 			testTimeout,
 		);
@@ -563,10 +499,7 @@ describe("media activity log", () => {
 		"rejects a foreign episode that falls in a later membership chunk",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates } = recordingHost({
-					schemaSlug: "show",
-					foreignEpisodeIds: [episodeId(150)],
-				});
+				const { host } = recordingHost({ schemaSlug: "show", foreignEpisodeIds: [episodeId(150)] });
 				yield* rejects(
 					"OperationRejectedError",
 					{
@@ -577,7 +510,6 @@ describe("media activity log", () => {
 					},
 					host,
 				);
-				expect(creates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -597,7 +529,6 @@ describe("media activity log", () => {
 					},
 					foreign.host,
 				);
-				const flat = recordingHost({ schemaSlug: "movie" });
 				yield* rejects(
 					"OperationRejectedError",
 					{
@@ -606,7 +537,7 @@ describe("media activity log", () => {
 						parentEntityId: "movie-1",
 						episodeEntityIds: ["episode-1"],
 					},
-					flat.host,
+					recordingHost({ schemaSlug: "movie" }).host,
 				);
 				yield* rejects(
 					"SchemaError",
@@ -618,33 +549,6 @@ describe("media activity log", () => {
 					},
 					foreign.host,
 				);
-				expect([...foreign.creates, ...flat.creates]).toEqual([]);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"reports a partial chunk as incomplete and stops writing",
-		() =>
-			Effect.gen(function* () {
-				const { host, creates } = recordingHost({
-					schemaSlug: "show",
-					createEvents: (index) => (index === 1 ? failure(30) : undefined),
-				});
-				expect(
-					yield* run(
-						{
-							entry: {
-								kind: "episodes",
-								when: { kind: "now" },
-								parentEntityId: "show-1",
-								episodeEntityIds: episodeIds(150),
-							},
-						},
-						host,
-					),
-				).toEqual({ count: 130, status: "incomplete" });
-				expect(creates.map((chunk) => chunk.length)).toEqual([100, 50]);
 			}),
 		testTimeout,
 	);
@@ -653,23 +557,23 @@ describe("media activity log", () => {
 		"adds a new source to the user's list for the media type once",
 		() =>
 			Effect.gen(function* () {
-				const { host, patches } = recordingHost({
+				const { host } = recordingHost({
 					schemaSlug: "movie",
 					settings: { consumedOnShow: ["Hulu"], consumedOnMovie: ["Netflix"] },
 				});
-				const result = yield* run(
-					{
-						entry: {
-							kind: "complete",
-							entityId: "movie-1",
-							when: { kind: "now" },
-							consumedOn: [" Criterion "],
+				expect(
+					yield* settingsPatch(
+						{
+							entry: {
+								kind: "complete",
+								entityId: "movie-1",
+								when: { kind: "now" },
+								consumedOn: [" Criterion "],
+							},
 						},
-					},
-					host,
-				);
-				expect(result).toEqual({ count: 1, status: "saved" });
-				expect(patches).toEqual([{ consumedOnMovie: ["Netflix", "Criterion"] }]);
+						host,
+					),
+				).toEqual<unknown>({ consumedOnMovie: ["Netflix", "Criterion"] });
 			}),
 		testTimeout,
 	);
@@ -679,25 +583,24 @@ describe("media activity log", () => {
 		() =>
 			Effect.gen(function* () {
 				const entry = { kind: "complete", entityId: "movie-1", when: { kind: "now" } } as const;
-				const several = recordingHost({
-					schemaSlug: "movie",
-					settings: { consumedOnMovie: ["Netflix"] },
-				});
-				yield* run(
-					{ entry: { ...entry, consumedOn: ["Criterion", "netflix", "Mubi"] } },
-					several.host,
+				expect(
+					yield* settingsPatch(
+						{ entry: { ...entry, consumedOn: ["Criterion", "netflix", "Mubi"] } },
+						recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: ["Netflix"] } }).host,
+					),
+				).toEqual<unknown>({ consumedOnMovie: ["Netflix", "Criterion", "Mubi"] });
+				const nearlyFull = yield* settingsPatch(
+					{ entry: { ...entry, consumedOn: ["Criterion", "Mubi"] } },
+					recordingHost({
+						schemaSlug: "movie",
+						settings: {
+							consumedOnMovie: Array.from({ length: 29 }, (_, index) => `Source ${index}`),
+						},
+					}).host,
 				);
-				expect(several.patches).toEqual([{ consumedOnMovie: ["Netflix", "Criterion", "Mubi"] }]);
-				const nearlyFull = recordingHost({
-					schemaSlug: "movie",
-					settings: {
-						consumedOnMovie: Array.from({ length: 29 }, (_, index) => `Source ${index}`),
-					},
-				});
-				yield* run({ entry: { ...entry, consumedOn: ["Criterion", "Mubi"] } }, nearlyFull.host);
-				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).toHaveLength(30);
-				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).toContain("Criterion");
-				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).not.toContain("Mubi");
+				expect(nearlyFull?.["consumedOnMovie"]).toHaveLength(30);
+				expect(nearlyFull?.["consumedOnMovie"]).toContain("Criterion");
+				expect(nearlyFull?.["consumedOnMovie"]).not.toContain("Mubi");
 			}),
 		testTimeout,
 	);
@@ -706,42 +609,40 @@ describe("media activity log", () => {
 		"adds sources from progress entries, and from episodes under the parent's type",
 		() =>
 			Effect.gen(function* () {
-				const progress = recordingHost({ schemaSlug: "anime", settings: { consumedOnAnime: [] } });
-				yield* run(
-					{
-						entry: {
-							kind: "progress",
-							entityId: "anime-1",
-							consumedOn: ["Crunchyroll"],
-							position: { position: 3, unit: "episodes" },
+				expect(
+					yield* settingsPatch(
+						{
+							entry: {
+								kind: "progress",
+								entityId: "anime-1",
+								consumedOn: ["Crunchyroll"],
+								position: { position: 3, unit: "episodes" },
+							},
 						},
-					},
-					progress.host,
-				);
-				expect(progress.patches).toEqual([{ consumedOnAnime: ["Crunchyroll"] }]);
-				const episodes = recordingHost({
-					schemaSlug: "podcast",
-					settings: { consumedOnPodcast: ["Spotify"] },
-				});
-				yield* run(
-					{
-						entry: {
-							kind: "episodes",
-							when: { kind: "now" },
-							consumedOn: ["Overcast"],
-							parentEntityId: "podcast-1",
-							episodeEntityIds: episodeIds(2),
+						recordingHost({ schemaSlug: "anime", settings: { consumedOnAnime: [] } }).host,
+					),
+				).toEqual<unknown>({ consumedOnAnime: ["Crunchyroll"] });
+				expect(
+					yield* settingsPatch(
+						{
+							entry: {
+								kind: "episodes",
+								when: { kind: "now" },
+								consumedOn: ["Overcast"],
+								parentEntityId: "podcast-1",
+								episodeEntityIds: episodeIds(2),
+							},
 						},
-					},
-					episodes.host,
-				);
-				expect(episodes.patches).toEqual([{ consumedOnPodcast: ["Spotify", "Overcast"] }]);
+						recordingHost({ schemaSlug: "podcast", settings: { consumedOnPodcast: ["Spotify"] } })
+							.host,
+					),
+				).toEqual<unknown>({ consumedOnPodcast: ["Spotify", "Overcast"] });
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"does not touch settings for case-insensitive duplicates, a full list, or no source",
+		"patches no settings for duplicates, a full list, no source, or a status entry",
 		() =>
 			Effect.gen(function* () {
 				const full = Array.from({ length: 30 }, (_, index) => `Source ${index}`);
@@ -752,48 +653,22 @@ describe("media activity log", () => {
 				const capped = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: full } });
 				const bare = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: [] } });
 				const entry = { kind: "complete", entityId: "movie-1", when: { kind: "now" } } as const;
-				yield* run({ entry: { ...entry, consumedOn: ["nETflix"] } }, duplicate.host);
-				yield* run({ entry: { ...entry, consumedOn: ["Criterion"] } }, capped.host);
-				yield* run({ entry }, bare.host);
-				expect([duplicate.patches, capped.patches, bare.patches]).toEqual([[], [], []]);
-				expect([duplicate.logs, capped.logs]).toEqual([[], []]);
+				expect([
+					yield* settingsPatch({ entry: { ...entry, consumedOn: ["nETflix"] } }, duplicate.host),
+					yield* settingsPatch({ entry: { ...entry, consumedOn: ["Criterion"] } }, capped.host),
+					yield* settingsPatch({ entry }, bare.host),
+					yield* settingsPatch(
+						{ entry: { kind: "status", status: "backlog", entityId: "movie-1" } },
+						bare.host,
+					),
+				]).toEqual<unknown>([undefined, undefined, undefined, undefined]);
+				expect([duplicate.logs, capped.logs]).toEqual<unknown>([[], []]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"does not touch settings for status entries or when the write is incomplete",
-		() =>
-			Effect.gen(function* () {
-				const status = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: [] } });
-				yield* run(
-					{ entry: { kind: "status", status: "backlog", entityId: "movie-1" } },
-					status.host,
-				);
-				const incomplete = recordingHost({
-					schemaSlug: "show",
-					settings: { consumedOnShow: [] },
-					createEvents: (index) => (index === 1 ? failure(30) : undefined),
-				});
-				yield* run(
-					{
-						entry: {
-							kind: "episodes",
-							consumedOn: ["Hulu"],
-							when: { kind: "now" },
-							parentEntityId: "show-1",
-							episodeEntityIds: episodeIds(150),
-						},
-					},
-					incomplete.host,
-				);
-				expect([status.patches, incomplete.patches]).toEqual([[], []]);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"logs a failing settings read or write and still returns the saved result",
+		"logs an unreadable or malformed settings list and still returns the events",
 		() =>
 			Effect.gen(function* () {
 				const entry = {
@@ -802,22 +677,18 @@ describe("media activity log", () => {
 					when: { kind: "now" },
 					consumedOn: ["Criterion"],
 				} as const;
-				for (const failSettings of ["read", "write"] as const) {
-					const { host, logs, patches } = recordingHost({
-						failSettings,
-						schemaSlug: "movie",
-						settings: { consumedOnMovie: [] },
-					});
-					expect(yield* run({ entry }, host)).toEqual({ count: 1, status: "saved" });
-					expect(patches).toEqual([]);
-					expect(logs).toMatchObject([{ level: "warning", attributes: { schemaSlug: "movie" } }]);
+				for (const host of [
+					recordingHost({ failSettings: true, schemaSlug: "movie" }),
+					recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: "x" } }),
+				]) {
+					const result = yield* run({ entry }, host.host);
+					expect(result.output).toEqual<unknown>({ count: 1 });
+					expect(result.changes?.settings).toBeUndefined();
+					expect(result.changes?.events?.changes).toHaveLength(1);
+					expect(host.logs).toMatchObject([
+						{ level: "warning", attributes: { schemaSlug: "movie" } },
+					]);
 				}
-				const malformed = recordingHost({
-					schemaSlug: "movie",
-					settings: { consumedOnMovie: "x" },
-				});
-				expect(yield* run({ entry }, malformed.host)).toEqual({ count: 1, status: "saved" });
-				expect(malformed.logs).toHaveLength(1);
 			}),
 		testTimeout,
 	);

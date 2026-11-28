@@ -131,6 +131,9 @@ it.live(
 				),
 			);
 			expect(screen.getByLabelText("Start time").closest("fieldset")?.disabled).toBe(true);
+			expect(
+				screen.getByText("The result could not be confirmed. Retry the same correction."),
+			).toBeTruthy();
 			act(() => {
 				fireEvent.click(screen.getByRole("button", { name: "Retry correction" }));
 			});
@@ -147,10 +150,142 @@ it.live(
 			page.send({
 				outcome: "success",
 				type: "operation-result",
+				committed: { events: [] },
 				requestId: retry.requestId,
-				value: { kind: "saved", entityId: "workout" },
+				value: { entityId: "workout" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(closed).toBe(1)));
+		}),
+	testTimeout,
+);
+
+it.live(
+	"reports a workout changed elsewhere as a conflict",
+	() =>
+		Effect.gen(function* () {
+			const page = yield* openWorkout(
+				{ endedAt: "2026-10-16T11:00:38.789Z", startedAt: "2026-10-16T10:00:37.456Z" },
+				() => undefined,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("button", { name: "Save time correction" })).toBeTruthy(),
+				),
+			);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Save time correction" }));
+			});
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page.clientMessages().find(({ type }) => type === "operation-request");
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				conflict: "entity-stale",
+				reason: "changes-conflict",
+				requestId: request.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.getByText(
+							"This workout changed. Close and reopen Adjust time to load the saved version.",
+						),
+					).toBeTruthy(),
+				),
+			);
+			const save = screen.getByRole("button", { name: "Save time correction" });
+			expect(save).toHaveProperty("disabled", true);
+			expect(screen.queryByRole("button", { name: "Retry correction" })).toBeNull();
+			expect(screen.getByLabelText("Start time").closest("fieldset")?.disabled).toBe(true);
+		}),
+	testTimeout,
+);
+
+it.live(
+	"shows a rejection message instead of offering a retry",
+	() =>
+		Effect.gen(function* () {
+			const page = yield* openWorkout(
+				{ endedAt: "2026-10-16T11:00:38.789Z", startedAt: "2026-10-16T10:00:37.456Z" },
+				() => undefined,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("button", { name: "Save time correction" })).toBeTruthy(),
+				),
+			);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Save time correction" }));
+			});
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page.clientMessages().find(({ type }) => type === "operation-request");
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "operation-rejected",
+				requestId: request.requestId,
+				message: { namespace: "kernel", key: "client.demo-protection.unavailable" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.getByText("This operation is unavailable while using the shared demo account."),
+					).toBeTruthy(),
+				),
+			);
+			expect(screen.getByRole("button", { name: "Save time correction" })).toHaveProperty(
+				"disabled",
+				false,
+			);
+			expect(screen.queryByRole("button", { name: "Retry correction" })).toBeNull();
+			expect(screen.queryByText(/could not be confirmed/)).toBeNull();
+		}),
+	testTimeout,
+);
+
+it.live(
+	"names a definite failure without a rejection message as not saved",
+	() =>
+		Effect.gen(function* () {
+			const page = yield* openWorkout(
+				{ endedAt: "2026-10-16T11:00:38.789Z", startedAt: "2026-10-16T10:00:37.456Z" },
+				() => undefined,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("button", { name: "Save time correction" })).toBeTruthy(),
+				),
+			);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Save time correction" }));
+			});
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page.clientMessages().find(({ type }) => type === "operation-request");
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "operation-failed",
+				requestId: request.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByText("This correction was not saved.")).toBeTruthy()),
+			);
+			expect(screen.queryByRole("button", { name: "Retry correction" })).toBeNull();
 		}),
 	testTimeout,
 );

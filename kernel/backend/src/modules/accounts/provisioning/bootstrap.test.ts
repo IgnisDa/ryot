@@ -93,7 +93,6 @@ const bootstrapLayer = (options?: {
 									yield* append(dispatched)(inputUserId);
 									const attempt = (yield* Ref.get(dispatched)).length;
 									yield* options?.dispatch?.(attempt) ?? Effect.void;
-									return [];
 								}),
 						}),
 						Layer.mock(PluginInstallationService)({

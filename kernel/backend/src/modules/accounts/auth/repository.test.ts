@@ -8,7 +8,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Layer } from "effect";
 
 import { TranslationsRepository } from "#modules/entities/localization/repository";
@@ -20,7 +20,9 @@ import {
 	oauthClient,
 	oauthConsent,
 	oauthRefreshToken,
+	session as sessionTable,
 	user,
+	verification,
 } from "#schema/tables/auth";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -401,6 +403,134 @@ layer(testLayer)((test) => {
 					db.select({ preferences: user.preferences }).from(user).where(eq(user.id, id)),
 				);
 				expect(stored?.preferences).toEqual({ ...defaultUserPreferences, contentLanguage: "en" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"deletes a user's sessions after revoking its impersonation sessions' tokens, sparing other users",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const owner = UserId.make("sessions-owner");
+				const other = UserId.make("sessions-other");
+				yield* session.run((db) =>
+					db.insert(user).values([
+						{ id: owner, name: "Owner", email: "sessions-owner@example.test" },
+						{ id: other, name: "Other", email: "sessions-other@example.test" },
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthClient)
+						.values({
+							id: "sessions-client",
+							clientId: "sessions-client",
+							redirectUris: ["https://client.example/callback"],
+						}),
+				);
+				const sessions = [
+					{ userId: owner, id: "owner-standard", impersonationExpiresAt: null },
+					{ userId: owner, id: "owner-impersonated", impersonationExpiresAt: grantExpiry },
+					{ userId: other, id: "other-impersonated", impersonationExpiresAt: grantExpiry },
+				];
+				yield* session.run((db) =>
+					db
+						.insert(sessionTable)
+						.values(
+							sessions.map(({ id, userId, impersonationExpiresAt }) => ({
+								id,
+								userId,
+								impersonationExpiresAt,
+								expiresAt: grantExpiry,
+								token: `session-${id}`,
+							})),
+						),
+				);
+				const tokenRows = (kind: string) =>
+					sessions.map(({ id, userId }) => ({
+						id,
+						userId,
+						scopes: [],
+						sessionId: id,
+						createdAt: grantTime,
+						token: `${kind}-${id}`,
+						expiresAt: grantExpiry,
+						clientId: "sessions-client",
+					}));
+				yield* session.run((db) => db.insert(oauthRefreshToken).values(tokenRows("refresh")));
+				yield* session.run((db) => db.insert(oauthAccessToken).values(tokenRows("access")));
+
+				expect(yield* repository.deleteUserSessions(owner)).toEqual(["owner-impersonated"]);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({ id: sessionTable.id })
+							.from(sessionTable)
+							.where(inArray(sessionTable.userId, [owner, other])),
+					),
+				).toEqual([{ id: "other-impersonated" }]);
+				for (const table of [oauthRefreshToken, oauthAccessToken]) {
+					const tokens = yield* session.run((db) =>
+						db
+							.select({ id: table.id, revoked: table.revoked, sessionId: table.sessionId })
+							.from(table)
+							.where(eq(table.clientId, "sessions-client")),
+					);
+					expect(
+						sortBy(tokens, ({ id }) => id).map(({ id, revoked, sessionId }) => ({
+							id,
+							sessionId,
+							revoked: revoked !== null,
+						})),
+					).toEqual([
+						{ revoked: false, id: "other-impersonated", sessionId: "other-impersonated" },
+						{ revoked: true, sessionId: null, id: "owner-impersonated" },
+						{ revoked: false, sessionId: null, id: "owner-standard" },
+					]);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"revokes only the user's password reset links",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const owner = UserId.make("reset-links-owner");
+				yield* session.run((db) =>
+					db.insert(verification).values([
+						{
+							value: owner,
+							id: "owner-reset",
+							expiresAt: grantExpiry,
+							identifier: "reset-password:owner",
+						},
+						{
+							id: "other-reset",
+							expiresAt: grantExpiry,
+							value: "reset-links-other",
+							identifier: "reset-password:other",
+						},
+						{
+							value: owner,
+							expiresAt: grantExpiry,
+							id: "owner-other-kind",
+							identifier: "change-email:owner",
+						},
+					]),
+				);
+				yield* repository.revokeUserPasswordResetLinks(owner);
+				const remaining = yield* session.run((db) =>
+					db
+						.select({ id: verification.id })
+						.from(verification)
+						.where(inArray(verification.value, [owner, "reset-links-other"])),
+				);
+				expect(sortBy(remaining.map(({ id }) => id))).toEqual(["other-reset", "owner-other-kind"]);
 			}),
 		testTimeout,
 	);

@@ -3,7 +3,7 @@ import { expect, it } from "bun:test";
 import {
 	hasReachableExternalEffects,
 	hasValidExecutableDependencies,
-	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	selectSourcePlan,
 	sourcePlanConfigKeys,
 } from "./execution";
@@ -19,6 +19,7 @@ const script = (
 	runtimeImports: [],
 	executableDependencies,
 	kind: "script" as const,
+	activity: true as const,
 	requiredPluginConfigKeys,
 	capabilities: [] as const,
 	oauthConnectionFields: [],
@@ -107,7 +108,7 @@ it("terminates executable cycles and reports effects found within them", () => {
 	expect(hasReachableExternalEffects({ workflows: [], scripts: cycle }, "root")).toBe(false);
 	expect(
 		hasReachableExternalEffects(
-			{ workflows: [], scripts: [root, { ...child, capabilities: ["sendNotification"] }] },
+			{ workflows: [], scripts: [root, { ...child, capabilities: ["httpCall"] }] },
 			"root",
 		),
 	).toBe(true);
@@ -129,7 +130,9 @@ it("treats unresolved dependency targets as invalid and skips only known kernel 
 		hasReachableExternalEffects(
 			{
 				workflows: [],
-				scripts: [script("root", [], [{ kind: "workflow", slug: KERNEL_EVENT_CREATE_WORKFLOW }])],
+				scripts: [
+					script("root", [], [{ kind: "workflow", slug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW }]),
+				],
 			},
 			"root",
 		),
@@ -187,6 +190,12 @@ it("validates integration plans against finite settings and linked executable ch
 		scripts: manifest.scripts.map((entry) => Object.assign({}, entry, { kind: "script" as const })),
 	};
 	expect(hasValidExecutableDependencies(executable)).toBe(true);
+	expect(
+		hasValidExecutableDependencies({
+			...executable,
+			scripts: executable.scripts.map(({ activity: _activity, ...entry }) => entry),
+		}),
+	).toBe(false);
 	const booleanPlan = {
 		selections: { collector: { field: "mode", cases: { true: "api", false: "file" } } },
 	};

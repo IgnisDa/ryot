@@ -205,6 +205,7 @@ export const definitionSignalSchedule = snakeCase.table(
 		signal: text().notNull(),
 		occurrence: text().notNull(),
 		position: integer().notNull(),
+		readSchemaSlugs: text().array(),
 		entitlement: text().$type<Entitlement>(),
 		query: jsonb().$type<RowSourceQuery>().notNull(),
 		subject: jsonb().$type<SavedViewSubject>().notNull(),

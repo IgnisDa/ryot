@@ -34,3 +34,9 @@ Execution receives no request headers except `content-type`; Data admission cons
 
 Plugin admission failures log the integration ID and, for database failures, SQLSTATE and constraint
 name. Request bodies, webhook tokens, and database error messages are not logged.
+
+## Limits
+
+An integration's name, provider, and settings are capped at `INTEGRATION_LIMITS.settingsBytes`
+(16 KiB of JSON) when saved or restored. Sandbox `listIntegrations` pages hold
+`INTEGRATION_LIMITS.pageSize` (20) records.

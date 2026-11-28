@@ -4,7 +4,7 @@ import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import { MediaReviewDeleteInput, MediaReviewOutput } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { loadEditTargets, rejectHostFailure, reviewCombinations } from "./media-activity-edits";
+import { deleteTargetChanges, loadEditTargets, reviewCombinations } from "./media-activity-edits";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -18,12 +18,15 @@ export default defineOperation({
 	input: MediaReviewDeleteInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			yield* loadEditTargets(
+			const targets = yield* loadEditTargets(
 				host,
 				[input.eventId],
 				reviewCombinations,
 				catalogMessage("rejection.record.review-only-delete"),
 			);
-			return yield* host.deleteEvents([input.eventId]).pipe(Effect.catch(rejectHostFailure));
+			const output = { count: targets.length };
+			return targets.length === 0
+				? { output }
+				: { output, changes: deleteTargetChanges(targets.map(({ id }) => id)) };
 		}),
 });

@@ -35,7 +35,7 @@ const durableSource = defineNativeScript(
   const second = yield* host.getCachedValue("second").pipe(Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })));
   return { first, second, startedAt: execution.startedAt };
 })`,
-	{ kind: "operation", input: "Schema.Struct({ mode: Schema.String })" },
+	{ kind: "script", input: "Schema.Struct({ mode: Schema.String })" },
 );
 
 const cachedRequest = (index: number, key: string) => ({
@@ -77,7 +77,7 @@ export default defineWorkflow({
     const childValue = yield* replay.child("double-count", child, { count: activityValue });
     const startedAt = execution.startedAt;
     if (startedAt === undefined) return yield* Effect.fail("Missing pinned workflow start");
-    return { activity: activityValue, child: childValue, startedAt };
+    return { output: { activity: activityValue, child: childValue, startedAt } };
   }),
 });`);
 				const client = yield* SandboxSidecarClient;
@@ -208,7 +208,7 @@ export default defineWorkflow({
 		() =>
 			Effect.gen(function* () {
 				const root = yield* compileTestScript(
-					defineNativeScript("() => Effect.succeed(null)", { kind: "workflow" }),
+					defineNativeScript("() => Effect.succeed({ output: null })", { kind: "workflow" }),
 				);
 				const unavailable = yield* runNative(root, {});
 				expect(unavailable.response).toEqual<unknown>(
@@ -231,7 +231,7 @@ export default defineWorkflow({
 			Effect.gen(function* () {
 				{
 					const compiled = yield* compileTestScript(
-						defineNativeScript("() => Effect.succeed(null)", { kind: "operation" }),
+						defineNativeScript("() => Effect.succeed(null)", { kind: "script" }),
 					);
 					const options = { workflowExecutionId: "deterministic-workflow" };
 					for (const [expression, message] of [
@@ -442,7 +442,7 @@ export default defineWorkflow({
 
 				const journal = yield* compileTestScript(
 					defineNativeScript('(input, host) => host.getCachedValue("recorded")', {
-						kind: "operation",
+						kind: "script",
 					}),
 				);
 				const recorded = {
@@ -499,7 +499,7 @@ export default defineWorkflow({
   const value = yield* host.getCachedValue("frozen");
   return { value, ran: [...ran] };
 })`,
-						{ kind: "operation" },
+						{ kind: "script" },
 					),
 				);
 				let settled = 0;
@@ -541,7 +541,7 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin
 export const manifest = defineManifest({ kind: "workflow", name: "Checkpoint", slug: "checkpoint" });
 export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int,
   checkpoint: Schema.Struct({ next: Schema.Int }),
-  run: (_input, step, checkpoint) => checkpoint === null ? step.save({ next: 4 }) : Effect.succeed(checkpoint.next)
+  run: (_input, step, checkpoint) => checkpoint === null ? step.save({ next: 4 }) : Effect.succeed({ output: checkpoint.next })
 });`);
 				const first = yield* runNative(compiled, null, { workflowExecutionId: "checkpoint" });
 				expect(first.response).toMatchObject({
@@ -567,7 +567,15 @@ export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int
 				{
 					for (const kind of ["script", "operation", "workflow", "automation"] as const) {
 						const compiled = yield* compileTestScript(
-							defineNativeScript("() => Effect.succeed(42)", { kind }),
+							defineNativeScript(
+								{
+									script: "() => Effect.succeed(42)",
+									automation: "() => Effect.succeed({})",
+									workflow: "() => Effect.succeed({ output: 42 })",
+									operation: "() => Effect.succeed({ output: 42 })",
+								}[kind],
+								{ kind },
+							),
 						);
 						const context =
 							kind === "automation"
@@ -607,7 +615,12 @@ export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int
 						);
 						expect(response, yield* encodeJson(response)).toMatchObject({
 							success: true,
-							value: kind === "workflow" ? { output: 42, state: "completed" } : 42,
+							value: {
+								script: 42,
+								automation: {},
+								operation: { output: 42 },
+								workflow: { output: 42, state: "completed" },
+							}[kind],
 						});
 					}
 					const provider = yield* compileTestScript(`
@@ -984,7 +997,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					const compiled = yield* compileTestScript(durableSource);
 					const uncaught = yield* compileTestScript(
 						defineNativeScript('(_input, host) => host.getCachedValue("first")', {
-							kind: "operation",
+							kind: "script",
 						}),
 					);
 					for (const request of [
@@ -1022,7 +1035,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				}
 				{
 					const compiled = yield* compileTestScript(
-						defineNativeScript("() => Effect.succeed(null)", { kind: "operation" }),
+						defineNativeScript("() => Effect.succeed(null)", { kind: "script" }),
 					);
 					const target = runtimeDefinition(
 						compiled,
@@ -1132,7 +1145,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
         yield* host.httpCall("GET", "https://example.com/budget");
       }
     })`,
-						{ kind: "operation", input: "Schema.Struct({ mode: Schema.String })" },
+						{ kind: "script", input: "Schema.Struct({ mode: Schema.String })" },
 					),
 				);
 				const overCap = yield* runNative(
@@ -1193,7 +1206,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 								return yield* Effect.sync(() => { throw new Error("Pending durable catch ran"); });
 							}),
 					))`,
-						{ kind: "operation" },
+						{ kind: "script" },
 					),
 				);
 				const caughtCalls: ReadonlyArray<unknown>[] = [];
@@ -1473,7 +1486,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				const compiled = yield* compileTestScript(
 					defineNativeScript(
 						'(input, host) => host.getCachedValue("large").pipe(Effect.map((value) => { if (typeof value !== "string") throw new Error("Expected recorded string"); return { length: value.length, first: value.slice(0, 5), last: value.slice(-5) }; }))',
-						{ kind: "operation" },
+						{ kind: "script" },
 					),
 				);
 				const value = '日\\"本語'.repeat(900_000);

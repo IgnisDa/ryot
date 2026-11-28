@@ -2,6 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	PluginId,
 	RelationshipId,
 	RelationshipKey,
@@ -17,6 +18,7 @@ import { FoldMarks } from "#modules/derived-values/marks";
 import { lockSortedAdvisoryKeys, STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import { makeCollectionOrderPersistence } from "./collection-order";
@@ -55,10 +57,6 @@ export type CreateRelationshipInput = RelationshipIdentityInput & {
 	properties: Record<string, unknown>;
 };
 
-export type UpdateRelationshipInput = RelationshipIdentityInput & {
-	properties: Record<string, unknown>;
-};
-
 export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 	JSON.stringify([
 		"relationship",
@@ -76,7 +74,12 @@ const globalRelationshipListFields = {
 };
 
 export const GlobalRelationshipListInput = Schema.Union([
-	Schema.Struct({ ...globalRelationshipListFields, type: Schema.Literal("self") }),
+	Schema.Struct({
+		...globalRelationshipListFields,
+		type: Schema.Literal("self"),
+		entitySchemaSlug: EntitySchemaSlug,
+		entitySchemaPluginId: Schema.NullOr(Schema.String),
+	}),
 	Schema.Struct({
 		...globalRelationshipListFields,
 		anchorEntityId: EntityId,
@@ -179,13 +182,6 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 			: eq(schema.relationship.key, input.key),
 	);
 
-const preparedRelationshipWhere = (before: ReturnType<typeof toRelationship>) =>
-	and(
-		eq(schema.relationship.id, before.id),
-		eq(schema.relationship.targetEntityId, before.targetEntityId),
-		sql`${schema.relationship.properties} = ${JSON.stringify(before.properties)}::jsonb`,
-	);
-
 const relationshipReconciliationWhere = (input: RelationshipReconciliationListInput) =>
 	and(
 		input.scope === "user"
@@ -194,7 +190,16 @@ const relationshipReconciliationWhere = (input: RelationshipReconciliationListIn
 		eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 		relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 		input.type === "self"
-			? eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId)
+			? and(
+					eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
+					inArray(
+						schema.relationship.sourceEntityId,
+						sql`(select ${schema.entity.id} from ${schema.entity} where ${and(
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+							pluginIdWhere(schema.entity.entitySchemaPluginId, input.entitySchemaPluginId),
+						)})`,
+					),
+				)
 			: eq(
 					schema.relationship[`${relationshipEnds(input.direction).anchor}EntityId`],
 					input.anchorEntityId,
@@ -209,8 +214,8 @@ const relationshipReconciliationLockKey = (input: RelationshipReconciliationList
 		input.relationshipSchemaPluginId ?? "kernel",
 		input.relationshipSchemaSlug,
 		input.type,
-		input.type === "anchored" ? input.direction : null,
-		input.type === "anchored" ? input.anchorEntityId : null,
+		input.type === "anchored" ? input.direction : input.entitySchemaSlug,
+		input.type === "anchored" ? input.anchorEntityId : input.entitySchemaPluginId,
 	]);
 
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
@@ -220,9 +225,11 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const session = yield* DatabaseSession;
 			const folds = yield* FoldMarks.make;
 			const markSources = (
+				transaction: WriteTransaction,
 				rows: ReadonlyArray<{ readonly userId: null | string; readonly sourceEntityId: string }>,
 			) =>
-				folds.markSubjects(
+				folds.markRefolds(
+					transaction,
 					rows.flatMap((row) =>
 						row.userId === null
 							? []
@@ -258,22 +265,22 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 				return new Map(rows.flat().map((row) => [storedRelationshipKey(row), toRelationship(row)]));
 			});
-			const findUserRelationshipById = Effect.fn(
-				"RelationshipsRepository.findUserRelationshipById",
-			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select(relationshipSnapshotWithProvenanceSelection)
-						.from(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.id, relationshipId),
-								eq(schema.relationship.userId, userId),
+			const findUserRelationshipsById = Effect.fn(
+				"RelationshipsRepository.findUserRelationshipsById",
+			)(function* (userId: UserId, relationshipIds: ReadonlyArray<RelationshipId>) {
+				const rows = yield* Effect.forEach(chunksOf(relationshipIds, STATEMENT_CHUNK_SIZE), (ids) =>
+					session.run((db) =>
+						db
+							.select(relationshipSnapshotWithProvenanceSelection)
+							.from(schema.relationship)
+							.where(
+								and(eq(schema.relationship.userId, userId), inArray(schema.relationship.id, ids)),
 							),
-						)
-						.limit(1),
+					),
 				);
-				return row ? toRelationship(row) : null;
+				return new Map(
+					rows.flat().map((row) => [RelationshipId.make(row.id), toRelationship(row)] as const),
+				);
 			});
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
@@ -324,6 +331,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			});
 
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
+				transaction: WriteTransaction,
 				input: CreateRelationshipInput,
 			) {
 				const [prepared] = yield* collectionOrder.prepareCreates([input]);
@@ -339,7 +347,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 
 				if (inserted) {
-					yield* markSources([inserted]);
+					yield* markSources(transaction, [inserted]);
 					return toSavedRelationship(inserted);
 				}
 
@@ -360,7 +368,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			});
 
 			const createRelationships = Effect.fn("RelationshipsRepository.createRelationships")(
-				function* (inputs: ReadonlyArray<CreateRelationshipInput>) {
+				function* (transaction: WriteTransaction, inputs: ReadonlyArray<CreateRelationshipInput>) {
 					const prepared = yield* collectionOrder.prepareCreates(inputs);
 					const inserted = yield* Effect.forEach(
 						chunksOf(prepared, STATEMENT_CHUNK_SIZE),
@@ -373,7 +381,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 									.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 							),
 					);
-					yield* markSources(inserted.flat());
+					yield* markSources(transaction, inserted.flat());
 					const saved = new Map(
 						inserted.flat().map((row) => [storedRelationshipKey(row), toSavedRelationship(row)]),
 					);
@@ -395,13 +403,21 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 			const updateRelationshipsById = Effect.fn("RelationshipsRepository.updateRelationshipsById")(
 				function* (
-					updates: ReadonlyArray<{ id: RelationshipId; properties: Record<string, unknown> }>,
+					updates: ReadonlyArray<{
+						id: RelationshipId;
+						targetEntityId: EntityId;
+						properties: Record<string, unknown>;
+					}>,
 				) {
 					const rows = yield* Effect.forEach(chunksOf(updates, STATEMENT_CHUNK_SIZE), (chunk) =>
 						session.run((db) =>
 							db
 								.update(schema.relationship)
 								.set({
+									targetEntityId: sql`(case ${schema.relationship.id} ${sql.join(
+										chunk.map(({ id, targetEntityId }) => sql`when ${id} then ${targetEntityId}`),
+										sql` `,
+									)} end)`,
 									properties: preserveCollectionRank(
 										sql`(case ${schema.relationship.id} ${sql.join(
 											chunk.map(
@@ -447,55 +463,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					);
 				},
 			);
-
-			const updatePreparedRelationship = Effect.fn(
-				"RelationshipsRepository.updatePreparedRelationship",
-			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
-				const [row] = yield* session.run((db) =>
-					db
-						.update(schema.relationship)
-						.set({
-							targetEntityId: input.targetEntityId,
-							properties: preserveCollectionRank(sql`${JSON.stringify(input.properties)}::jsonb`),
-						})
-						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
-			});
-
-			const deletePreparedRelationship = Effect.fn(
-				"RelationshipsRepository.deletePreparedRelationship",
-			)(function* (
-				input: RelationshipIdentityInput & { before: ReturnType<typeof toRelationship> },
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.relationship)
-						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toRelationship(row) : null;
-			});
-
-			const deleteUserRelationshipById = Effect.fn(
-				"RelationshipsRepository.deleteUserRelationshipById",
-			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.id, relationshipId),
-								eq(schema.relationship.userId, userId),
-							),
-						)
-						.returning({ id: schema.relationship.id }),
-				);
-				return row !== undefined;
-			});
 
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
@@ -660,11 +627,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				updateRelationshipsById,
 				deleteRelationshipsById,
 				listGlobalRelationships,
-				findUserRelationshipById,
+				findUserRelationshipsById,
 				lockRelationshipMutations,
-				updatePreparedRelationship,
-				deletePreparedRelationship,
-				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserEditorRelationships,

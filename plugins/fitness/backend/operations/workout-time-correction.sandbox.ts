@@ -1,19 +1,23 @@
-import { isCommitConflict, userCommandInputSchema } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	continuationCursor,
+	entityUpdateTarget,
+	expectedEventFields,
+	updateEventChange,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { continuationCursor, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
+import {
+	entityEventScopeRevisionRecipe,
+	executeRyotqlRecipe,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { EventId } from "@ryot-app/plugin-kit/schema";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { applyWorkoutTimes } from "../../shared/workout-editor-properties";
-import {
-	decodeWorkoutEditorBaseline,
-	workoutEditorEntityRecipe,
-} from "../../shared/workout-editor-recipes";
-import {
-	workoutEventScopeRevisionRecipe,
-	workoutOccurrencesRecipe,
-} from "../../shared/workout-taxonomy-recipes";
+import { decodeWorkoutEditorBaseline } from "../../shared/workout-editor-recipes";
+import { workoutOccurrencesRecipe } from "../../shared/workout-taxonomy-recipes";
 import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
@@ -37,20 +41,12 @@ export default defineOperation({
 				decoded.success.entity.id !== input.entityId ||
 				(input.endedAt !== undefined && Date.parse(input.endedAt) < Date.parse(input.startedAt))
 			) {
-				return { kind: "invalid" } as const;
-			}
-			const current = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				workoutEditorEntityRecipe({ reference: { kind: "self" } }),
-				{ kind: "workout", entityId: input.entityId },
-			);
-			if (!current) {
-				return { kind: "conflict" } as const;
+				return yield* reject(catalogMessage("rejection.workout-time.invalid"));
 			}
 			const revision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEventScopeRevisionRecipe,
-				{ workoutId: input.entityId },
+				entityEventScopeRevisionRecipe,
+				{ entityId: input.entityId },
 			);
 			const occurrences: Occurrence[] = [];
 			let after: string | undefined;
@@ -65,51 +61,28 @@ export default defineOperation({
 				after = yield* continuationCursor(page.pageInfo, after);
 			} while (after !== undefined);
 			const { entity } = decoded.success;
-			const command = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
-				relationships: [],
-				entity: {
-					name: entity.name,
-					entitySchemaSlug: "workout",
-					properties: applyWorkoutTimes(entity.properties, input),
-					target: {
-						kind: "update",
-						entityId: input.entityId,
-						expected: {
-							name: entity.name,
-							updatedAt: entity.updatedAt,
-							properties: entity.properties,
-						},
+			return {
+				output: { entityId: input.entityId },
+				changes: {
+					entity: {
+						name: entity.name,
+						entitySchemaSlug: "workout",
+						target: entityUpdateTarget(entity),
+						properties: applyWorkoutTimes(entity.properties, input),
+					},
+					events: {
+						baselines: [{ revision, entityId: input.entityId }],
+						changes: occurrences
+							.filter(({ occurredAt }) => Date.parse(occurredAt) !== Date.parse(input.startedAt))
+							.map((occurrence) =>
+								updateEventChange(
+									EventId.make(occurrence.id),
+									{ occurredAt: input.startedAt },
+									expectedEventFields(occurrence),
+								),
+							),
 					},
 				},
-				events: {
-					creates: [],
-					baselines: [{ revision, entityId: input.entityId }],
-					changes: occurrences
-						.filter(({ occurredAt }) => Date.parse(occurredAt) !== Date.parse(input.startedAt))
-						.map((occurrence) => ({
-							kind: "update",
-							itemIdentity: `occurrence-update:${occurrence.id}`,
-							item: {
-								eventId: occurrence.id,
-								patch: { occurredAt: input.startedAt },
-								expected: {
-									kind: "fields",
-									absentProperties: [],
-									entityId: occurrence.entityId,
-									occurredAt: occurrence.occurredAt,
-									properties: occurrence.properties,
-									sessionEntityId: occurrence.sessionEntityId,
-								},
-							},
-						})),
-				},
-			}).pipe(Effect.orDie);
-			const saved = yield* host.commitUserChanges(command).pipe(
-				Effect.as(true),
-				Effect.catchIf(isCommitConflict, () => Effect.succeed(false)),
-			);
-			return saved
-				? ({ kind: "saved", entityId: input.entityId } as const)
-				: ({ kind: "conflict" } as const);
+			};
 		}),
 });

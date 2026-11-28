@@ -5,7 +5,7 @@ import {
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
 } from "@ryot-app/instance-contract/account-admin";
-import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -17,15 +17,14 @@ import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 import { classifyAuthState } from "./auth-state";
 import { UserLifecycleRepository } from "./repository";
 
-const ACCESS_REVOCATION_CLAIM_TIMEOUT_MS = 60_000;
-
-const accessRevocationStaleBefore = (now: Date) =>
-	new Date(now.getTime() - ACCESS_REVOCATION_CLAIM_TIMEOUT_MS);
-
 export const UserLifecycleJob = makeJobKind("user-lifecycle", {
 	concurrency: 2,
 	payload: Schema.Struct({ operationId: Schema.String }),
 });
+
+type Preparation = NonNullable<
+	Effect.Success<ReturnType<UserLifecycleRepository["Service"]["loadPreparationForUpdate"]>>
+>;
 
 export class UserLifecycleService extends Context.Service<UserLifecycleService>()(
 	"@ryot-app/kernel-backend/modules/accounts/lifecycle/service/UserLifecycleService",
@@ -37,91 +36,63 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			const database = yield* DatabaseSession;
 			const jobs = yield* JobQueue;
 			const repository = yield* UserLifecycleRepository;
-			const revokeClaimedAccess = Effect.fnUntraced(function* (
-				operationId: string,
-				claimed: NonNullable<Effect.Success<ReturnType<typeof repository.claimAccessRevocation>>>,
-			) {
-				if (yield* repository.userExists(claimed.operation.userId)) {
-					const disabledAt = claimed.metadata.user.disabledAt
-						? DateTime.toDate(DateTime.makeUnsafe(claimed.metadata.user.disabledAt))
-						: yield* DateTime.nowAsDate;
-					yield* auth.updateAuthUserDisabled(claimed.operation.userId, {
-						disabledAt,
-						updatedAt: yield* DateTime.nowAsDate,
-					});
-				}
-				yield* auth.deleteUserSessions(claimed.operation.userId);
-				yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
-				yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
-				yield* auth.revokePasswordResetLinks(claimed.operation.userId);
-				return (
-					(yield* repository.markAccessRevoked(operationId)) ??
-					(yield* new InstanceAdminInternalFailure({
-						reason: { code: "access-revocation-failed" },
-					}))
-				);
+
+			const revokeAccess = Effect.fnUntraced(function* (userId: UserId, disabledAt: null | string) {
+				const updatedAt = yield* DateTime.nowAsDate;
+				yield* auth.updateAuthUserDisabled(userId, {
+					updatedAt,
+					disabledAt:
+						disabledAt === null ? updatedAt : DateTime.toDate(DateTime.makeUnsafe(disabledAt)),
+				});
+				yield* auth.deleteUserSessions(userId);
+				yield* auth.revokeUserOAuthTokens(userId);
+				yield* auth.revokePasswordResetLinks(userId);
 			});
 
-			const ensureAccessRevoked = Effect.fn("UserLifecycleService.ensureAccessRevoked")(function* (
-				operationId: string,
+			const open = Effect.fnUntraced(function* (
+				userId: UserId,
+				kind: UserLifecycleOperationKind,
+				preparation: Preparation,
 			) {
-				const current = yield* repository.getInternalById(operationId);
-				if (!current) {
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-state-conflict" },
-					});
-				}
-				if (current.accessRevokedAt !== null) {
-					return current;
+				if (preparation.retryable) {
+					return (
+						(yield* repository.reactivateFailed(preparation.retryable.operation.id)) ??
+						(yield* new InstanceAdminInternalFailure({
+							reason: { code: "lifecycle-state-conflict" },
+						}))
+					);
 				}
 
-				const now = yield* DateTime.nowAsDate;
-				const claimed = yield* repository.claimAccessRevocation(
-					operationId,
-					accessRevocationStaleBefore(now),
-				);
-				if (!claimed) {
-					const refreshed = yield* repository.getInternalById(operationId);
-					if (refreshed?.accessRevokedAt) {
-						return refreshed;
-					}
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-state-conflict" },
+				const authState = classifyAuthState(preparation.metadata.accounts);
+				if (kind === "reset" && authState === "mixed") {
+					return yield* new InstanceAdminRequestFailure({
+						reason: { code: "mixed-auth-reset-unsupported" },
+					});
+				}
+				const usesLocalAuth = authState === "credential" || authState === "none";
+				if (kind === "reset" && usesLocalAuth && config.users.disableLocalAuth) {
+					return yield* new InstanceAdminRequestFailure({
+						reason: { code: "local-auth-disabled" },
 					});
 				}
 
-				return yield* revokeClaimedAccess(operationId, claimed).pipe(
-					Effect.catchCause((cause) =>
-						repository
-							.releaseAccessRevocation(operationId)
-							.pipe(
-								Effect.ignoreCause,
-								Effect.andThen(
-									Cause.hasInterruptsOnly(cause)
-										? Effect.failCause(cause)
-										: Effect.logError("user lifecycle access revocation failed", cause).pipe(
-												Effect.annotateLogs({ operationId }),
-												Effect.andThen(
-													new InstanceAdminInternalFailure({
-														reason: { code: "access-revocation-failed" },
-													}),
-												),
-											),
-								),
-							),
-					),
-					Effect.mapError(
-						() =>
-							new InstanceAdminInternalFailure({ reason: { code: "access-revocation-failed" } }),
-					),
-				);
+				return yield* repository.create({
+					kind,
+					userId,
+					id: yield* random.uuidV4(),
+					metadata: {
+						...preparation.metadata,
+						usesLocalAuth,
+						recreatedAccountId: yield* random.uuidV4(),
+					},
+				});
 			});
 
 			const request = Effect.fn("UserLifecycleService.request")(function* (
 				userId: UserId,
 				kind: UserLifecycleOperationKind,
 			) {
-				const prepared = yield* mapDatabaseErrors(
+				const requested = yield* mapDatabaseErrors(
 					database
 						.transaction(
 							Effect.gen(function* () {
@@ -134,44 +105,15 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 								if (preparation.active) {
 									return preparation.active;
 								}
-								if (preparation.retryable) {
-									return (
-										(yield* repository.reactivateFailed(preparation.retryable.operation.id)) ??
-										(yield* new InstanceAdminInternalFailure({
-											reason: { code: "lifecycle-state-conflict" },
-										}))
-									);
-								}
-
-								const authState = classifyAuthState(preparation.metadata.accounts);
-								if (kind === "reset" && authState === "mixed") {
-									return yield* new InstanceAdminRequestFailure({
-										reason: { code: "mixed-auth-reset-unsupported" },
-									});
-								}
-								const usesLocalAuth = authState === "credential" || authState === "none";
-								if (kind === "reset" && usesLocalAuth && config.users.disableLocalAuth) {
-									return yield* new InstanceAdminRequestFailure({
-										reason: { code: "local-auth-disabled" },
-									});
-								}
-
-								return yield* repository.create({
-									kind,
-									userId,
-									id: yield* random.uuidV4(),
-									metadata: {
-										...preparation.metadata,
-										usesLocalAuth,
-										recreatedAccountId: yield* random.uuidV4(),
-									},
-								});
+								const opened = yield* open(userId, kind, preparation);
+								yield* revokeAccess(userId, preparation.metadata.user.disabledAt);
+								return opened;
 							}).pipe(
-								Effect.tap((operation) =>
+								Effect.tap(({ operation }) =>
 									jobs.enqueue(
 										UserLifecycleJob,
-										{ operationId: operation.operation.id },
-										{ key: operation.operation.id },
+										{ operationId: operation.id },
+										{ key: operation.id },
 									),
 								),
 							),
@@ -186,13 +128,10 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							}),
 						),
 				);
-
-				yield* ensureAccessRevoked(prepared.operation.id);
-				return { operationId: prepared.operation.id };
+				return { operationId: requested.operation.id };
 			});
 
 			return {
-				ensureAccessRevoked,
 				resetUser: (userId: UserId) => request(userId, "reset"),
 				deleteUser: (userId: UserId) => request(userId, "delete"),
 			};

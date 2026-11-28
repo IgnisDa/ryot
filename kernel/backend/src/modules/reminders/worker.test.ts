@@ -2,7 +2,12 @@ import { expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
-import { AutomationExecutionId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	EntityId,
+	ReminderId,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
@@ -10,15 +15,17 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { KernelSignalBlocked, KernelSignals } from "#modules/automations/kernel-signals";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
+	noPoliciesLayer,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -26,6 +33,12 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import {
+	clearUserData,
+	mergeUserData,
+	userDataChangeSets,
+} from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { manifest as notificationManifest } from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -34,7 +47,6 @@ import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { NotificationAdmissions } from "#modules/notifications/admission";
 import { deliverEnabledChannels } from "#modules/notifications/deliver-enabled-channels";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
@@ -78,8 +90,6 @@ const execution = Layer.effectContext(
 			LifecycleExecution,
 			withLifecycleDispatch(
 				{
-					executePolicy: () => Effect.die("Unexpected policy"),
-					skipQueuedPolicies: () => Effect.die("Unexpected policy"),
 					after: ({ runs }) =>
 						Effect.gen(function* () {
 							const inTransaction = yield* session.isTransactionActive;
@@ -129,36 +139,39 @@ const repositories = Layer.mergeAll(
 	EventsRepository.layer,
 );
 const dependencies = SignalEmissionService.layer.pipe(
-	Layer.provideMerge(LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer))),
+	Layer.provideMerge(
+		Layer.merge(
+			LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer)),
+			noPoliciesLayer,
+		),
+	),
 	Layer.provideMerge(execution),
 	Layer.provideMerge(repositories),
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
-const services = Layer.mergeAll(
-	RemindersService.layer,
-	ReminderWorker.layer,
-	NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
-	EntityUserDataService.layer,
-).pipe(
-	Layer.provideMerge(ReminderEntityLifecycleLive),
-	Layer.provide(
+const services = ReminderWorker.layer.pipe(
+	Layer.provideMerge(Layer.effect(ChangeSets, userDataChangeSets())),
+	Layer.provideMerge(
 		Layer.mergeAll(
-			EventsService.layer.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						EventSchemaReader.layer,
-						DomainWriteChecksLive,
-						WorkflowExecutionNotifications.layer,
-					),
+			RemindersService.layer,
+			NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
+			EntityUserDataService.layer,
+		).pipe(
+			Layer.provideMerge(ReminderEntityLifecycleLive),
+			Layer.provide(Layer.mock(RelationshipsService)({})),
+			Layer.provideMerge(
+				Layer.mergeAll(
+					EventSchemaReader.layer,
+					DomainWriteChecksLive,
+					WorkflowExecutionNotifications.layer,
 				),
 			),
-			Layer.mock(RelationshipsService)({}),
+			Layer.provideMerge(ReminderNotificationSourcePolicyLive),
+			Layer.provideMerge(dependencies),
+			Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 		),
 	),
-	Layer.provideMerge(ReminderNotificationSourcePolicyLive),
-	Layer.provideMerge(dependencies),
-	Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 );
 
 const enabledInput = Effect.fnUntraced(function* () {
@@ -269,11 +282,7 @@ layer(services)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* processingInput();
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				const stored = yield* (yield* RemindersRepository).findForUser(input.user.id, input.row.id);
 				expect(stored).toMatchObject({
 					message: null,
@@ -314,11 +323,7 @@ layer(services)((test) => {
 					Effect.forkChild,
 				);
 				yield* Deferred.await(preparing);
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				yield* Deferred.succeed(resume, undefined);
 				yield* Fiber.join(send);
 				expect(yield* Ref.get(sends)).toBe(0);
@@ -353,11 +358,7 @@ layer(services)((test) => {
 					Effect.forkChild,
 				);
 				yield* Deferred.await(sending);
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				yield* Deferred.succeed(accepted, undefined);
 				yield* Fiber.join(send);
 				yield* deliverEnabledChannels(payload).pipe(
@@ -399,8 +400,8 @@ layer(services)((test) => {
 					submittedAt: (yield* DateTime.nowAsDate).toISOString(),
 				});
 				const notification = yield* (yield* NotificationAdmissions).admit(input.admission);
-				yield* (yield* EntityUserDataService).mergeEntityUserData(
-					input.user,
+				yield* mergeUserData(
+					input.user.id,
 					{ mergeInto: destination, mergeFrom: input.body.entityId },
 					lifecycleCommand(input),
 				);
@@ -425,7 +426,7 @@ layer(services)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"crosses due pages and isolates a planning failure without consuming its occurrence",
+		"crosses due pages and commits a reminder's signal with its ledger, so a failure after planning keeps it scheduled",
 		() =>
 			Effect.gen(function* () {
 				const { user, body } = yield* enabledInput();
@@ -437,29 +438,119 @@ layer(services)((test) => {
 				const first = created[0];
 				assert(first);
 				const signals = yield* SignalEmissionService;
-				const worker = yield* ReminderWorker.make.pipe(
+				const changeSets = yield* userDataChangeSets().pipe(
 					Effect.provideService(SignalEmissionService, {
 						...signals,
-						planSignal: (input) =>
-							input.command.itemIdentity === first.id
-								? Effect.fail(new DbError({ message: "Planning unavailable" }))
-								: signals.planSignal(input),
+						planSignal: (input, transaction) =>
+							input.command.itemIdentity.startsWith(first.id)
+								? signals
+										.planSignal(input, transaction)
+										.pipe(Effect.andThen(Effect.fail(new DbError({ message: "Planning failed" }))))
+								: signals.planSignal(input, transaction),
 					}),
+				);
+				const worker = yield* ReminderWorker.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
 				);
 				yield* TestClock.adjust("2 hours");
 				yield* worker.run();
 				const repository = yield* RemindersRepository;
 				expect(yield* repository.findForUser(user.id, first.id)).toMatchObject({
 					revision: 1,
+					triggerId: null,
 					state: "scheduled",
 					formatterRunId: null,
 				});
+				const session = yield* DatabaseSession;
+				const triggers = (reminderId: string) =>
+					session.run((db) =>
+						db
+							.select({ id: tables.automationTrigger.id })
+							.from(tables.automationTrigger)
+							.where(
+								sql`${tables.automationTrigger.payload}->'properties'->>'reminderId' = ${reminderId}`,
+							),
+					);
+				expect(yield* triggers(first.id)).toEqual([]);
+				expect(yield* triggers(created[1]?.id ?? "")).toHaveLength(1);
 				for (const item of created.slice(1)) {
 					expect((yield* repository.findForUser(user.id, item.id))?.state).toBe("processing");
 				}
 				yield* TestClock.adjust("2 minutes");
 				yield* (yield* ReminderWorker).run();
 				expect((yield* repository.findForUser(user.id, first.id))?.state).toBe("processing");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"defers a due reminder whose signal is blocked without committing the signal",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* enabledInput();
+				const created = yield* (yield* RemindersService).create(user, body);
+				const signals = yield* SignalEmissionService;
+				const changeSets = yield* userDataChangeSets().pipe(
+					Effect.provideService(SignalEmissionService, {
+						...signals,
+						planSignal: (input, transaction) =>
+							Effect.map(signals.planSignal(input, transaction), (plan) => ({
+								...plan,
+								trigger: {
+									...plan.trigger,
+									blockedReason: { omittedHooks: [], code: "automation-limit-reached" as const },
+								},
+							})),
+					}),
+				);
+				const recorded = yield* Ref.make(0);
+				const kernelSignals = yield* KernelSignals.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
+				);
+				assertExitFails(
+					yield* kernelSignals
+						.commit({
+							userId: user.id,
+							command: lifecycleCommand({ user, body }),
+							reference: { owner: { kind: "kernel" }, slug: SignalSchemaSlug.make("reminder.due") },
+							ledger: {
+								check: () => Effect.succeed(true),
+								record: () => Ref.update(recorded, (count) => count + 1),
+							},
+							properties: {
+								dueAt: body.dueAt,
+								message: body.message,
+								reminderId: created.id,
+								timezone: body.timezone,
+								entityId: body.entityId,
+							},
+						})
+						.pipe(Effect.exit),
+					new KernelSignalBlocked({
+						reason: { omittedHooks: [], code: "automation-limit-reached" },
+					}),
+				);
+				expect(yield* Ref.get(recorded)).toBe(0);
+				const worker = yield* ReminderWorker.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
+				);
+				yield* TestClock.adjust("2 hours");
+				const retryAt = DateTime.toDateUtc(DateTime.addDuration(yield* DateTime.now, "1 minute"));
+				yield* worker.run();
+				expect(yield* (yield* RemindersRepository).findForUser(user.id, created.id)).toMatchObject({
+					triggerId: null,
+					state: "scheduled",
+					reconcileAt: retryAt,
+					formatterRunId: null,
+				});
+				const triggers = yield* (yield* DatabaseSession).run((db) =>
+					db
+						.select({ id: tables.automationTrigger.id })
+						.from(tables.automationTrigger)
+						.where(
+							sql`${tables.automationTrigger.payload}->'properties'->>'reminderId' = ${created.id}`,
+						),
+				);
+				expect(triggers).toEqual([]);
 			}),
 		testTimeout,
 	);

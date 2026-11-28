@@ -5,11 +5,14 @@ import type { genericImportEventIntentSchema } from "@ryot-app/plugin-backend-sd
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
+import { eventCreateChanges } from "#modules/changes/changes";
+import { toCreateEventsResponse } from "#modules/changes/outcomes";
+import { ChangeSets } from "#modules/changes/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 import { registerJobHandler } from "#platform/jobs/worker";
 
@@ -33,6 +36,8 @@ const FlushJob = makeJobKind("integration-event-flush", {
 
 type Coalescing = Exclude<typeof genericImportEventIntentSchema.Type.coalescing, undefined>;
 
+const events = { independent: true, verbatimIdentities: true } as const;
+
 const nextEligibility = (seconds: number) =>
 	DateTime.now.pipe(Effect.map((now) => DateTime.toDateUtc(DateTime.add(now, { seconds }))));
 
@@ -43,7 +48,7 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 			const streams = yield* IntegrationEventStreamRepository;
 			const database = yield* DatabaseSession;
 			const queue = yield* JobQueue;
-			const events = yield* EventsService;
+			const changeSets = yield* ChangeSets;
 			const keys = yield* IdempotencyKeys.make;
 			const accounts = yield* AccountAdmission.make;
 
@@ -56,8 +61,8 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 			}) {
 				const { key, event, command, identity, coalescing } = input;
 				const observedAt = DateTime.toDateUtc(DateTime.makeUnsafe(command.occurredAt));
-				const select = Effect.gen(function* () {
-					yield* accounts.admitAccount(key.userId);
+				const select = Effect.fnUntraced(function* (transaction?: WriteTransaction) {
+					yield* accounts.admitAccount(key.userId, transaction);
 					const unchanged = keys.recordImportItem(
 						{ ...command, itemIdentity: identity },
 						key.userId,
@@ -133,9 +138,11 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 								: (state?.eligibleAt ?? null),
 					});
 				});
-				return yield* events.create(
-					{ command, payload: [event], userId: key.userId, itemIdentities: [identity] },
-					{ select, written },
+				return yield* changeSets.commitEventsKeyed(
+					eventCreateChanges(key.userId, [event], [identity]),
+					command,
+					identity,
+					{ events, precondition: { check: select, written: () => written } },
 				);
 			});
 
@@ -151,8 +158,8 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 					...pending.command,
 					itemIdentity: stableStringify(["integration-event-flush", pending.command.itemIdentity]),
 				};
-				const select = Effect.gen(function* () {
-					yield* accounts.admitAccount(key.userId);
+				const select = Effect.fnUntraced(function* (transaction?: WriteTransaction) {
+					yield* accounts.admitAccount(key.userId, transaction);
 					if (!(yield* streams.lock(key))) {
 						return false;
 					}
@@ -173,14 +180,12 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 						eligibleAt: yield* nextEligibility(pending.intervalSeconds),
 					});
 				});
-				const result = yield* events.create(
-					{
+				const result = toCreateEventsResponse(
+					(yield* changeSets.commit(
+						eventCreateChanges(key.userId, [pending.event], [pending.identity]),
 						command,
-						userId: key.userId,
-						payload: [pending.event],
-						itemIdentities: [pending.identity],
-					},
-					{ select, written },
+						{ events, precondition: { check: select, written: () => written } },
+					)).outcomes,
 				);
 				if (
 					result.failure ||
@@ -188,7 +193,7 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 				) {
 					yield* database.transaction(
 						Effect.gen(function* () {
-							if (yield* select) {
+							if (yield* select()) {
 								yield* streams.write(key, { ...state, pending: null });
 							}
 						}),

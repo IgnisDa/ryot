@@ -1,29 +1,37 @@
 import {
+	type ChangeSet,
+	continuationCursor,
+	createEventChange,
+	deleteEventChange,
 	EntitlementRequiredError,
-	isCommitConflict,
+	entityUpdateTarget,
+	type EventChange,
+	type EventCreate,
+	existingEntity,
+	expectedEventFields,
 	isEntitled,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
+	type RelationshipUpsert,
+	rootEntity,
 	type ScriptHost,
-	type UpdateEventItem,
-	type UserCommandInput,
-	userCommandInputSchema,
+	updateEventChange,
+	verifyManagedAssets,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { reject, StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
-	continuationCursor,
+	entityEventScopeRevisionRecipe,
 	executeRyotqlRecipe,
-	type RyotqlRecipeDecodeError,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
-import {
-	type WorkoutEditorSaveInput,
-	type WorkoutEditorSaveOutput,
-	WorkoutEditorSaveOutputSchema,
+import { type Catalog, catalogMessage } from "../../shared/messages.generated";
+import type {
+	WorkoutEditorSaveInput,
+	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
 import {
 	applyWorkoutTimes,
@@ -53,19 +61,15 @@ import {
 	type WorkoutSetAssetLocator,
 	workoutSetEditableFields,
 } from "../../shared/workout-set";
-import {
-	workoutEventScopeRevisionRecipe,
-	workoutOccurrencesRecipe,
-} from "../../shared/workout-taxonomy-recipes";
+import { workoutOccurrencesRecipe } from "../../shared/workout-taxonomy-recipes";
 
 type Data = WorkoutEditorSaveInput["data"];
+type InvalidCode = keyof typeof invalidMessages;
 type Properties = WorkoutEditorEvent["properties"];
 type WorkoutData = Extract<Data, { kind: "workout" }>;
 type TemplateData = Extract<Data, { kind: "template" }>;
 type SourceSet = WorkoutEditorEvent & { readonly set: WorkoutSetProperties };
-type InvalidCode = Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"];
 
-type SavedSet = Extract<WorkoutEditorSaveOutput, { kind: "saved" }>["sets"][number];
 type Baseline = {
 	readonly startedAt: string | undefined;
 	readonly sets: ReadonlyArray<SourceSet>;
@@ -77,19 +81,21 @@ type Baseline = {
 	readonly exercises: ReadonlyArray<TemplateOccurrenceProperties>;
 };
 
-class WorkoutSaveHalt extends Schema.TaggedError<
-	WorkoutSaveHalt,
-	{ readonly brand: unique symbol }
->()("WorkoutSaveHalt", { output: WorkoutEditorSaveOutputSchema }) {}
+const invalidMessages = {
+	"duplicate-id": "rejection.workout-save.duplicate-id",
+	"invalid-time": "rejection.workout-save.invalid-time",
+	"invalid-source": "rejection.workout-save.invalid-source",
+	"media-forbidden": "rejection.workout-save.media-forbidden",
+	"unrelated-event": "rejection.workout-save.unrelated-event",
+	"invalid-superset": "rejection.workout-save.invalid-superset",
+	"missing-exercise": "rejection.workout-save.missing-exercise",
+	"invalid-measurement": "rejection.workout-save.invalid-measurement",
+	"missing-measurement": "rejection.workout-save.missing-measurement",
+	"invalid-exercise-kind": "rejection.workout-save.invalid-exercise-kind",
+} as const satisfies Record<string, keyof Catalog>;
 
-class WorkoutCommandInputError extends Schema.TaggedError<
-	WorkoutCommandInputError,
-	{ readonly brand: unique symbol }
->()("WorkoutCommandInputError", { message: Schema.String }) {}
+const invalid = (code: InvalidCode) => reject(catalogMessage(invalidMessages[code]));
 
-const halt = (output: WorkoutEditorSaveOutput) => Effect.fail(new WorkoutSaveHalt({ output }));
-const invalid = (code: InvalidCode) => halt({ code, kind: "invalid" });
-const conflict = () => halt({ kind: "conflict" });
 const proRequired = () => Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }));
 
 const chunked = <Item>(items: ReadonlyArray<Item>, size: number) =>
@@ -185,14 +191,7 @@ const templateProperties = (data: TemplateData, baseline: Baseline | undefined):
 	return properties;
 };
 
-const eventExpected = (set: WorkoutEditorEvent) => ({
-	entityId: set.entityId,
-	kind: "fields" as const,
-	occurredAt: set.occurredAt,
-	sessionEntityId: set.sessionEntityId,
-	properties: workoutEditableSetProperties(set.properties),
-	absentProperties: editableFields.filter((key) => !Object.hasOwn(set.properties, key)),
-});
+const eventExpected = (set: WorkoutEditorEvent) => expectedEventFields(set, editableFields);
 
 const introducesMedia = (
 	next: ReadonlyArray<WorkoutSetAssetLocator>,
@@ -240,7 +239,7 @@ const decodeBaselineProperties = (
 	};
 };
 
-const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data, host: ScriptHost) {
+const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data) {
 	if (data.target.kind !== "update") {
 		return undefined;
 	}
@@ -249,17 +248,6 @@ const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data, host: Scri
 		return yield* invalid("invalid-source");
 	}
 	const { entity } = decoded.success;
-	const current = yield* executeRyotqlRecipe(
-		host.executeRyotql,
-		workoutEditorEntityRecipe({ reference: { kind: "self" } }),
-		{
-			entityId: data.target.entityId,
-			kind: data.kind === "workout" ? "workout" : "workout-template",
-		},
-	);
-	if (!current) {
-		return yield* conflict();
-	}
 	const properties = decodeBaselineProperties(data.kind, entity);
 	const sets = decoded.success.sets.map((event) => ({
 		event,
@@ -364,11 +352,6 @@ const verifyBaselineEvents = Effect.fn("verifyBaselineEvents")(function* (
 	baseline: Baseline,
 	host: ScriptHost,
 ) {
-	const retainedIds = new Set(
-		data.occurrences.flatMap(({ sets }) =>
-			sets.flatMap((set) => (set.eventId === undefined ? [] : [set.eventId])),
-		),
-	);
 	for (const { items } of chunked(baseline.sets, WORKOUT_EDITOR_PAGE_SIZE)) {
 		const identities = yield* executeRyotqlRecipe(
 			host.executeRyotql,
@@ -387,11 +370,6 @@ const verifyBaselineEvents = Effect.fn("verifyBaselineEvents")(function* (
 			) {
 				return yield* invalid("unrelated-event");
 			}
-		}
-		if (
-			items.some(({ id }) => retainedIds.has(id) && !identities.some((event) => event.id === id))
-		) {
-			return yield* conflict();
 		}
 	}
 	return undefined;
@@ -570,12 +548,23 @@ const validateTemplateOccurrences = Effect.fn("validateTemplateOccurrences")(fun
 	return undefined;
 });
 
-const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
+export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 	input: WorkoutEditorSaveInput,
 	host: ScriptHost,
 ) {
 	const { data, submittedAt } = input;
-	const baseline = yield* loadBaseline(data, host);
+	const baseline = yield* loadBaseline(data);
+	const entitySchemaSlug = data.kind === "workout" ? "workout" : "workout-template";
+	if (
+		baseline &&
+		!(yield* executeRyotqlRecipe(
+			host.executeRyotql,
+			workoutEditorEntityRecipe({ reference: { kind: "self" } }),
+			{ kind: entitySchemaSlug, entityId: baseline.entity.id },
+		))
+	) {
+		return yield* new StaleBaselineError({ conflict: "entity-not-found" });
+	}
 	const graphIssue = validateGraph(data, baseline);
 	if (graphIssue !== undefined) {
 		return yield* invalid(graphIssue);
@@ -621,9 +610,11 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		.filter((locator) => locator.type !== "remote")
 		.filter((locator) => !existingMedia.some((old) => jsonValueEquals(old, locator)));
 	for (const { items } of chunked(managed, MANAGED_ASSET_VERIFY_SANDBOX_LIMITS.locators)) {
-		yield* host.verifyManagedAssets(items);
+		yield* verifyManagedAssets(host.verifyManagedAssets, items).pipe(
+			Effect.catchTag("ManagedAssetForbiddenError", () => invalid("media-forbidden")),
+		);
 	}
-	const relationships: Array<UserCommandInput["relationships"][number]> = [];
+	const relationships: Array<RelationshipUpsert> = [];
 	if (data.kind === "workout" && exerciseIds.length > 0) {
 		const library = yield* executeRyotqlRecipe(
 			host.executeRyotql,
@@ -635,23 +626,23 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				properties: {},
 				propertiesMode: "merge",
 				relationshipSchemaSlug: "in-fitness-library",
-				source: { kind: "existing", entityId: EntityId.make(exerciseId) },
-				target: { kind: "existing", entityId: EntityId.make(library.entityId) },
+				source: existingEntity(EntityId.make(exerciseId)),
+				target: existingEntity(EntityId.make(library.entityId)),
 			});
 		}
 	}
 	if (sourceLink) {
 		relationships.push({
 			properties: {},
+			source: rootEntity,
 			propertiesMode: "merge",
-			source: { kind: "root" },
 			relationshipSchemaSlug: sourceLink.relationshipSchemaSlug,
-			target: { kind: "existing", entityId: EntityId.make(sourceLink.targetEntityId) },
+			target: existingEntity(EntityId.make(sourceLink.targetEntityId)),
 		});
 	}
-	const updates: UpdateEventItem[] = [];
-	const creates: Array<UserCommandInput["events"]["creates"][number]> = [];
-	const occurrenceChanges: Array<UserCommandInput["events"]["changes"][number]> = [];
+	const updates: EventChange[] = [];
+	const creates: Array<EventCreate> = [];
+	const occurrenceChanges: EventChange[] = [];
 	let scopeRevision: number | undefined;
 	if (data.kind === "workout") {
 		const recorded: Array<
@@ -660,8 +651,8 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		if (baseline) {
 			scopeRevision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEventScopeRevisionRecipe,
-				{ workoutId: baseline.entity.id },
+				entityEventScopeRevisionRecipe,
+				{ entityId: baseline.entity.id },
 			);
 			let after: string | undefined;
 			do {
@@ -673,7 +664,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				);
 				recorded.push(...page.items);
 				after = yield* continuationCursor(page.pageInfo, after).pipe(
-					Effect.catchTag("RyotqlPaginationError", () => invalid("invalid-source")),
+					Effect.catchTag("PaginationError", () => invalid("invalid-source")),
 				);
 			} while (after !== undefined);
 		}
@@ -686,7 +677,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				(item) => item.properties.exerciseOrder === occurrence.sourceExerciseOrder,
 			);
 			if (occurrence.sourceExerciseOrder !== undefined && !previous) {
-				return yield* invalid("invalid-source");
+				return yield* new StaleBaselineError({ conflict: "event-not-found" });
 			}
 			if (previous) {
 				const originalSets =
@@ -706,62 +697,42 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 			if (previous && previous.entityId === occurrence.exerciseId) {
 				retainedOccurrences.add(previous.id);
 				if (previous.properties.exerciseOrder !== exerciseOrder) {
-					occurrenceChanges.push({
-						kind: "update",
-						itemIdentity: `occurrence-update:${previous.id}`,
-						item: {
-							eventId: previous.id,
-							patch: { properties: { remove: [], set: { exerciseOrder } } },
-							expected: {
-								kind: "fields",
-								absentProperties: [],
-								entityId: previous.entityId,
-								occurredAt: previous.occurredAt,
-								properties: previous.properties,
-								sessionEntityId: previous.sessionEntityId,
-							},
-						},
-					});
+					occurrenceChanges.push(
+						updateEventChange(
+							previous.id,
+							{ properties: { remove: [], set: { exerciseOrder } } },
+							expectedEventFields(previous),
+						),
+					);
 				}
 			} else {
 				const firstSet = occurrence.sets[0];
 				if (!firstSet) {
 					continue;
 				}
-				creates.push({
-					session: { kind: "root" },
-					occurredAt: data.startedAt,
-					eventSchemaSlug: "workout-exercise",
-					itemIdentity: `occurrence:${occurrence.clientId}`,
-					entity: { kind: "existing", entityId: EntityId.make(occurrence.exerciseId) },
-					properties: {
-						targets: [],
-						exerciseOrder,
-						equipment: [],
-						exerciseKind: firstSet.exerciseKind,
-					},
-				});
+				creates.push(
+					createEventChange(`occurrence:${occurrence.clientId}`, {
+						session: rootEntity,
+						occurredAt: data.startedAt,
+						eventSchemaSlug: "workout-exercise",
+						entity: existingEntity(EntityId.make(occurrence.exerciseId)),
+						properties: {
+							targets: [],
+							exerciseOrder,
+							equipment: [],
+							exerciseKind: firstSet.exerciseKind,
+						},
+					}),
+				);
 			}
 		}
 		for (const previous of recorded) {
 			if (!retainedOccurrences.has(previous.id)) {
-				occurrenceChanges.push({
-					kind: "delete",
-					eventId: previous.id,
-					itemIdentity: `occurrence-delete:${previous.id}`,
-					expected: {
-						kind: "fields",
-						absentProperties: [],
-						entityId: previous.entityId,
-						occurredAt: previous.occurredAt,
-						properties: previous.properties,
-						sessionEntityId: previous.sessionEntityId,
-					},
-				});
+				occurrenceChanges.push(deleteEventChange(previous.id, expectedEventFields(previous)));
 			}
 		}
 	}
-	const savedSets: SavedSet[] = [];
+	const retained = new Set<string>();
 	for (const [exerciseOrder, occurrence] of (data.kind === "workout"
 		? data.occurrences
 		: []
@@ -775,80 +746,63 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 			});
 			const original = baseline?.sets.find(({ id }) => id === set.eventId);
 			if (original === undefined || original.entityId !== occurrence.exerciseId) {
-				creates.push({
-					properties: setProperties,
-					session: { kind: "root" },
-					eventSchemaSlug: "workout-set",
-					itemIdentity: `set:${set.clientId}`,
-					occurredAt: original?.occurredAt ?? set.occurredAt,
-					entity: { kind: "existing", entityId: EntityId.make(occurrence.exerciseId) },
-				});
+				creates.push(
+					createEventChange(`set:${set.clientId}`, {
+						session: rootEntity,
+						properties: setProperties,
+						eventSchemaSlug: "workout-set",
+						occurredAt: original?.occurredAt ?? set.occurredAt,
+						entity: existingEntity(EntityId.make(occurrence.exerciseId)),
+					}),
+				);
 			} else {
 				if (!jsonValueEquals(workoutEditableSetProperties(original.properties), setProperties)) {
-					updates.push({
-						eventId: original.id,
-						expected: eventExpected(original),
-						patch: {
-							occurredAt: original.occurredAt,
-							properties: {
-								set: setProperties,
-								remove: editableFields.filter((key) => !Object.hasOwn(setProperties, key)),
+					updates.push(
+						updateEventChange(
+							EventId.make(original.id),
+							{
+								occurredAt: original.occurredAt,
+								properties: {
+									set: setProperties,
+									remove: editableFields.filter((key) => !Object.hasOwn(setProperties, key)),
+								},
 							},
-						},
-					});
+							eventExpected(original),
+						),
+					);
 				}
-				savedSets.push({ eventId: original.id, clientId: set.clientId });
+				retained.add(original.id);
 			}
 		}
 	}
-	const retained = new Set(savedSets.map(({ eventId }) => eventId));
 	const removed = baseline?.sets.filter(({ id }) => !retained.has(id)) ?? [];
 	if (data.kind === "workout" && data.target.kind === "create") {
-		creates.push({
-			occurredAt: submittedAt,
-			itemIdentity: "complete",
-			entity: { kind: "root" },
-			eventSchemaSlug: "workout-completed",
-			properties: { workoutName: data.name },
-		});
+		creates.push(
+			createEventChange("complete", {
+				entity: rootEntity,
+				occurredAt: submittedAt,
+				eventSchemaSlug: "workout-completed",
+				properties: { workoutName: data.name },
+			}),
+		);
 	}
-	const command = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
-		relationships,
+	const changes = {
+		...(relationships.length > 0 ? { relationships: { upserts: relationships } } : {}),
 		entity: {
 			properties,
 			name: data.name,
-			entitySchemaSlug: data.kind === "workout" ? "workout" : "workout-template",
-			target:
-				baseline === undefined
-					? { kind: "create" }
-					: {
-							kind: "update",
-							entityId: baseline.entity.id,
-							expected: {
-								name: baseline.entity.name,
-								updatedAt: baseline.entity.updatedAt,
-								properties: baseline.entity.properties,
-							},
-						},
+			entitySchemaSlug,
+			target: baseline === undefined ? { kind: "create" } : entityUpdateTarget(baseline.entity),
 		},
 		events: {
-			creates,
 			...(baseline && scopeRevision !== undefined
 				? { baselines: [{ revision: scopeRevision, entityId: baseline.entity.id }] }
 				: {}),
 			changes: [
+				...creates,
 				...occurrenceChanges,
-				...updates.map((item) => ({
-					item,
-					kind: "update",
-					itemIdentity: `update:${item.eventId}`,
-				})),
-				...removed.map((item) => ({
-					kind: "delete",
-					eventId: item.id,
-					expected: eventExpected(item),
-					itemIdentity: `delete:${item.id}`,
-				})),
+				...updates,
+				...removed.map((item) => deleteEventChange(EventId.make(item.id), eventExpected(item))),
 			],
 			...(baseline && data.kind === "workout"
 				? {
@@ -859,29 +813,9 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 					}
 				: {}),
 		},
-	}).pipe(Effect.mapError((error) => new WorkoutCommandInputError({ message: String(error) })));
-	const committed = yield* host
-		.commitUserChanges(command)
-		.pipe(Effect.catchIf(isCommitConflict, conflict));
-	for (const result of committed.events) {
-		if (result.itemIdentity.startsWith("set:")) {
-			savedSets.push({ eventId: result.eventId, clientId: result.itemIdentity.slice(4) });
-		}
-	}
-	return {
-		kind: "saved",
-		sets: savedSets,
-		entityId: committed.entityId,
-	} satisfies WorkoutEditorSaveOutput;
+	} satisfies ChangeSet;
+	return { changes, output: {} } satisfies {
+		readonly changes: ChangeSet;
+		readonly output: WorkoutEditorSaveOutput;
+	};
 });
-
-export type WorkoutEditorSaveError =
-	SandboxHostError | RyotqlRecipeDecodeError | WorkoutCommandInputError;
-
-export const saveWorkoutEditor = (
-	input: WorkoutEditorSaveInput,
-	host: ScriptHost,
-): Effect.Effect<WorkoutEditorSaveOutput, WorkoutEditorSaveError> =>
-	persistWorkoutEditor(input, host).pipe(
-		Effect.catchTag("WorkoutSaveHalt", ({ output }) => Effect.succeed(output)),
-	);

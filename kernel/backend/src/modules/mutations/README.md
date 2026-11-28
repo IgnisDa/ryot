@@ -3,10 +3,10 @@
 `AccountAdmission` owns account admission and `IdempotencyKeys` owns request keys. Neither
 imports concrete workflows or the workflow engine.
 
-Account admission is one `for share` read of the user row, done once per transaction. Account
-retirement stamps `retiring_at` on that row under its exclusive lock and deletes the account's jobs in
-the same transaction, so a waiting admission re-reads the stamp. A stamped account, or a command
-from a job that no longer exists, is refused.
+Account admission is one `for share` read of the user row, done once per `WriteTransaction` its
+callers pass. Account retirement stamps `retiring_at` on that row under its exclusive lock and
+deletes the account's jobs in the same transaction, so a waiting admission re-reads the stamp. A
+stamped account, or a command from a job that no longer exists, is refused.
 
 The workflow engine records which account an execution works for (see
 [`platform/workflow`](../../platform/workflow/README.md)). `workflow-dispatch.ts` binds dispatch to it:
@@ -31,6 +31,11 @@ fingerprint is a conflict.
 Keyed requests carry `submittedAt`. A submission whose `submittedAt` is more than seven days from the
 server clock, in either direction, fails with `SubmissionExpired` (410); the client must retry with a
 new key. A replay is therefore only possible within 14 days of the original write.
+
+A commit holds its result in a key through `keyedReceipt`, a `CommitReceipt` whose `load` reads the
+key under its lock in the commit transaction and whose `record` writes it there; `unrecorded` keeps
+no state. A replay whose fingerprint differs is a defect, since keyed commits derive their key from
+the request.
 
 Import runs also record each committed item's result in this table, keyed by run and item identity,
 so reconciliation can project committed items.

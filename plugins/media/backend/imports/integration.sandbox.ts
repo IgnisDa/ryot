@@ -92,7 +92,7 @@ export default defineWorkflow({
 					selectExecutable(mediaIntegrations, slug),
 					{ ...context, ingestionConfirmation: input.ingestionConfirmation },
 				);
-				return { confirmed: true as const };
+				return { output: { confirmed: true as const } };
 			}
 			const saved =
 				checkpoint ??
@@ -224,6 +224,6 @@ export default defineWorkflow({
 					return yield* step.save({ ...state, segment: state.segment + 1 });
 				}
 			}
-			return { issues: state.issues, summary: sealed.summary };
+			return { output: { issues: state.issues, summary: sealed.summary } };
 		}),
 });

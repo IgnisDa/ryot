@@ -38,6 +38,10 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 			step: "configure" as const,
 			detail: kernelMessage("client.integrations.save.progress-bounds"),
 		})),
+		Match.when({ code: "integration-settings-too-large" }, ({ maxBytes }) => ({
+			step: "configure" as const,
+			detail: kernelMessage("client.integrations.save.settings-too-large", { maxBytes }),
+		})),
 		Match.when({ code: "provider-not-found" }, () => ({
 			step: "pick" as const,
 			detail: kernelMessage("client.ui.wizard.service.removed"),

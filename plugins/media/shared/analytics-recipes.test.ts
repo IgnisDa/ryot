@@ -53,7 +53,29 @@ const zeros = Object.fromEntries(
 	Object.keys(consumptionMeasures(table("event", "zero"))).map((key) => [key, 0]),
 );
 
+const schemaJoinTypes = (queries: ReturnType<typeof bindRecipe>["document"]["queries"]) =>
+	Object.values(queries).flatMap((query) =>
+		("joins" in query ? (query.joins ?? []) : []).flatMap((join) =>
+			"table" in join && ["eventSchema", "entitySchema"].includes(join.table.table)
+				? [join.type]
+				: [],
+		),
+	);
+
 describe("Media analytics recipes", () => {
+	it("joins schema labels without letting them filter or drive the event scan", () => {
+		const reference = { kind: "self" } as const;
+		const args = reportingArguments(selection);
+		const documents = [
+			bindRecipe(mediaAnalyticsSummaryRecipe({ reference }), args).document.queries,
+			bindRecipe(mediaAnalyticsRankingRecipe({ reference }), args).document.queries,
+			bindRecipe(mediaAnalyticsRecordsRecipe({ reference }), args).document.queries,
+		];
+		const joins = documents.flatMap(schemaJoinTypes);
+		expect(joins).toContain("left");
+		expect(joins.filter((type) => type !== "left")).toEqual([]);
+	});
+
 	it("reads one summary document and keeps comparison queries static across reporting selections", () => {
 		expect(
 			Object.keys(

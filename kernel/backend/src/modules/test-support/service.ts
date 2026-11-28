@@ -1,6 +1,9 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import { EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	TestSupportBadRequest,
 	type TestSupportEnqueueSandboxBody,
@@ -26,18 +29,16 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import {
-	childLifecycleCommand,
-	rootLifecycleCommand,
-} from "#modules/automations/lifecycle/command";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { savedEntity } from "#modules/changes/receipts";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -85,19 +86,6 @@ const systemApiCommand = Effect.fnUntraced(function* (itemIdentity: string) {
 	};
 });
 
-const childSystemApiCommand = (
-	command: ReturnType<typeof rootLifecycleCommand>,
-	itemIdentity: string,
-) => ({ ...childLifecycleCommand(command, itemIdentity), writeContext: null });
-
-const reportWarnings = (
-	operation: string,
-	warnings: ReadonlyArray<AutomationWarning>,
-): Effect.Effect<void> =>
-	warnings.length === 0
-		? Effect.void
-		: Effect.logWarning("test support lifecycle warnings", { warnings, operation });
-
 const decodeCompiledClient = (
 	compiledClient: TestSupportInstallSystemPluginBodyBase64["compiledClient"],
 ) =>
@@ -121,13 +109,13 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 		make: Effect.gen(function* () {
 			const automationInspection = yield* AutomationInspectionRepository;
 			const auth = yield* AuthService;
-			const entities = yield* EntitiesService;
 			const session = yield* DatabaseSession;
 			const entityRepository = yield* EntitiesRepository;
 			const pluginCrons = yield* PluginCronService;
 			const sandbox = yield* ScriptExecutionService;
 			const translations = yield* TranslationsRepository;
-			const relationships = yield* RelationshipsService;
+			const changeSets = yield* ChangeSets;
+			const relationships = yield* RelationshipsRepository;
 			const pluginIngestion = yield* PluginIngestionService;
 			const pluginInstallations = yield* PluginInstallationService;
 			const pluginRepository = yield* PluginRepository;
@@ -201,20 +189,32 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					input.populatedAt === undefined || input.populatedAt === null
 						? null
 						: yield* parseDate(input.populatedAt);
-				const created = yield* entities.createGlobal({
-					populatedAt,
-					name: input.name,
-					properties: input.properties,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchema: input.entitySchema,
-					lifecycle: childSystemApiCommand(command, "create"),
-				});
-				yield* reportWarnings("create-global-entity", created.warnings);
+				const created = yield* changeSets
+					.commit(
+						{
+							userId: null,
+							entities: {
+								creates: [
+									{
+										name: input.name,
+										properties: input.properties,
+										entitySchema: input.entitySchema,
+										populatedAt: populatedAt?.toISOString() ?? null,
+										...(input.externalId === undefined ? {} : { externalId: input.externalId }),
+										...(input.providerId === undefined
+											? {}
+											: { provider: { updateExisting: false, providerId: input.providerId } }),
+									},
+								],
+							},
+						},
+						command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				if (input.populatedAt !== undefined) {
-					yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
+					yield* stampSeededRelatedLevel(created.id, populatedAt, input.level ?? "full");
 				}
-				return created.entity;
+				return created;
 			});
 
 			const setEntityPopulatedAt = Effect.fn("TestSupportService.setEntityPopulatedAt")(function* (
@@ -222,21 +222,45 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				populatedAt: null | string,
 				level: "base" | "full",
 			) {
-				const entity = yield* entities.getByIdAnyScope(entityId);
+				const entity = yield* entityRepository.getById(entityId);
+				if (!entity) {
+					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+				}
 				const populatedAtDate = populatedAt === null ? null : yield* parseDate(populatedAt);
-				const updated = yield* entities.update({
-					entityId,
-					scope: "global",
-					name: entity.name,
-					populatedAt: populatedAtDate,
-					properties: entity.properties,
-					lifecycle: yield* systemApiCommand(
-						stableStringify(["test-support:set-entity-populated-at", entityId]),
-					),
-				});
-				yield* reportWarnings("set-entity-populated-at", updated.warnings);
+				const updated = yield* changeSets
+					.commit(
+						{
+							userId: null,
+							entities: {
+								updates: [
+									{
+										name: entity.name,
+										properties: entity.properties,
+										populatedAt: populatedAtDate?.toISOString() ?? null,
+										entitySchema: {
+											slug: entity.entitySchemaSlug,
+											owner: definitionOwner(entity.entitySchemaPluginId),
+										},
+										target: {
+											entityId,
+											kind: "update",
+											expected: {
+												name: entity.name,
+												updatedAt: entity.updatedAt,
+												properties: entity.properties,
+											},
+										},
+									},
+								],
+							},
+						},
+						yield* systemApiCommand(
+							stableStringify(["test-support:set-entity-populated-at", entityId]),
+						),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				yield* stampSeededRelatedLevel(entityId, populatedAtDate, level);
-				return updated.entity;
+				return updated;
 			});
 
 			const upsertGlobalRelationship = Effect.fn("TestSupportService.upsertGlobalRelationship")(
@@ -247,45 +271,89 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
 						});
 					}
-					const result = yield* relationships.create(
-						{
-							scope: "global",
-							properties: input.properties ?? {},
-							sourceEntityId: input.sourceEntityId,
-							targetEntityId: input.targetEntityId,
-							relationshipSchema: input.relationshipSchema,
-						},
-						yield* systemApiCommand(
-							stableStringify([
-								"test-support:upsert-global-relationship",
-								input.relationshipSchema,
-								input.sourceEntityId,
-								input.targetEntityId,
-							]),
-						),
-					);
-					yield* reportWarnings("upsert-global-relationship", result.warnings);
-					return (
-						result.relationship ??
-						(yield* new TestSupportBadRequest({
-							reason: {
-								code: "invalid-request",
-								diagnostic: "Relationship mutation returned no relationship",
+					const identity = {
+						scope: "global" as const,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaPluginId: schema.pluginId,
+						relationshipSchemaSlug: input.relationshipSchema.slug,
+					};
+					const existing = yield* relationships.findRelationship(identity);
+					const source = { kind: "existing" as const, entityId: input.sourceEntityId };
+					yield* changeSets
+						.commit(
+							{
+								userId: null,
+								globalRelationships: [
+									{
+										paging: { kind: "page" },
+										relationshipSchema: input.relationshipSchema,
+										selector: { anchor: source, type: "anchored", direction: "outgoing" },
+										relationships: [
+											{
+												source,
+												properties: input.properties ?? {},
+												target: { kind: "existing", entityId: input.targetEntityId },
+											},
+										],
+									},
+								],
 							},
-						}))
-					);
+							yield* systemApiCommand(
+								stableStringify([
+									"test-support:upsert-global-relationship",
+									input.relationshipSchema,
+									input.sourceEntityId,
+									input.targetEntityId,
+								]),
+							),
+						)
+						.pipe(
+							Effect.mapError((error) =>
+								error._tag === "DbError"
+									? error
+									: new TestSupportBadRequest({
+											reason: { diagnostic: error._tag, code: "invalid-request" },
+										}),
+							),
+						);
+					const relationship = yield* relationships.findRelationship(identity);
+					return relationship
+						? { ...relationship, wasInserted: existing === null }
+						: yield* new TestSupportBadRequest({
+								reason: {
+									code: "invalid-request",
+									diagnostic: "Relationship mutation returned no relationship",
+								},
+							});
 				},
 			);
 
 			const deleteGlobalEntities = Effect.fn("TestSupportService.deleteGlobalEntities")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
-				const result = yield* entities.deleteByIds(
-					ids,
+				const found = yield* Effect.forEach(ids, (entityId) => entityRepository.getById(entityId));
+				const deletes = found.flatMap((entity) =>
+					entity === null
+						? []
+						: [
+								{
+									entityId: entity.id,
+									entitySchema: {
+										slug: entity.entitySchemaSlug,
+										owner: definitionOwner(entity.entitySchemaPluginId),
+									},
+								},
+							],
+				);
+				if (deletes.length === 0) {
+					return 0;
+				}
+				const committed = yield* changeSets.commit(
+					{ userId: null, entities: { deletes } },
 					yield* systemApiCommand("test-support:delete-global-entities"),
 				);
-				yield* reportWarnings("delete-global-entities", result.warnings);
-				return result.deletedCount;
+				return committed.deleted.length;
 			});
 
 			const linkAuthAccount = Effect.fn("TestSupportService.linkAuthAccount")(function* (input: {

@@ -37,7 +37,11 @@ import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/sche
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { browseConsistencyIssue, browseIssue } from "@ryot-app/ryotql-recipes/browse-validation";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	storedValidationContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
 import { calendarSourceIssue } from "./row-source-validation";
@@ -76,10 +80,6 @@ export const EntitySchemaDefinition = Schema.Struct({
 });
 
 export type EntitySchemaDefinition = typeof EntitySchemaDefinition.Type;
-
-type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {
-	readonly mergeIdentityProperties?: undefined | ReadonlyArray<string>;
-};
 
 export const RelationshipSchemaDefinition = Schema.Struct({
 	keyed: Schema.optional(Schema.Literal(true)),
@@ -139,17 +139,20 @@ export const CalendarSourceDefinition = Schema.Struct({
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
 
-export type DefinitionSource = {
-	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
-	readonly calendarSources: ReadonlyArray<CalendarSourceDefinition>;
-	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
-	readonly entitySchemas: ReadonlyArray<
-		Omit<EntitySchemaSourceDefinition, "eventSchemas"> & {
-			readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
-		}
-	>;
-};
+export const DefinitionSource = Schema.Struct({
+	savedViews: Schema.Array(SavedViewDefinition),
+	signalSchemas: Schema.Array(SignalSchemaDefinition),
+	calendarSources: Schema.Array(CalendarSourceDefinition),
+	relationshipSchemas: Schema.Array(RelationshipSchemaDefinition),
+	entitySchemas: Schema.Array(
+		Schema.Struct({
+			...EntitySchemaDefinition.fields,
+			mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
+		}),
+	),
+});
+
+export type DefinitionSource = typeof DefinitionSource.Type;
 
 export const EntitySchemaSnapshot = Schema.Struct({
 	...EntitySchemaDefinition.fields,
@@ -268,7 +271,9 @@ const validateDefinitionSource = (
 			savedView.dataSources === null
 				? [null]
 				: Result.getOrThrow(
-						authoredValidationBranches(savedView.dataSources, storedValidationContext()),
+						Result.flatMap(validateAuthoredDocument(savedView.dataSources), (validated) =>
+							authoredValidationBranches(validated, storedValidationContext()),
+						),
 					);
 		for (const branch of branches) {
 			const issue = savedViewSourceIssue(savedView.renderer, savedView.settings, branch, {

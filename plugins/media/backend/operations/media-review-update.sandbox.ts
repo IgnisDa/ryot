@@ -1,7 +1,8 @@
+import { expectedEventFields, updateEventChange } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
+import { EventId, reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
 
 import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
 import {
@@ -10,13 +11,10 @@ import {
 	reviewPositionError,
 } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 import {
 	loadEditTargets,
-	rejectHostFailure,
 	requireDeclaredProperties,
 	reviewCombinations,
-	writePrecondition,
 } from "./media-activity-edits";
 import { requireReviewConsumption } from "./media-review-consumption";
 
@@ -60,27 +58,32 @@ export default defineOperation({
 				});
 			}
 			const { set, remove } = reviewPropertiesPatch(input);
-			return yield* host
-				.updateEvents([
-					{
-						eventId: target.id,
-						expected: writePrecondition(input.expected),
-						patch: {
-							properties: {
-								set: {
-									...set,
-									...(position ? { position } : {}),
-									...(consumptionEventId ? { consumptionEventId } : {}),
+			return {
+				output: { count: 1 },
+				changes: {
+					events: {
+						changes: [
+							updateEventChange(
+								EventId.make(target.id),
+								{
+									properties: {
+										set: {
+											...set,
+											...(position ? { position } : {}),
+											...(consumptionEventId ? { consumptionEventId } : {}),
+										},
+										remove: [
+											...remove,
+											...(position === null ? ["position"] : []),
+											...(consumptionEventId === null ? ["consumptionEventId"] : []),
+										],
+									},
 								},
-								remove: [
-									...remove,
-									...(position === null ? ["position"] : []),
-									...(consumptionEventId === null ? ["consumptionEventId"] : []),
-								],
-							},
-						},
+								expectedEventFields(input.expected),
+							),
+						],
 					},
-				])
-				.pipe(Effect.catch(rejectHostFailure));
+				},
+			};
 		}),
 });

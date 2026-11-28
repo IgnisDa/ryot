@@ -434,7 +434,11 @@ it("binds the combined set policy and folds workout records on exercises", () =>
 		scriptSlug: "policy.workout-set",
 	});
 	expect(fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise")).toMatchObject({
-		fold: { eventSchemaSlugs: ["workout-set"], scriptSlug: "fold.exercise-records" },
+		fold: {
+			eventSchemaSlugs: ["workout-set"],
+			scriptSlug: "fold.exercise-records",
+			entityProperties: [{ properties: ["startedAt"], entitySchemaSlug: "workout" }],
+		},
 	});
 	expect(notificationHook?.targets).toEqual([
 		{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" },

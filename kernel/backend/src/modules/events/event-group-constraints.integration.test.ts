@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
-import { DbError } from "@ryot-app/contract/errors";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import {
@@ -23,6 +22,8 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { relationshipDatabaseLayer, userId } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { EventGroupConstraints } from "./event-group-constraints";
 
@@ -92,9 +93,9 @@ const seed = Effect.fnUntraced(function* (input: Fixture) {
 	yield* insert(input, input.anchorId, "anchor");
 	yield* insert(input, input.memberId, "member");
 });
-const capture = (input: Fixture, ids: ReadonlyArray<EventId>) =>
+const capture = (writes: WriteTransaction, input: Fixture, ids: ReadonlyArray<EventId>) =>
 	Effect.flatMap(EventGroupConstraints.make, (groups) =>
-		groups.capture({
+		groups.capture(writes, {
 			userId,
 			eventIds: ids,
 			drafts: [
@@ -111,18 +112,20 @@ const capture = (input: Fixture, ids: ReadonlyArray<EventId>) =>
 const transaction = <A, E, R>(
 	input: Fixture,
 	ids: ReadonlyArray<EventId>,
-	work: () => Effect.Effect<A, E, R>,
+	work: (writes: WriteTransaction) => Effect.Effect<A, E, R>,
 ) =>
 	Effect.gen(function* () {
 		const groups = yield* EventGroupConstraints.make;
-		return yield* groups
-			.transaction(
-				Effect.gen(function* () {
-					yield* capture(input, ids);
-					return yield* work();
-				}),
-			)
-			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		return yield* runRootTransaction(
+			yield* DatabaseSession,
+			Effect.gen(function* () {
+				const writes = new WriteTransaction();
+				yield* capture(writes, input, ids);
+				const result = yield* work(writes);
+				yield* groups.validateCaptured(writes);
+				return result;
+			}),
+		).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 	});
 const count = Effect.fnUntraced(function* (input: Fixture) {
 	const database = yield* DatabaseSession;
@@ -321,32 +324,14 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 			Effect.gen(function* () {
 				const input = yield* fixture();
 				yield* seed(input);
-				yield* transaction(input, [input.memberId], () =>
+				yield* transaction(input, [input.memberId], (writes) =>
 					Effect.gen(function* () {
 						yield* run(sql`delete from event where id = ${input.memberId}`);
-						yield* capture(input, [input.anchorId]);
+						yield* capture(writes, input, [input.anchorId]);
 						yield* run(sql`delete from event where id = ${input.anchorId}`);
 					}),
 				);
 				expect(yield* count(input)).toBe(0);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"rejects event group capture outside an event transaction",
-		() =>
-			Effect.gen(function* () {
-				const input = yield* fixture();
-				const database = yield* DatabaseSession;
-				assertExitFails(
-					yield* Effect.exit(
-						database
-							.transaction(capture(input, []))
-							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
-					),
-					new DbError({ message: "Event writes require an event transaction" }),
-				);
 			}),
 		testTimeout,
 	);

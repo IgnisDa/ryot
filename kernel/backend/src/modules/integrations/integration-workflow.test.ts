@@ -4,17 +4,20 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
+import { unavailableMessage } from "@ryot-app/i18n/message";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { SignalEmissionService } from "#modules/automations/signal-service";
-import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { ChangeSets } from "#modules/changes/service";
+import { DefinitionCatalog, type UserCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -27,6 +30,7 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ActivityBody } from "#platform/workflow/scope";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
@@ -43,6 +47,7 @@ const rootCase = (
 	status: IngestionRun["status"],
 	failure: "none" | "source" | "suspend" = "none",
 	options: {
+		disables?: true;
 		runId?: ImportRunId;
 		settle?: () => void;
 		execute?: Effect.Effect<void>;
@@ -65,12 +70,15 @@ const rootCase = (
 		const issues: IngestionIssue[] = [];
 		const finished: unknown[] = [];
 		const storedInputs: Array<{ owner: string; outputs: ReadonlyArray<Uint8Array> }> = [];
+		const commits: unknown[] = [];
 		const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, payload.runId);
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
 			unusedDataImportServices,
 			Layer.mock(DefinitionRepository)({}),
-			Layer.mock(DefinitionCatalog)({}),
+			Layer.mock(DefinitionCatalog)({
+				forUser: () => Effect.succeed(partialFake<UserCatalog>({ integrationProviders: [] })),
+			}),
 			Layer.mock(IngestionCaptures)({}),
 			mutationAdmissionTestLayer,
 			workflowAccountsTestLayer,
@@ -127,18 +135,27 @@ const rootCase = (
 					),
 			}),
 			Layer.mock(IntegrationsRepository)({
-				listRecentHealthStatuses: () => Effect.succeed([]),
 				getForUser: () =>
 					Effect.succeed(makeIntegration({ id: integrationId, userId: payload.userId })),
+				listRecentHealthStatuses: () =>
+					Effect.succeed(
+						options.disables ? Array.from({ length: 5 }, () => ({ status: "failed" })) : [],
+					),
 			}),
 			Layer.mock(IntegrationsService)({
-				disableIfEnabled: () => Effect.succeed(false),
+				disableIfEnabled: () => Effect.succeed(options.disables === true),
 				recordRunFinished: (input) =>
 					Effect.sync(() => {
 						finished.push(input);
 					}),
 			}),
-			Layer.mock(SignalEmissionService)({}),
+			Layer.mock(ChangeSets)({
+				commit: (changes, command, commitOptions) =>
+					Effect.gen(function* () {
+						commits.push({ changes, command, commitOptions, inActivity: yield* ActivityBody });
+						return partialFake<Effect.Success<ReturnType<ChangeSets["Service"]["commit"]>>>({});
+					}),
+			}),
 			Layer.mock(ExecutionFileStore)({
 				retain: () => Effect.void,
 				release: () => Effect.void,
@@ -173,7 +190,7 @@ const rootCase = (
 			Effect.exit,
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
-		return { issues, reasons, finished, executions, settlements, storedInputs };
+		return { issues, commits, reasons, finished, executions, settlements, storedInputs };
 	});
 
 it.effect(
@@ -384,6 +401,38 @@ it.effect(
 			expect(completed.settlements).toEqual(["completed"]);
 			expect(completed.finished).toHaveLength(1);
 			expect(executions).toBe(2);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"commits the integration.disabled signal through ChangeSets in an activity when the run disables the integration",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("running", "source", { disables: true });
+			expect(result.settlements).toEqual(["failed"]);
+			expect(result.commits).toEqual([
+				{
+					inActivity: true,
+					commitOptions: {},
+					command: objectContaining({
+						writeContext: null,
+						itemIdentity: stableStringify(["integration-run", rootPayload.runId]),
+					}),
+					changes: {
+						userId: rootPayload.userId,
+						signals: [
+							{
+								itemIdentity: "signal",
+								principal: { kind: "user", userId: rootPayload.userId },
+								properties: { integrationId, providerName: unavailableMessage },
+								reference: { owner: { kind: "kernel" }, slug: "integration.disabled" },
+							},
+						],
+					},
+				},
+			]);
+			expect((yield* rootCase("running", "source")).commits).toEqual([]);
 		}),
 	testTimeout,
 );

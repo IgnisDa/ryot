@@ -128,16 +128,18 @@ export default defineWorkflow({
 			}
 			const run = yield* runs.finish(`${input.prefix}-segment-${input.step}`);
 			return {
-				run,
-				step,
-				done,
-				carry,
-				offset,
-				header,
-				itemIndex,
-				advancedAt,
-				eventOffset,
-				ordinal: state.ordinal,
+				output: {
+					run,
+					step,
+					done,
+					carry,
+					offset,
+					header,
+					itemIndex,
+					advancedAt,
+					eventOffset,
+					ordinal: state.ordinal,
+				},
 			};
 		}),
 });

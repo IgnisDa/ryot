@@ -7,7 +7,6 @@ import {
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 } from "../../schema/brands";
-import { AutomationWarning } from "../automations/lifecycle";
 import { CollectionField } from "./fields";
 
 const CollectionBadRequestReason = Schema.Union([
@@ -86,7 +85,6 @@ export const CollectionResponse = Schema.Struct({
 	entitySchemaPluginId: Schema.Null,
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
-	warnings: Schema.Array(AutomationWarning),
 	providerId: Schema.NullOr(SandboxProviderId),
 });
 
@@ -104,10 +102,7 @@ const MembershipRelationship = Schema.Struct({
 
 export type MembershipRelationship = typeof MembershipRelationship.Type;
 
-export const MembershipResponse = Schema.Struct({
-	memberOf: MembershipRelationship,
-	warnings: Schema.Array(AutomationWarning),
-});
+export const MembershipResponse = Schema.Struct({ memberOf: MembershipRelationship });
 
 export type MembershipResponse = typeof MembershipResponse.Type;
 
@@ -146,10 +141,7 @@ export const DeleteCollectionBody = Schema.Struct({ collectionId: EntityId });
 
 export type DeleteCollectionBody = typeof DeleteCollectionBody.Type;
 
-export const DeleteCollectionResponse = Schema.Struct({
-	id: EntityId,
-	warnings: Schema.Array(AutomationWarning),
-});
+export const DeleteCollectionResponse = Schema.Struct({ id: EntityId });
 
 export type DeleteCollectionResponse = typeof DeleteCollectionResponse.Type;
 

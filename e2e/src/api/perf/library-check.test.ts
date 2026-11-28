@@ -1,4 +1,3 @@
-import { unknownToMessage } from "@ryot-app/contract/errors";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	fitnessAnalyticsTotalsRecipe,
@@ -7,6 +6,7 @@ import {
 	fitnessWorkoutStartsByHourRecipe,
 	historicalFitnessRankingRecipe,
 } from "@ryot-app/fitness-plugin/analytics-recipes";
+import { LocaleTag } from "@ryot-app/i18n/locale";
 import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-recipes";
 import {
 	mediaAnalyticsHoursRecipe,
@@ -28,20 +28,22 @@ import {
 	flatByLifecycleStateRecipe,
 	libraryMediaCountRecipe,
 } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
+import { movieRecipes } from "@ryot-app/media-plugin/shared/movie-recipes";
+import { showRecipes } from "@ryot-app/media-plugin/shared/show-recipes";
 import { upcomingRecipe } from "@ryot-app/media-plugin/shared/upcoming-recipes";
 import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
 	calendarWindowArguments,
 } from "@ryot-app/ryotql-recipes/calendar";
+import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { savedViewRecordsRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { decodeSavedViewIds } from "@ryot-app/ryotql-recipes/saved-views";
-import { Clock, DateTime, Duration, Effect, FileSystem, Result, Schedule, Schema } from "effect";
+import { Clock, DateTime, Duration, Effect, Result, Schema } from "effect";
 import type { HttpClient } from "effect/http";
 
 import type { Client } from "~/fixtures/kernel/auth";
-import { createImpersonationSession } from "~/fixtures/kernel/auth-impersonation";
 import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { executeRyotQL, executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { fitnessRecipes, workoutReference } from "~/fixtures/plugins/fitness";
@@ -51,17 +53,26 @@ import {
 	mediaRecipes,
 } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
+import type { E2eServices } from "~/support/e2e-runtime";
 import { describe, expect, it } from "~/support/effect-test";
+import {
+	appendReport,
+	countingResponseBytes,
+	failureTag,
+	impersonate,
+	percentile,
+	perfDatabase,
+	statementCalls,
+} from "~/support/perf";
 
 const LIBRARY_CHECK_WRITES = process.env.LIBRARY_CHECK_WRITES === "1";
 const RUN_LIBRARY_CHECK = process.env.RUN_LIBRARY_CHECK === "1";
 const OUT = String(process.env.LIBRARY_CHECK_OUT);
-const DATABASE_URL = String(process.env.E2E_DATABASE_URL);
-const ROUNDS = (process.env.LIBRARY_CHECK_ROUNDS ?? "server").split(",");
-const PAGES = (process.env.LIBRARY_CHECK_PAGES ?? "server").split(",").filter(Boolean);
+const WARMUP = Number(process.env.LIBRARY_CHECK_WARMUP ?? "3");
+const SAMPLES = Number(process.env.LIBRARY_CHECK_SAMPLES ?? "10");
+const PAGE_LOADS = Number(process.env.LIBRARY_CHECK_PAGE_LOADS ?? "1");
 const ONLY = process.env.LIBRARY_CHECK_ONLY?.split(",");
 const TODAY = process.env.LIBRARY_CHECK_TODAY;
-const STATEMENT_LIMIT_MS = 29_000;
 const DAY_MS = 86_400_000;
 
 type Reads = Readonly<Record<string, Read>>;
@@ -72,53 +83,46 @@ const read =
 	(client) =>
 		execute(client).pipe(Effect.asVoid);
 
-const log = (row: unknown) =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const line = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(row);
-		yield* fs.writeFileString(OUT, `${line}\n`, { flag: "a" });
-	}).pipe(Effect.orDie);
-
-const admin = <S extends Schema.Top>(schema: S, text: string) =>
-	Effect.acquireUseRelease(
-		Effect.sync(() => new Bun.SQL(DATABASE_URL, { max: 1 })),
-		(connection) =>
-			Effect.tryPromise({ catch: unknownToMessage, try: () => connection.unsafe(text) }),
-		(connection) => Effect.promise(() => connection.close()),
-	).pipe(
-		Effect.retry({ times: 60, schedule: Schedule.spaced("2 seconds") }),
-		Effect.orDie,
-		Effect.flatMap((rows) => Schema.decodeUnknownEffect(schema)(rows).pipe(Effect.orDie)),
-	);
-
-const AnyRows = Schema.Array(Schema.Unknown);
 const UserRows = Schema.Array(Schema.Struct({ size: Schema.Finite, user_id: Schema.String }));
-const JitRows = Schema.Array(
-	Schema.Struct({
-		calls: Schema.Finite,
-		jit_ms: Schema.Finite,
-		exec_ms: Schema.Finite,
-		functions: Schema.Finite,
-	}),
-);
+const EntityRows = Schema.Array(Schema.Struct({ id: Schema.String }));
 
-const mark = (label: string) => admin(AnyRows, `select 'LIBRARYCHECK ${label}'`);
-const setJit = (mode: string) =>
-	mode === "server"
-		? Effect.void
-		: Effect.gen(function* () {
-				yield* admin(AnyRows, `alter system set jit = ${mode}`);
-				yield* admin(AnyRows, "select pg_reload_conf()");
-				yield* Effect.sleep(Duration.millis(500));
-			});
-
-const largestUser = (query: string) => admin(UserRows, query).pipe(Effect.map((rows) => rows[0]));
+type PerfDatabase = Effect.Success<typeof perfDatabase>;
 
 const dayOf = (at: number) => DateTime.formatIso(DateTime.makeUnsafe(at)).slice(0, 10);
 const midnightAfter = (now: number, days: number) =>
 	DateTime.formatIso(DateTime.makeUnsafe(Math.floor(now / DAY_MS + days) * DAY_MS));
 
-const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
+const detailTarget = (db: PerfDatabase, userId: string, schemaSlug: string) =>
+	db
+		.query(
+			EntityRows,
+			`select media.id from relationship membership
+			join entity library on library.id = membership.target_entity_id
+			join entity media on media.id = membership.source_entity_id
+			where library.user_id = $1 and library.entity_schema_slug = 'media-library'
+				and membership.relationship_schema_slug = 'in-media-library' and media.entity_schema_slug = $2
+			order by (select count(*) from relationship credit where credit.target_entity_id = media.id) desc, media.id
+			limit 1`,
+			[userId, schemaSlug],
+		)
+		.pipe(Effect.map((rows) => rows[0]?.id));
+
+const detailReads = (
+	label: string,
+	entityId: string | undefined,
+	reads: (entityId: string) => Readonly<Record<string, Read>>,
+): Reads =>
+	entityId === undefined
+		? {}
+		: Object.fromEntries(
+				Object.entries(reads(entityId)).map(([part, run]) => [`detail-${label}-${part}`, run]),
+			);
+
+const mediaReads = Effect.fn("mediaReads")(function* (
+	client: Client,
+	db: PerfDatabase,
+	userId: string,
+) {
 	const { pluginId } = yield* findMediaEntitySchema(client, "show");
 	const reference = { pluginId, kind: "local" as const };
 	const now = TODAY ? Date.parse(TODAY) : yield* Clock.currentTimeMillis;
@@ -134,7 +138,7 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 				pageClient,
 				latestCompletionSuggestionsRecipe({ reference }),
 				{},
-				{ pages: { source: { limit: 20 } } },
+				{ pages: { items: { limit: 20 } } },
 			),
 		),
 		upcoming: read((pageClient) =>
@@ -327,7 +331,45 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 		browsing[`${name}-count`] = (pageClient) =>
 			executeRyotQL(pageClient, { source: { ...source, query: "count" } }).pipe(Effect.asVoid);
 	}
-	return { home, reads: { ...home, ...analytics, ...calendar, ...browsing } };
+	const shell: Reads = {
+		"plugin-catalog": read((pageClient) =>
+			executeRyotQLRecipe(pageClient, pluginClientCatalogRecipe, {}),
+		),
+		"plugin-messages": read((pageClient) =>
+			pageClient.call((c) => c.plugins.messages({ params: { locale: LocaleTag.make("en") } })),
+		),
+	};
+	const detail: Reads = {
+		...detailReads("movie", yield* detailTarget(db, userId, "movie"), (entityId) => ({
+			people: read((pageClient) =>
+				mediaRecipes.execute(pageClient, movieRecipes.peopleRecipe({ reference }), { entityId }),
+			),
+			summary: read((pageClient) =>
+				mediaRecipes.execute(pageClient, movieRecipes.summaryRecipe({ reference }), { entityId }),
+			),
+			overview: read((pageClient) =>
+				mediaRecipes.execute(pageClient, movieRecipes.overviewRecipe({ reference }), { entityId }),
+			),
+			activity: read((pageClient) =>
+				mediaRecipes.execute(pageClient, movieRecipes.activityRecipe({ reference }), { entityId }),
+			),
+		})),
+		...detailReads("show", yield* detailTarget(db, userId, "show"), (entityId) => ({
+			people: read((pageClient) =>
+				mediaRecipes.execute(pageClient, showRecipes.peopleRecipe({ reference }), { entityId }),
+			),
+			summary: read((pageClient) =>
+				mediaRecipes.execute(pageClient, showRecipes.summaryRecipe({ reference }), { entityId }),
+			),
+			overview: read((pageClient) =>
+				mediaRecipes.execute(pageClient, showRecipes.overviewRecipe({ reference }), { entityId }),
+			),
+			activity: read((pageClient) =>
+				mediaRecipes.execute(pageClient, showRecipes.activityRecipe({ reference }), { entityId }),
+			),
+		})),
+	};
+	return { home, reads: { ...shell, ...home, ...detail, ...analytics, ...calendar, ...browsing } };
 });
 
 const fitnessReads = Effect.fn("fitnessReads")(function* (client: Client) {
@@ -389,12 +431,6 @@ const fitnessReads = Effect.fn("fitnessReads")(function* (client: Client) {
 	return reads;
 });
 
-const session = (userId: string) =>
-	createImpersonationSession(userId).pipe(
-		Effect.map(({ client }) => client),
-		Effect.retry({ times: 20, schedule: Schedule.spaced("3 seconds") }),
-	);
-
 const attempt = (run: Read, client: Client) =>
 	run(client).pipe(
 		Effect.as("ok"),
@@ -402,33 +438,114 @@ const attempt = (run: Read, client: Client) =>
 			duration: Duration.minutes(3),
 			orElse: () => Effect.succeed("timeout"),
 		}),
-		Effect.catchCause((cause) => Effect.succeed(`error ${String(cause).slice(0, 120)}`)),
+		Effect.catchCause((cause) => Effect.succeed(failureTag(cause))),
 	);
+
+/** Times `run` warm: `WARMUP` unmeasured runs, then `SAMPLES` runs, each after the database is quiet. */
+const measure = Effect.fn("measure")(function* (
+	db: PerfDatabase,
+	label: string,
+	run: Read,
+	session: { client: Client; readonly renew: Effect.Effect<Client, unknown, E2eServices> },
+) {
+	const once = Effect.gen(function* () {
+		const outcome = yield* attempt(run, session.client);
+		if (!outcome.startsWith("AuthUnauthorized")) {
+			return outcome;
+		}
+		session.client = yield* session.renew;
+		return yield* attempt(run, session.client);
+	});
+	for (let index = 0; index < WARMUP; index++) {
+		const outcome = yield* once;
+		if (outcome !== "ok") {
+			yield* appendReport(OUT, { n: 0, label, outcome });
+			return;
+		}
+	}
+	const samples: Array<{ ms: number; bytes: number; calls: number; execMs: number }> = [];
+	const before = yield* db.statements;
+	let outcome = "ok";
+	while (samples.length < SAMPLES && outcome === "ok") {
+		yield* db.quiet;
+		const start = statementCalls(yield* db.statements);
+		const startedAt = performance.now();
+		const counted = yield* countingResponseBytes(once);
+		const ms = performance.now() - startedAt;
+		const end = statementCalls(yield* db.statements);
+		outcome = counted.value;
+		samples.push({
+			ms,
+			bytes: counted.bytes,
+			calls: end.calls - start.calls,
+			execMs: end.execMs - start.execMs,
+		});
+	}
+	const slowest = yield* db.slowest(before, yield* db.statements, samples.length);
+	yield* appendReport(OUT, {
+		label,
+		outcome,
+		slowest,
+		n: samples.length,
+		bytes: Math.max(...samples.map((sample) => sample.bytes)),
+		statementsMax: Math.max(...samples.map((sample) => sample.calls)),
+		statementsP50: percentile(
+			samples.map((sample) => sample.calls),
+			0.5,
+		),
+		rttP50: Math.round(
+			percentile(
+				samples.map((sample) => sample.ms),
+				0.5,
+			),
+		),
+		rttP95: Math.round(
+			percentile(
+				samples.map((sample) => sample.ms),
+				0.95,
+			),
+		),
+		execMsP50: Math.round(
+			percentile(
+				samples.map((sample) => sample.execMs),
+				0.5,
+			),
+		),
+	});
+});
+
+const LIBRARY_OWNER = `
+	select e.user_id, count(*)::int as size
+	from relationship r
+	join entity e on e.id = r.target_entity_id
+	join "user" u on u.id = e.user_id
+	where e.entity_schema_slug = 'media-library'
+		and r.relationship_schema_slug = 'in-media-library' and u.disabled_at is null
+	group by 1 order by 2 desc limit 1`;
+
+const LIFTER = `
+	select e.user_id, count(*)::int as size
+	from entity e
+	join "user" u on u.id = e.user_id
+	where e.entity_schema_slug = 'workout' and u.disabled_at is null
+	group by 1 order by 2 desc limit 1`;
 
 describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 	it.live("times real reads on a restored library", () =>
 		Effect.gen(function* () {
-			yield* admin(AnyRows, "create extension if not exists pg_stat_statements");
+			const db = yield* perfDatabase;
 			const library = requirePresent(
-				yield* largestUser(`
-				select e.user_id, count(*)::int as size
-				from relationship r
-				join entity e on e.id = r.target_entity_id
-				join "user" u on u.id = e.user_id
-				where e.entity_schema_slug = 'media-library'
-					and r.relationship_schema_slug = 'in-media-library' and u.disabled_at is null
-				group by 1 order by 2 desc limit 1`),
+				(yield* db.query(UserRows, LIBRARY_OWNER))[0],
 				"the restored database has no library",
 			);
-			const lifter = yield* largestUser(`
-				select e.user_id, count(*)::int as size
-				from entity e
-				join "user" u on u.id = e.user_id
-				where e.entity_schema_slug = 'workout' and u.disabled_at is null
-				group by 1 order by 2 desc limit 1`);
-			yield* log({ members: library.size, workouts: lifter?.size ?? 0 });
+			const lifter = (yield* db.query(UserRows, LIFTER))[0];
+			yield* appendReport(OUT, { members: library.size, workouts: lifter?.size ?? 0 });
 
-			const { home, reads } = yield* mediaReads(yield* session(library.user_id));
+			const { home, reads } = yield* mediaReads(
+				yield* impersonate(library.user_id),
+				db,
+				library.user_id,
+			);
 			const groups: readonly { readonly reads: Reads; readonly userId: string }[] = [
 				{ reads, userId: library.user_id },
 				...(lifter === undefined
@@ -436,53 +553,26 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 					: [
 							{
 								userId: lifter.user_id,
-								reads: yield* fitnessReads(yield* session(lifter.user_id)),
+								reads: yield* fitnessReads(yield* impersonate(lifter.user_id)),
 							},
 						]),
 			];
 
-			const limited = new Set<string>();
-			for (const [round, mode] of ROUNDS.entries()) {
-				yield* setJit(mode);
-				for (const group of groups) {
-					let client = yield* session(group.userId);
-					for (const [label, run] of Object.entries(group.reads)) {
-						if (limited.has(`${mode}:${label}`) || ONLY?.includes(label) === false) {
-							continue;
-						}
-						yield* admin(AnyRows, "select pg_stat_statements_reset()");
-						yield* mark(`${label} start`);
-						let start = performance.now();
-						let outcome = yield* attempt(run, client);
-						if (outcome.includes("AuthUnauthorized")) {
-							client = yield* session(group.userId);
-							start = performance.now();
-							outcome = yield* attempt(run, client);
-						}
-						const ms = Math.round(performance.now() - start);
-						yield* mark(`${label} end`);
-						if (outcome !== "ok" && ms >= STATEMENT_LIMIT_MS) {
-							limited.add(`${mode}:${label}`);
-						}
-						const [jit] = yield* admin(
-							JitRows,
-							`select coalesce(sum(calls), 0)::int as calls,
-								round(coalesce(sum(jit_generation_time + jit_inlining_time + jit_optimization_time + jit_emission_time), 0))::int as jit_ms,
-								round(coalesce(sum(total_exec_time), 0))::int as exec_ms,
-								coalesce(sum(jit_functions), 0)::int as functions
-							from pg_stat_statements
-							where query not like '%pg_stat_statements%' and query not like '%pg_reload%'
-								and query not like '%LIBRARYCHECK%'`,
-						);
-						yield* log({ ms, mode, label, round, outcome, ...jit });
+			for (const group of groups) {
+				const session = {
+					renew: impersonate(group.userId),
+					client: yield* impersonate(group.userId),
+				};
+				for (const [label, run] of Object.entries(group.reads)) {
+					if (ONLY?.includes(label) !== false) {
+						yield* measure(db, label, run, session);
 					}
 				}
 			}
 
-			for (const [index, mode] of PAGES.entries()) {
-				yield* setJit(mode);
-				const client = yield* session(library.user_id);
-				const startedAt = DateTime.formatIso(yield* DateTime.now);
+			for (let page = 0; page < PAGE_LOADS; page++) {
+				const client = yield* impersonate(library.user_id);
+				yield* db.quiet;
 				const start = performance.now();
 				const outcomes = yield* Effect.forEach(
 					Object.entries(home),
@@ -496,17 +586,10 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 						),
 					{ concurrency: "unbounded" },
 				);
-				yield* log({
-					mode,
-					outcomes,
-					startedAt,
-					page: index,
-					ms: Math.round(performance.now() - start),
-				});
-				yield* Effect.sleep(Duration.seconds(15));
+				yield* appendReport(OUT, { page, outcomes, ms: Math.round(performance.now() - start) });
 			}
 			if (LIBRARY_CHECK_WRITES) {
-				const client = yield* session(library.user_id);
+				const client = yield* impersonate(library.user_id);
 				for (let round = 0; round < 5; round++) {
 					const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 						entitySchemaSlug: "movie",
@@ -515,7 +598,11 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 						Effect.gen(function* () {
 							const startedAt = yield* Clock.currentTimeMillis;
 							const result = yield* action;
-							yield* log({ round, write: label, ms: (yield* Clock.currentTimeMillis) - startedAt });
+							yield* appendReport(OUT, {
+								round,
+								write: label,
+								ms: (yield* Clock.currentTimeMillis) - startedAt,
+							});
 							return result;
 						});
 					yield* timed(

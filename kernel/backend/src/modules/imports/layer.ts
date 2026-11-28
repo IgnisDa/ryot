@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { UploadServicesLive } from "#modules/assets/layer";
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { ChangeSetsLive } from "#modules/changes/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ImportSourceCatalog } from "#modules/plugins/catalog/import-sources";
@@ -14,7 +15,6 @@ import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommandsLive } from "#modules/user-commands/layer";
 
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";
@@ -133,8 +133,10 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 	),
 );
 
+const IntegrationEventWritesLive = IntegrationEventWrites.layer.pipe(Layer.provide(ChangeSetsLive));
+
 export const IntegrationEventFlushJobProvidedLive = IntegrationEventFlushJobLive.pipe(
-	Layer.provide(IntegrationEventWrites.layer),
+	Layer.provide(IntegrationEventWritesLive),
 );
 
 export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.pipe(
@@ -147,8 +149,8 @@ export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.
 			ImportsRepository.layer,
 			SandboxRepository.layer,
 			ImportSourceStateStore.layer,
-			UserCommandsLive,
-			IntegrationEventWrites.layer,
+			ChangeSetsLive,
+			IntegrationEventWritesLive,
 		),
 	),
 );

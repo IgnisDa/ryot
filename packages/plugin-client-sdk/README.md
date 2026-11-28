@@ -91,15 +91,25 @@ React query/mutation definitions return Effects that Atom runs directly;
 `mutateEffect` composes mutations as Effects. Storage hook methods return Promises at the React
 integration boundary.
 
-`operations.invoke` encodes `input` through the required `inputSchema` and decodes the result through
-`output`; an input that does not encode fails with `invalid-input`. A successful operation notifies
+`operations.invoke` encodes `input` through the required `inputSchema` and decodes the operation's
+`output`; an input that does not encode fails with `invalid-input`. It resolves the output.
+`operations.invokeCommitted` resolves `{ output, committed }`, where `committed` is the kernel's
+`CommittedChanges` (exported from the package root) for the changes the
+operation returned: the root `entityId` when one was written and each written event's `eventId` by
+`itemIdentity`, with an empty `events` array when nothing was committed. An operation whose changes
+hit a stale baseline fails with a `ChangesConflict`, a `RyotClientError` whose reason is
+`changes-conflict` and whose required `conflict` names the `CommitConflictCode`; reload the data and
+let the person resubmit. `isChangesConflict(error)` from the package root recognizes it.
+A successful operation notifies
 mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose
 caller calls `mutationCompleted.hint()` itself once later steps such as navigation finish.
-An operation that refuses the request fails with `operation-rejected`, and the `RyotClientError`
-`rejection` carries the operation's explanation as a message; resubmitting the same input cannot
-succeed. `formatError(t, error, fallback?)` (`/react`) renders any client error: the rejection
-message when present, else `fallback` (rendered text or a message), else a kernel default.
+An operation that refuses the request fails with an `OperationRejected`, a `RyotClientError` whose
+reason is `operation-rejected` and whose required `rejection` carries the operation's explanation as
+a message; resubmitting the same input cannot succeed. `isOperationRejected(error)` recognizes it.
+A plain `RyotClientError` cannot carry either reason. `formatError(t, error, fallback?)` (`/react`)
+renders any client error: the rejection message of a refusal, else `fallback` (rendered text or a
+message), else a kernel default.
 Retryable writes may pass an `idempotencyKey`. Retain the same key and exact immutable input across
 retries; the server replays the recorded result and rejects reuse of the key with different input.
 Each bridge attempt has its own transport `requestId`; it is not a write identity.
@@ -134,7 +144,7 @@ or `remove`. `createTestPluginStorage` from `./testing` supplies a Map-backed ad
 schema defaults applied; a plugin without an installation or settings schema reads `{}`. The ID must
 be a plugin contributing to the frame, as for storage, and the kernel answers `invalid-request`
 otherwise or after the frame's server or user changes. `usePluginUserSettings(pluginId)` is a query
-keyed by local ID that refreshes after mutations, so an operation that calls `updateUserSettings`
+keyed by local ID that refreshes after mutations, so an operation that returns a settings patch
 is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
 
 `client.userPreferences` (an Effect) and `useUserPreferences()` read only the account's reporting
@@ -314,19 +324,25 @@ Backend batch traversal remains separate from user-driven pagination.
 
 ## Retryable Submissions
 
-`useRyotSubmission(mutation, { isComplete, createId })` composes an existing mutation whose input is
+`useRyotSubmission(mutation, { createId })` composes an existing mutation whose input is
 `RyotSubmission<Input>` (`submissionId`, `submittedAt`, and `input`). It captures and freezes a structured-cloneable
 plain-data input on `submit`, blocks another submission immediately, and retains the same snapshot
-and ID on failure or an incomplete result. `retry` resends that snapshot. `abandon` releases retained
-work, but cannot interrupt pending writes or undo committed writes. The default completion predicate
-accepts successful results; domain callers provide a predicate for partial outcomes. IDs default to
-UUIDs; tests can inject their generator. The submission timestamp uses the SDK clock and is retained
+and ID (`status: "retained"`) only when the write's outcome is unknown. `retry` resends that snapshot. A `RyotClientError` whose reason
+the bridge contract's `mayHaveApplied` accepts (`transport`, `protocol`, `disposed`, or
+`malformed-result`), and any other error, leaves the outcome unknown because the request may have
+been applied. Every other `RyotClientError` reason is a definite
+failure: the write was not applied, so the submission settles `idle` and `error` stays set until
+`reset`. Callers show the failure and start a fresh submission instead of retrying the same one;
+they do not catch definite failures into success values. `abandon` releases retained work, but
+cannot interrupt pending writes or undo committed writes. A successful result settles the submission
+`idle`. IDs default to UUIDs;
+tests can inject their generator. The submission timestamp uses the SDK clock and is retained
 across retries.
 
-The helper provides no server durability, automatic retries, persistence, or error interpretation.
-Use it only where the owning backend write enforces retry safety and the caller needs the result;
-other tracking writes use [background submissions](#background-submissions). Fields, recovery messages, and
-whether an incomplete submission can be abandoned remain caller-owned.
+The helper provides no server durability, automatic retries, or persistence. Use it only where the
+owning backend write enforces retry safety and the caller needs the result; other tracking writes
+use [background submissions](#background-submissions). Fields, recovery messages, and whether a
+retained submission can be abandoned remain caller-owned.
 
 ## Background Submissions
 

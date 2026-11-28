@@ -1,4 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
+import { EventId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	allocateConsumptionObservation,
@@ -34,8 +36,10 @@ const allocationFailure = (cause: unknown) =>
 /**
  * Allocates each consumption event's contribution, title by title, in source-run groups and then
  * history order. Retained boundaries close their progress runs, and automatic completions join them.
+ * A run holding a `context` event is only partly known, so it contributes nothing.
  */
 export const consumptionContributions = Effect.fn("consumptionContributions")(function* (input: {
+	readonly context?: ReadonlySet<string>;
 	readonly boundaries: ReadonlySet<string>;
 	readonly history: ReadonlyArray<FoldEvent>;
 	readonly automatic: ReadonlyMap<
@@ -52,13 +56,17 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 		rows.push({ event, group: groupOf(event) });
 		byEntity.set(event.entityId, rows);
 	}
-	const contributions: Array<{ eventId: string; properties: { contribution: unknown } }> = [];
+	const contributions: Array<FoldResult["events"][number]> = [];
 	for (const rows of byEntity.values()) {
 		rows.sort(
 			(left, right) =>
 				compareText(left.group, right.group) || compareHistory(left.event, right.event),
 		);
-		const runs: Array<{ runKey: string; observations: Array<ConsumptionObservation> }> = [];
+		const runs: Array<{
+			runKey: string;
+			events: Array<FoldEvent>;
+			observations: Array<ConsumptionObservation>;
+		}> = [];
 		let cursor: ConsumptionRunCursor = { unit: null, runKey: null, closedBy: null };
 		for (const { event } of rows) {
 			const automatic = input.automatic.get(event.id);
@@ -80,11 +88,15 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 			const last = runs.at(-1);
 			if (last?.runKey === next.runKey) {
 				last.observations.push(observation);
+				last.events.push(event);
 			} else {
-				runs.push({ runKey: next.runKey, observations: [observation] });
+				runs.push({ events: [event], runKey: next.runKey, observations: [observation] });
 			}
 		}
 		for (const run of runs) {
+			if (run.events.some(({ id }) => input.context?.has(id) === true)) {
+				continue;
+			}
 			const plan = run.observations.reduce(planConsumptionObservation, emptyConsumptionRunPlan());
 			let state: ConsumptionAllocationState = emptyConsumptionAllocationState();
 			for (const observation of run.observations) {
@@ -94,7 +106,7 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				});
 				state = next.state;
 				contributions.push({
-					eventId: observation.id,
+					eventId: EventId.make(observation.id),
 					properties: {
 						contribution: yield* Schema.encodeEffect(Schema.toCodecJson(ConsumptionContribution))(
 							consumptionContribution(next.allocation),

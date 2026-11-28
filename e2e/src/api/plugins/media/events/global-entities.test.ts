@@ -40,11 +40,11 @@ describe("POST /events with global entities", () => {
 			).toHaveLength(1);
 
 			const events = yield* waitForEventCount(client, entity.id, 2);
-			expect(events).toHaveLength(2);
-			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
+			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
 				EventSchemaSlug.make("add-to-media-library"),
 				EventSchemaSlug.make("backlog"),
 			]);
+			expect(new Set(events.map(({ occurredAt }) => occurredAt)).size).toBe(1);
 		}),
 	);
 

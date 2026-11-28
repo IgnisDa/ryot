@@ -59,12 +59,23 @@ visible IDs, and the kernel sends entity ID plus `populated` or `translated`. Th
 request IDs, acknowledgements, tickets, credentials, user identity, or server fields. The shared
 declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
-The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
-`asset-failed`, `collection-failed`, `entity-save-failed`, `query-failed`, `invalid-input`,
-`operation-failed`, `operation-rejected`, `malformed-result`, `unsupported-capability`,
-`invalid-request`, and `quota`.
+The complete public `RyotClientErrorReason` set is `RyotClientPlainErrorReason` (`transport`,
+`operation-failed`, `entitlement-required`, `page-write-access-required`, `malformed-result`,
+`link-open-failed`, `activation-required`, `disposed`, `protocol`, `asset-failed`,
+`collection-failed`, `collection-stale`, `entity-save-failed`, `query-failed`, `invalid-input`,
+`unsupported-capability`, `invalid-request`, and `quota`) plus `operation-rejected` and
+`changes-conflict`, the two that carry detail; host screen results fail only with plain reasons.
+`mayHaveApplied(reason)` answers whether a request that failed for that client or background
+submission reason may still have been applied (`transport`, `protocol`, `disposed`,
+`malformed-result`), so only a retry settles it.
 
-`operation-result` failures carry `transport`, `operation-failed`, or `malformed-result`, or
+A successful `operation-result` carries the operation's `value` and `committed`, the kernel's
+`CommittedChanges` for the changes the operation returned (empty `events` when nothing was
+committed). `pluginOperationFailures(fields, plainReason)` defines the failure variants that
+`operation-result`, `PluginOperationOutcome` and `background-operation-settled` share. Their plain
+reasons are `PluginOperationPlainFailureReason`. `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
+with its `CommitConflictCode` as `conflict` (the kernel's commit of the operation's changes found a
+stale baseline or refused changed user data), or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
 failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
 be shown to the user, and retrying the same input cannot succeed. The kernel reports a write refused
@@ -76,8 +87,9 @@ by demo protection as `operation-rejected` with its own message.
 namespace and renders in the tray. It never carries a content hash, action, URL, or icon. The reply
 `background-operation-accepted` returns a kernel `submissionId` or fails with `transport`,
 `operation-failed`, or `malformed-result`. Later, `background-operation-settled` reports that
-submission's outcome: `succeeded`, `incomplete`, or `failed` with `transport`, `operation-failed`,
-`malformed-result`, `app-updated`, or `operation-rejected` plus its message. It never carries the
+submission's outcome: `succeeded` or `failed` with `transport`, `operation-failed`,
+`malformed-result`, `app-updated`, `operation-rejected` plus its message, or `changes-conflict` plus
+its `CommitConflictCode`. It never carries the
 operation result. `BACKGROUND_SUBMISSION_LIMITS` (8 in flight per kernel service, 4 per bridge
 session, 20 tray entries) is shared so both peers agree on the bounds; the kernel enforces them.
 Tray behavior belongs to the [kernel host](../../kernel/client/README.md#background-submissions).

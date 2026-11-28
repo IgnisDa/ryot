@@ -142,6 +142,9 @@ export type LatestCompletionSuggestionsResult = Recipe.Success<
 	ReturnType<typeof latestCompletionSuggestionsRecipe>
 >;
 
+/** The schemas whose providers publish trending batches. */
+export const trendingEntitySchemaSlugs = ["movie", "show"];
+
 const trendingFetchedAt = (relationship: Table) =>
 	castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
 

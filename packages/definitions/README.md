@@ -21,5 +21,9 @@ kernel, database, or runtime dependency, so the kernel and `ryot plugin build` r
   system-owned documents, which cannot reference user plugins; a system-scope change still binds
   every document so dangling owners fail.
 
+- `DefinitionSource`, `DefinitionSetPlugin` and `DefinitionSetScope` are the schemas a definition
+  set crosses a process boundary with. The package owns no process: the kernel's validation worker
+  protocol frames the request and its answer.
+
 Deployment rules, such as active system package uniqueness and configuration environment keys, stay
 in the kernel. The kernel validates every archive at ingestion regardless of build-time checks.

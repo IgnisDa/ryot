@@ -8,6 +8,8 @@ import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
 
+export const INTEGRATION_LIMITS = { pageSize: 20, settingsBytes: 16 * 1024 } as const;
+
 export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),
@@ -15,6 +17,10 @@ export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("invalid-provider-settings") }),
 	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
 	Schema.Struct({ code: Schema.Literal("integration-webhook-not-found") }),
+	Schema.Struct({
+		maxBytes: Schema.Finite,
+		code: Schema.Literal("integration-settings-too-large"),
+	}),
 	Schema.Struct({
 		value: Schema.Finite,
 		code: Schema.Literal("progress-out-of-range"),

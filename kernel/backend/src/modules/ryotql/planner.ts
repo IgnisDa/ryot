@@ -45,6 +45,7 @@ export type AggregateGroup = {
 	readonly alias: string;
 	readonly scope: PlannedScope;
 	readonly query: CorrelatedQuerySet;
+	readonly guard: undefined | Predicate;
 	readonly measures: ReadonlyMap<
 		string,
 		{ readonly alias: string; readonly aggregation: AggregationSpec }
@@ -56,11 +57,29 @@ export type PlannedScope = {
 	readonly execution: RyotQLExecutionScope;
 	readonly parent: undefined | PlannedScope;
 	readonly materializedRoot: string | undefined;
+	readonly firsts: ReadonlyMap<string, FirstGroup>;
 	readonly tables: ReadonlyMap<string, PlannedTable>;
 	readonly children: ReadonlyMap<string, PlannedScope>;
 	readonly groups: ReadonlyMap<string, AggregateGroup>;
 	readonly hoisted: ReadonlyMap<string, HoistedSource>;
 };
+
+type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
+
+type FirstGroup = {
+	readonly alias: string;
+	readonly scope: PlannedScope;
+	readonly query: CorrelatedQuerySet;
+	readonly guard: undefined | Predicate;
+	readonly orderBy: FirstExpression["orderBy"];
+	readonly values: ReadonlyMap<
+		string,
+		{ readonly alias: string; readonly select: ScalarExpression }
+	>;
+};
+
+export const firstGroupKey = (expr: FirstExpression) =>
+	stableStringify({ query: expr.query, orderBy: expr.orderBy });
 
 type Node = Predicate | ScalarExpression;
 
@@ -443,6 +462,28 @@ const isAncestorAlias = (scope: undefined | AliasScope, alias: string): boolean 
 
 type Planner = { nextId: number };
 
+/** How often a scope reads a lateral, and the branch guards of those reads; none when one is unguarded. */
+type Reads = { count: number; guards: undefined | Map<string, Predicate> };
+
+const noReads = (): Reads => ({ count: 0, guards: new Map() });
+
+const addRead = (reads: Reads, guard: undefined | Predicate) => {
+	reads.count += 1;
+	if (guard === undefined) {
+		reads.guards = undefined;
+	} else {
+		reads.guards?.set(stableStringify(guard), guard);
+	}
+};
+
+const readsGuard = (reads: Reads): undefined | Predicate => {
+	const guards = reads.guards === undefined ? [] : [...reads.guards.values()];
+	if (guards.length < 2) {
+		return guards[0];
+	}
+	return { type: "or", predicates: guards };
+};
+
 type ScopeInput = {
 	readonly include?: true;
 	readonly query: QuerySet;
@@ -482,25 +523,57 @@ const planScope = (
 	const correlated = new Map<string, { extras: Node[]; query: CorrelatedQuerySet }>();
 	const fused = new Map<
 		string,
-		{ query: CorrelatedQuerySet; measures: Map<string, AggregationSpec> }
+		{ reads: Reads; query: CorrelatedQuerySet; measures: Map<string, AggregationSpec> }
 	>();
-	const visit = (node: Node, fusable: boolean): void => {
+	const firsts = new Map<
+		string,
+		{ reads: Reads; expr: FirstExpression; values: Map<string, ScalarExpression> }
+	>();
+	const addCorrelated = (query: Correlated) => {
+		const key = stableStringify(query.query);
+		const child = correlated.get(key) ?? { extras: [], query: query.query };
+		child.extras.push(...query.extras);
+		correlated.set(key, child);
+	};
+	const fusableFirst = (node: Node): node is FirstExpression =>
+		node.type === "first" &&
+		scalarExpressionKind(
+			node.select,
+			correlatedAliasScope(node.query, aliasScope),
+			kindResolver,
+		) !== "json";
+	// A read inside a conditional's branch is guarded by the condition of the outermost conditional
+	// holding it. That condition is read outside every branch, so no guard reads a guarded lateral.
+	const visit = (node: Node, fusable: boolean, guard?: Predicate): void => {
 		const { row, element, aggregate, correlated: query } = operands(node);
-		row.forEach((child) => visit(child, fusable));
+		if (node.type === "conditional" && guard === undefined) {
+			visit(node.condition, fusable);
+			visit(node.whenTrue, fusable, node.condition);
+			visit(node.whenFalse, fusable, { type: "not", predicate: node.condition });
+		} else {
+			row.forEach((child) => visit(child, fusable, guard));
+		}
 		element.forEach((child) => visit(child, false));
 		if (!query) {
 			return;
 		}
-		const key = stableStringify(query.query);
 		if (aggregate && fusable) {
-			const group = fused.get(key) ?? { query: query.query, measures: new Map() };
+			const key = stableStringify(query.query);
+			const group = fused.get(key) ?? { reads: noReads(), query: query.query, measures: new Map() };
 			group.measures.set(stableStringify(aggregate), aggregate);
+			addRead(group.reads, guard);
 			fused.set(key, group);
 			return;
 		}
-		const child = correlated.get(key) ?? { extras: [], query: query.query };
-		child.extras.push(...query.extras);
-		correlated.set(key, child);
+		if (fusable && fusableFirst(node)) {
+			const key = firstGroupKey(node);
+			const group = firsts.get(key) ?? { expr: node, reads: noReads(), values: new Map() };
+			group.values.set(stableStringify(node.select), node.select);
+			addRead(group.reads, guard);
+			firsts.set(key, group);
+			return;
+		}
+		addCorrelated(query);
 	};
 	if (input.query.where) {
 		visit(input.query.where, true);
@@ -509,12 +582,31 @@ const planScope = (
 		visit(join.type === "jsonElements" ? join.expr : join.on, false);
 	}
 	input.nodes.forEach((node) => visit(node, true));
+	// A lateral runs for every row its guard admits; a value read once inside a branch stays a scalar
+	// subquery in the `CASE` instead.
+	for (const [key, group] of fused) {
+		const [aggregation] = group.measures.values();
+		if (group.reads.guards !== undefined && group.reads.count < 2 && aggregation) {
+			fused.delete(key);
+			addCorrelated({ query: group.query, extras: aggregationNodes(aggregation) });
+		}
+	}
+	for (const [key, group] of firsts) {
+		if (group.reads.count < 2) {
+			firsts.delete(key);
+			addCorrelated({
+				query: group.expr.query,
+				extras: [group.expr.select, ...group.expr.orderBy.map((order) => order.expr)],
+			});
+		}
+	}
 	const scope: { -readonly [Key in keyof PlannedScope]: PlannedScope[Key] } = {
 		id,
 		parent,
 		tables,
 		execution,
 		groups: new Map(),
+		firsts: new Map(),
 		children: new Map(),
 		hoisted: hoist ? hoistSources(input.query, aliasScope, id) : new Map<string, HoistedSource>(),
 		materializedRoot:
@@ -563,6 +655,7 @@ const planScope = (
 			key,
 			{
 				query: group.query,
+				guard: readsGuard(group.reads),
 				alias: `aggregate${id}_${index}`,
 				measures: new Map(
 					[...group.measures].map(([measureKey, aggregation], measure) => [
@@ -584,18 +677,59 @@ const planScope = (
 			},
 		]),
 	);
+	scope.firsts = new Map(
+		[...firsts].map(([key, group], index) => [
+			key,
+			{
+				query: group.expr.query,
+				orderBy: group.expr.orderBy,
+				alias: `first${id}_${index}`,
+				guard: readsGuard(group.reads),
+				values: new Map(
+					[...group.values].map(([valueKey, select], value) => [
+						valueKey,
+						{ select, alias: `v${value}` },
+					]),
+				),
+				scope: planScope(
+					planner,
+					{
+						includes: [],
+						query: group.expr.query,
+						nodes: [...group.values.values(), ...group.expr.orderBy.map((order) => order.expr)],
+					},
+					scope,
+					execution,
+					false,
+				),
+			},
+		]),
+	);
 	return scope;
 };
 
-// Fused aggregates a filter or ordering reads have to run before a page can be chosen.
+// Fused aggregates and firsts a filter or ordering reads have to run before a page can be chosen,
+// with those their guards read.
 export const referencedGroups = (nodes: readonly Node[], scope: PlannedScope) => {
 	const keys = new Set<string>();
+	const reference = (key: string, guard: undefined | Predicate) => {
+		if (!keys.has(key)) {
+			keys.add(key);
+			if (guard) {
+				visit(guard);
+			}
+		}
+	};
 	const visit = (node: Node): void => {
 		const { row, element, correlated: query } = operands(node);
 		[...row, ...element].forEach(visit);
-		const key = query ? stableStringify(query.query) : undefined;
-		if (key !== undefined && scope.groups.has(key)) {
-			keys.add(key);
+		const group = query ? scope.groups.get(stableStringify(query.query)) : undefined;
+		if (query && group) {
+			reference(stableStringify(query.query), group.guard);
+		}
+		const first = node.type === "first" ? scope.firsts.get(firstGroupKey(node)) : undefined;
+		if (node.type === "first" && first) {
+			reference(firstGroupKey(node), first.guard);
 		}
 	};
 	nodes.forEach(visit);
@@ -652,4 +786,5 @@ export const planScopes = (scope: PlannedScope): PlannedScope[] => [
 	scope,
 	...[...scope.children.values()].flatMap(planScopes),
 	...[...scope.groups.values()].flatMap((group) => planScopes(group.scope)),
+	...[...scope.firsts.values()].flatMap((group) => planScopes(group.scope)),
 ];

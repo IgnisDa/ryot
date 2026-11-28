@@ -4,10 +4,10 @@ import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Predicate } from "effect";
 
-import { RyotClientError } from "../client/errors";
+import { isOperationRejected } from "../client/errors";
 
 const errorMessage = (error: unknown): Message | undefined => {
-	if (error instanceof RyotClientError) {
+	if (isOperationRejected(error)) {
 		return error.rejection;
 	}
 	return (

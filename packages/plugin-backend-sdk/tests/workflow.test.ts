@@ -30,7 +30,7 @@ it.effect("resumes from the saved batch without replaying completed batches", ()
 					const next = checkpoint?.next ?? 0;
 					const values = checkpoint?.values ?? [];
 					if (next === total) {
-						return values;
+						return { output: values };
 					}
 					const value = yield* step.activity("batch", batch, next);
 					return yield* step.save({ next: next + 1, values: [...values, value] });
@@ -64,7 +64,8 @@ it.effect("keeps the unfinished step's calls tied to their original inputs", () 
 			manifest,
 			input: Schema.Int,
 			output: Schema.String,
-			run: (input, step) => step.activity("batch", batch, input),
+			run: (input, step) =>
+				step.activity("batch", batch, input).pipe(RuntimeEffect.map((output) => ({ output }))),
 		});
 		const result = yield* workflow.run(
 			2,
@@ -115,7 +116,7 @@ it.effect("registers bounded parallel work before yielding", () =>
 			run: (_input, step) =>
 				Effect.all([step.activity("one", batch, 1), step.activity("two", batch, 2)], {
 					concurrency: "unbounded",
-				}),
+				}).pipe(RuntimeEffect.map((output) => ({ output }))),
 		});
 		const result = yield* workflow.run(null, makeWorkflowReplayHost([]), {
 			metadata: {},
@@ -129,5 +130,39 @@ it.effect("registers bounded parallel work before yielding", () =>
 				{ index: 1, name: "two", args: { input: 2 } },
 			],
 		});
+	}),
+);
+
+const changes = (value: string) => ({
+	signals: [{ discriminator: value, properties: { value }, schemaSlug: "batch-done" }],
+});
+
+it.effect("carries a step's changes on its checkpoint and its completion", () =>
+	RuntimeEffect.gen(function* () {
+		const workflow = defineWorkflow({
+			manifest,
+			input: Schema.Int,
+			output: Schema.Int,
+			checkpoint: Schema.Int,
+			run: (total, step, checkpoint) =>
+				Effect.gen(function* () {
+					const next = checkpoint ?? 0;
+					if (next === total) {
+						return { output: next, changes: changes("done") };
+					}
+					return yield* step.save(next + 1, changes(`step-${next}`));
+				}),
+		});
+		const first = yield* workflow.run(1, makeWorkflowReplayHost([]), {
+			metadata: {},
+			sandboxScriptId: "test",
+		});
+		expect(first).toMatchObject({ checkpoint: 1, state: "checkpoint", changes: changes("step-0") });
+		const last = yield* workflow.run(
+			1,
+			{ ...makeWorkflowReplayHost([]), checkpoint: 1 },
+			{ metadata: {}, sandboxScriptId: "test" },
+		);
+		expect(last).toMatchObject({ output: 1, state: "completed", changes: changes("done") });
 	}),
 );

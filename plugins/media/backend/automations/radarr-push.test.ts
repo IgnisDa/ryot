@@ -8,15 +8,12 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
-	entitySchemaProvider,
-	entitySchemaRecord,
 	eventAutomationContext,
-	hostFailure,
 	hostSuccess,
 	httpFailure,
 	httpSuccess,
+	integrationPushRyotql,
 	integrationRecord,
-	ryotqlRows,
 	toRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./radarr-push.sandbox";
@@ -24,12 +21,7 @@ import definition, { manifest } from "./radarr-push.sandbox";
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type RadarrHost = Pick<
 	ScriptHost,
-	| "log"
-	| "httpCall"
-	| "executeRyotql"
-	| "getEntitySchemas"
-	| "listIntegrations"
-	| "getUserPreferences"
+	"log" | "httpCall" | "executeRyotql" | "listIntegrations" | "getUserPreferences"
 >;
 
 const movieEntity = entityRecord({
@@ -52,13 +44,7 @@ const radarrIntegration = integrationRecord({
 	},
 });
 
-const schema = entitySchemaRecord({
-	id: "es-movie",
-	providers: [
-		entitySchemaProvider("movie.tvdb", "script-movie-tvdb"),
-		entitySchemaProvider("movie.tmdb", "script-movie-tmdb"),
-	],
-});
+const providerSlugs = { "script-movie-tvdb": "movie.tvdb", "script-movie-tmdb": "movie.tmdb" };
 
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
@@ -99,14 +85,15 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntitySchemas: () => hostSuccess([schema]),
 		log: options.log ?? (() => Effect.succeed(null)),
-		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		executeRyotql: integrationPushRyotql(options.entity, providerSlugs),
 		getUserPreferences: () =>
 			hostSuccess({ disableIntegrations: options.disableIntegrations ?? false }),
-		executeRyotql: () => {
-			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
-		},
+		listIntegrations: () =>
+			hostSuccess({
+				items: options.integrations ?? [],
+				pageInfo: { hasMore: false, nextCursor: null },
+			}),
 	});
 
 describe("radarr-push sandbox script", () => {
@@ -218,7 +205,7 @@ describe("radarr-push sandbox script", () => {
 					entityId: "movie-1",
 					entitySchemaSlug: "movie",
 				});
-				expect(result).toBeNull();
+				expect(result).toEqual({});
 				expect(warnings).toEqual([
 					[
 						{

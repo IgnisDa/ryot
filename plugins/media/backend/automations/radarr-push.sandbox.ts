@@ -66,7 +66,7 @@ export default defineAutomation({
 			payload.resource !== "event" ||
 			payload.operation !== "create"
 		) {
-			return Effect.succeed(null);
+			return Effect.succeed({});
 		}
 
 		return Effect.gen(function* () {
@@ -77,38 +77,38 @@ export default defineAutomation({
 				event.entitySchemaSlug !== "collection" ||
 				event.eventSchemaSlug !== "add-entity-to-collection"
 			) {
-				return null;
+				return {};
 			}
 			const entitySchemaSlug = event.properties["entitySchemaSlug"];
 			const entityId = event.properties["entityId"];
 			if (entitySchemaSlug !== "movie" || typeof entityId !== "string") {
-				return null;
+				return {};
 			}
 			const [disabled, integrations] = yield* Effect.all(
 				[integrationsDisabledForUser(host), listActiveIntegrations(host, "radarr")],
 				{ concurrency: "unbounded" },
 			);
 			if (disabled) {
-				return null;
+				return {};
 			}
 			const matching = integrations.filter((integration) =>
 				collectionSyncMatches(integration, event.entityId),
 			);
 			if (matching.length === 0) {
-				return null;
+				return {};
 			}
 			const entity = yield* fetchEntity(host, entityId);
 			const providerSlug = yield* resolveEntityProviderSlug(host, entity);
 			const externalId = entity.externalId;
 			if (providerSlug !== "movie.tmdb" || !externalId) {
-				return null;
+				return {};
 			}
 			yield* Effect.forEach(
 				matching,
 				(integration) => pushMovieToRadarr(host, integration, externalId),
 				{ discard: true, concurrency: 1 },
 			);
-			return null;
+			return {};
 		});
 	},
 });

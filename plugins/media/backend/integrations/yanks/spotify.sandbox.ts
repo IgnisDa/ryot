@@ -1,6 +1,6 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
@@ -13,6 +13,7 @@ import { confirmIntegrationSource, integrationSourceAttribution } from "../sourc
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Spotify yank",
 	slug: "integration.spotify",
 });
@@ -180,12 +181,13 @@ const runSpotifyYank = (
 		return { failures: [], entityGroups };
 	});
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationArtifactOutput,
 	run: (input, host, execution) =>
 		runSpotifyYank(input, host, execution).pipe(
 			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
 		),
 });

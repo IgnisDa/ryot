@@ -1,20 +1,24 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { mediaCopyRelationship } from "../../../shared/media-copy";
 import { mediaCopiesRecipe, mediaCopyBatchSize } from "../../../shared/media-copy-recipes";
+import { userMediaLibraryRecipe } from "../../../shared/user-media-library";
 import { inventoryReconcileInput, inventoryReconcileOutput } from "./reconciliation";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "integration.reconcile-inventory",
 	name: "Reconcile a completed media inventory",
 });
 
 const reference = { kind: "self" } as const;
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: inventoryReconcileInput,
 	output: inventoryReconcileOutput,
@@ -24,7 +28,7 @@ export default defineScript({
 			const inventory =
 				integration.provider === "jellyfin_inventory" || integration.provider === "emby_inventory";
 			if (!inventory && integration.providerSpecifics["syncCopies"] !== true) {
-				return { done: true };
+				return { output: { done: true } };
 			}
 			const [copies, library] = yield* Effect.all([
 				executeRyotqlRecipe(
@@ -35,19 +39,23 @@ export default defineScript({
 				),
 				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe(reference), {}),
 			]);
-			if (copies.items.length) {
-				yield* host.changeUserRelationships([
-					{
-						creates: [],
+			const output = { done: !copies.pageInfo.hasMore };
+			if (copies.items.length === 0) {
+				return { output };
+			}
+			const source = existingEntity(EntityId.make(library.entityId));
+			return {
+				output,
+				changes: {
+					relationships: {
 						deletes: copies.items.map((copy) => ({
+							source,
 							key: copy.id,
-							targetEntityId: copy.entityId,
-							sourceEntityId: library.entityId,
 							relationshipSchemaSlug: mediaCopyRelationship,
+							target: existingEntity(EntityId.make(copy.entityId)),
 						})),
 					},
-				]);
-			}
-			return { done: !copies.pageInfo.hasMore };
+				},
+			};
 		}),
 });

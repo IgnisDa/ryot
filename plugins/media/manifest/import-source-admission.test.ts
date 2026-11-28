@@ -30,6 +30,7 @@ const validInputs = {
 	hardcover: { uploadToken },
 	goodreads: { uploadToken },
 	storygraph: { uploadToken },
+	"media-history": { uploadToken },
 	trakt: { mode: "user", username: "alice" },
 	netflix: { uploadToken, profileName: "Kids" },
 	igdb: { uploadToken, collection: "Favorites" },

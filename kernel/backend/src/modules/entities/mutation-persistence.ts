@@ -3,7 +3,6 @@ import {
 	type AutomationEntityChangePayload,
 	AutomationEntityDraft,
 	AutomationEntitySnapshot,
-	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityBadRequest, type ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
@@ -29,6 +28,7 @@ import { type AccountAdmission, mutationUserIds } from "#modules/mutations/accou
 import type { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { isUniqueConstraintError } from "#platform/db/errors";
+import type { WriteScope, WriteTransaction } from "#platform/db/write-transaction";
 
 import type { EntitiesRepository, MutationEntity } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
@@ -40,7 +40,6 @@ export const PreparedEntityMutation = Schema.Struct({
 	scopeUserId: Schema.NullOr(UserId),
 	before: Schema.NullOr(AutomationEntitySnapshot),
 	entitySchemaPluginId: Schema.NullOr(Schema.String),
-	requestId: Schema.NullOr(AutomationTrigger.fields.id),
 	entitySchemaFingerprint: CatalogDefinitionFingerprint,
 	operation: Schema.Literals(["create", "update", "delete"]),
 });
@@ -81,9 +80,11 @@ const provenanceOf = (input: PreparedMutation) =>
 			];
 
 export type PersistBatch = { readonly id: string; readonly hasCandidates: boolean };
+/** A write whose final draft was validated under the catalog lock against `propertiesSchema`. */
 export type PersistItem = {
 	readonly batchIndex: number;
 	readonly input: PreparedMutation;
+	readonly propertiesSchema: AppSchema;
 	readonly preservePopulatedAt?: boolean;
 	readonly pin: null | undefined | DomainWritePin;
 };
@@ -97,14 +98,6 @@ const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
 		? { ...item.input.draft, populatedAt: before.populatedAt }
 		: item.input.draft;
 
-/** An update whose draft matches the snapshot it was prepared from writes nothing and plans no hooks. */
-export const isUnchangedUpdate = (input: PreparedMutation) =>
-	input.operation === "update" &&
-	input.before !== null &&
-	same(
-		draftOf(input.before),
-		effectiveDraft({ input, batchIndex: 0, pin: undefined }, input.before),
-	);
 export const makePersistMutation = <E, R, Result>({
 	keys,
 	planner,
@@ -113,7 +106,6 @@ export const makePersistMutation = <E, R, Result>({
 	repository,
 	validateDraft,
 	assetReferences,
-	authorizeMutation,
 }: {
 	keys: IdempotencyKeys["Service"];
 	planner: LifecyclePlanner["Service"];
@@ -121,13 +113,12 @@ export const makePersistMutation = <E, R, Result>({
 	repository: EntitiesRepository["Service"];
 	assetReferences: ManagedAssetReferenceLocker["Service"];
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
-	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
 	validateDraft: (
 		draft: AutomationEntityDraft,
 		scopeUserId: null | UserId,
 		owner: DefinitionOwner,
 		lifecycle: DomainLifecycleCommand,
-		commit?: boolean,
+		scope: WriteScope,
 		pin?: null | DomainWritePin,
 	) => Effect.Effect<
 		{ propertiesSchema: AppSchema } & Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">,
@@ -135,39 +126,47 @@ export const makePersistMutation = <E, R, Result>({
 		R
 	>;
 }) => {
-	const lockRows = Effect.fnUntraced(function* (inputs: ReadonlyArray<PreparedMutation>) {
-		const entityIds = inputs.map(({ entityId }) => entityId);
+	/** Locks and reads the rows of `inputs` and of the entities kept unchanged beside them. */
+	const lockRows = Effect.fnUntraced(function* (
+		inputs: ReadonlyArray<PreparedMutation>,
+		keptIds: ReadonlyArray<EntityId> = [],
+	) {
+		const entityIds = [...inputs.map(({ entityId }) => entityId), ...keptIds];
 		yield* repository.lockProviderEntityMutations(inputs.flatMap(provenanceOf));
 		yield* repository.lockMutationKeys(entityIds);
 		return yield* repository.getMutationEntities(entityIds, true);
 	});
 	const persistMany = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
 		items: ReadonlyArray<PersistItem>,
 		batch?: PersistBatch,
 		locked?: ReadonlyMap<EntityId, MutationEntity>,
 	) {
-		const assetRecords: OwnedManagedAssetPropertyRecord[] = [];
-		for (const { pin, input } of items) {
-			yield* admission.admitCommand(input.lifecycle, input.scopeUserId);
-			const currentSchema = yield* validateDraft(
-				input.draft,
-				input.scopeUserId,
-				definitionOwner(input.entitySchemaPluginId),
-				input.lifecycle,
-				true,
-				pin,
-			);
-			if (!same(currentSchema.draft, input.draft)) {
-				return yield* conflict("Entity schema changed before the source write committed");
-			}
-			if (input.operation !== "delete") {
-				assetRecords.push({
-					ownerUserId: input.scopeUserId,
-					properties: input.draft.properties,
-					propertiesSchema: currentSchema.propertiesSchema,
-				});
-			}
+		const admissions = new Map(
+			items.map(({ input }) => [
+				stableStringify([
+					input.lifecycle.accountUserId,
+					input.scopeUserId,
+					mutationUserIds(input.lifecycle, input.scopeUserId),
+				]),
+				input,
+			]),
+		);
+		for (const input of admissions.values()) {
+			yield* admission.admitCommand(input.lifecycle, input.scopeUserId, transaction);
 		}
+		const assetRecords: OwnedManagedAssetPropertyRecord[] = items.flatMap(
+			({ input, propertiesSchema }) =>
+				input.operation === "delete"
+					? []
+					: [
+							{
+								propertiesSchema,
+								ownerUserId: input.scopeUserId,
+								properties: input.draft.properties,
+							},
+						],
+		);
 		yield* assetReferences
 			.lock(assetRecords)
 			.pipe(
@@ -196,7 +195,7 @@ export const makePersistMutation = <E, R, Result>({
 					input.scopeUserId,
 					definitionOwner(input.entitySchemaPluginId),
 					input.lifecycle,
-					false,
+					transaction,
 					item.pin,
 				).pipe(
 					Effect.catch(() => conflict("Current entity cannot be processed by the pinned writer")),
@@ -284,7 +283,7 @@ export const makePersistMutation = <E, R, Result>({
 				}
 			} else if (before && !same(draftOf(before), effectiveDraft(item, before))) {
 				entity = yield* repository
-					.updateEntity({
+					.updateEntity(transaction, {
 						name: input.draft.name,
 						entityId: input.entityId,
 						properties: input.draft.properties,
@@ -318,23 +317,14 @@ export const makePersistMutation = <E, R, Result>({
 					}
 				: undefined;
 			const dispatch = evidence
-				? yield* planner.planChange({
-						trigger: yield* lifecycleTrigger(
-							{
-								...input.lifecycle,
-								causation: {
-									...input.lifecycle.causation,
-									parentTriggerId: input.requestId ?? input.lifecycle.causation.parentTriggerId,
-								},
-							},
-							input.scopeUserId,
-							evidence,
-						),
-					})
+				? yield* planner.planChange(
+						{ trigger: yield* lifecycleTrigger(input.lifecycle, input.scopeUserId, evidence) },
+						transaction,
+					)
 				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });
-			if (input.operation !== "delete") {
+			if (input.operation !== "delete" && input.lifecycle.kernelCollection !== true) {
 				yield* keys.recordImportItem(
 					input.lifecycle,
 					input.scopeUserId,
@@ -342,7 +332,7 @@ export const makePersistMutation = <E, R, Result>({
 				);
 			}
 			if (batch && evidence) {
-				yield* planner.recordBatchChange(batch.id, {
+				yield* planner.recordBatchChange(transaction, batch.id, {
 					payload: evidence,
 					index: item.batchIndex,
 					scopeUserId: input.scopeUserId,
@@ -351,21 +341,5 @@ export const makePersistMutation = <E, R, Result>({
 		}
 		return { results };
 	});
-	const persistSave = Effect.fnUntraced(function* (
-		input: PreparedMutation,
-		batch?: PersistBatch & { readonly index: number },
-	) {
-		yield* repository.lockSchemaCatalog(mutationUserIds(input.lifecycle, input.scopeUserId));
-		yield* authorizeMutation(input);
-		const persisted = yield* persistMany(
-			[{ input, pin: undefined, batchIndex: batch?.index ?? 0 }],
-			batch,
-		);
-		const [saved] = persisted.results;
-		if (!saved) {
-			return yield* Effect.die("Persisted entity mutation is missing its result");
-		}
-		return saved;
-	});
-	return { persistMany, persistSave };
+	return { lockRows, persistMany };
 };

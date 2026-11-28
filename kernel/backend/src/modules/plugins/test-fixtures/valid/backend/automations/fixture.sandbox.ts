@@ -13,4 +13,4 @@ export const manifest = defineManifest({
 	},
 });
 
-export default defineAutomation({ manifest, run: () => Effect.succeed(null) });
+export default defineAutomation({ manifest, run: () => Effect.succeed({}) });

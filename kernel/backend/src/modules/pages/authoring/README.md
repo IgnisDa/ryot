@@ -44,9 +44,9 @@ and rechecks the authenticated owner, published revision, definition hash, autho
 mutable write grant before dispatch or idempotent replay. The HTTP payload's `pageAuthority` is a
 constraint, not a credential; the client host derives it from preparation.
 
-Operations retain this constraint in the sandbox user subject. The existing workflow payload,
-principal and inherited child subjects persist it through execution and recovery. Sandbox authority
-rechecks it against the page row for each invocation and fresh host call, including durable dispatch.
+Operations retain this constraint in the sandbox user subject, and their admission record persists
+it with the principal. Sandbox authority rechecks it against the page row when a run resolves its
+host-call authority.
 Code/configuration pins and previously decoded principals do not preserve revoked page grants.
 
 Trusted command callers may supply an idempotency key to create, replace, compile, publish and

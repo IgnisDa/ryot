@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	IngestionBatch,
 	IngestionIssue,
@@ -19,19 +20,14 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { ChangeSets } from "#modules/changes/service";
 import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommands } from "#modules/user-commands/service";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
@@ -75,7 +71,6 @@ const applyCase = (
 	chunk: GenericImportChunk,
 	cancelled = false,
 	pluginRevision: ScriptPluginRevision = ingestionTestSource.pluginRevision,
-	entitySchemaSlugs: ReadonlyArray<string> = [],
 ) =>
 	Effect.gen(function* () {
 		const batches = new Map<string, IngestionBatch>();
@@ -90,8 +85,10 @@ const applyCase = (
 			Layer.mock(JobQueue)({}),
 			Layer.mock(TransientValues)({}),
 			Layer.mock(LifecycleExecution)({}),
-			Layer.mock(EventsService)({}),
-			Layer.mock(UserCommands)({}),
+			Layer.mock(ChangeSets)({
+				commitOnce: () =>
+					Effect.fail(new EntityBadRequest({ reason: { code: "mutation-conflict" } })),
+			}),
 			Layer.mock(PluginRuntimeResolver)({
 				findPluginAvailableToUser: () =>
 					Effect.succeed({
@@ -140,6 +137,8 @@ const applyCase = (
 						starts.push(input);
 						return true;
 					}),
+				recordedOutcomeIds: (_scope, ids) =>
+					Effect.sync(() => new Set(ids.filter((id) => outcomes.has(id)))),
 				getIngestionRunControl: () =>
 					Effect.succeed(ingestionTestRun({ status: cancelled ? "cancelling" : "running" })),
 				recordIssue: (_scope, issue) =>
@@ -180,13 +179,8 @@ const applyCase = (
 						return buildDefinitionSnapshot(kernelDefinitionSource());
 					}),
 			}),
-			Layer.mock(EntitiesService)({}),
 			Layer.mock(EntitiesRepository)({}),
-			Layer.mock(RelationshipsService)({}),
 			Layer.mock(CollectionsService)({}),
-			Layer.mock(SandboxRepository)({
-				getSchemaScope: () => Effect.succeed({ ...emptySchemaScope, entitySchemaSlugs }),
-			}),
 		);
 		const payload = {
 			...ingestionTestScope,
@@ -273,51 +267,6 @@ it.effect(
 );
 
 it.effect(
-	"cannot use a kernel same-name schema through a plugin generic-import child",
-	() =>
-		Effect.gen(function* () {
-			const result = yield* applyCase(
-				{
-					failures: [],
-					items: [
-						{
-							events: [],
-							itemIndex: 0,
-							relationships: [],
-							recordId: "foreign",
-							sourceLabel: "Import",
-							sourceIdentifier: "foreign",
-							subjectEntityAlias: "entity",
-							entities: [
-								{
-									properties: {},
-									alias: "entity",
-									name: "Collection",
-									operationId: "foreign-entity",
-									entitySchemaSlug: "collection",
-									outcome: { unit: "entities", recordKind: "entity" },
-								},
-							],
-						},
-					],
-				},
-				false,
-				ingestionTestSource.pluginRevision,
-				["collection"],
-			);
-			expect(result.first.confirmed).toEqual([]);
-			expect(result.first.summary).toEqual([
-				{
-					unit: "entities",
-					recordKind: "entity",
-					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
-				},
-			]);
-		}),
-	testTimeout,
-);
-
-it.effect(
 	"rejects private global entity intents through the generic-import helper",
 	() =>
 		Effect.gen(function* () {
@@ -353,7 +302,6 @@ it.effect(
 					scope: "user",
 					ownerId: ingestionTestScope.userId,
 				},
-				["collection"],
 			);
 			expect(result.first.confirmed).toEqual([]);
 			expect(result.first.summary).toEqual([
@@ -367,7 +315,7 @@ it.effect(
 	testTimeout,
 );
 it.effect(
-	"keeps original event attribution when preparation fails a grouped item",
+	"keeps original event attribution when its commit fails an item",
 	() =>
 		Effect.gen(function* () {
 			const result = yield* applyCase({

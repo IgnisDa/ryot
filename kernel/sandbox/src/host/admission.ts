@@ -3,6 +3,7 @@ import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle"
 import { Clock, Context, Deferred, Effect, Layer, Schema } from "effect";
 import type { Scope } from "effect";
 
+import { SANDBOX_LIMITS } from "../protocol/limits";
 import { SIDECAR_PROTOCOL_LIMITS } from "../protocol/messages";
 import { SandboxHostConfig } from "./config";
 import { isResidentInstance } from "./instance";
@@ -45,11 +46,6 @@ export class SandboxAdmissionLease extends Context.Service<
 
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
-
-const queueFullMessage = "Sandbox ephemeral admission queue is full";
-
-export const isAdmissionQueueFull = (error: unknown) =>
-	error instanceof SandboxRunError && error.message === queueFullMessage;
 
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
 	"@ryot-app/sandbox/host/admission/SandboxSidecarAdmission",
@@ -276,8 +272,8 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 									return undefined;
 								}
 								if (!waiting) {
-									if (state.waiting >= concurrency) {
-										return yield* limitError(queueFullMessage);
+									if (state.waiting >= SANDBOX_LIMITS.admission.waitingRuns) {
+										return yield* limitError("Sandbox admission queue is full");
 									}
 									waiting = true;
 									state.waiting++;

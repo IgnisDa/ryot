@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -7,11 +7,12 @@ import { adaptIgdbCsv } from "./igdb";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.igdb",
 	name: "Parse IGDB import",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -21,5 +22,6 @@ export default defineScript({
 			Effect.flatMap((collection) =>
 				collectMediaCsv("igdb", input, (text) => adaptIgdbCsv(text, { collection })),
 			),
+			Effect.map((output) => ({ output })),
 		),
 });

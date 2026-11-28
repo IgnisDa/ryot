@@ -1,8 +1,13 @@
-import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	CHANGE_SET_LIMITS,
+	entityUpdateTarget,
+	existingEntity,
+	readAllPages,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
 	ExerciseMergeInputSchema,
@@ -13,6 +18,7 @@ import {
 	exerciseMergeSubjectsRecipe,
 	exerciseMergeTemplatesRecipe,
 } from "../../shared/exercise-merge-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { WorkoutEditorPropertiesSchema } from "../../shared/workout-editor-recipes";
 
 export const manifest = defineManifest({
@@ -22,7 +28,6 @@ export const manifest = defineManifest({
 });
 
 const reference = { kind: "self" } as const;
-const detachBatchSize = 100;
 
 const TemplateOccurrencesSchema = Schema.Array(WorkoutEditorPropertiesSchema);
 
@@ -54,73 +59,65 @@ export default defineOperation({
 	run: ({ mergeFrom, mergeInto }, host) =>
 		Effect.gen(function* () {
 			if (mergeFrom === mergeInto) {
-				return { kind: "same" } as const;
+				return yield* reject(catalogMessage("rejection.exercise-merge.same"));
 			}
 			const subjects = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				exerciseMergeSubjectsRecipe({ reference: reference }),
+				exerciseMergeSubjectsRecipe({ reference }),
 				{ mergeFrom, mergeInto },
 			);
 			const source = subjects.find(({ id }) => id === mergeFrom);
 			const target = subjects.find(({ id }) => id === mergeInto);
 			if (!source || !target) {
-				return { kind: "missing" } as const;
+				return yield* reject(catalogMessage("rejection.exercise-merge.missing"));
 			}
 			if (source.kind !== target.kind) {
-				return { kind: "kind-mismatch" } as const;
+				return yield* reject(catalogMessage("rejection.exercise-merge.kind-mismatch"));
 			}
-
-			const links = yield* readAllRyotqlPages((after) =>
+			const links = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
-					exerciseMergeLinksRecipe({ reference: reference }),
+					exerciseMergeLinksRecipe({ reference }),
 					{ mergeFrom },
-					{ pages: { links: { after: after } } },
+					{ pages: { links: { after } } },
 				),
 			);
-			const batches: ChangeUserRelationshipBatch[] = [];
-			for (let offset = 0; offset < links.length; offset += detachBatchSize) {
-				batches.push({
-					creates: [],
-					deletes: links
-						.slice(offset, offset + detachBatchSize)
-						.map((link) => ({
-							sourceEntityId: mergeFrom,
-							relationshipSchemaSlug: link.slug,
-							targetEntityId: link.targetEntityId,
-						})),
-				});
-			}
-			if (batches.length > 0) {
-				yield* host.changeUserRelationships(batches);
-			}
-
-			yield* host.mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug: "exercise" });
-
-			const templates = yield* readAllRyotqlPages((after) =>
+			const templates = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
-					exerciseMergeTemplatesRecipe({ reference: reference }),
+					exerciseMergeTemplatesRecipe({ reference }),
 					{},
-					{ pages: { templates: { after: after } } },
+					{ pages: { templates: { after } } },
 				),
 			);
-			for (const template of templates) {
+			const updates = templates.flatMap((template) => {
 				const properties = swapTemplateExercise(template.properties, mergeFrom, mergeInto);
-				if (properties === null) {
-					continue;
-				}
-				yield* host.updateUserEntity({
-					properties,
-					name: template.name,
-					entityId: template.id,
-					expected: {
-						name: template.name,
-						updatedAt: template.updatedAt,
-						properties: template.properties,
-					},
-				});
+				return properties === null
+					? []
+					: [
+							{
+								properties,
+								name: template.name,
+								entitySchemaSlug: "workout-template",
+								target: entityUpdateTarget(template),
+							},
+						];
+			});
+			if (updates.length > CHANGE_SET_LIMITS.entityUpdates) {
+				return yield* reject(catalogMessage("rejection.exercise-merge.too-many-templates"));
 			}
-			return { mergeInto, kind: "merged" } as const;
+			return {
+				output: { mergeInto },
+				changes: {
+					entities: { updates, merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }] },
+					relationships: {
+						deletes: links.map((link) => ({
+							source: existingEntity(mergeFrom),
+							relationshipSchemaSlug: link.slug,
+							target: existingEntity(link.targetEntityId),
+						})),
+					},
+				},
+			};
 		}),
 });

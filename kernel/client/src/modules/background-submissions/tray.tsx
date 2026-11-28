@@ -64,13 +64,6 @@ const detail = (
 	t: (message: Message) => Text,
 ): Text | undefined => {
 	const { state } = entry;
-	if (state.status === "incomplete") {
-		return t(
-			state.count === undefined
-				? kernelMessage("client.background-submissions.retry-to-finish")
-				: kernelMessage("client.background-submissions.saved-so-far", { count: state.count }),
-		);
-	}
 	if (
 		state.status !== "failed" ||
 		state.reason === "operation-failed" ||
@@ -95,7 +88,6 @@ const tones = {
 	failed: "error",
 	pending: "pending",
 	succeeded: "success",
-	incomplete: "warning",
 } as const satisfies Record<
 	BackgroundSubmissionEntry["state"]["status"],
 	ActivityTrayEntry["tone"]

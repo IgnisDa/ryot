@@ -1,7 +1,8 @@
 import {
+	AutomationPolicyBatchInput,
+	type AutomationPolicyOutput,
 	AutomationRun,
 	AutomationTrigger,
-	type AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -11,25 +12,36 @@ import {
 	AutomationTriggerId,
 	ImportRunId,
 	IntegrationId,
-	type PluginId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
+	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
-	type LifecyclePlan,
 	type LifecyclePlanner,
 	type LifecyclePlanningResult,
 	LifecycleWork,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
+import {
+	AutomationPolicyExecutionError,
+	LifecyclePolicies,
+	type LifecyclePolicy,
+	type PolicyRequest,
+} from "#modules/automations/lifecycle/policies";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { DatabaseSession } from "#platform/db/session";
+
+import { LifecyclePoliciesServiceLive } from "./layer";
 
 export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
 	derive: () => Effect.succeed([]),
@@ -37,7 +49,6 @@ export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
 
 export const noHooksFixture = (): Extract<LifecyclePlanningResult, { _tag: "NoHooks" }> => ({
 	runs: [],
-	policies: [],
 	trigger: null,
 	_tag: "NoHooks",
 	wasCreated: false,
@@ -75,23 +86,24 @@ export const withLifecycleBatchPlanning = (
 		);
 	return {
 		plan: recordPlan,
+		lockCatalog: () => Effect.void,
 		recordBatchChange: () => Effect.void,
-		planChange: (input) =>
-			Effect.map(recordPlan(input), (result) =>
-				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
-			),
-		prepareBatch: (input) =>
+		prepareBatch: (_transaction, input) =>
 			Effect.succeed({
 				hasCandidates,
 				id: stableStringify([input.command.itemIdentity, ...input.identity]),
 			}),
-		planChanges: (triggers) =>
+		planChange: (input, transaction) =>
+			Effect.map(recordPlan({ ...input, transaction }), (result) =>
+				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
+			),
+		planChanges: (triggers, transaction) =>
 			Effect.forEach(triggers, (trigger) =>
-				Effect.map(recordPlan({ trigger }), (result) =>
+				Effect.map(recordPlan({ trigger, transaction }), (result) =>
 					result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
 				),
 			),
-		planBatch: (input) =>
+		planBatch: (transaction, input) =>
 			Effect.gen(function* () {
 				const identity = stableStringify([
 					input.command.causation.executionId,
@@ -110,7 +122,7 @@ export const withLifecycleBatchPlanning = (
 					yield* lifecycleBatchTriggers(input, maxItems, relevant),
 					(trigger) =>
 						planner
-							.plan({ trigger })
+							.plan({ trigger, transaction })
 							.pipe(
 								Effect.map((result) =>
 									result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
@@ -125,56 +137,121 @@ export const withLifecycleBatchPlanning = (
 };
 
 export const withLifecycleDispatch = (
-	execution: Omit<LifecycleExecution["Service"], "dispatch" | "executeBatchPolicy">,
+	observer: {
+		readonly after: (plan: {
+			readonly runs: LifecycleDispatchPlan["runs"];
+			readonly triggerId: LifecycleDispatchPlan["triggerId"];
+		}) => Effect.Effect<unknown>;
+	},
 	session?: DatabaseSession["Service"],
 ): LifecycleExecution["Service"] =>
 	LifecycleExecution.of({
-		...execution,
-		executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 		dispatch: (plans) =>
-			Effect.forEach(plans, (plan) =>
-				execution
-					.after({ runs: plan.runs, triggerId: plan.triggerId })
-					.pipe(
-						Effect.map((warnings): ReadonlyArray<AutomationWarning> => [
-							...(plan.blockedReason?.hasRequiredHooks
-								? [{ ...plan.blockedReason, triggerId: plan.triggerId }]
-								: []),
-							...warnings,
-						]),
-					),
+			Effect.gen(function* () {
+				if (session !== undefined) {
+					yield* session.requireRoot.pipe(
+						Effect.mapError(
+							() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
+						),
+					);
+				}
+				yield* Effect.forEach(
+					plans,
+					(plan) => observer.after({ runs: plan.runs, triggerId: plan.triggerId }),
+					{ discard: true },
+				);
+			}),
+	});
+
+export const noPoliciesLayer = Layer.succeed(LifecyclePolicies, {
+	match: () => Effect.succeed([]),
+	run: () => Effect.die("Unexpected policy"),
+});
+
+export const policyFixture = (
+	index: number,
+	targets: LifecyclePolicy["hook"]["targets"],
+	executionUserId: null | UserId = null,
+): LifecyclePolicy => ({
+	position: index,
+	executionUserId,
+	pluginId: PluginId.make("policy-plugin"),
+	hook: { targets, name: "Policy", stage: "before", scriptSlug: "policy", slug: `policy-${index}` },
+	script: { slug: "policy", contentHash: "policy-hash", id: SandboxScriptId.make("policy-script") },
+	plugin: {
+		revisionId: PluginRevisionId.make("policy-revision"),
+		configRevisionId: PluginConfigRevisionId.make("policy-config"),
+	},
+});
+
+/** Matches policies with `match` and decides each item with `decide`, without a sandbox. */
+export const decidingPolicies = <E>(
+	match: LifecyclePolicies["Service"]["match"],
+	decide: (
+		item: PolicyRequest["items"][number],
+		policy: LifecyclePolicy,
+	) => Effect.Effect<AutomationPolicyOutput, E>,
+): LifecyclePolicies["Service"] =>
+	LifecyclePolicies.of({
+		match,
+		run: ({ policy, request }) =>
+			Effect.forEach(request.items, (item) =>
+				Effect.map(decide(item, policy), (decision) => ({
+					decision,
+					itemIdentity: item.itemIdentity,
+				})),
 			).pipe(
-				Effect.map((groups) => groups.flat()),
-				Effect.andThen((warnings) =>
-					session === undefined
-						? Effect.succeed(warnings)
-						: session.requireRoot.pipe(
-								Effect.mapError(
-									() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
-								),
-								Effect.as(warnings),
-							),
-				),
+				Effect.mapBoth({
+					onSuccess: (decided) => ({ items: decided }),
+					onFailure: () => new AutomationPolicyExecutionError({ kind: "script-failure" }),
+				}),
 			),
 	});
 
-export const planFixture = (id: string): LifecyclePlan => ({
-	runs: [],
-	policies: [],
-	wasCreated: true,
-	trigger: triggerFixture(id),
-});
+/** Real policy matching and preparation, with each policy call decided by `decide`. */
+export const decidedPoliciesLayer = (
+	decide: (
+		item: AutomationPolicyBatchInput["items"][number],
+		input: AutomationPolicyBatchInput,
+	) => Effect.Effect<AutomationPolicyOutput> = () => Effect.succeed({ action: "allow" }),
+) =>
+	LifecyclePoliciesServiceLive.pipe(
+		Layer.provide(
+			scriptCallsLayer((call) =>
+				Effect.gen(function* () {
+					const input = yield* Schema.decodeUnknownEffect(AutomationPolicyBatchInput)(
+						call.input,
+					).pipe(Effect.orDie);
+					const items = yield* Effect.forEach(input.items, (item) =>
+						Effect.map(decide(item, input), (decision) => ({
+							decision,
+							itemIdentity: item.itemIdentity,
+						})),
+					);
+					return scriptCallResult({ items });
+				}),
+			),
+		),
+	);
+
+/** A policy request for `items`, made with the fixture trigger's causation and time. */
+export const policyRequestFixture = (
+	resource: PolicyRequest["resource"],
+	items: PolicyRequest["items"],
+	scopeUserId: null | UserId = UserId.make("owner"),
+): PolicyRequest => {
+	const { causation, occurredAt } = triggerFixture();
+	return { items, resource, causation, occurredAt, scopeUserId, references: {} };
+};
 
 export const queuedRunFixture = (id: string) =>
 	AutomationRun.make({
-		stage: "after",
 		pluginId: null,
 		attemptCount: 0,
 		startedAt: null,
 		status: "queued",
 		finishedAt: null,
 		skipReason: null,
-		delivery: "async",
 		hookName: "Fixture",
 		nextAttemptAt: null,
 		executionUserId: null,

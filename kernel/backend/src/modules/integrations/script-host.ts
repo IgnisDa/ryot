@@ -1,3 +1,4 @@
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	sandboxHostEffect,
@@ -43,12 +44,19 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 
 				return yield* sandboxHostEffect(
 					integrationsRepository
-						.listForUser({
+						.listPageForUser({
+							afterId: options.cursor,
+							provider: options.provider,
+							isDisabled: options.isDisabled,
+							limit: INTEGRATION_LIMITS.pageSize,
 							userId: UserId.make(userSandboxRunUserId(input)),
-							...(options.provider !== undefined ? { provider: options.provider } : {}),
-							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
 						})
-						.pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
+						.pipe(
+							Effect.map(({ items, nextAfterId }) => ({
+								items: items.map(toSandboxIntegration),
+								pageInfo: { nextCursor: nextAfterId, hasMore: nextAfterId !== null },
+							})),
+						),
 				);
 			}),
 		getCurrentIntegration: (rawInput) =>

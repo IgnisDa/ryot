@@ -9,7 +9,7 @@ import { act, type ReactNode, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { RyotClientAdapter } from "../client/adapter";
-import { RyotClientError } from "../client/errors";
+import { ChangesConflict, RyotClientError } from "../client/errors";
 import { createTestPluginStorage, createTestRyotClock } from "../testing";
 import {
 	createRyotHostQuery,
@@ -255,23 +255,21 @@ describe("Effect-native React definitions", () => {
 		testTimeout,
 	);
 	it.live(
-		"retains a submission through transport and incomplete results before accepting a new one",
+		"retains a submission through an unknown transport outcome before accepting a new one",
 		() =>
 			Effect.gen(function* () {
 				const attempts: RyotSubmission<{ value: number }>[] = [];
 				let identity = 0;
-				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, boolean>(
-					({ input }) =>
-						Effect.suspend(() => {
-							attempts.push(input);
-							return attempts.length === 1
-								? Effect.fail(new RyotClientError({ reason: "transport" }))
-								: Effect.succeed(attempts.length >= 3);
-						}),
+				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, null>(({ input }) =>
+					Effect.suspend(() => {
+						attempts.push(input);
+						return attempts.length === 1
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
+							: Effect.succeed(null);
+					}),
 				);
 				const View = () => {
 					const submission = useRyotSubmission(mutation, {
-						isComplete: (complete) => complete,
 						createId: () => `submission-${++identity}`,
 					});
 					return (
@@ -297,26 +295,99 @@ describe("Effect-native React definitions", () => {
 				expect(attempts).toHaveLength(1);
 				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
 				yield* Effect.promise(() =>
-					waitFor(() => {
-						expect(attempts).toHaveLength(2);
-						expect(container.querySelector("p")?.textContent).toBe("retained");
-					}),
-				);
-				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
-				yield* Effect.promise(() =>
 					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("idle")),
 				);
 				const submittedAt = attempts[0]?.submittedAt;
 				expect(attempts).toEqual<unknown>(
-					Array.from({ length: 3 }, () => ({
+					Array.from({ length: 2 }, () => ({
 						submittedAt,
 						input: { value: 0 },
 						submissionId: "submission-1",
 					})),
 				);
 				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
-				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(4)));
-				expect(attempts[3]?.submissionId).toBe("submission-2");
+				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(3)));
+				expect(attempts[2]?.submissionId).toBe("submission-2");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"settles definite failures as final and retains every unknown outcome",
+		() =>
+			Effect.gen(function* () {
+				const attempts: RyotSubmission<{ value: number }>[] = [];
+				let identity = 0;
+				const failures = [
+					new ChangesConflict({ conflict: "entity-stale" }),
+					new RyotClientError({ reason: "transport" }),
+					new RyotClientError({ reason: "protocol" }),
+					new RyotClientError({ reason: "disposed" }),
+					new RyotClientError({ reason: "malformed-result" }),
+					new Error("unclassified"),
+				];
+				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, boolean, Error>(
+					({ input }) =>
+						Effect.suspend(() => {
+							attempts.push(input);
+							const failure = failures[attempts.length - 1];
+							return failure === undefined ? Effect.succeed(true) : Effect.fail(failure);
+						}),
+				);
+				const View = () => {
+					const submission = useRyotSubmission(mutation, {
+						createId: () => `submission-${++identity}`,
+					});
+					const { error } = submission;
+					return (
+						<>
+							<p>{submission.status}</p>
+							<output>
+								{error instanceof RyotClientError ? error.reason : (error?.message ?? "")}
+							</output>
+							<button onClick={() => submission.submit({ value: 0 })}>Submit</button>
+							<button onClick={submission.retry}>Retry</button>
+							<button onClick={submission.reset}>Reset</button>
+						</>
+					);
+				};
+				const { container } = render(<View />);
+				const status = () => container.querySelector("p")?.textContent;
+				const error = () => container.querySelector("output")?.textContent;
+				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(error()).toBe("changes-conflict");
+						expect(status()).toBe("idle");
+					}),
+				);
+				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
+				expect(attempts).toHaveLength(1);
+				fireEvent.click(getByRole(container, "button", { name: "Reset" }));
+				expect(error()).toBe("");
+				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
+				for (const [index, reason] of [
+					"transport",
+					"protocol",
+					"disposed",
+					"malformed-result",
+					"unclassified",
+				].entries()) {
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							expect(error()).toBe(reason);
+							expect(status()).toBe("retained");
+						}),
+					);
+					expect(attempts).toHaveLength(index + 2);
+					fireEvent.click(getByRole(container, "button", { name: "Retry" }));
+				}
+				yield* Effect.promise(() => waitFor(() => expect(status()).toBe("idle")));
+				expect(attempts).toHaveLength(7);
+				expect(attempts.slice(1).map(({ submissionId }) => submissionId)).toEqual(
+					Array.from({ length: 6 }, () => "submission-2"),
+				);
+				expect(attempts[6]).toEqual(attempts[1]);
 			}),
 		testTimeout,
 	);
@@ -555,7 +626,9 @@ describe("Effect-native React definitions", () => {
 		() =>
 			Effect.gen(function* () {
 				let calls = 0;
-				const clock = makeClock({ invokeOperation: () => Effect.succeed("saved") });
+				const clock = makeClock({
+					invokeOperation: () => Effect.succeed({ value: "saved", committed: { events: [] } }),
+				});
 				const query = createRyotQuery(() => Effect.sync(() => ++calls));
 				const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 				const { container } = render(<View />, clock);
@@ -582,7 +655,10 @@ describe("Effect-native React definitions", () => {
 			Effect.gen(function* () {
 				let hints = 0;
 				let latest: undefined | RyotMutationResult<string, string>;
-				const clock = makeClock({ invokeOperation: ({ input }) => Effect.succeed(input) });
+				const clock = makeClock({
+					invokeOperation: ({ input }) =>
+						Effect.succeed({ value: input, committed: { events: [] } }),
+				});
 				clock.client.mutationCompleted.subscribe(() => hints++);
 				const mutation = createRyotMutation<string, string>(({ input, client }) =>
 					Effect.gen(function* () {
@@ -593,13 +669,14 @@ describe("Effect-native React definitions", () => {
 							packageId: "test/fixture",
 							inputSchema: Schema.String,
 						});
-						return yield* client.operations.invoke({
+						const second = yield* client.operations.invoke({
 							input: first,
 							slug: "second",
 							output: Schema.String,
 							packageId: "test/fixture",
 							inputSchema: Schema.String,
 						});
+						return second;
 					}),
 				);
 				const View = () => {

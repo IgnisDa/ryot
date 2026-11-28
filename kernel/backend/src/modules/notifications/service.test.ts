@@ -8,6 +8,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { NotificationAdmissions } from "./admission";
 import type { NotificationAdmission } from "./ledger";
@@ -40,6 +41,10 @@ const admissions = Layer.effectContext(
 		return Context.make(NotificationAdmissions, {
 			pruneDiagnostics: () => Effect.void,
 			admit: (input) =>
+				Ref.update(inputs, (all) => [...all, input]).pipe(
+					Effect.as({ id: "admitted-notification" }),
+				),
+			admitWithin: (input) =>
 				Ref.update(inputs, (all) => [...all, input]).pipe(
 					Effect.as({ id: "admitted-notification" }),
 				),
@@ -76,22 +81,25 @@ layer(
 		testTimeout,
 	);
 	test.effect(
-		"forwards trusted run and call authority with the stamped message",
+		"forwards a run's stamped message with its trusted authority",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationsService;
-				yield* service.sendMessage({
-					sourceRunId: "run-1",
-					accountUserId: user.id,
-					sourceKey: "run-1-host-3-notification",
-					message: { namespace: "plugin1", key: "notification.run-completed" },
-				});
+				yield* service.admitMessageWithin(
+					{
+						sourceRunId: "run-1",
+						accountUserId: user.id,
+						sourceKey: "run-1-changes-0-notification",
+						message: { namespace: "plugin1", key: "notification.run-completed" },
+					},
+					new WriteTransaction(),
+				);
 				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
 					userId: user.id,
 					sourceRunId: "run-1",
 					accountUserId: user.id,
 					sourceSubmittedAt: null,
-					sourceKey: "run-1-host-3-notification",
+					sourceKey: "run-1-changes-0-notification",
 					request: {
 						kind: "message",
 						message: { namespace: "plugin1", key: "notification.run-completed" },

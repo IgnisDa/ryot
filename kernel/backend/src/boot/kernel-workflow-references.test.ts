@@ -4,7 +4,6 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
-	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
@@ -31,7 +30,6 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { enrichmentRequestRow } from "#modules/entities/enrichment/requests.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsService } from "#modules/events/service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { GenericImportChunks } from "#modules/imports/generic-import-workflow";
 import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
@@ -268,13 +266,6 @@ const recordingEngineLayer = (
 					}),
 				),
 				Layer.succeed(WorkflowInstance, parentInstance),
-				Layer.mock(EventsService)({
-					create: (input) =>
-						Ref.update(dispatches, (all) => [
-							...all,
-							{ payload: input, executionId: input.command.causation.executionId },
-						]).pipe(Effect.as({ count: 0, outcomes: [], warnings: [], failure: null })),
-				}),
 				Layer.succeed(RecordedWorkflowDispatches, {
 					payloads: Effect.map(Ref.get(dispatches), (all) => all.map(({ payload }) => payload)),
 					executionIds: Effect.map(Ref.get(dispatches), (all) =>
@@ -299,7 +290,6 @@ const unusedEngineLayer = Layer.mergeAll(
 	Layer.mock(GenericImportChunks)({}),
 	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 	Layer.succeed(WorkflowInstance, parentInstance),
-	Layer.mock(EventsService)({}),
 );
 
 type PopulationRequest = Parameters<EnrichmentRequests["Service"]["ensure"]>[0];
@@ -320,7 +310,6 @@ const recordingPopulationLayer = (
 				Layer.mock(GenericImportChunks)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 				Layer.succeed(WorkflowInstance, parentInstance),
-				Layer.mock(EventsService)({}),
 				Layer.mock(JobQueue)({ enqueue: () => Effect.succeed(true) }),
 				Layer.mock(EnrichmentRequests)({
 					ensure: (input) =>
@@ -453,23 +442,11 @@ layer(
 					"parent-execution",
 					yield* callerAuthority(subject),
 				);
-				yield* references.execute(
-					KERNEL_EVENT_CREATE_WORKFLOW,
-					{ payload: [], origin: "import", userId: "attacker-selected-user" },
-					"interactive",
-					"event-create-execution",
-					"parent-execution",
-					yield* callerAuthority(subject),
-				);
 
 				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
 					{
 						executionId: "entity-import-execution",
 						entityScope: { type: "global", userId: "trusted-user" },
-					},
-					{
-						userId: "trusted-user",
-						command: { causation: { executionId: "event-create-execution" } },
 					},
 				]);
 			}),
@@ -684,10 +661,15 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 				const references = yield* KernelWorkflowReferences;
 				const exit = yield* Effect.exit(
 					references.execute(
-						KERNEL_EVENT_CREATE_WORKFLOW,
-						{ payload: [] },
+						KERNEL_ENTITY_IMPORT_WORKFLOW,
+						{
+							providerId: "zeta",
+							externalId: "record-1",
+							entitySchemaSlug: "record",
+							origin: { kind: "import" },
+						},
 						"interactive",
-						"event-create-execution",
+						"entity-import-execution",
 						"parent-execution",
 						yield* callerAuthority({
 							type: "user",

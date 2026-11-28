@@ -12,8 +12,6 @@ export const DatabaseConnectionLimit = Context.Reference<
 	undefined | Pool.Pool<PgClient.PgClient, SqlError>
 >("DatabaseSession.ConnectionLimit", { defaultValue: () => undefined });
 
-const fiberContext: Effect.Effect<Context.Context<never>> = Effect.context();
-
 export class DatabaseSessionStateError extends Schema.TaggedError<
 	DatabaseSessionStateError,
 	{ readonly brand: unique symbol }
@@ -113,29 +111,6 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 						),
 					);
 				});
-			// A sandbox run settles host calls on fibers its caller did not start. The SQL client finds a
-			// transaction's connection in fiber context, so those fibers need the caller's entries as well as
-			// these executors. Other services stay local, but an inherited SQL transaction must not win.
-			const carry = Effect.map(
-				Effect.all([transactionExecutor, connectionExecutor, fiberContext]),
-				([current, connection, caller]) =>
-					<A, E, R>(
-						work: Effect.Effect<
-							A,
-							E,
-							Exclude<R, Context.Service.Identifier<typeof sqlClient.transactionService>>
-						>,
-					) =>
-						work.pipe(
-							Effect.provideService(transactionExecutor, current),
-							Effect.provideService(connectionExecutor, connection),
-							Effect.updateContext((own: Context.Context<R>) =>
-								current === null
-									? Context.omit(sqlClient.transactionService)(own)
-									: Context.merge(caller, Context.omit(sqlClient.transactionService)(own)),
-							),
-						),
-			);
 			// Work the caller's rollback must not undo, or whose locks its transaction must not hold, takes its own
 			// connection. The SQL client also finds a transaction in fiber context, so that entry has to go as well.
 			const detached = <A, E>(work: Effect.Effect<A, E>) =>
@@ -149,7 +124,6 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 				);
 			return {
 				run,
-				carry,
 				detached,
 				savepoint,
 				requireRoot,

@@ -1,7 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { catalogMessage } from "../../../shared/messages.generated";
 import { resolvedMediaRef } from "../../imports/source-helpers";
@@ -23,6 +23,7 @@ import { searchTmdbShow, type TmdbEpisode } from "./tmdb-episode";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Plex sink",
 	slug: "integration.plex-sink",
 });
@@ -72,7 +73,7 @@ const findTmdbShow = Effect.fnUntraced(function* (
 	return showId;
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: IntegrationArtifactOutput,
@@ -215,5 +216,8 @@ export default defineScript({
 					failureResult(catalogMessage("integration.plex.lookup-failed"), "provider_resolution"),
 				),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

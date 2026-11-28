@@ -21,14 +21,14 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner, toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -47,7 +47,6 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const session = yield* DatabaseSession;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const planner = yield* LifecyclePlanner;
-			const execution = yield* LifecycleExecution;
 			const triggers = yield* AutomationTriggerRepository;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -56,6 +55,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 
 			const planSignal = Effect.fn("SignalEmissionService.planSignal")(function* (
 				input: EmitSignalInput,
+				transaction: WriteTransaction,
 			) {
 				yield* session.requireTransaction.pipe(
 					Effect.mapError(() => new DbError({ message: "Signal planning requires a transaction" })),
@@ -77,7 +77,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 				const definitionContext = pinnedPlugin
 					? { pluginId: pinnedPlugin.id, pluginRevisionId: pinnedPlugin.revisionId }
 					: undefined;
-				yield* plugins.lockIngestionShared(actorUserId === null ? [] : [actorUserId]);
+				yield* plugins.lockIngestionShared(actorUserId === null ? [] : [actorUserId], transaction);
 				const snapshot = definitionContext
 					? yield* definitions.getSnapshotForContext(definitionContext, actorUserId)
 					: null;
@@ -184,22 +184,13 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 						});
 					}
 				}
-				const plan = yield* planner.plan({ trigger, recipients });
+				const plan = yield* planner.plan({ trigger, recipients, transaction });
 				if (plan.trigger === null) {
 					return yield* new DbError({ message: "Signal planning did not retain its trigger" });
 				}
 				return plan;
 			});
-			const emitSignal = Effect.fn("SignalEmissionService.emitSignal")(function* (
-				input: EmitSignalInput,
-			) {
-				const plan = yield* session.transaction(planSignal(input));
-				const warnings = yield* execution
-					.dispatch([toLifecycleDispatchPlan(plan)])
-					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { warnings, triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
-			});
-			return { planSignal, emitSignal };
+			return { planSignal };
 		}),
 	},
 ) {

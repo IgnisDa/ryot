@@ -1,14 +1,9 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
-import {
-	hostFailure,
-	hostSuccess,
-	jsonValueSchema,
-	type SandboxHostError,
-} from "@ryot-app/plugin-backend-sdk/wire";
+import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowDurableCallRequest,
 	WorkflowDurableResult,
@@ -21,16 +16,12 @@ import {
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { Context, Effect, Result, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
-import {
-	runNotification,
-	type ScriptExecutionPrincipal,
-} from "#modules/scripts/authorization/principal";
-import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import type { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import {
@@ -50,11 +41,11 @@ type HostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }
 
 const decodeHostResult = Schema.decodeUnknownEffect(
 	Schema.Union([
-		Schema.Struct({ data: jsonValueSchema, success: Schema.Literal(true) }),
+		Schema.Struct({ data: JsonValue, success: Schema.Literal(true) }),
 		Schema.Struct({
 			error: Schema.String,
 			success: Schema.Literal(false),
-			data: Schema.optional(jsonValueSchema),
+			data: Schema.optional(JsonValue),
 		}),
 	]),
 );
@@ -113,7 +104,6 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		principal,
 		compiledCode: "",
 		workflowExecutionId: executionId,
-		hostCallDiscriminator: request.index,
 		compiledFormat: SANDBOX_COMPILED_FORMAT,
 		executionId: `${executionId}-host-${request.index}`,
 	};
@@ -136,7 +126,7 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 ) {
 	const { input } = yield* loadDispatchInput(request, scope);
 	const boundFunctions = bindSandboxHostFunctions(
-		{ ...implementations.runtime, ...implementations.additional, ...implementations.automation },
+		{ ...implementations.runtime, ...implementations.additional },
 		input,
 	);
 	const bound = Object.entries(boundFunctions).find(
@@ -210,130 +200,6 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 			: durableHostFailure(encoded.error, encoded.data),
 	};
 });
-
-export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
-	request: HostRequest,
-	scope: HostCallScope,
-) {
-	const { input } = yield* loadDispatchInput(request, scope);
-	const { principal } = scope;
-	const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.createEvents.args)(
-		request.args.args,
-	).pipe(
-		Effect.mapError(
-			(error) =>
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: `Invalid createEvents arguments: ${unknownToMessage(error)}`,
-				}),
-		),
-	);
-	const userId = sandboxRunUserId(input);
-	if (userId === null) {
-		return yield* new SandboxRunError({
-			kind: "script-failure",
-			message: "createEvents requires a user subject",
-		});
-	}
-	const command = yield* sandboxLifecycleCommand(
-		input,
-		principal.subject.type === "user" && principal.subject.integrationId ? "integration" : "api",
-		"createEvents",
-	).pipe(
-		Effect.mapError(
-			(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
-		),
-	);
-	return { userId, command, payload: args[0] };
-});
-
-export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecycleHostInput")(
-	function* (
-		{ lifecycle }: ScriptHostImplementations["Service"],
-		request: HostRequest,
-		scope: HostCallScope,
-	) {
-		const { input } = yield* loadDispatchInput(request, scope);
-		const capability = request.args.capability;
-		const validateLifecycleInput = Effect.fnUntraced(function* () {
-			if (capability === "upsertGlobalEntities") {
-				const [items, options] = yield* decodeSandboxHostArguments(
-					capability,
-					sandboxHostContracts[capability],
-				)(request.args.args);
-				return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
-			}
-			if (capability === "changeUserRelationships") {
-				const [batches] = yield* decodeSandboxHostArguments(
-					capability,
-					sandboxHostContracts[capability],
-				)(request.args.args);
-				return yield* lifecycle.changeUserRelationships.validate(input, batches);
-			}
-			if (capability === "upsertGlobalRelationships") {
-				const [groups] = yield* decodeSandboxHostArguments(
-					capability,
-					sandboxHostContracts[capability],
-				)(request.args.args);
-				return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
-			}
-			if (capability === "updateEvents") {
-				const [items] = yield* decodeSandboxHostArguments(
-					capability,
-					sandboxHostContracts[capability],
-				)(request.args.args);
-				return yield* lifecycle.updateEvents.validate(input, items);
-			}
-			if (capability === "deleteEvents") {
-				const [eventIds, options] = yield* decodeSandboxHostArguments(
-					capability,
-					sandboxHostContracts[capability],
-				)(request.args.args);
-				return yield* lifecycle.deleteEvents.validate(input, eventIds, options);
-			}
-			return yield* new SandboxRunError({
-				kind: "script-failure",
-				message: `Sandbox durable host capability is not lifecycle-dispatchable: ${capability}`,
-			});
-		});
-		const validated = yield* Effect.result(validateLifecycleInput());
-		if (validated._tag === "Success") {
-			return validated.success;
-		}
-		if (validated.failure instanceof SandboxRunError) {
-			return yield* validated.failure;
-		}
-		const data = "data" in validated.failure ? validated.failure.data : undefined;
-		return {
-			_tag: "Failure" as const,
-			message: validated.failure.message,
-			...(data === undefined ? {} : { data }),
-		};
-	},
-);
-
-export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotification")(
-	function* (request: HostRequest, scope: HostCallScope) {
-		const { input } = yield* loadDispatchInput(request, scope);
-		const { principal } = scope;
-		const args = yield* Schema.decodeUnknownEffect(Schema.Tuple([Schema.Unknown]))(
-			request.args.args,
-		).pipe(
-			Effect.mapError(
-				(error) =>
-					new SandboxRunError({
-						kind: "invalid-input",
-						message: `Invalid sendNotification arguments: ${unknownToMessage(error)}`,
-					}),
-			),
-		);
-		const admission = runNotification(principal, input.hostCallDiscriminator, args[0]);
-		if (Result.isFailure(admission)) {
-			return yield* new SandboxRunError({ kind: "script-failure", message: admission.failure });
-		}
-		return admission.success;
-	},
-);
 
 type SandboxDurableHostDispatcherValue = {
 	readonly dispatch: (

@@ -45,7 +45,7 @@ const attemptDatabaseLayer = AutomationAttemptRepository.layer.pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("attempt_test")),
 );
 
-const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
+const seed = (maxAttempts = 2) =>
 	Effect.gen(function* () {
 		yield* (yield* DatabaseSession).run((db) =>
 			Effect.gen(function* () {
@@ -92,7 +92,6 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 				yield* db
 					.insert(automationRun)
 					.values({
-						stage,
 						id: runId,
 						queuedAt: now,
 						hookName: "Notify",
@@ -101,10 +100,8 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 						scriptContentHash: "hash",
 						sandboxScriptId: "script",
 						scriptSlug: "kernel.notify",
-						delivery: stage === "before" ? "policy" : "async",
+						retryPolicy: { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts },
 						artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe("2026-10-15T00:00:00.000Z")),
-						retryPolicy:
-							stage === "before" ? null : { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts },
 					});
 			}),
 		);
@@ -361,7 +358,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 			"writes redacted attempt history when finalizing and clears it with pruned artifacts",
 			() =>
 				Effect.gen(function* () {
-					yield* seed("after", 1);
+					yield* seed(1);
 					const repo = yield* AutomationAttemptRepository;
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
@@ -392,102 +389,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								historyError: null,
 								artifactsPrunedAt: expiry,
 								historyArtifactsTruncated: false,
-							});
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(attemptDatabaseLayer)((test) => {
-		test.effect(
-			"records a policy rejection as a successful attempt and a rejected logical run",
-			() =>
-				Effect.gen(function* () {
-					yield* seed("before");
-					const repo = yield* AutomationAttemptRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							yield* repo.finalizeAttempt(
-								{
-									...failure,
-									error: null,
-									failureKind: null,
-									status: "succeeded",
-									returnedValue: { action: "reject", reason: "denied" },
-								},
-								now,
-							);
-							const [run] = yield* db.select().from(automationRun);
-							expect(run).toMatchObject({
-								attemptCount: 1,
-								finishedAt: now,
-								status: "rejected",
-								nextAttemptAt: null,
-							});
-							expect(yield* repo.findAttempt(runId, 1)).toMatchObject({
-								failureKind: null,
-								status: "succeeded",
-							});
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(attemptDatabaseLayer)((test) => {
-		test.effect(
-			"releases a running first claim back to queued and leaves a finalized one",
-			() =>
-				Effect.gen(function* () {
-					yield* seed("before");
-					const repo = yield* AutomationAttemptRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							yield* repo.releaseFirstClaim(runId);
-							expect(yield* db.select().from(automationRunAttempt)).toHaveLength(0);
-							const [queued] = yield* db.select().from(automationRun);
-							expect(queued).toMatchObject({ attemptCount: 0, startedAt: null, status: "queued" });
-							expect(yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 })).toMatchObject({
-								claimed: true,
-								attempt: { status: "running" },
-							});
-							yield* repo.finalizeAttempt(failure, now);
-							yield* repo.releaseFirstClaim(runId);
-							const [failed] = yield* db.select().from(automationRun);
-							expect(failed).toMatchObject({ attemptCount: 1, status: "failed" });
-							expect(yield* db.select().from(automationRunAttempt)).toHaveLength(1);
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(attemptDatabaseLayer)((test) => {
-		test.effect(
-			"keeps before policy infrastructure failures terminal with one attempt",
-			() =>
-				Effect.gen(function* () {
-					yield* seed("before");
-					const repo = yield* AutomationAttemptRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							expect(yield* repo.finalizeAttempt(failure, now)).toMatchObject({ retryable: false });
-							expect(
-								yield* repo.claimNextAttempt({ now, runId, attemptNumber: 2 }).pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
-							const [run] = yield* db.select().from(automationRun);
-							expect(run).toMatchObject({
-								attemptCount: 1,
-								finishedAt: now,
-								status: "failed",
-								nextAttemptAt: null,
 							});
 						}),
 					);

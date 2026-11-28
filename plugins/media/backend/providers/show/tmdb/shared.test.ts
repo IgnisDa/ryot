@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { type ScriptHost, upsertedGlobalEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { rowsResponse } from "@ryot-app/ryotql-recipes/test-utils";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import related, { manifest as relatedManifest } from "./related.sandbox";
@@ -12,6 +13,11 @@ import { manifest } from "./shared";
 import translate, { manifest as translateManifest } from "./translate.sandbox";
 import trending, { manifest as trendingManifest } from "./trending.sandbox";
 
+const emptyTrending = rowsResponse("trending", [], {
+	limit: 100,
+	hasMore: false,
+	nextCursor: null,
+});
 type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({
@@ -1063,25 +1069,12 @@ describe("show.tmdb sandbox script", () => {
 			),
 		));
 
-	it("upserts TMDB trending shows and returns deduplicated entity ids in fetch order", () => {
+	it("returns the TMDB trending shows it fetched, deduplicated in fetch order", () => {
 		const requestedPages: string[] = [];
-		const upserts: Parameters<ScriptHost["upsertGlobalEntities"]>[0][] = [];
 		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => Effect.succeed(emptyTrending),
 			getPluginConfig: ({ required: keys = [] }) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			upsertGlobalEntities: (items) =>
-				Effect.sync(() => {
-					upserts.push(items);
-					return items.map(({ externalId }) =>
-						externalId === "40"
-							? { status: "skipped" as const }
-							: {
-									wasInserted: true,
-									status: "upserted" as const,
-									entityId: externalId === "20" ? "entity-10" : `entity-${externalId}`,
-								},
-					);
-				}),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				expect(requestUrl.pathname).toBe("/3/trending/tv/day");
@@ -1104,39 +1097,44 @@ describe("show.tmdb sandbox script", () => {
 			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
-					expect(upserts).toEqual([
-						[
-							{
-								properties: {},
-								externalId: "10",
-								populatedAt: null,
-								name: "First Show",
-								entitySchemaSlug: "show",
-							},
-							{
-								properties: {},
-								externalId: "20",
-								populatedAt: null,
-								name: "Second Show",
-								entitySchemaSlug: "show",
-							},
-							{
-								properties: {},
-								externalId: "40",
-								populatedAt: null,
-								name: "Third Show",
-								entitySchemaSlug: "show",
-							},
-							{
-								properties: {},
-								externalId: "50",
-								populatedAt: null,
-								name: "Fourth Show",
-								entitySchemaSlug: "show",
-							},
-						],
+					expect(result.changes?.globalEntities).toEqual([
+						{
+							properties: {},
+							externalId: "10",
+							populatedAt: null,
+							name: "First Show",
+							entitySchemaSlug: "show",
+						},
+						{
+							properties: {},
+							externalId: "20",
+							populatedAt: null,
+							name: "Second Show",
+							entitySchemaSlug: "show",
+						},
+						{
+							properties: {},
+							externalId: "40",
+							populatedAt: null,
+							name: "Third Show",
+							entitySchemaSlug: "show",
+						},
+						{
+							properties: {},
+							externalId: "50",
+							populatedAt: null,
+							name: "Fourth Show",
+							entitySchemaSlug: "show",
+						},
 					]);
-					expect(result).toEqual({ status: "fetched", entityIds: ["entity-10", "entity-50"] });
+					expect(result.output).toEqual({ itemCount: 4, status: "fetched" });
+					expect(
+						result.changes?.globalRelationships?.[0]?.relationships.map(({ source }) => source),
+					).toEqual(
+						result.changes?.globalEntities?.map(({ externalId }) =>
+							upsertedGlobalEntity("show", externalId),
+						),
+					);
 					return undefined;
 				}),
 			),
@@ -1158,7 +1156,7 @@ describe("show.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ status: "failed" });
+					expect(result).toEqual({ output: { status: "failed" } });
 					expect(logs).toEqual([
 						[
 							{

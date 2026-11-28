@@ -15,18 +15,29 @@ import {
 	coalesce,
 	column,
 	conditional,
+	count,
 	countDistinct,
 	eq,
 	first,
+	gt,
 	inArray,
 	isNull,
 	jsonPath,
 	literal,
+	maximum,
+	not,
+	sum,
 	table,
 } from "@ryot-app/ryotql";
 
+import {
+	consumptionNumber,
+	consumptionReady,
+	consumptionRows,
+	consumptionValue,
+} from "../shared/consumption-recipes";
 import { libraryLinkExists, type Table } from "../shared/entity-selections";
-import { libraryMembershipValue, librarySummary } from "../shared/library-summary";
+import { libraryMembershipValue, librarySummary, ownLibraryLink } from "../shared/library-summary";
 import { sameSchemaOwner } from "../shared/lifecycle-expressions";
 import { mediaHasCopies } from "../shared/media-copy-recipes";
 import { builtinMediaEntitySchemaSlugs, mediaGroupMemberSlugs } from "../shared/media-schema-slugs";
@@ -38,8 +49,40 @@ const subject = table("entity", "subject");
 
 const property = (name: string) => jsonPath(column(subject, "properties"), name);
 
-const summary = (read: (value: ReturnType<typeof librarySummary>) => ScalarExpression) =>
-	libraryMembershipValue(subject, (membership) => read(librarySummary(membership)));
+const summary = librarySummary(ownLibraryLink(subject));
+
+/** The user's completions of a library title, null while any of its consumption is pending. */
+const completions = (membership: Table) => {
+	const event = table("event", "libraryConsumption");
+	const scope = and(
+		eq(column(event, "entityId"), column(membership, "sourceEntityId")),
+		eq(column(event, "eventSchemaPluginId"), column(membership, "relationshipSchemaPluginId")),
+		consumptionRows(event),
+	);
+	const ready = and(scope, consumptionReady(event));
+	const pending = gt(count(event, { where: and(scope, not(consumptionReady(event))) }), literal(0));
+	return {
+		times: conditional(
+			pending,
+			literal(null),
+			coalesce(
+				sum(event, consumptionNumber(event, "titleCompletions"), { where: ready }),
+				literal(0),
+			),
+		),
+		lastAt: conditional(
+			pending,
+			literal(null),
+			maximum(event, castDate(consumptionValue(event, "attribution", "value")), {
+				where: and(
+					ready,
+					gt(consumptionNumber(event, "titleCompletions"), literal(0)),
+					eq(castText(consumptionValue(event, "attribution", "kind")), literal("instant")),
+				),
+			}),
+		),
+	};
+};
 
 export const creditCount = (entity: Table, slug: "person" | "company") => {
 	const credit = table("relationship", "browseCredit");
@@ -58,7 +101,7 @@ export const creditCount = (entity: Table, slug: "person" | "company") => {
 };
 
 export const recentActivity = (entity: Table) =>
-	libraryMembershipValue(entity, (membership) => librarySummary(membership).lastActivityAt);
+	librarySummary(ownLibraryLink(entity)).lastActivityAt;
 
 const sourceField = (slug: string): AuthoredBrowseField => {
 	const provider = table("sandboxProvider", "browseProvider");
@@ -171,14 +214,17 @@ const titleFields = (
 		kind: "value",
 		choices: statusChoices(slug),
 		label: catalogMessage("property.status"),
-		expression: coalesce(castText(summary((value) => value.lifecycleState)), literal("untracked")),
+		expression: coalesce(summary.lifecycleState, literal("untracked")),
 	},
 	{
 		kind: "value",
 		type: "number",
 		key: "timesCompleted",
 		label: catalogMessage("browse.field.times-completed"),
-		expression: coalesce(castNumber(summary((value) => value.timesCompleted)), literal(0)),
+		expression: coalesce(
+			libraryMembershipValue(subject, (membership) => completions(membership).times),
+			literal(0),
+		),
 		sort: {
 			defaultDirection: "desc",
 			descending: catalogMessage("browse.sort.most-first"),
@@ -186,13 +232,21 @@ const titleFields = (
 			ascending: catalogMessage("browse.sort.fewest-first"),
 		},
 	},
-	userRatingField(castNumber(summary((value) => value.userRating))),
+	userRatingField(
+		libraryMembershipValue(subject, (membership) =>
+			averageUserRating(
+				"libraryReview",
+				column(membership, "sourceEntityId"),
+				column(membership, "relationshipSchemaPluginId"),
+			),
+		),
+	),
 	{
 		type: "date",
 		kind: "value",
 		key: "lastCompletedAt",
 		label: catalogMessage("browse.field.last-completed"),
-		expression: summary((value) => value.lastCompletedAt),
+		expression: libraryMembershipValue(subject, (membership) => completions(membership).lastAt),
 		sort: {
 			defaultDirection: "desc",
 			label: catalogMessage("browse.field.last-completed"),
@@ -217,8 +271,8 @@ const titleFields = (
 		type: "date",
 		kind: "value",
 		key: "releaseDate",
+		expression: summary.releaseDate,
 		label: catalogMessage("property.release-date"),
-		expression: summary((value) => value.releaseDate),
 		sort: {
 			defaultDirection: "desc",
 			label: catalogMessage("property.release-date"),

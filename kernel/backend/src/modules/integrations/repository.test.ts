@@ -167,6 +167,70 @@ layer(
 			}),
 		testTimeout,
 	);
+
+	test.effect(
+		"pages a user's integrations by id after the cursor",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const repository = yield* IntegrationsRepository;
+				const userId = UserId.make("paged-user");
+				const pluginId = "paged-fixture-plugin";
+				const pluginInstallationId = "paged-installation";
+				yield* database.run((db) =>
+					db.insert(tables.user).values({ id: userId, name: "Paged", email: "paged@example.test" }),
+				);
+				yield* database.run((db) =>
+					db
+						.insert(tables.plugin)
+						.values({
+							id: pluginId,
+							status: "inactive",
+							packageId: PluginPackageId.make("fixture/paged"),
+						}),
+				);
+				yield* database.run((db) =>
+					db
+						.insert(tables.pluginInstallation)
+						.values({ userId, pluginId, id: pluginInstallationId }),
+				);
+				const first = IntegrationId.make("paged-a");
+				const second = IntegrationId.make("paged-b");
+				const third = IntegrationId.make("paged-c");
+				const disabled = IntegrationId.make("paged-disabled");
+				const ids = [first, second, third, disabled];
+				yield* database.run((db) =>
+					db
+						.insert(tables.integration)
+						.values(
+							ids.map((id) => ({
+								id,
+								userId,
+								lot: "push" as const,
+								pluginInstallationId,
+								providerSpecifics: {},
+								provider: "fixture-push",
+								clientProviderSpecifics: {},
+								isDisabled: id === disabled,
+								extraSettings: { disableOnContinuousErrors: false },
+							})),
+						),
+				);
+				const page = (afterId?: string) =>
+					repository
+						.listPageForUser({ userId, afterId, limit: 2, isDisabled: false })
+						.pipe(
+							Effect.map(({ items, nextAfterId }) => ({
+								nextAfterId,
+								ids: items.map(({ id }) => id),
+							})),
+						);
+
+				expect(yield* page()).toEqual({ nextAfterId: second, ids: [first, second] });
+				expect(yield* page(second)).toEqual({ ids: [third], nextAfterId: null });
+			}),
+		testTimeout,
+	);
 });
 
 const repositories = Layer.mergeAll(

@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 import { CurrentJobId } from "#platform/jobs/worker";
 import { user } from "#schema/tables/auth";
 import { job } from "#schema/tables/jobs";
@@ -19,8 +20,8 @@ export const mutationUserIds = (command: LifecycleCommand, scopeUserId: null | U
 	[mutationOwner(command, scopeUserId), scopeUserId].filter((id) => id !== null);
 
 // Admissions within one transaction share its `for share` lock on the user row, which account
-// retirement must take exclusively, so each account needs admitting once per transaction.
-const admittedAccounts = new WeakMap<object, Set<string>>();
+// retirement must take exclusively, so an account needs admitting once per `WriteTransaction`.
+const admittedAccounts = writeState((_: WriteTransaction) => new Set<string>());
 
 export class AccountAdmission extends Context.Service<AccountAdmission>()(
 	"@ryot-app/kernel-backend/modules/mutations/account-admission/AccountAdmission",
@@ -30,15 +31,18 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 			const requireTransaction = session.requireTransaction.pipe(
 				Effect.mapError(() => new DbError({ message: "Account admission requires a transaction" })),
 			);
-			const admitAccount = Effect.fn("AccountAdmission.admitAccount")(function* (userId: UserId) {
+			const admitAccount = Effect.fn("AccountAdmission.admitAccount")(function* (
+				userId: UserId,
+				transaction?: WriteTransaction,
+			) {
 				yield* requireTransaction;
 				const jobId = yield* CurrentJobId;
+				const admitted = transaction ? admittedAccounts(transaction) : new Set<string>();
+				if (admitted.has(userId)) {
+					return;
+				}
 				yield* session.run((db) =>
 					Effect.gen(function* () {
-						const admitted = admittedAccounts.get(db) ?? new Set<string>();
-						if (admitted.has(userId)) {
-							return yield* Effect.void;
-						}
 						// Retirement stamps this row under its exclusive lock, so the lock wait re-reads it, and
 						// deletes the account's jobs in the transaction that holds it.
 						const [current] = yield* db
@@ -61,7 +65,6 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 							return yield* new DbError({ message: "Mutation command account is being retired" });
 						}
 						admitted.add(userId);
-						admittedAccounts.set(db, admitted);
 						return yield* Effect.void;
 					}),
 				);
@@ -69,6 +72,7 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 			const admitCommand = Effect.fn("AccountAdmission.admitCommand")(function* (
 				command: LifecycleCommand,
 				scopeUserId: null | UserId,
+				transaction?: WriteTransaction,
 			) {
 				const account = command.accountUserId;
 				const owner = mutationOwner(command, scopeUserId);
@@ -82,7 +86,7 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 						message: "Mutation command account identity does not match its scope",
 					});
 				}
-				return yield* admitAccount(account);
+				return yield* admitAccount(account, transaction);
 			});
 			const currentAccount = Effect.fn("AccountAdmission.currentAccount")(function* (
 				userId: UserId,

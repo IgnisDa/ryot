@@ -190,7 +190,6 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 
 const collectionResponse = (id: string, name: string) => ({
 	name,
-	warnings: [],
 	properties: {},
 	externalId: null,
 	providerId: null,
@@ -258,7 +257,10 @@ function mount(options: {
 	const operationsLayer = Layer.succeed(PluginOperationsService, {
 		invoke: (input) => {
 			operations.push(input);
-			return options.invoke?.(input) ?? Effect.succeed({ value: null, outcome: "success" });
+			return (
+				options.invoke?.(input) ??
+				Effect.succeed({ value: null, outcome: "success", committed: { events: [] } })
+			);
 		},
 	});
 	const runtime = ManagedRuntime.make(
@@ -1625,7 +1627,11 @@ describe("client page routes", () => {
 
 				yield* Effect.promise(() => view.router.navigate({ href: "/settings/preferences" }));
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
-				yield* Deferred.succeed(reply, { value: null, outcome: "success" });
+				yield* Deferred.succeed(reply, {
+					value: null,
+					outcome: "success",
+					committed: { events: [] },
+				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
@@ -2393,7 +2399,6 @@ const ryotqlRows =
 		});
 
 const membershipResponse = (properties: Record<string, unknown>) => ({
-	warnings: [],
 	memberOf: {
 		properties,
 		relationshipSchemaPluginId: null,
@@ -2541,7 +2546,7 @@ describe("collection host screens", () => {
 						collections: {
 							delete: (_scope, request) => {
 								deleted.push(request.payload);
-								return Effect.succeed({ warnings: [], id: request.payload.collectionId });
+								return Effect.succeed({ id: request.payload.collectionId });
 							},
 						},
 					}),

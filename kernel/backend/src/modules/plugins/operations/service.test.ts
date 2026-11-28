@@ -1,16 +1,23 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
+import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
+import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
+	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccessClass, WriteAccess } from "@ryot-app/contract/oauth";
 import {
+	EntityId,
+	EventId,
 	IntegrationId,
 	PluginConfigRevisionId,
 	PluginId,
@@ -24,6 +31,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -34,16 +42,24 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { CommitConflict } from "#modules/changes/conflict";
+import { ScriptChangesLayer } from "#modules/changes/script-changes";
+import {
+	type ChangeSetFailure,
+	ChangeSets,
+	type ScriptLifecycleCommand,
+} from "#modules/changes/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import type { CommitReceipt } from "#modules/mutations/idempotency";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
+import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
+import { scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
@@ -53,6 +69,8 @@ import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import type { PluginInstallationHydratedState } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
 import { OperationsService } from "./service";
+
+const kernelWriter = () => Effect.die("Operations commit through ScriptChanges");
 
 const SYSTEM_ID = PluginId.make("fixture-plugin-id");
 const PRIVATE_ID = PluginId.make("private-plugin-id");
@@ -105,7 +123,7 @@ type AvailableOperation = (
 const availablePackageId = (available: AvailableOperation) =>
 	available.packageId ?? (available.scope === "system" ? SYSTEM_PACKAGE_ID : PRIVATE_PACKAGE_ID);
 
-const makeActiveScript = (id: string) => ({
+const makeActiveScript = (id: string, capabilities: ReadonlyArray<string>) => ({
 	slug: DRIVER_REF,
 	providerId: null,
 	name: DRIVER_REF,
@@ -120,12 +138,13 @@ const makeActiveScript = (id: string) => ({
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
 		...emptySandboxExecutionMetadata,
+		capabilities,
 		kind: "operation" as const,
 	},
 });
 
 const resolvedOperation = (available: AvailableOperation) => ({
-	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`),
+	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`, []),
 	plugin: {
 		isHidden: false,
 		clientImports: [],
@@ -188,11 +207,11 @@ class OperationFakeState extends Context.Service<
 	{
 		readonly availableLookups: Ref.Ref<number>;
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
+		readonly commits: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly captured: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly integration: Ref.Ref<null | IntegrationRecord>;
 		readonly packageLookups: Ref.Ref<ReadonlyArray<string>>;
 		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
-		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
 		readonly privateInstallation: Ref.Ref<null | PluginInstallationHydratedState>;
 	}
 >()("@ryot-app/kernel-backend/modules/plugins/operations/service.test/OperationFakeState") {}
@@ -202,9 +221,9 @@ class FakeOperationDependencies extends Context.Service<
 	{
 		readonly availableLookups: Effect.Effect<number>;
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly commits: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
-		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
 		readonly useIntegration: (integration: null | IntegrationRecord) => Effect.Effect<void>;
 		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
 	}
@@ -219,11 +238,25 @@ const makeLayer = (input: {
 	activeSourceHash?: string;
 	entitlements?: Entitlements;
 	integration?: null | IntegrationRecord;
+	commitFailure?: typeof ChangeSetFailure.Type;
 	available?: ReadonlyArray<AvailableOperation>;
 	database?: ReturnType<typeof isolatedDatabaseLayer>;
 	privateInstallation?: null | PluginInstallationHydratedState;
 	sandboxErrorData?: NonNullable<SandboxExecutionResult["error"]>["data"];
 }) => {
+	const sandboxResult = {
+		logs: [],
+		status: "completed" as const,
+		value: "sandboxValue" in input ? input.sandboxValue : { output: "ok" },
+		error: input.sandboxError
+			? {
+					phase: "execute" as const,
+					message: input.sandboxError,
+					...(input.sandboxErrorData === undefined ? {} : { data: input.sandboxErrorData }),
+					kind: "script-failure" as const,
+				}
+			: null,
+	};
 	const stateLayer = Layer.effect(
 		OperationFakeState,
 		Effect.gen(function* () {
@@ -231,10 +264,10 @@ const makeLayer = (input: {
 				availableLookups: yield* Ref.make(0),
 				available: yield* Ref.make(input.available ?? []),
 				events: yield* Ref.make<ReadonlyArray<string>>([]),
+				commits: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				captured: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				integration: yield* Ref.make(input.integration ?? null),
 				packageLookups: yield* Ref.make<ReadonlyArray<string>>([]),
-				referenceRegistrations: yield* Ref.make<ReadonlyArray<string>>([]),
 				privateInstallation: yield* Ref.make(input.privateInstallation ?? null),
 			};
 		}),
@@ -245,10 +278,10 @@ const makeLayer = (input: {
 			return Layer.mergeAll(
 				Layer.succeed(FakeOperationDependencies, {
 					events: Ref.get(state.events),
+					commits: Ref.get(state.commits),
 					captured: Ref.get(state.captured),
 					packageLookups: Ref.get(state.packageLookups),
 					availableLookups: Ref.get(state.availableLookups),
-					referenceRegistrations: Ref.get(state.referenceRegistrations),
 					offerOperations: (available) => Ref.set(state.available, available),
 					useIntegration: (integration) => Ref.set(state.integration, integration),
 				}),
@@ -356,11 +389,12 @@ const makeLayer = (input: {
 					SandboxRepository,
 					SandboxRepository.of({
 						getScript: () => Effect.die("Operation admission only reads verified pins"),
+						getScriptPin: () => Effect.die("Operation admission reads pinned principals"),
 						getSchemaScope: () => Effect.die("Operation admission does not read schema scope"),
 						isPluginScript: () => Effect.die("Operation admission requires an exact plugin target"),
 						resolveWorkflowCallScript: () =>
 							Effect.die("Operations do not resolve child scripts at admission"),
-						getScriptPin: (scriptId) =>
+						pinnedPrincipal: (scriptId, subject) =>
 							Effect.map(Ref.get(state.available), (available) => {
 								const match = available.find(
 									(candidate) => resolvedOperation(candidate).script.id === scriptId,
@@ -370,6 +404,7 @@ const makeLayer = (input: {
 								}
 								const { plugin, script } = resolvedOperation(match);
 								return {
+									subject,
 									scriptId,
 									providerId: null,
 									scriptSlug: script.slug,
@@ -391,42 +426,65 @@ const makeLayer = (input: {
 							}),
 					}),
 				),
-				Layer.succeed(
-					SandboxWorkflowReferenceRepository,
-					SandboxWorkflowReferenceRepository.of({
-						release: () => Effect.void,
-						lockIngestionShared: () => Effect.void,
-						listReferences: () => Effect.succeed([]),
-						hasReferences: () => Effect.succeed(false),
-						hasInstallationReferences: () => Effect.succeed(false),
-						registerInTransaction: (registration) =>
-							Ref.update(state.referenceRegistrations, (all) => [
-								...all,
-								registration.executionId,
-							]).pipe(Effect.as({ status: "registered" as const })),
-					}),
+				scriptCallsLayer((runInput) =>
+					recordEvent("dispatch").pipe(
+						Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
+						Effect.as(sandboxResult),
+					),
 				),
-				Layer.mock(ScriptExecutionService)({
-					executeScript: (runInput) =>
-						recordEvent("dispatch").pipe(
-							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
-							Effect.as({
-								logs: [],
-								status: "completed" as const,
-								value: "sandboxValue" in input ? input.sandboxValue : "ok",
-								error: input.sandboxError
-									? {
-											phase: "execute" as const,
-											message: input.sandboxError,
-											...(input.sandboxErrorData === undefined
-												? {}
-												: { data: input.sandboxErrorData }),
-											kind: "script-failure" as const,
+				ScriptChangesLayer.pipe(
+					Layer.provide(
+						Layer.effect(
+							ChangeSets,
+							Effect.map(DatabaseSession, (database) => {
+								const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
+									database
+										.transaction(effect)
+										.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+								const commitScript = <A>(
+									changes: undefined | ChangeSet,
+									command: ScriptLifecycleCommand,
+									receipt: CommitReceipt<CommittedChanges, A>,
+								) =>
+									Effect.gen(function* () {
+										const stored = yield* inTransaction(receipt.load);
+										if (stored !== null) {
+											return stored;
 										}
-									: null,
+										if (changes === undefined) {
+											return yield* inTransaction(receipt.record({ events: [] }));
+										}
+										yield* recordEvent("commit");
+										yield* Ref.update(state.commits, (all) => [
+											...all,
+											{
+												changes,
+												causation: command.causation,
+												subject: command.writeContext.subject,
+											},
+										]);
+										if (input.commitFailure) {
+											return yield* input.commitFailure;
+										}
+										return yield* inTransaction(
+											receipt.record({
+												events: (changes.events?.changes ?? []).map((create) => ({
+													itemIdentity: create.itemIdentity,
+													eventId: EventId.make(`event-${create.itemIdentity}`),
+												})),
+											}),
+										);
+									});
+								return {
+									commitScript,
+									commit: kernelWriter,
+									commitOnce: kernelWriter,
+									commitEventsKeyed: kernelWriter,
+								};
 							}),
 						),
-				}),
+					),
+				),
 			);
 		}),
 	);
@@ -493,7 +551,7 @@ const invoke = (input: {
 			...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
 			...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 		}),
-	);
+	).pipe(Effect.map(({ result }) => result));
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
 	test.effect(
@@ -513,11 +571,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 					_tag: "PluginConflictError",
 					reason: { code: "source-revision-stale" },
 				});
-				const registrations = yield* fake.referenceRegistrations;
-				const captured = yield* fake.captured;
-				expect(registrations).toHaveLength(1);
-				expect(captured).toHaveLength(1);
-				expect(captured).toMatchObject([{ executionId: registrations[0] }]);
+				expect(yield* fake.captured).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -532,15 +586,9 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 				const request = { payload: { value: "same" }, packageId: SYSTEM_PACKAGE_ID };
 				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-1" })).toBe("ok");
 				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-2" })).toBe("ok");
-				const registrations = yield* fake.referenceRegistrations;
 				const captured = yield* fake.captured;
-				expect(registrations).toHaveLength(2);
-				expect(registrations[0]).not.toBe(registrations[1]);
 				expect(captured).toHaveLength(2);
-				expect(captured).toMatchObject([
-					{ executionId: registrations[0] },
-					{ executionId: registrations[1] },
-				]);
+				expect(captured[0]).not.toEqual(captured[1]);
 			}),
 		testTimeout,
 	);
@@ -579,7 +627,6 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 					}),
 				);
 				expect(yield* fake.captured).toHaveLength(1);
-				expect(yield* fake.referenceRegistrations).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -610,21 +657,25 @@ layer(
 				expect(yield* fake.events).toEqual(["lock", "dispatch", "lock", "dispatch"]);
 				expect(yield* fake.captured).toMatchObject([
 					{
-						scriptId: "same-name-private-script",
-						pluginRevision: {
-							scope: "user",
-							id: PRIVATE_ID,
-							revisionId: "fixture-revision",
-							configRevisionId: "fixture-config",
+						principal: {
+							scriptId: "same-name-private-script",
+							pluginRevision: {
+								scope: "user",
+								id: PRIVATE_ID,
+								revisionId: "fixture-revision",
+								configRevisionId: "fixture-config",
+							},
 						},
 					},
 					{
-						scriptId: "install-fixture-user-1-script",
-						pluginRevision: {
-							id: SYSTEM_ID,
-							scope: "system",
-							revisionId: "fixture-revision",
-							configRevisionId: "fixture-config",
+						principal: {
+							scriptId: "install-fixture-user-1-script",
+							pluginRevision: {
+								id: SYSTEM_ID,
+								scope: "system",
+								revisionId: "fixture-revision",
+								configRevisionId: "fixture-config",
+							},
 						},
 					},
 				]);
@@ -768,12 +819,14 @@ layer(
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
 				expect(yield* invoke({ packageId: PRIVATE_PACKAGE_ID })).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({
+				expect(yield* fake.captured).toMatchObject([
+					{
 						lane: "interactive",
-						scriptId: "install-private-user-1-script",
-						subject: { type: "user", userId: USER_ONE },
-					}),
+						principal: {
+							scriptId: "install-private-user-1-script",
+							subject: { type: "user", userId: USER_ONE },
+						},
+					},
 				]);
 			}),
 		testTimeout,
@@ -787,8 +840,8 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
 				expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", userId: USER_ONE } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", userId: USER_ONE } } },
 				]);
 				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 			}),
@@ -952,8 +1005,8 @@ layer(
 				expect(
 					yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", userId: USER_ONE, integrationId: "int-1" } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", userId: USER_ONE, integrationId: "int-1" } } },
 				]);
 			}),
 		testTimeout,
@@ -1093,11 +1146,13 @@ layer(
 				expect(
 					yield* invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({
-						scriptId: "install-private-user-1-script",
-						subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
-					}),
+				expect(yield* fake.captured).toMatchObject([
+					{
+						principal: {
+							scriptId: "install-private-user-1-script",
+							subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+						},
+					},
 				]);
 				expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
 			}),
@@ -1244,21 +1299,17 @@ layer(
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
 				assert(Exit.isFailure(exit));
-				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-					new PluginInvocationError({
-						reason: {
-							code: "runtime-failed",
-							diagnostics: [
-								{
-									phase: "output",
-									severity: "error",
-									code: "sandbox-runtime-error",
-									message: "Sandbox operation result must be JSON",
-								},
-							],
-						},
-					}),
-				);
+				const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+				assert(error instanceof PluginInvocationError);
+				expect(error.reason.code).toBe("runtime-failed");
+				const [diagnostic, ...others] = error.reason.diagnostics;
+				expect(others).toEqual([]);
+				expect(diagnostic).toMatchObject({
+					phase: "output",
+					severity: "error",
+					code: "sandbox-runtime-error",
+				});
+				expect(diagnostic?.message).toStartWith("Script output is invalid");
 			}),
 		testTimeout,
 	);
@@ -1333,8 +1384,8 @@ layer(
 						packageId: SYSTEM_PACKAGE_ID,
 					}),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", pageAuthority, userId: USER_ONE } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", pageAuthority, userId: USER_ONE } } },
 				]);
 				const repository = yield* PageAuthoringRepository.make;
 				yield* repository.setWriteAccess(USER_ONE, pageAuthority.pageId, false);
@@ -1392,9 +1443,9 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 					operationSlug: OPERATION_SLUG,
 					idempotencyKey: "trusted-operation",
 				};
-				expect(yield* service.invokeTrusted(request)).toBe("ok");
-				expect(yield* service.invokeTrusted(request)).toBe("ok");
-				expect(yield* fake.referenceRegistrations).toHaveLength(1);
+				const receipt = { result: "ok", committed: { events: [] } };
+				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
+				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
 				expect(yield* fake.captured).toHaveLength(1);
 				expect(
 					yield* Effect.flip(
@@ -1411,6 +1462,226 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 				expect(
 					yield* Effect.flip(service.invoke({ ...request, headers: Headers.empty })),
 				).toMatchObject({ _tag: "AuthUnauthorized" });
+			}),
+		testTimeout,
+	);
+});
+
+const pluginRejection = { key: "rejection.blocked", namespace: "plugin-fixture" };
+const returnedChanges = {
+	output: "saved",
+	changes: {
+		events: {
+			changes: [
+				{
+					kind: "create",
+					properties: {},
+					itemIdentity: "review",
+					eventSchemaSlug: "review",
+					entity: { kind: "existing", entityId: "entity-1" },
+				},
+			],
+		},
+	},
+};
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+	}),
+)((test) => {
+	test.effect(
+		"runs an operation and commits its returned changes once per key",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationsService;
+				const fake = yield* FakeOperationDependencies;
+				const request = {
+					payload: {},
+					headers: Headers.empty,
+					packageId: SYSTEM_PACKAGE_ID,
+					operationSlug: OPERATION_SLUG,
+					idempotencyKey: "direct-operation",
+				};
+				const receipt = {
+					result: "saved",
+					committed: {
+						events: [{ itemIdentity: "review", eventId: EventId.make("event-review") }],
+					},
+				};
+				expect(yield* service.invoke(request)).toEqual(receipt);
+				expect(yield* service.invoke(request)).toEqual(receipt);
+				expect((yield* fake.events).filter((event) => event !== "lock")).toEqual([
+					"dispatch",
+					"commit",
+				]);
+				const [run] = yield* fake.captured;
+				expect(run).toMatchObject({
+					lane: "interactive",
+					principal: { subject: { type: "user", userId: USER_ONE } },
+				});
+				const commits = yield* fake.commits;
+				expect(commits).toHaveLength(1);
+				expect(commits[0]).toMatchObject({
+					changes: returnedChanges.changes,
+					subject: { type: "user", userId: USER_ONE },
+					causation: { depth: 0, source: "api", initiator: { kind: "user", id: USER_ONE } },
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new PolicyRejected({
+			reason: { code: "policy-rejected", message: pluginRejection },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps a policy rejection of returned changes to a 422 with the policy's reason",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginOperationRejected({ reason: pluginRejection }),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new CommitConflict({
+			reason: { code: "entity-stale", entityId: EntityId.make("entity-1") },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps a stale baseline of returned changes to a 409 changes conflict",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "entity-stale" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new CommitConflict({
+			reason: { code: "child-mapping-conflict", entityIds: [EntityId.make("child-1")] },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps an entity user-data refusal of returned changes to a 409 with its conflict code",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "child-mapping-conflict" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new EntityUserDataBadRequest({
+			reason: { operation: "merge", code: "operation-denied" },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"rejects returned changes the entity user-data rules refuse, with the refusal's reason",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginOperationRejected({
+						reason: kernelMessage("error.entity-user-data.operation-denied"),
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new PluginUserSettingsPatchError({
+			message: "Unknown plugin user settings: unknown",
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"reports a rejected settings patch with its validation message",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
+					_tag: "PluginInvocationError",
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							objectContaining({
+								message: "Changes were rejected (settings: Unknown plugin user settings: unknown)",
+							}),
+						],
+					},
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new EventBadRequest({ reason: { code: "root-entity-required" } }),
+	}),
+)((test) => {
+	test.effect(
+		"reports invalid returned changes as a plugin invocation failure",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
+					_tag: "PluginInvocationError",
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							objectContaining({
+								phase: "output",
+								message: "Changes were rejected (EventBadRequest: root-entity-required)",
+							}),
+						],
+					},
+				});
 			}),
 		testTimeout,
 	);

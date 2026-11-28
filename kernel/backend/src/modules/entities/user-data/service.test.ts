@@ -1,18 +1,18 @@
 import { expect } from "bun:test";
 
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { DbError } from "@ryot-app/contract/errors";
 import { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
-import { EventStale } from "@ryot-app/contract/modules/events/schemas";
+import {
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	AutomationExecutionId,
-	AutomationHookSlug,
-	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
@@ -39,7 +39,6 @@ import {
 } from "#modules/automations/lifecycle.test-support";
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecyclePlan,
 	LifecyclePlanner,
@@ -49,11 +48,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
-import {
-	EventsService,
-	type PreparedEventDelete,
-	type PreparedEventMoveReferences,
-} from "#modules/events/service";
+import type { PreparedUserRelationship } from "#modules/relationships/prepared-mutations";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import {
@@ -61,6 +56,7 @@ import {
 	makeUserPrincipal,
 } from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import type { MockOverrides } from "#testing/effect";
 import { databaseLayer } from "#testing/effect";
 
@@ -98,20 +94,12 @@ const command = {
 };
 
 type PersistedRelationship = Effect.Success<
-	ReturnType<RelationshipsService["Service"]["persistPreparedUserDelete"]>
->["result"];
+	ReturnType<RelationshipsService["Service"]["persistPrepared"]>
+>["results"][number];
 
-const preparedEventDelete = partialFake<PreparedEventDelete>({});
-const preparedEventMoveReferences = partialFake<PreparedEventMoveReferences>({});
 const persistedRelationship = partialFake<PersistedRelationship>({});
-type PreparedRelationshipCreate = Effect.Success<
-	ReturnType<RelationshipsService["Service"]["prepareUserCreate"]>
->;
-type PreparedRelationshipDelete = Effect.Success<
-	ReturnType<RelationshipsService["Service"]["prepareUserDelete"]>
->;
-const preparedRelationshipCreate = partialFake<NonNullable<PreparedRelationshipCreate>>({});
-const preparedRelationshipDelete = partialFake<NonNullable<PreparedRelationshipDelete>>({});
+const preparedRelationshipCreate = partialFake<PreparedUserRelationship>({ request: null });
+const preparedRelationshipDelete = partialFake<PreparedUserRelationship>({ request: null });
 
 const eventReferencesFor = (
 	input: { readonly entityIds: ReadonlyArray<EntityId> },
@@ -131,20 +119,6 @@ const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
 	mockEventsRepository({ absorbFoldValues: () => Effect.void, ...overrides });
-
-const mockEventsService = Layer.mock(EventsService);
-
-const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			return mockEventsService({
-				transaction: session.transaction,
-				captureEventGroups: () => Effect.void,
-				...overrides,
-			});
-		}),
-	).pipe(Layer.provide(databaseLayer));
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
@@ -210,8 +184,6 @@ const makeDefinitionsLayer = (
 const makeServiceLayer = (
 	options: {
 		planner?: Layer.Layer<LifecyclePlanner>;
-		eventsService?: ReturnType<typeof makeEventsService>;
-		lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 		definitions?: ReturnType<typeof makeDefinitionsLayer>;
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		graphRepository?: Layer.Layer<EntityUserDataGraphRepository>;
@@ -233,17 +205,9 @@ const makeServiceLayer = (
 					Layer.mock(LifecyclePlanner)(
 						withLifecycleBatchPlanning({ plan: () => Effect.die("unused") }),
 					),
-				options.lifecycleExecution ??
-					Layer.mock(LifecycleExecution)({
-						after: () => Effect.die("unused"),
-						dispatch: () => Effect.succeed([]),
-						executePolicy: () => Effect.die("unused"),
-						skipQueuedPolicies: () => Effect.die("unused"),
-					}),
 				options.definitions ?? makeDefinitionsLayer(),
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
-				options.eventsService ?? makeEventsService(),
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
 				options.relationshipsService ?? makeRelationshipsService(),
 				emptyEntityUserDataAttachments,
@@ -278,6 +242,58 @@ const recordingServiceLayer = <A>(
 		).pipe(Layer.provide(databaseLayer)),
 	};
 };
+
+/** Plans a clear and writes it in one transaction, as `ChangeSets` does around its event changes. */
+const clear = (entityId: EntityId, lifecycle: DomainLifecycleCommand = command) =>
+	Effect.gen(function* () {
+		const prepared = yield* (yield* EntityUserDataService).prepareClear(
+			new WritePreparation(),
+			user.id,
+			{ entityId, entitySchema: null },
+			lifecycle,
+			new Set(),
+		);
+		const written = yield* (yield* DatabaseSession)
+			.transaction(
+				Effect.suspend(() => {
+					const transaction = new WriteTransaction();
+					return Effect.andThen(
+						prepared.lock(transaction),
+						prepared.write(transaction, Effect.succeed),
+					);
+				}),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		return { ...written, events: prepared.events };
+	});
+
+/** Plans a merge and writes it in one transaction, as `ChangeSets` does around its event changes. */
+const merge = (
+	payload: { readonly mergeFrom: EntityId; readonly mergeInto: EntityId },
+	lifecycle: DomainLifecycleCommand = command,
+	entitySchema: null | EntitySchemaReference = null,
+) =>
+	Effect.gen(function* () {
+		const prepared = yield* (yield* EntityUserDataService).prepareMerge(
+			new WritePreparation(),
+			user.id,
+			{ ...payload, entitySchema },
+			lifecycle,
+			new Set(),
+		);
+		const written = yield* (yield* DatabaseSession)
+			.transaction(
+				Effect.suspend(() => {
+					const transaction = new WriteTransaction();
+					return Effect.andThen(
+						prepared.lock(transaction),
+						prepared.write(transaction, Effect.succeed),
+					);
+				}),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		return { ...written, events: prepared.events };
+	});
 
 const makeMergeScope = (overrides: {
 	entityId: EntityId;
@@ -325,10 +341,7 @@ layer(
 		"rejects clearing user state when the entity schema denies it",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const exit = yield* Effect.exit(
-					service.clearEntityUserData(user, EntityId.make("library-entity"), command),
-				);
+				const exit = yield* Effect.exit(clear(EntityId.make("library-entity")));
 
 				assertExitFails(
 					exit,
@@ -341,68 +354,41 @@ layer(
 	);
 });
 
-const deletedEvents = recordingServiceLayer<EventId>(({ record }) => ({
-	entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
-	relationshipsRepository: makeRelationshipsRepository({
-		listUserRelationshipsForEntitiesWithProvenance: () => Effect.succeed([]),
+const changingScope = Layer.unwrap(
+	Effect.sync(() => {
+		let reads = 0;
+		return makeServiceLayer({
+			entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
+			eventsRepository: makeEventsRepository({
+				listUserDataEventReferences: (input) => {
+					reads += 1;
+					return Effect.succeed(
+						eventReferencesFor(
+							input,
+							reads === 1
+								? [EventId.make("first")]
+								: [EventId.make("first"), EventId.make("concurrent")],
+						),
+					);
+				},
+			}),
+		});
 	}),
-	eventsRepository: makeEventsRepository({
-		listUserDataEventReferences: (input) =>
-			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")])),
-	}),
-	eventsService: makeEventsService({
-		prepareDelete: (input) => record(input.eventId).pipe(Effect.as(preparedEventDelete)),
-		persistPreparedDelete: () =>
-			Effect.succeed({ dispatch: [], result: EventId.make("deleted-event") }),
-	}),
-}));
+);
 
-const changingScope = recordingServiceLayer<string>(({ record }) => {
-	let reads = 0;
-	return {
-		entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
-		eventsService: makeEventsService({
-			prepareDelete: () => record("prepare").pipe(Effect.as(preparedEventDelete)),
-			persistPreparedDelete: () =>
-				record("persist").pipe(Effect.as({ dispatch: [], result: EventId.make("first") })),
-		}),
-		eventsRepository: makeEventsRepository({
-			listUserDataEventReferences: (input) => {
-				reads += 1;
-				return Effect.succeed(
-					eventReferencesFor(
-						input,
-						reads === 1
-							? [EventId.make("first")]
-							: [EventId.make("first"), EventId.make("concurrent")],
-					),
-				);
-			},
-		}),
-	};
-});
-
-layer(changingScope.layer)((test) => {
+layer(changingScope)((test) => {
 	test.effect(
 		"rejects a concurrent scope addition before persisting a removal",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const exit = yield* Effect.exit(
-					service.clearEntityUserData(user, EntityId.make("entity-1"), command),
-				);
+				const exit = yield* Effect.exit(clear(EntityId.make("entity-1")));
 				assertExitFails(exit, new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
-				expect(yield* changingScope.recorded).toEqual(["prepare"]);
 			}),
 		testTimeout,
 	);
 });
 
-const retainedChildClear = recordingServiceLayer<EventId>(({ record }) => ({
-	eventsService: makeEventsService({
-		prepareDelete: ({ eventId }) => record(eventId).pipe(Effect.as(preparedEventDelete)),
-		persistPreparedDelete: () => Effect.succeed({ dispatch: [], result: EventId.make("deleted") }),
-	}),
+const retainedChildClear = makeServiceLayer({
 	eventsRepository: makeEventsRepository({
 		listUserDataEventReferences: () =>
 			Effect.succeed([
@@ -513,20 +499,19 @@ const retainedChildClear = recordingServiceLayer<EventId>(({ record }) => ({
 			},
 		],
 	}),
-}));
+});
 
-layer(retainedChildClear.layer)((test) => {
+layer(retainedChildClear)((test) => {
 	test.effect(
 		"clears detached session history and the detached child's own retained evidence",
 		() =>
 			Effect.gen(function* () {
-				const result = yield* (yield* EntityUserDataService).clearEntityUserData(
-					user,
-					EntityId.make("entity-1"),
-					command,
-				);
-				expect(result.deletedEventsCount).toBe(2);
-				expect(yield* retainedChildClear.recorded).toEqual<unknown>(["evidence", "history"]);
+				const cleared = yield* clear(EntityId.make("entity-1"));
+				expect(cleared.result.deletedEventsCount).toBe(2);
+				expect(cleared.events.map((change) => change.itemIdentity)).toEqual([
+					"event:evidence:delete",
+					"event:history:delete",
+				]);
 			}),
 		testTimeout,
 	);
@@ -537,49 +522,31 @@ layer(
 		entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
 		eventsRepository: makeEventsRepository({
 			listUserDataEventReferences: (input) =>
-				Effect.succeed(eventReferencesFor(input, [EventId.make("edited")])),
-		}),
-		eventsService: makeEventsService({
-			prepareDelete: () => Effect.succeed(preparedEventDelete),
-			persistPreparedDelete: () =>
-				Effect.fail(
-					new EventStale({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
+				Effect.succeed(
+					eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")]),
 				),
 		}),
 	}),
 )((test) => {
 	test.effect(
-		"reports a concurrent event edit as an actionable user-data conflict",
+		"plans deletes of the matching events for the change set when clearing user state",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const exit = yield* Effect.exit(
-					service.clearEntityUserData(user, EntityId.make("entity-1"), command),
-				);
-				assertExitFails(exit, new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
-			}),
-		testTimeout,
-	);
-});
+				const cleared = yield* clear(EntityId.make("entity-1"));
 
-layer(deletedEvents.layer)((test) => {
-	test.effect(
-		"deletes matching events through EventsService when clearing user state",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
-
-				expect(result).toEqual<unknown>({
-					warnings: [],
+				expect(cleared.result).toEqual<unknown>({
 					deletedEventsCount: 2,
 					deletedRelationshipsCount: 0,
 					entityId: EntityId.make("entity-1"),
 				});
-				expect(yield* deletedEvents.recorded).toEqual([
-					EventId.make("event-1"),
-					EventId.make("event-2"),
-				]);
+				expect(cleared.events).toEqual<unknown>(
+					["event-1", "event-2"].map((eventId) => ({
+						eventId,
+						kind: "delete",
+						kernelCollection: true,
+						itemIdentity: `event:${eventId}:delete`,
+					})),
+				);
 			}),
 		testTimeout,
 	);
@@ -622,24 +589,10 @@ const deletePlan = (id: string, resource: "event" | "relationship"): Effect.Effe
 		},
 	}).pipe(
 		Effect.orDie,
-		Effect.map((trigger) => ({ trigger, runs: [], policies: [], wasCreated: true })),
+		Effect.map((trigger) => ({ trigger, runs: [], wasCreated: true })),
 	);
 
-const eventPlans = Effect.all([
-	deletePlan("event-trigger-1", "event"),
-	deletePlan("event-trigger-2", "event"),
-]);
 const relationshipPlan = deletePlan("relationship-trigger", "relationship");
-const eventWarning = {
-	code: "required-hook-pending" as const,
-	runId: AutomationRunId.make("event-run"),
-	hookSlug: AutomationHookSlug.make("event-hook"),
-};
-const relationshipWarning = {
-	code: "required-hook-failed" as const,
-	runId: AutomationRunId.make("relationship-run"),
-	hookSlug: AutomationHookSlug.make("relationship-hook"),
-};
 
 type ClearObservation =
 	| { readonly kind: "call"; readonly call: string }
@@ -658,21 +611,15 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")]),
 				),
 		}),
-		lifecycleExecution: Layer.mock(LifecycleExecution)({
-			dispatch: (plans) =>
-				call(`dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`).pipe(
-					Effect.as([eventWarning, relationshipWarning]),
-				),
-		}),
 		relationshipsService: makeRelationshipsService({
-			prepareUserDelete: () =>
-				call("prepare:relationship").pipe(Effect.as(preparedRelationshipDelete)),
-			persistPreparedUserDelete: () =>
+			prepareUserChanges: (_preparation, changes) =>
+				call("prepare:relationship").pipe(Effect.as(changes.map(() => preparedRelationshipDelete))),
+			persistPrepared: (_transaction, prepared) =>
 				Effect.gen(function* () {
 					expect(yield* session.isTransactionActive).toBe(true);
 					yield* call("persist:relationship");
 					return {
-						result: persistedRelationship,
+						results: prepared.map(() => persistedRelationship),
 						dispatch: [toLifecycleDispatchPlan(yield* relationshipPlan)],
 					};
 				}),
@@ -692,35 +639,15 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					},
 				]),
 		}),
-		eventsService: makeEventsService({
-			prepareDelete: () => call("prepare:event").pipe(Effect.as(preparedEventDelete)),
-			persistPreparedDelete: () =>
-				Effect.gen(function* () {
-					expect(yield* session.isTransactionActive).toBe(true);
-					yield* call("persist:event");
-					const persisted = callsOf(yield* recorded).filter((value) => value === "persist:event");
-					const plan = (yield* eventPlans)[persisted.length - 1];
-					assert(plan);
-					return { result: EventId.make("event-1"), dispatch: [toLifecycleDispatchPlan(plan)] };
-				}),
-		}),
 		planner: Layer.mock(LifecyclePlanner)({
 			plan: () => Effect.die("unused"),
 			prepareBatch: () => Effect.succeed({ id: "prepared", hasCandidates: true }),
-			planBatch: (input) =>
+			planBatch: (_transaction, input) =>
 				Effect.gen(function* () {
-					const calls = callsOf(yield* recorded);
-					const plans =
-						input.resource === "event"
-							? (yield* eventPlans).slice(
-									0,
-									calls.filter((value) => value === "persist:event").length,
-								)
-							: [yield* relationshipPlan].slice(
-									0,
-									calls.filter((value) => value === "persist:relationship").length,
-								);
-					const changes = plans.flatMap(({ trigger }) => {
+					const persisted = callsOf(yield* recorded).filter(
+						(value) => value === "persist:relationship",
+					).length;
+					const changes = [yield* relationshipPlan].slice(0, persisted).flatMap(({ trigger }) => {
 						const payload = trigger.payload;
 						return payload?.category === "change" &&
 							payload.operation !== "batch" &&
@@ -732,9 +659,7 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 						yield* lifecycleBatchTriggers(input, 200, changes),
 						(trigger) =>
 							record({ trigger, kind: "batch" }).pipe(
-								Effect.as(
-									toLifecycleDispatchPlan({ trigger, runs: [], policies: [], wasCreated: true }),
-								),
+								Effect.as(toLifecycleDispatchPlan({ trigger, runs: [], wasCreated: true })),
 							),
 					);
 				}),
@@ -744,56 +669,65 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 
 layer(clearPhases.layer)((test) => {
 	test.effect(
-		"prepares all clear mutations before one persistence phase and aggregates warnings",
+		"prepares every clear change before one relationship persistence phase",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const service = yield* EntityUserDataService;
-				const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
+				const cleared = yield* clear(EntityId.make("entity-1"));
 				expect(yield* session.isTransactionActive).toBe(false);
 
 				const observations = yield* clearPhases.recorded;
 				const batches = observations.flatMap((observation) =>
 					observation.kind === "batch" ? [observation.trigger] : [],
 				);
-				expect(result.warnings).toEqual([eventWarning, relationshipWarning]);
 				expect(
 					batches.map(({ payload }) =>
 						payload?.operation === "batch" ? [payload.resource, payload.items.length] : null,
 					),
-				).toEqual([
-					["event", 2],
-					["relationship", 1],
-				]);
-				expect(callsOf(observations)).toEqual([
-					"prepare:event",
-					"prepare:event",
-					"prepare:relationship",
-					"persist:event",
-					"persist:event",
-					"persist:relationship",
-					`dispatch:${["event-trigger-1", "event-trigger-2", "relationship-trigger", ...batches.map(({ id }) => id)].join(",")}`,
+				).toEqual([["relationship", 1]]);
+				expect(callsOf(observations)).toEqual(["prepare:relationship", "persist:relationship"]);
+				expect(cleared.events).toHaveLength(2);
+				expect(cleared.dispatch.map(({ triggerId }) => triggerId)).toEqual<unknown>([
+					"relationship-trigger",
+					...batches.map(({ id }) => id),
 				]);
 			}),
 		testTimeout,
 	);
 });
 
-const preparationFailure = new DbError({ message: "policy failed" });
-
 const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 	entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
-	eventsRepository: makeEventsRepository({
-		listUserDataEventReferences: (input) =>
-			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")])),
+	eventsRepository: makeEventsRepository({ listUserDataEventReferences: () => Effect.succeed([]) }),
+	relationshipsRepository: makeRelationshipsRepository({
+		listUserRelationshipsForEntitiesWithProvenance: () =>
+			Effect.succeed(
+				["relationship-1", "relationship-2"].map((id) => ({
+					properties: {},
+					id: RelationshipId.make(id),
+					relationshipSchemaPluginId: null,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+					sourceEntityId: EntityId.make("entity-1"),
+					targetEntityId: EntityId.make(`target-${id}`),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
+				})),
+			),
 	}),
-	eventsService: makeEventsService({
-		persistPreparedDelete: () =>
-			record("persist").pipe(Effect.as({ dispatch: [], result: EventId.make("event-1") })),
-		prepareDelete: ({ eventId }) =>
-			record(`prepare:${eventId}`).pipe(
-				Effect.andThen(
-					eventId === "event-1" ? Effect.succeed(preparedEventDelete) : preparationFailure,
+	relationshipsService: makeRelationshipsService({
+		persistPrepared: () => record("persist").pipe(Effect.as({ results: [], dispatch: [] })),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ input }) =>
+				record(`prepare:${input.targetEntityId}`).pipe(
+					Effect.andThen(
+						input.targetEntityId === "target-relationship-1"
+							? Effect.succeed(preparedRelationshipDelete)
+							: Effect.fail(
+									new RelationshipBadRequest({
+										reason: { code: "concurrent-relationship-change" },
+									}),
+								),
+					),
 				),
 			),
 	}),
@@ -801,16 +735,19 @@ const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 
 layer(failedPreparation.layer)((test) => {
 	test.effect(
-		"does not persist any clear mutation when preparation fails",
+		"does not persist any clear change when preparation fails",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const exit = yield* Effect.exit(
-					service.clearEntityUserData(user, EntityId.make("entity-1"), command),
-				);
+				const exit = yield* Effect.exit(clear(EntityId.make("entity-1")));
 
-				assertExitFails(exit, preparationFailure);
-				expect(yield* failedPreparation.recorded).toEqual(["prepare:event-1", "prepare:event-2"]);
+				assertExitFails(
+					exit,
+					new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
+				);
+				expect(yield* failedPreparation.recorded).toEqual([
+					"prepare:target-relationship-1",
+					"prepare:target-relationship-2",
+				]);
 			}),
 		testTimeout,
 	);
@@ -821,13 +758,8 @@ layer(makeServiceLayer())((test) => {
 		"rejects merging an entity into itself",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{ mergeFrom: EntityId.make("entity-id"), mergeInto: EntityId.make("entity-id") },
-						command,
-					),
+					merge({ mergeFrom: EntityId.make("entity-id"), mergeInto: EntityId.make("entity-id") }),
 				);
 
 				assertExitFails(
@@ -851,13 +783,8 @@ layer(
 		"returns not found when one merge entity is not visible",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-						command,
-					),
+					merge({ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") }),
 				);
 
 				assertExitFails(
@@ -876,7 +803,9 @@ layer(
 
 const differentOwnerMerge = recordingServiceLayer<string>(({ record }) => ({
 	definitions: makeDefinitionsLayer([], {}, [null, "other-plugin"]),
-	eventsRepository: makeEventsRepository({ listUserDataEventReferences: () => Effect.succeed([]) }),
+	eventsRepository: makeEventsRepository({
+		listUserDataEventReferences: () => record("list-events").pipe(Effect.as([])),
+	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () => Effect.succeed([]),
 	}),
@@ -889,13 +818,6 @@ const differentOwnerMerge = recordingServiceLayer<string>(({ record }) => ({
 				}),
 			),
 	}),
-	lifecycleExecution: Layer.succeed(LifecycleExecution, {
-		after: () => Effect.die("unused"),
-		executePolicy: () => Effect.die("unused"),
-		skipQueuedPolicies: () => Effect.die("unused"),
-		dispatch: () => record("dispatch").pipe(Effect.as([])),
-		executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
-	}),
 }));
 
 layer(differentOwnerMerge.layer)((test) => {
@@ -903,13 +825,8 @@ layer(differentOwnerMerge.layer)((test) => {
 		"rejects merging equal schema slugs owned by different plugins before dispatch",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-						command,
-					),
+					merge({ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") }),
 				);
 
 				assertExitFails(
@@ -940,26 +857,17 @@ layer(
 		"rejects merging when either source or destination schema denies it",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const sourceDenied = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{
-							mergeFrom: EntityId.make("blocked-source"),
-							mergeInto: EntityId.make("allowed-destination"),
-						},
-						command,
-					),
+					merge({
+						mergeFrom: EntityId.make("blocked-source"),
+						mergeInto: EntityId.make("allowed-destination"),
+					}),
 				);
 				const destinationDenied = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{
-							mergeFrom: EntityId.make("allowed-source"),
-							mergeInto: EntityId.make("blocked-destination"),
-						},
-						command,
-					),
+					merge({
+						mergeFrom: EntityId.make("allowed-source"),
+						mergeInto: EntityId.make("blocked-destination"),
+					}),
 				);
 
 				const expected = new EntityUserDataBadRequest({
@@ -989,13 +897,8 @@ layer(
 		"rejects merging entities from different schemas",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-						command,
-					),
+					merge({ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") }),
 				);
 
 				assertExitFails(
@@ -1026,15 +929,12 @@ layer(
 		"allows merging entities with matching declared identity properties",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const result = yield* service.mergeEntityUserData(
-					user,
-					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-					command,
-				);
+				const merged = yield* merge({
+					mergeFrom: EntityId.make("from"),
+					mergeInto: EntityId.make("into"),
+				});
 
-				expect(result).toEqual<unknown>({
-					warnings: [],
+				expect(merged.result).toEqual<unknown>({
 					mergeFrom: "from",
 					mergeInto: "into",
 					movedEventsCount: 0,
@@ -1063,13 +963,8 @@ layer(
 		"rejects merging entities with mismatched declared identity properties",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserData(
-						user,
-						{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-						command,
-					),
+					merge({ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") }),
 				);
 
 				assertExitFails(
@@ -1091,33 +986,22 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 		listUserDataEventReferences: (input) =>
 			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")])),
 	}),
-	eventsService: makeEventsService({
-		persistPreparedMoveReferences: () =>
-			record("persist:event").pipe(
-				Effect.as({ dispatch: [], result: EventId.make("updated-event") }),
-			),
-		prepareMoveReferences: (input, item) =>
-			record(
-				`prepare:${input.eventId}:${input.mergeFrom}->${input.mergeInto}:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedEventMoveReferences)),
-	}),
 	relationshipsService: makeRelationshipsService({
-		persistPreparedUserCreate: () =>
-			record("persist:relationship:create").pipe(
-				Effect.as({ dispatch: [], result: persistedRelationship }),
-			),
-		persistPreparedUserDelete: () =>
-			record("persist:relationship:delete").pipe(
-				Effect.as({ dispatch: [], result: persistedRelationship }),
-			),
-		prepareUserDelete: (input, item) =>
-			record(
-				`prepare:${input.sourceEntityId}->${input.targetEntityId}:delete:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedRelationshipDelete)),
-		prepareUserCreate: (input, item) =>
-			record(
-				`prepare:${input.sourceEntityId}->${input.targetEntityId}:create:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedRelationshipCreate)),
+		persistPrepared: (_transaction, prepared) =>
+			Effect.forEach(prepared, (token) =>
+				record(
+					token === preparedRelationshipCreate
+						? "persist:relationship:create"
+						: "persist:relationship:delete",
+				),
+			).pipe(Effect.as({ dispatch: [], results: prepared.map(() => persistedRelationship) })),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ mode, input, command: item }) => {
+				const created = mode !== "delete";
+				return record(
+					`prepare:${input.sourceEntityId}->${input.targetEntityId}:${created ? "create" : "delete"}:${item.itemIdentity}`,
+				).pipe(Effect.as(created ? preparedRelationshipCreate : preparedRelationshipDelete));
+			}),
 	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () =>
@@ -1161,30 +1045,33 @@ layer(mergeMoves.layer)((test) => {
 		"moves events and relationships when the schema has no merge identity metadata",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const result = yield* service.mergeEntityUserData(
-					user,
-					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
-					command,
-				);
+				const merged = yield* merge({
+					mergeFrom: EntityId.make("from"),
+					mergeInto: EntityId.make("into"),
+				});
 
-				expect(result).toEqual<unknown>({
-					warnings: [],
+				expect(merged.result).toEqual<unknown>({
 					mergeFrom: "from",
 					mergeInto: "into",
 					movedEventsCount: 2,
 					movedRelationshipsCount: 3,
 				});
+				expect(merged.events).toEqual<unknown>(
+					["event-1", "event-2"].map((eventId) => ({
+						eventId,
+						kind: "move",
+						mergeFrom: "from",
+						mergeInto: "into",
+						kernelCollection: true,
+						itemIdentity: `event:${eventId}:update`,
+					})),
+				);
 				expect(yield* mergeMoves.recorded).toEqual([
-					"prepare:event-1:from->into:entity-user-data:event:event-1:update",
-					"prepare:event-2:from->into:entity-user-data:event:event-2:update",
 					"prepare:into->target-1:create:entity-user-data:relationship:relationship-1:create",
 					"prepare:from->target-1:delete:entity-user-data:relationship:relationship-1:delete",
 					"prepare:target-2->into:create:entity-user-data:relationship:relationship-2:create",
 					"prepare:target-2->from:delete:entity-user-data:relationship:relationship-2:delete",
 					"prepare:from->from:delete:entity-user-data:relationship:relationship-3:delete",
-					"persist:event",
-					"persist:event",
 					"persist:relationship:create",
 					"persist:relationship:delete",
 					"persist:relationship:create",
@@ -1208,7 +1095,7 @@ layer(
 			getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(makeMergeScope({ entityId })),
 		}),
 		relationshipsService: makeRelationshipsService({
-			prepareUserCreate: () =>
+			prepareUserChanges: () =>
 				new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -1232,9 +1119,8 @@ layer(
 		"returns a typed entity-user-data failure when the relationship schema is inactive",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				assertExitFails(
-					yield* Effect.exit(service.mergeEntityUserData(user, { mergeFrom, mergeInto }, command)),
+					yield* Effect.exit(merge({ mergeFrom, mergeInto })),
 					new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
 				);
 			}),
@@ -1264,13 +1150,13 @@ const pluginMergeScope = (
 	}),
 	...overrides,
 });
-const pluginPayload = { mergeFrom, mergeInto, entitySchemaSlug: EntitySchemaSlug.make("record") };
+const pluginSchema = {
+	slug: EntitySchemaSlug.make("record"),
+	owner: definitionOwner(pluginRevision.id),
+};
 
 const commandRecordings = recordingServiceLayer<DomainLifecycleCommand>(({ record }) => ({
 	definitions: makeDefinitionsLayer([], {}, [pluginRevision.id]),
-	relationshipsRepository: makeRelationshipsRepository({
-		listUserRelationshipsForEntitiesWithProvenance: () => Effect.succeed([]),
-	}),
 	entitiesRepository: makeEntitiesRepository({
 		getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(pluginMergeScope(entityId)),
 	}),
@@ -1278,11 +1164,30 @@ const commandRecordings = recordingServiceLayer<DomainLifecycleCommand>(({ recor
 		listUserDataEventReferences: (input) =>
 			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1")])),
 	}),
-	eventsService: makeEventsService({
-		prepareMoveReferences: (_input, item) =>
-			record(item).pipe(Effect.as(preparedEventMoveReferences)),
-		persistPreparedMoveReferences: () =>
-			Effect.succeed({ dispatch: [], result: EventId.make("updated-event") }),
+	relationshipsService: makeRelationshipsService({
+		persistPrepared: (_transaction, prepared) =>
+			Effect.succeed({ dispatch: [], results: prepared.map(() => persistedRelationship) }),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ mode, command: item }) =>
+				record(item).pipe(
+					Effect.as(mode === "delete" ? preparedRelationshipDelete : preparedRelationshipCreate),
+				),
+			),
+	}),
+	relationshipsRepository: makeRelationshipsRepository({
+		listUserRelationshipsForEntitiesWithProvenance: () =>
+			Effect.succeed([
+				{
+					properties: {},
+					sourceEntityId: mergeFrom,
+					relationshipSchemaPluginId: null,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+					targetEntityId: EntityId.make("target"),
+					id: RelationshipId.make("relationship-1"),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
+				},
+			]),
 	}),
 }));
 
@@ -1291,30 +1196,12 @@ layer(commandRecordings.layer)((test) => {
 		"keeps the plugin write context and kernel collection flag for script merges",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				const result = yield* service.mergeEntityUserDataForCommand(
-					user.id,
-					pluginPayload,
-					pluginCommand,
-				);
+				const merged = yield* merge({ mergeFrom, mergeInto }, pluginCommand, pluginSchema);
 
-				expect(result).toMatchObject({ movedEventsCount: 1, movedRelationshipsCount: 0 });
 				const recorded = (yield* commandRecordings.recorded).at(-1);
 				expect(recorded?.writeContext).toBe(pluginPrincipal);
 				expect(recorded?.kernelCollection).toBe(true);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"drops the write context for HTTP merges",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
-				yield* service.mergeEntityUserData(user, { mergeFrom, mergeInto }, pluginCommand);
-
-				const recorded = (yield* commandRecordings.recorded).at(-1);
-				expect(recorded?.writeContext).toBeNull();
+				expect(merged.events).toMatchObject([{ kind: "move", kernelCollection: true }]);
 			}),
 		testTimeout,
 	);
@@ -1335,9 +1222,8 @@ layer(scriptMergeRefusals.layer)((test) => {
 		"refuses script merges when the schema denies merge",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserDataForCommand(user.id, pluginPayload, pluginCommand),
+					merge({ mergeFrom, mergeInto }, pluginCommand, pluginSchema),
 				);
 
 				assertExitFails(

@@ -21,6 +21,7 @@ import { restorePersistenceWithDatabase } from "#modules/backups/restore/persist
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
@@ -356,7 +357,14 @@ layer(entityRepositoriesLayer)((test) => {
 					properties: Record<string, unknown>,
 					populatedAt: Date | null = null,
 				) =>
-					session.transaction(repository.updateEntity({ name, entityId, properties, populatedAt }));
+					session.transaction(
+						repository.updateEntity(new WriteTransaction(), {
+							name,
+							entityId,
+							properties,
+							populatedAt,
+						}),
+					);
 				expect(yield* generation).toBe(1);
 				yield* update("Renamed", { a: 1, b: 2 });
 				expect(yield* generation).toBe(2);
@@ -599,7 +607,7 @@ layer(entityRepositoriesLayer)((test) => {
 				);
 				const update = (entityId: EntityId, value: Date | null, preservePopulatedAt?: true) =>
 					session.transaction(
-						repository.updateEntity({
+						repository.updateEntity(new WriteTransaction(), {
 							entityId,
 							properties: {},
 							name: "Updated",

@@ -1,8 +1,9 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isOperationRejected, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	formatError,
+	type Text,
 	useRyot,
 	useRyotMutation,
 	useT,
@@ -21,12 +22,9 @@ import { type FitnessText, useExerciseLabels, useFitnessMessages } from "../mess
 import { ExercisePicker } from "../workout-editor/exercise-picker";
 import type { PickerExercise } from "../workout-editor/picker-model";
 
-type MergeOutput = typeof ExerciseMergeOutputSchema.Type;
-type MergeFailure = Exclude<MergeOutput, { kind: "merged" }>["kind"];
-
 const mergeMutation = createRyotMutation<
 	{ readonly mergeFrom: string; readonly mergeInto: string },
-	MergeOutput
+	typeof ExerciseMergeOutputSchema.Type
 >(({ input, client }) =>
 	Schema.decodeEffect(ExerciseMergeInputSchema)(input).pipe(
 		Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
@@ -45,15 +43,8 @@ const mergeMutation = createRyotMutation<
 export const mergeBlockedReason = (text: FitnessText, draftKind: "workout" | "template") =>
 	text("client.exercise.merge.blocked", { draft: draftKind });
 
-export function MergeFailureMessage(props: { readonly failure: MergeFailure }) {
-	const text = useFitnessMessages();
-	return (
-		<StatusMessage tone="error">
-			{text("client.exercise.merge.failure", {
-				failure: props.failure === "kind-mismatch" ? "kind_mismatch" : props.failure,
-			})}
-		</StatusMessage>
-	);
+export function MergeFailureMessage(props: { readonly message: Text }) {
+	return <StatusMessage tone="error">{props.message}</StatusMessage>;
 }
 
 export function ExerciseMergeFlow(props: {
@@ -61,7 +52,7 @@ export function ExerciseMergeFlow(props: {
 	readonly exerciseId: string;
 	readonly kind: ExerciseKind;
 	readonly onClose: () => void;
-	readonly onFailed: (failure: MergeFailure) => void;
+	readonly onFailed: (message: Text) => void;
 }) {
 	const { kind, name, onClose, onFailed, exerciseId } = props;
 	const t = useT();
@@ -69,24 +60,26 @@ export function ExerciseMergeFlow(props: {
 	const labels = useExerciseLabels();
 	const client = useRyot();
 	const applied = useRef(false);
-	const handled = useRef<MergeOutput>(undefined);
+	const handled = useRef<unknown>(undefined);
 	const trigger = useRef<HTMLButtonElement>(null);
 	const merge = useRyotMutation(mergeMutation);
 	const [target, setTarget] = useState<PickerExercise>();
-	const result = merge.data;
+	const { error, data: result } = merge;
 	useEffect(() => {
-		if (result === undefined || handled.current === result) {
+		const settled = result ?? error;
+		if (settled === null || handled.current === settled) {
 			return;
 		}
-		handled.current = result;
-		if (result.kind === "merged") {
+		if (result !== undefined) {
+			handled.current = settled;
 			client.navigation.replace({ kind: "entity", entityId: result.mergeInto });
 			client.mutationCompleted.hint();
-			return;
+		} else if (isOperationRejected(error)) {
+			handled.current = settled;
+			onFailed(formatError(t, error));
+			onClose();
 		}
-		onFailed(result.kind);
-		onClose();
-	}, [client, onClose, onFailed, result]);
+	}, [client, error, onClose, onFailed, result, t]);
 	if (target === undefined) {
 		return (
 			<ExercisePicker

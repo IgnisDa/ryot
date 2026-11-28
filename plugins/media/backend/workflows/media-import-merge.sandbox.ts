@@ -79,7 +79,9 @@ export default defineWorkflow({
 					rightOffset = 0;
 				}
 				if (done) {
-					return { page, ordinal, leftPage, rightPage, leftOffset, done: true, rightOffset };
+					return {
+						output: { page, ordinal, leftPage, rightPage, leftOffset, done: true, rightOffset },
+					};
 				}
 			}
 			return yield* step.save({

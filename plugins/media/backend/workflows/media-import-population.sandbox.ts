@@ -69,6 +69,6 @@ export default defineWorkflow({
 						? { index: item.index, status: "completed", entityId: result.entity.id }
 						: { status: "failed", index: item.index, stage: result.stage, message: result.message };
 				});
-			return { results };
+			return { output: { results } };
 		}),
 });

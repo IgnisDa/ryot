@@ -1,5 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationRequestPayload,
+	AutomationTrigger,
+	AutomationTriggerPayload,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	PluginHook,
 	PluginHookTarget,
@@ -17,11 +21,14 @@ import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { lockPluginConfigShared } from "#modules/plugins/packages/ingestion-fence";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { writeState, type WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
+import type { PolicyRequest } from "./lifecycle/policies";
 
 const plannedScriptFields = {
 	id: tables.sandboxScript.id,
@@ -52,11 +59,9 @@ type PlannerPlugin = {
 const scriptKey = (pluginRevisionId: string, slug: string) =>
 	JSON.stringify([pluginRevisionId, slug]);
 
-type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
-
 type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
-type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
-type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
+type ItemPayload = Exclude<MatchedPayload, { operation: "batch" }>;
+type MatchedPayload = AutomationRequestPayload | AutomationTriggerPayload;
 
 const targetSnapshot = (payload: ItemPayload) => {
 	if (payload.category === "request") {
@@ -127,18 +132,39 @@ const matchesItem = (
 	}
 };
 
+/** Whether a hook target matches a request, a change, or any item of a batch change. */
 export const matchesTarget = (
 	owner: DefinitionOwner,
 	target: PluginHookTarget,
-	trigger: AutomationTrigger,
-): boolean => {
-	const payload = trigger.payload;
-	if (!payload) {
-		return false;
-	}
-	return payload.operation === "batch"
+	payload: MatchedPayload,
+): boolean =>
+	payload.operation === "batch"
 		? payload.items.some((item) => matchesItem(owner, target, item))
 		: matchesItem(owner, target, payload);
+
+/** A hook that an owner-qualified target makes a kernel collection observer must be a user after hook. */
+const checkObserverAuthority = (plugin: PlannerPlugin, hook: PluginHook) =>
+	hook.targets.some((target) => "owner" in target) &&
+	(hook.stage === "before" || hook.executionScope === "global")
+		? Effect.fail(
+				new DbError({
+					message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
+				}),
+			)
+		: Effect.void;
+
+const checkHookScript = (plugin: PlannerPlugin, hook: PluginHook) => {
+	const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
+	return declaration?.kind !== "automation" ||
+		declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
+		(hook.stage === "before" &&
+			declaration.capabilities.some(
+				(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+			))
+		? Effect.fail(
+				new DbError({ message: `Invalid automation hook script ${plugin.id}/${hook.slug}` }),
+			)
+		: Effect.void;
 };
 
 export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
@@ -149,9 +175,12 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const catalogs = yield* DefinitionCatalog;
-			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
+			const lockCatalogUncached = Effect.fn(function* (
+				users: ReadonlyArray<null | UserId>,
+				transaction: WriteTransaction,
+			) {
 				const userIds = users.filter((id) => id !== null);
-				yield* repository.lockIngestionShared(userIds);
+				yield* repository.lockIngestionShared(userIds, transaction);
 				const rows = yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -179,15 +208,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (!ids.length) {
 					return;
 				}
-				// Shared: planners coexist; PluginConfigRevisions.lock takes these same keys exclusively.
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock_shared(hashtext(k)) from unnest(array[${sql.join(
-							ids.map((id) => sql`${"plugin-config:" + id}`),
-							sql`, `,
-						)}]::text[]) with ordinality t(k, n) order by n`,
-					),
-				);
+				yield* lockPluginConfigShared(session, ids, transaction);
 				yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -214,13 +235,14 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const catalogUncached = Effect.fn(function* (
 				userId: null | UserId,
+				transaction: WriteTransaction,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
 				const plugins =
 					userId === null
 						? (yield* catalogs.globalPlugins()).filter(({ isExecutable }) => isExecutable)
-						: (yield* catalogs.listUserPlugins(
-								sql`i.user_id = ${userId} and exists (select 1 from "user" u where u.id = i.user_id and u.disabled_at is null)`,
-							)).filter(({ isExecutable }) => isExecutable);
+						: (yield* catalogs.userPlugins(userId, transaction)).filter(
+								({ isExecutable, isAccountDisabled }) => isExecutable && !isAccountDisabled,
+							);
 				const revisions = yield* catalogs.revisions(
 					plugins.map(({ activeRevisionId }) => activeRevisionId),
 				);
@@ -243,54 +265,41 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
 			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
 			// can move the pointers a catalog read resolved: a second read within the same transaction
-			// cannot observe anything different, so both are worth resolving once. Callers must plan
-			// inside `session.transaction(...)`; entries are keyed on that transaction's executor
-			// value and die with it.
-			const memos = new WeakMap<object, TransactionCatalogMemo>();
-			const memoFor = (db: object) => {
-				const existing = memos.get(db);
-				if (existing) {
-					return existing;
+			// cannot observe anything different, so both are resolved once per `WriteTransaction`.
+			const memoFor = writeState((_: WriteTransaction): TransactionCatalogMemo => ({
+				scripts: new Map(),
+				catalogs: new Map(),
+				lockedSets: new Set(),
+			}));
+			const lockCatalog = Effect.fn(function* (
+				users: ReadonlyArray<null | UserId>,
+				transaction: WriteTransaction,
+			) {
+				const memo = memoFor(transaction);
+				const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
+				if (memo.lockedSets.has(key)) {
+					return;
 				}
-				const created: TransactionCatalogMemo = {
-					scripts: new Map(),
-					catalogs: new Map(),
-					lockedSets: new Set(),
-				};
-				memos.set(db, created);
-				return created;
-			};
-			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
-				yield* session.run((db) =>
-					Effect.gen(function* () {
-						const memo = memoFor(db);
-						const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
-						if (memo.lockedSets.has(key)) {
-							return;
-						}
-						yield* lockCatalogUncached(users);
-						memo.lockedSets.add(key);
-					}),
-				);
+				yield* lockCatalogUncached(users, transaction);
+				memo.lockedSets.add(key);
 			});
-			const catalog = Effect.fn(function* (userId: null | UserId) {
+			const catalog = Effect.fn(function* (userId: null | UserId, transaction: WriteTransaction) {
+				const memo = memoFor(transaction);
+				const cached = memo.catalogs.get(userId);
+				if (cached) {
+					return cached;
+				}
+				const resolved = yield* catalogUncached(userId, transaction);
+				memo.catalogs.set(userId, resolved);
+				return resolved;
+			});
+			const materialize = Effect.fn(function* (
+				selected: ReadonlyArray<SelectedHook>,
+				transaction: WriteTransaction,
+			) {
 				return yield* session.run((db) =>
 					Effect.gen(function* () {
-						const memo = memoFor(db);
-						const cached = memo.catalogs.get(userId);
-						if (cached) {
-							return cached;
-						}
-						const resolved = yield* catalogUncached(userId);
-						memo.catalogs.set(userId, resolved);
-						return resolved;
-					}),
-				);
-			});
-			const materialize = Effect.fn(function* (selected: ReadonlyArray<SelectedHook>) {
-				return yield* session.run((db) =>
-					Effect.gen(function* () {
-						const memo = memoFor(db);
+						const memo = memoFor(transaction);
 						const missing = new Map(
 							selected
 								.map(({ hook, plugin }) => ({
@@ -342,8 +351,9 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,
 				executionUserId: null | UserId,
+				transaction: WriteTransaction,
 			) {
-				const available = yield* catalog(executionUserId);
+				const available = yield* catalog(executionUserId, transaction);
 				const result: Array<{
 					hook: PluginHook;
 					plugin: null | PlannerPlugin;
@@ -393,34 +403,21 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					return result;
 				}
 				const isBatch = trigger.kind.operation === "batch";
+				const { payload } = trigger;
 				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
+						yield* checkObserverAuthority(plugin, hook);
 						if (
-							hook.targets.some((target) => "owner" in target) &&
-							(hook.stage === "before" || hook.executionScope === "global")
-						) {
-							return yield* new DbError({
-								message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
-							});
-						}
-						if (
-							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
-							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
-						) {
-							continue;
-						}
-						if (
-							hook.stage === "after" &&
-							(((hook.frequency ?? "item") === "batch") !== isBatch ||
-								(hook.executionScope === "user" && executionUserId === null) ||
-								(hook.executionScope === "global" && executionUserId !== null))
-						) {
-							continue;
-						}
-						if (
+							hook.stage !== "after" ||
+							payload === null ||
+							(hook.causationSources &&
+								!hook.causationSources.includes(trigger.causation.source)) ||
+							((hook.frequency ?? "item") === "batch") !== isBatch ||
+							(hook.executionScope === "user" && executionUserId === null) ||
+							(hook.executionScope === "global" && executionUserId !== null) ||
 							!hook.targets.some((target) =>
-								matchesTarget(definitionOwner(plugin.id), target, trigger),
+								matchesTarget(definitionOwner(plugin.id), target, payload),
 							)
 						) {
 							continue;
@@ -440,25 +437,12 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						) {
 							continue;
 						}
-						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
-						if (
-							declaration?.kind !== "automation" ||
-							declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
-							(hook.stage === "before" &&
-								declaration.capabilities.some(
-									(capability) =>
-										!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
-								))
-						) {
-							return yield* new DbError({
-								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
-							});
-						}
+						yield* checkHookScript(plugin, hook);
 						selected.push({ hook, plugin });
 					}
 				}
 				result.push(
-					...(yield* materialize(selected)).map(({ hook, plugin, script }) => ({
+					...(yield* materialize(selected, transaction)).map(({ hook, plugin, script }) => ({
 						hook,
 						plugin,
 						script,
@@ -493,7 +477,6 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 							slug,
 							stage: "after",
 							scriptSlug: slug,
-							delivery: "async",
 							name: kernelSignal.slug,
 							targets: [
 								{
@@ -507,12 +490,41 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 				return result;
 			});
+			/** The before hooks of the request's scope whose targets match any of its items. */
+			const resolvePolicies = Effect.fn(function* (
+				request: PolicyRequest,
+				transaction: WriteTransaction,
+			) {
+				const available = yield* catalog(request.scopeUserId, transaction);
+				const selected: SelectedHook[] = [];
+				for (const plugin of available) {
+					for (const hook of plugin.hooks) {
+						yield* checkObserverAuthority(plugin, hook);
+						if (
+							hook.stage !== "before" ||
+							(hook.causationSources &&
+								!hook.causationSources.includes(request.causation.source)) ||
+							!hook.targets.some((target) =>
+								request.items.some((item) =>
+									matchesTarget(definitionOwner(plugin.id), target, item.request),
+								),
+							)
+						) {
+							continue;
+						}
+						yield* checkHookScript(plugin, hook);
+						selected.push({ hook, plugin });
+					}
+				}
+				return yield* materialize(selected, transaction);
+			});
 			const resolveBatchCandidates = Effect.fn(function* (input: {
 				userId: null | UserId;
+				transaction: WriteTransaction;
 				resource: "event" | "entity" | "relationship";
 				source: AutomationTrigger["causation"]["source"];
 			}) {
-				const available = yield* catalog(input.userId);
+				const available = yield* catalog(input.userId, input.transaction);
 				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
@@ -535,18 +547,20 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						selected.push({ hook, plugin });
 					}
 				}
-				return (yield* materialize(selected)).map(({ hook, plugin, script }): BatchHookPin => ({
-					payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
-					references: {
-						scopeUserId: input.userId,
-						sandboxScriptId: script.id,
-						pluginId: PluginId.make(plugin.id),
-						pluginRevisionId: plugin.pluginRevisionId,
-						pluginConfigRevisionId: plugin.pluginConfigRevisionId,
-					},
-				}));
+				return (yield* materialize(selected, input.transaction)).map(
+					({ hook, plugin, script }): BatchHookPin => ({
+						payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
+						references: {
+							scopeUserId: input.userId,
+							sandboxScriptId: script.id,
+							pluginId: PluginId.make(plugin.id),
+							pluginRevisionId: plugin.pluginRevisionId,
+							pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+						},
+					}),
+				);
 			});
-			return { resolve, lockCatalog, resolveBatchCandidates };
+			return { resolve, lockCatalog, resolvePolicies, resolveBatchCandidates };
 		}),
 	},
 ) {

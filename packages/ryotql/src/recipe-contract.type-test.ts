@@ -48,6 +48,16 @@ export type RecipeContractChecks = [
 	Assert<Equal<Recipe.Arguments<typeof unmapped>["id"], string>>,
 ];
 
+const optional = defineRecipe({ queries: entity.alias === "" ? {} : { entries } });
+export type OptionalQueryContractChecks = [
+	Assert<
+		Equal<
+			Recipe.Success<typeof optional>,
+			{ readonly entries?: Recipe.Success<typeof unmapped>["entries"] }
+		>
+	>,
+];
+
 const selected = selectRecipe(unmapped, "entries");
 export type SelectedRecipeContractChecks = [
 	Assert<Equal<typeof selected.query, "entries">>,

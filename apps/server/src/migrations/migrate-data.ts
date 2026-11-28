@@ -18,6 +18,7 @@ import {
 	buildOwnedCollectionOwnershipMigrationSql,
 	buildWatchlistBacklogMigrationSql,
 } from "./collection-mapping";
+import { buildLegacyCustomMediaCopySql } from "./custom-media-copy-sql";
 import {
 	createLegacyDescriptionInputsSql,
 	dropLegacyDescriptionInputsSql,
@@ -519,6 +520,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildLegacyPersonDuplicateMergeSql(), []);
+			yield* connection.executeRaw(buildLegacyCustomMediaCopySql(), []);
 			yield* connection.executeRaw(createLegacyDescriptionInputsSql, []);
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);

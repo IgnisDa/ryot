@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import {
+	makePluginValidationWorker,
+	PLUGIN_VALIDATION_WORKER_LIMITS,
+} from "@ryot-app/kernel-backend/modules/plugins/packages/validation-worker";
 import { makeSandboxCompilerSupervisor } from "@ryot-app/plugin-backend-compiler/supervisor";
 import { SANDBOX_COMPILER_WARM_UP_SOURCE } from "@ryot-app/plugin-backend-compiler/warm-up";
 import { makeClientCompilerSupervisor } from "@ryot-app/plugin-client-compiler/supervisor";
@@ -56,7 +61,12 @@ const program = Effect.gen(function* () {
 	) {
 		return yield* Effect.die(new Error("Backend compiler emitted incomplete agent metadata"));
 	}
-	return yield* Effect.log("Backend compiler worker smoke passed");
+	yield* Effect.log("Backend compiler worker smoke passed");
+
+	const validation = yield* makePluginValidationWorker(PLUGIN_VALIDATION_WORKER_LIMITS);
+	const worker = yield* validation.session;
+	yield* worker.validateDefinitionSet(kernelDefinitionSource(), []);
+	return yield* Effect.log("Plugin validation worker smoke passed");
 });
 
 BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(BunServices.layer)));

@@ -1,5 +1,6 @@
-import { EVENT_MUTATION_SANDBOX_LIMITS, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { readAllPages, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -19,7 +20,6 @@ import {
 import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 const reviewConsumptionRecipe = (() => {
 	const inputParameters = parameters({
@@ -87,12 +87,11 @@ const reviewsOfConsumptionRecipe = (() => {
 	const review = table("event", "consumptionReview");
 	return defineRecipe({
 		parameters: inputParameters.schema,
-		map: ({ reviews }) =>
-			Result.succeed({ hasMore: reviews.pageInfo.hasMore, ids: reviews.items.map(({ id }) => id) }),
+		map: ({ reviews }) => Result.succeed(reviews),
 		queries: {
 			reviews: selectedRows(review, {
+				limit: 100,
 				orderBy: [ascending(column(review, "id"))],
-				limit: EVENT_MUTATION_SANDBOX_LIMITS.items - 1,
 				selection: { id: selectedField(column(review, "id"), Schema.String) },
 				where: and(
 					schemaOwnerPredicate(review, "eventSchemaPluginId", { kind: "self" }),
@@ -108,14 +107,11 @@ export const reviewsNamingConsumption = (
 	host: Pick<ScriptHost, "executeRyotql">,
 	eventId: string,
 ) =>
-	Effect.gen(function* () {
-		const { ids, hasMore } = yield* executeRyotqlRecipe(
+	readAllPages((after) =>
+		executeRyotqlRecipe(
 			host.executeRyotql,
 			reviewsOfConsumptionRecipe,
 			{ eventId: eventId },
-		);
-		if (hasMore) {
-			return yield* reject(catalogMessage("rejection.review.too-many-linked"));
-		}
-		return ids;
-	});
+			{ pages: { reviews: { after: after } } },
+		),
+	).pipe(Effect.map((reviews) => reviews.map(({ id }) => id)));

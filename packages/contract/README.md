@@ -89,16 +89,17 @@ Clients decode the contract and exhaustively handle typed variants. Tests assert
   `ValidationIssueCode`. `schemaValidationFailed` derives it from an Effect Schema issue;
   request decoding failures return it with HTTP 400.
 - A sandbox reports a `SandboxBoundaryReason`, whose `operation-rejected` reason carries the
-  plugin's `LocalMessage`. Where the backend records a sandbox failure, `stampBoundaryReason`
-  stamps the run's catalog namespace (dropping a rejection from a run without one), so
+  plugin's `LocalMessage`. Where
+  the backend records a sandbox failure, `stampBoundaryReason` stamps the run's catalog namespace (dropping a rejection from a run without one), so
   `SandboxRunError` and backend execution results carry a `StampedSandboxBoundaryReason`.
   `boundaryReasonMessage` maps each stamped reason to its message: the plugin's own message for an
   operation rejection, a kernel message otherwise. The code union stays the machine-readable
   classification. `PluginOperationRejected` carries the stamped rejection message.
 - A before-stage policy rejects with a `LocalMessage` from its owner's catalog. The kernel stamps the
-  policy owner's namespace, and the `policy-rejected` reasons of `EntityBadRequest`,
-  `EventBadRequest` and `RelationshipBadRequest`, like a `skipped_by_policy` event outcome, carry
-  that `Message`.
+  policy owner's namespace, and the `policy-rejected` reason of `PolicyRejected`
+  (`modules/changes/policies`), like a `skipped_by_policy` event outcome, carries that `Message`.
+  Every write route that runs policies declares `PolicyRejected` (400, with one `PolicyFailureReason`)
+  and `PolicyUnavailable` (503, a policy that could not run for want of capacity).
 - `DbError`, `SandboxRunError` and `TimeoutError` are internal: their `message` is a diagnostic and
   never reaches a client.
 - A contract test walks every `AppContract` error schema and fails on string fields named like text

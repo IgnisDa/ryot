@@ -37,6 +37,7 @@ import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/
 import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { isUniqueConstraintError } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 import * as schema from "#schema/tables/combined";
 
 import {
@@ -566,6 +567,17 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return yield* new DbError({ message: "Ingestion owner is not active" });
 				}
 				return run;
+			});
+			/**
+			 * Takes the user's ingestion fence and the locks recording outcomes needs, before a commit's
+			 * catalog lock, so a commit that records outcomes takes the user-write lock first.
+			 */
+			const lockOutcomes = Effect.fn("ImportsRepository.lockOutcomes")(function* (
+				scope: IngestionScope,
+				transaction: WriteTransaction,
+			) {
+				yield* lockPluginIngestionShared(database, [scope.userId], transaction);
+				yield* lockProjection(scope, ["running", "cancelling"]);
 			});
 			const checkCaptureOwner = Effect.fn("ImportsRepository.checkCaptureOwner")(function* (
 				scope: IngestionScope,
@@ -2020,6 +2032,29 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				);
 				return row ? yield* decodeItem(IngestionOutcome)(row.data) : null;
 			});
+			/** The operations among `operationIds` that already have an outcome. */
+			const recordedOutcomeIds = Effect.fn("ImportsRepository.recordedOutcomeIds")(function* (
+				scope: IngestionScope,
+				operationIds: ReadonlyArray<string>,
+			) {
+				if (operationIds.length === 0) {
+					return new Set<string>();
+				}
+				const rows = yield* database.run((db) =>
+					db
+						.select({ id: schema.importItem.id })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(
+							and(
+								owned(scope),
+								itemsOf("outcome", scope.runId),
+								inArray(schema.importItem.id, [...operationIds]),
+							),
+						),
+				);
+				return new Set(rows.map(({ id }) => id));
+			});
 			const releaseCapture = Effect.fn("ImportsRepository.releaseCapture")(function* (
 				scope: IngestionScope,
 				captureId: string,
@@ -2092,6 +2127,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				listCaptures,
 				pageCaptures,
 				projectBatch,
+				lockOutcomes,
 				recordOutcome,
 				registerBatch,
 				expireBlocked,
@@ -2118,6 +2154,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				storeBatchResult,
 				startPayloadWrite,
 				stopPayloadWrites,
+				recordedOutcomeIds,
 				getPreparedRelease,
 				isIngestionApplied,
 				updateInputSummary,

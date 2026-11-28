@@ -1,1 +1,0 @@
-ALTER TABLE "client_artifact_file" ADD COLUMN "static_imports" jsonb DEFAULT '[]' NOT NULL;

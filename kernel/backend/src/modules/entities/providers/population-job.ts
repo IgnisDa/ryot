@@ -6,11 +6,12 @@ import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugi
 import {
 	AutomationExecutionId,
 	EntityId,
-	type EntitySchemaSlug,
+	EntitySchemaSlug,
 	PluginId,
 	PluginRevisionId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import {
@@ -19,30 +20,30 @@ import {
 	providerDetailsResultSchema,
 	providerRelatedResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Duration, Effect, Result, Schema } from "effect";
 
-import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import type { Changes } from "#modules/changes/changes";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
 import { selectProviderInputProperties } from "#modules/entities/provider-inputs";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { publishEntityUpdated } from "#modules/live-updates/publish";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { retryOnDeadlock } from "#platform/db/errors";
-import { DatabaseSession } from "#platform/db/session";
 import { makeJobKind } from "#platform/jobs/queue";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
-import { writeChildEntitySet } from "./population";
+import {
+	commitPopulation,
+	commitRelatedPopulation,
+	populationCommand,
+	upsertedEntity,
+	writeChildEntitySet,
+} from "./population";
 import { sweepRelatedEntityGroup, syncRelatedEntityGroup } from "./relationship-population";
 import {
 	type EntityImportPayload,
@@ -73,12 +74,7 @@ type ValidatedEntityDetails = {
 	readonly relatedEntityGroups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>;
 };
 
-const populationWriteGuard = (payload: PopulationWritePayload) =>
-	Effect.flatMap(EnrichmentRequests, (requests) =>
-		requests.guardPopulation(payload.requestId, payload.requestAttempt),
-	);
-
-const SandboxJsonObjectSchema = Schema.Record(Schema.String, jsonValueSchema);
+const SandboxJsonObjectSchema = Schema.Record(Schema.String, JsonValue);
 const decodeProviderDetailsResult = Schema.decodeUnknownEffect(providerDetailsResultSchema);
 
 type ChildEntitySetScope = {
@@ -200,6 +196,29 @@ const getEntityWriteScope = (payload: EntityImportPayload) =>
 		? ({ scope: "user", userId: payload.entityScope.userId } as const)
 		: ({ scope: "global" } as const);
 
+const writeUserId = (payload: EntityImportPayload) =>
+	payload.entityScope.type === "user" ? payload.entityScope.userId : null;
+
+/** The provider's own entity: the root a population upserts and then stamps populated. */
+const rootUpsert = (
+	payload: PopulationWritePayload,
+	details: ValidatedEntityDetails,
+	command: DomainLifecycleCommand,
+	fields: { readonly updateExisting: boolean } & Pick<
+		NonNullable<Changes["globalEntities"]>[number],
+		"populatedAt" | "preservePopulatedAt"
+	>,
+): NonNullable<Changes["globalEntities"]>[number] => ({
+	name: details.name,
+	externalId: payload.externalId,
+	properties: details.properties,
+	populatedAt: fields.populatedAt,
+	itemIdentity: command.itemIdentity,
+	...(fields.preservePopulatedAt ? { preservePopulatedAt: true } : {}),
+	provider: { providerId: payload.providerId, updateExisting: fields.updateExisting },
+	entitySchema: { slug: payload.entitySchemaSlug, owner: definitionOwner(payload.pluginId) },
+});
+
 const providerEntityIdFor = (
 	command: DomainLifecycleCommand,
 	itemIdentity: ReadonlyArray<string>,
@@ -211,31 +230,6 @@ const providerEntityIdFor = (
 				stableStringify([command.itemIdentity, ...itemIdentity]),
 			]),
 		)}`,
-	);
-
-const dispatchPopulationPlans = (
-	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
-	message: string,
-	annotations: Readonly<Record<string, unknown>>,
-) =>
-	Effect.gen(function* () {
-		const execution = yield* LifecycleExecution;
-		const warnings = yield* execution.dispatch(dispatch).pipe(mapDbErrorToSandbox);
-		if (warnings.length > 0) {
-			yield* Effect.logWarning(message).pipe(
-				Effect.annotateLogs({ ...annotations, warnings, warningCount: warnings.length }),
-			);
-		}
-	});
-
-const logEntityWarnings = (
-	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
-	phase: "root-stamp" | "root-upsert",
-) =>
-	dispatchPopulationPlans(
-		dispatch,
-		"provider entity population completed with automation warnings",
-		{ phase },
 	);
 
 const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function* (
@@ -257,35 +251,22 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	options: SynchronizeOptions,
 	population: AutomationPopulationContext,
 ) {
-	const session = yield* DatabaseSession;
-	const entities = yield* EntitiesService;
-	const scope = getEntityWriteScope(payload);
-	const work = yield* retryOnDeadlock(
-		session.transaction(
-			Effect.andThen(
-				populationWriteGuard(payload),
-				entities.persistPlannedProviderUpsert({
-					...scope,
+	const command = populationCommand(payload.command, ["root", "upsert"], population);
+	const result = yield* commitPopulation({
+		command,
+		owner: payload,
+		changes: {
+			userId: writeUserId(payload),
+			globalEntities: [
+				rootUpsert(payload, details, command, {
 					populatedAt: null,
-					name: details.name,
 					preservePopulatedAt: true,
-					externalId: payload.externalId,
-					properties: details.properties,
-					providerId: payload.providerId,
 					updateExisting: options.mode !== "refresh",
-					entitySchema: {
-						slug: payload.entitySchemaSlug,
-						owner: definitionOwner(payload.pluginId),
-					},
-					lifecycle: {
-						...payload.command,
-						...populationLifecycleCommand(payload.command, ["root", "upsert"], population),
-					},
 				}),
-			),
-		),
-	).pipe(mapDbErrorToSandbox);
-	return { dispatch: work.dispatch, result: { entity: work.result.entity } };
+			],
+		},
+	});
+	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
 const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupScope")(function* (
@@ -297,27 +278,21 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	population: AutomationPopulationContext,
 	paging: { pageIndex: number; generation: string },
 ) {
-	const requests = yield* EnrichmentRequests;
 	const synchronized = yield* syncRelatedEntityGroup({
-		beforeWrite: requests.guardPopulation(payload.requestId, payload.requestAttempt),
-		...getEntityWriteScope(payload),
 		group,
 		population,
 		definitions,
+		owner: payload,
 		command: payload.command,
 		primaryEntityId: entityId,
 		pluginId: payload.pluginId,
+		userId: writeUserId(payload),
 		paging: { ...paging, groupIndex: index },
 		primaryEntitySchemaSlug: payload.entitySchemaSlug,
-	}).pipe(mapDbErrorToSandbox);
+	});
 	if (!synchronized.superseded) {
 		yield* publishPrimaryEntity(payload, entityId, "enrichment-updated");
 	}
-	yield* dispatchPopulationPlans(
-		synchronized.dispatch,
-		"provider related population completed with automation warnings",
-		{ relationshipSchemaSlug: group.relationshipSchemaSlug },
-	);
 	return synchronized;
 });
 
@@ -328,13 +303,12 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	scope: ChildEntitySetScope,
 	rootPreviouslyPopulated: boolean,
 ) {
-	const requests = yield* EnrichmentRequests;
-	const written = yield* writeChildEntitySet({
-		beforeWrite: requests.guardPopulation(payload.requestId, payload.requestAttempt),
-		...getEntityWriteScope(payload),
+	return yield* writeChildEntitySet({
 		definitions,
+		owner: payload,
 		command: payload.command,
 		pluginId: payload.pluginId,
+		userId: writeUserId(payload),
 		providerId: payload.providerId,
 		childEntities: scope.childEntities,
 		parentEntityId: scope.parentEntityId,
@@ -351,13 +325,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 				properties: toSandboxJsonObject(scope.parentProperties),
 			},
 		},
-	}).pipe(mapDbErrorToSandbox);
-	yield* dispatchPopulationPlans(
-		written.dispatch,
-		"provider child population completed with automation warnings",
-		{ parentEntityId: scope.parentEntityId },
-	);
-	return written;
+	});
 });
 
 const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function* (
@@ -365,52 +333,30 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	details: ValidatedEntityDetails,
 	population: AutomationPopulationContext,
 	options: SynchronizeOptions,
-	generation: string,
+	root: { readonly entityId: EntityId; readonly generation: string },
 ) {
-	const session = yield* DatabaseSession;
-	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
 	const requests = yield* EnrichmentRequests;
-	const scope = getEntityWriteScope(payload);
-	const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt));
-	const work = yield* retryOnDeadlock(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* populationWriteGuard(payload);
-				const stamped = yield* entities.persistPlannedProviderUpsert({
-					...scope,
-					populatedAt,
-					name: details.name,
-					updateExisting: true,
-					properties: details.properties,
-					externalId: payload.externalId,
-					providerId: payload.providerId,
-					preservePopulatedAt: options.mode === "initial",
-					entitySchema: {
-						slug: payload.entitySchemaSlug,
-						owner: definitionOwner(payload.pluginId),
-					},
-					lifecycle: {
-						...payload.command,
-						...populationLifecycleCommand(payload.command, ["root", "stamp"], population),
-					},
-				});
-				if (options.level === "full") {
-					yield* repository.invalidateRelatedPopulated(
-						stamped.result.entity.id,
-						populatedAt,
-						generation,
-					);
-				}
-				yield* requests.recordBaseCheck(
-					payload.requestId,
-					DateTime.toDateUtc(DateTime.makeUnsafe(details.checkedAt)),
-				);
-				return stamped;
-			}),
+	const command = populationCommand(payload.command, ["root", "stamp"], population);
+	const result = yield* commitPopulation({
+		command,
+		owner: payload,
+		written: requests.recordBaseCheck(
+			payload.requestId,
+			DateTime.toDateUtc(DateTime.makeUnsafe(details.checkedAt)),
 		),
-	).pipe(mapDbErrorToSandbox);
-	return { dispatch: work.dispatch, result: { entity: work.result.entity } };
+		changes: {
+			userId: writeUserId(payload),
+			globalEntities: [
+				rootUpsert(payload, details, command, {
+					updateExisting: true,
+					populatedAt: payload.command.occurredAt,
+					...(options.mode === "initial" ? { preservePopulatedAt: true } : {}),
+				}),
+			],
+			...(options.level === "full" ? { population: { claims: [root] } } : {}),
+		},
+	});
+	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
 const shouldWriteChildEntitySet = (options: SynchronizeOptions, scope: ChildEntitySetScope) =>
@@ -441,19 +387,19 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			rootPreviouslyPopulated,
 		);
 		for (const [index, childEntity] of scope.childEntities.entries()) {
-			const child = processed.processedChildren[index];
+			const child = processed[index];
 			if (!child) {
 				continue;
 			}
 			pending.push({
-				parentName: child.entity.name,
+				parentName: child.name,
+				parentEntityId: child.id,
 				scopeEntity: scope.scopeEntity,
-				parentEntityId: child.entity.id,
+				parentProperties: child.properties,
 				parentExternalId: childEntity.externalId,
-				parentProperties: child.entity.properties,
-				parentEntitySchemaSlug: child.entitySchemaSlug,
 				childEntities: childEntity.childEntities ?? [],
-				parentEntitySchemaPluginId: child.entity.entitySchemaPluginId,
+				parentEntitySchemaPluginId: child.entitySchemaPluginId,
+				parentEntitySchemaSlug: EntitySchemaSlug.make(child.entitySchemaSlug),
 				...(childEntity.expectedChildEntitySchemaSlug
 					? { expectedChildEntitySchemaSlug: childEntity.expectedChildEntitySchemaSlug }
 					: {}),
@@ -486,31 +432,16 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 	entityId: EntityId,
 	generation: string,
 ) {
-	const session = yield* DatabaseSession;
-	const checks = yield* DomainWriteChecks;
-	const repository = yield* EntitiesRepository;
-	const scope = getEntityWriteScope(payload);
-	yield* retryOnDeadlock(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* populationWriteGuard(payload);
-				yield* checks.check(
-					payload.command,
-					definitionOwner(payload.pluginId),
-					scope.scope === "user" ? scope.userId : null,
-					true,
-				);
-				yield* repository.lockMutationKeys([entityId]);
-				if (!(yield* repository.holdsRelatedPopulationGeneration(entityId, generation))) {
-					return yield* supersededPopulation();
-				}
-				return yield* repository.stampRelatedPopulated(
-					entityId,
-					DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt)),
-				);
-			}),
-		),
-	).pipe(mapDbErrorToSandbox);
+	const stamped = yield* commitRelatedPopulation({
+		owner: payload,
+		command: payload.command,
+		generation: { entityId, generation },
+		changes: { userId: writeUserId(payload), population: { relatedPopulated: [entityId] } },
+	});
+	if (stamped === null) {
+		return yield* supersededPopulation();
+	}
+	return yield* Effect.void;
 });
 
 type RelatedPage = Pick<ProviderDetailsRelatedEntityGroup, "coverage" | "entities">;
@@ -538,30 +469,24 @@ const sweepRelatedGroup = Effect.fn("sweepRelatedGroup")(function* (
 	run: RelatedGroupRun,
 	kept: ReadonlySet<EntityId>,
 ) {
-	const requests = yield* EnrichmentRequests;
 	const swept = yield* sweepRelatedEntityGroup({
-		beforeWrite: requests.guardPopulation(payload.requestId, payload.requestAttempt),
-		...getEntityWriteScope(payload),
 		kept,
 		definitions,
+		owner: payload,
 		group: run.group,
 		groupIndex: run.index,
 		command: payload.command,
 		pluginId: payload.pluginId,
 		population: run.population,
 		generation: run.generation,
+		userId: writeUserId(payload),
 		primaryEntityId: run.entityId,
-	}).pipe(mapDbErrorToSandbox);
+	});
 	if (swept.superseded) {
 		yield* logSupersededRelatedGroup(run.entityId, run.group, run.index, -1);
 		return "superseded" as const;
 	}
 	yield* publishPrimaryEntity(payload, run.entityId, "enrichment-updated");
-	yield* dispatchPopulationPlans(
-		swept.dispatch,
-		"provider related sweep completed with automation warnings",
-		{ relationshipSchemaSlug: run.group.relationshipSchemaSlug },
-	);
 	return "complete" as const;
 });
 
@@ -718,11 +643,9 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		id: existing?.id ?? providerEntityIdFor(payload.command, ["root", "upsert"]),
 	};
 	const population = { scopeEntity, rootPreviouslyPopulated } satisfies AutomationPopulationContext;
-	const rootSave = yield* upsertRootEntity(payload, details, options, population);
-	const entity = rootSave.result.entity;
+	const entity = yield* upsertRootEntity(payload, details, options, population);
 	const requests = yield* EnrichmentRequests;
 	yield* requests.attachEntity(requestId, entity.id);
-	yield* logEntityWarnings(rootSave.dispatch, "root-upsert");
 	yield* writeChildEntityScopes(payload, definitions, options, rootPreviouslyPopulated, {
 		scopeEntity,
 		parentName: entity.name,
@@ -736,11 +659,13 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
 			: {}),
 	});
-	const stamped = yield* stampRootPopulatedAt(payload, details, population, options, executionId);
-	yield* logEntityWarnings(stamped.dispatch, "root-stamp");
-	yield* publishPrimaryEntity(payload, stamped.result.entity.id);
+	const stamped = yield* stampRootPopulatedAt(payload, details, population, options, {
+		entityId: entity.id,
+		generation: executionId,
+	});
+	yield* publishPrimaryEntity(payload, stamped.id);
 	if (options.level === "base") {
-		return stamped.result.entity;
+		return stamped;
 	}
 	yield* synchronizeRelatedGroups(
 		payload,
@@ -751,7 +676,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			firstPage: () => Effect.succeed({ entities, coverage }),
 		})),
 	);
-	return stamped.result.entity;
+	return stamped;
 });
 
 const claimRelatedPopulation = Effect.fn("claimProviderRelatedPopulation")(function* (
@@ -759,29 +684,11 @@ const claimRelatedPopulation = Effect.fn("claimProviderRelatedPopulation")(funct
 	entityId: EntityId,
 	generation: string,
 ) {
-	const session = yield* DatabaseSession;
-	const checks = yield* DomainWriteChecks;
-	const repository = yield* EntitiesRepository;
-	const scope = getEntityWriteScope(payload);
-	yield* retryOnDeadlock(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* populationWriteGuard(payload);
-				yield* checks.check(
-					payload.command,
-					definitionOwner(payload.pluginId),
-					scope.scope === "user" ? scope.userId : null,
-					true,
-				);
-				yield* repository.lockMutationKeys([entityId]);
-				yield* repository.invalidateRelatedPopulated(
-					entityId,
-					DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt)),
-					generation,
-				);
-			}),
-		),
-	).pipe(mapDbErrorToSandbox);
+	yield* commitPopulation({
+		owner: payload,
+		command: payload.command,
+		changes: { userId: writeUserId(payload), population: { claims: [{ entityId, generation }] } },
+	});
 });
 
 /** A child's provider data belongs to its parent's population; only the related groups its `related` script declares are populated here. */

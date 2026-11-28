@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	ascending,
 	column,
 	countAll,
 	defineRecipe,
@@ -17,6 +18,7 @@ import {
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
+	selectedInclude,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -32,11 +34,10 @@ import {
 	type Table,
 } from "./entity-selections";
 import { episodicEpisodeSelection } from "./episodic-recipes";
-import { libraryMembershipJoin, librarySummary } from "./library-summary";
+import { joinedLibraryLink, libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	type EpisodicKindConfig,
 	EpisodicLifecycleStateSchema,
-	episodicNextUpInclude,
 	eventSlugIsOneOf,
 	mediaLifecycleExpressions,
 	MediaLifecycleStateSchema,
@@ -76,8 +77,8 @@ const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly str
 
 /**
  * In-library shows or podcasts in one of `states`, most recent lifecycle activity first, each with
- * the episode `episodicNextUpInclude` resolves. `latestActivityAt` is the latest aggregate
- * lifecycle signal, so for `backlog` it is the backlog event itself.
+ * its library summary's next episode. `latestActivityAt` is the latest aggregate lifecycle signal,
+ * so for `backlog` it is the backlog event itself.
  */
 export const episodicByLifecycleStateRecipe = (input: {
 	readonly config: EpisodicKindConfig;
@@ -121,7 +122,12 @@ export const episodicByLifecycleStateRecipe = (input: {
 	});
 	const entity = table("entity", "entity");
 	const library = libraryMembershipJoin(entity, "listLibrary");
-	const summary = librarySummary(library.membership);
+	const summary = librarySummary(joinedLibraryLink(library.membership), {
+		entity,
+		kind: input.config,
+		alias: "listSummary",
+	});
+	const nextEpisode = table("entity", "listNextUp");
 	return defineRecipe({
 		parameters: inputParameters.schema,
 		map: ({ items }) =>
@@ -142,17 +148,6 @@ export const episodicByLifecycleStateRecipe = (input: {
 					state: selectedField(summary.lifecycleState, EpisodicLifecycleStateSchema),
 					latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
 				},
-				include: {
-					nextUp: episodicNextUpInclude(input.config, entity, (episode) => ({
-						...episodicEpisodeSelection(episode, entity, "listNextUpState", input.config.kind),
-						seasonNumber: selectedField(
-							input.config.kind === "show"
-								? propertyNumber(episode, "seasonNumber")
-								: literal(null),
-							Schema.NullOr(Schema.Finite),
-						),
-					})),
-				},
 				where: and(
 					entitySchemaPredicate(entity, input.config.parentSchemaSlug, input.reference),
 					inArray(summary.lifecycleState, inputParameters.list("states")),
@@ -165,6 +160,27 @@ export const episodicByLifecycleStateRecipe = (input: {
 						eq(column(entity, "id"), inputParameters.value("entityId")),
 					),
 				),
+				include: {
+					nextUp: selectedInclude(nextEpisode, {
+						limit: 1,
+						orderBy: [ascending(column(nextEpisode, "id"))],
+						where: eq(column(nextEpisode, "id"), summary.nextUpEpisodeId),
+						selection: {
+							...episodicEpisodeSelection(
+								nextEpisode,
+								entity,
+								"listNextUpState",
+								input.config.kind,
+							),
+							seasonNumber: selectedField(
+								input.config.kind === "show"
+									? propertyNumber(nextEpisode, "seasonNumber")
+									: literal(null),
+								Schema.NullOr(Schema.Finite),
+							),
+						},
+					}),
+				},
 			}),
 		},
 	});
@@ -212,7 +228,11 @@ export const flatByLifecycleStateRecipe = (input: {
 	});
 	const entity = table("entity", "entity");
 	const library = libraryMembershipJoin(entity, "listLibrary");
-	const summary = librarySummary(library.membership);
+	const summary = librarySummary(joinedLibraryLink(library.membership), {
+		entity,
+		kind: "flat",
+		alias: "listSummary",
+	});
 	const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
 	return defineRecipe({
 		parameters: inputParameters.schema,

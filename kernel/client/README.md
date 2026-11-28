@@ -174,13 +174,12 @@ per tray and per bridge session and the tray's entries; when full nothing starts
 never evicted: the oldest success goes first, and with only failures left the request is refused.
 
 Each attempt runs `PluginOperationsService.invoke` outside the bridge session with the target's
-content hash captured at acceptance. A successful result whose top-level object has
-`status: "incomplete"` (optionally with a numeric `count`) is shown as incomplete. A stale revision
-becomes `app-updated`, which is final and offers Reload; its copy says the write may have been saved
-if an earlier attempt ended in `transport`. Retry is offered for `transport`, `malformed-result`, and
-incomplete entries while the captured installation is still in the catalog, and resends the identical
-input, idempotency key, and content hash. `operation-failed` and `operation-rejected` (with its
-message) are final. Successful results hint `mutationCompleted`, refreshing pages, and auto-dismiss
+content hash captured at acceptance. A stale revision becomes `app-updated`, which is final and
+offers Reload; its copy says the write may have been saved if an earlier attempt ended in
+`transport`. Retry is offered for `transport` and `malformed-result` entries while the captured
+installation is still in the catalog, and resends the identical input, idempotency key, and content
+hash. `operation-failed`, `changes-conflict` (with its conflict
+code, shown as changed elsewhere), and `operation-rejected` (with its message) are final. Successful results hint `mutationCompleted`, refreshing pages, and auto-dismiss
 after six seconds; failures stay until dismissed. `background-operation-settled` reaches the
 accepting document only while its bridge session is active and the document has not been replaced.
 
@@ -265,7 +264,9 @@ Scrollers outside the main view, such as the sidebars, keep their own positions.
 scroll or move focus on navigation themselves.
 
 The bridge reports a 422 `PluginOperationRejected` as `operation-rejected` with the operation's
-message; other declared platform failures are `operation-failed` and unrelated causes are `transport`.
+message and a 409 `changes-conflict` as `changes-conflict`; other declared platform failures are
+`operation-failed` and unrelated causes are `transport`. A successful response reaches the plugin as
+its `value` plus the kernel's `committed` identifiers.
 Provider search names its failure: a `search-failed` refusal with cause `missing-config` shows which
 configuration field is missing, `provider-error` says the provider could not complete the search, and
 only real transport failures show the connection message.

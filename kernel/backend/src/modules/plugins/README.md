@@ -17,14 +17,34 @@ the authoritative credential and user through `AuthService`; HTTP callers defaul
 while the agent registry propagates the MCP audience for MCP calls. Admission, demo restrictions and
 lifecycle locks use the same operation path.
 
+## Operation results
+
+An operation returns `{ output, changes? }`. It runs once through `ScriptCalls`, with no workflow,
+journal, or workflow reference. Admission pins the decoded principal in the operation's idempotency
+record.
+
+When `changes` is non-empty, `OperationsService` commits it through `ChangeSets.commitScript` under the
+operation's execution ID, with `api` or `integration` causation, initiator, and integration
+attribution, so retries derive the same entity and event IDs. An invocation answers `PluginInvokeResult`
+(`{ result, committed }`) to HTTP and agent tools alike. A keyed invocation records it inside the commit
+transaction through `keyedReceipt`, after taking the key's lock, so a retry after commit returns it and
+a concurrent retry commits nothing. Without changes, it is recorded after the run.
+
 ## Operation failures
 
 `OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is
 `operation-rejected` becomes HTTP 422 `PluginOperationRejected`, whose reason is the script's local
-message stamped with the plugin's namespace. HTTP, page and agent-tool invocations, including
-idempotent background submissions, share this dispatch. Every other sandbox failure remains HTTP 502
+message stamped with the plugin's namespace. A boundary reason of `changes-conflict`, the stale
+baseline an operation found while reading, becomes HTTP 409 `PluginConflictError` with its conflict
+code, as a stale commit does. HTTP, page and agent-tool invocations, including idempotent background
+submissions, share this dispatch. Every other sandbox failure remains HTTP 502
 `PluginInvocationError` with `runtime-failed`, because proxies may replace 502 bodies and the client
 treats them as transport failures.
+
+Commit failures of returned changes map the same way: a policy rejection becomes 422
+`PluginOperationRejected` with the policy's reason, a failure whose code is a `CommitConflictCode`
+becomes 409 `PluginConflictError` with `changes-conflict` and that code, and any other invalid change
+set is a plugin defect, reported as 502 `runtime-failed`.
 
 ## Message catalogs
 
@@ -57,7 +77,11 @@ Listed plugins include hidden and installing installations, but exclude incompat
 Catalog operations resolve one `listPluginsAvailableToUser` snapshot and thread it through multi-row
 work rather than rereading different catalog states. `listOperationsAvailableToUser` combines one
 executable snapshot with a batched operation-script metadata read at its pinned revision IDs for the
-agent tool registry. Catalog changes publish a transactional
+agent tool registry. `PluginRuntimeResolver` combines that snapshot with each active revision's
+decoded manifest sections, which it keeps per process by revision ID in bounded caches (256 revisions
+each) because revision rows and their scripts never change. Executable lookups load only workflows,
+operations, dependencies, name, and script hashes; listings additionally load the client section and
+artifact imports. Catalog changes publish a transactional
 `pg_notify` that clients use to refetch.
 
 ## Plugin artifacts and revision identity
@@ -133,20 +157,22 @@ scripts resolve by immutable revision ID, script slug, and content hash.
 Ingestion readiness uses configured-key metadata from the exact revision and configuration owner,
 without decrypting values. It checks availability, not ciphertext authentication. Startup validates
 retained encryption-key references; execution configuration reads still authenticate ciphertext.
+Configuration is capped at `PLUGIN_CONFIG_MAX_BYTES` (64 KiB of JSON) when saved or resolved for an
+installation, and sandbox reads fail when the resolved configuration exceeds it.
 
 ## User preferences
 
 `userSettingsSchema` declares non-secret per-user preferences. `plugin_installation.user_settings`
 stores explicit choices, while schema defaults supply missing values. `PluginUserSettingsWriter` owns
-every write: it validates against the active persisted schema, caps the stored document at 64 KiB,
-locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
-resets replace the document under the exclusive ingestion lock. The `updateUserSettings` sandbox call
-merges top-level keys under the shared ingestion lock and the user write lock, after admitting the
+every write: it validates against the active persisted schema, caps the stored document at
+`PLUGIN_USER_SETTINGS_MAX_BYTES` (64 KiB), locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
+resets replace the document under the exclusive ingestion lock. A returned settings patch merges
+top-level keys under the shared ingestion lock and the user write lock, after admitting the
 subject's account. It resolves the installation from the plugin and execution user,
 accepts only keys in the pinned revision's schema, and rejects uninstalled, inactive, or incompatible
-installations at write time. Each patch invalidates the catalog; the four-call execution cap bounds
-that cost. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the
-execution user and plugin identity, applying the pinned revision's schema and defaults. These
+installations at write time. Each patch invalidates the catalog. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the
+execution user and plugin identity, applying the pinned revision's schema and defaults, and fail when
+the resolved document exceeds the same limit, which bounds the read's result. These
 preferences remain separate from encrypted configuration revisions and their redacted client
 projections.
 
@@ -176,10 +202,45 @@ from `@ryot-app/definitions/kernel-definitions` and the complete available plugi
 `[{ id, manifest, scope }]`, is the definition validator. Scope defaults to `system`. It checks every
 authored branch, resolves owners against that set, rejects unavailable or wrong-scope owners, checks
 controls independently, and builds the definition snapshot. Invalid declarations throw.
-`validateSystemPluginSet` adds the deployment rules for active system packages: unique package IDs,
-configuration environment keys, and HTTP rate-limit lookups. `ryot plugin build` runs the same
-definition validator over the plugin and its declared dependency closure; ingestion still validates
-every archive.
+`ryot plugin build` runs the same definition validator over the plugin and its declared dependency
+closure; ingestion still validates every archive.
+
+System package ingestion keeps its event loop free by running its CPU-heavy checks in a worker.
+`PluginValidationWorker` is a pool of one `@ryot-app/compiler-worker` worker started from
+`packages/plugin-validation-worker.ts` (`plugin-validation-worker.js` in the production build) and
+speaking `packages/validation-worker-protocol.ts`. An ingestion leases the worker for its whole
+operation, before it takes the ingestion lock so a lock holder never waits for the worker, and runs
+two jobs on the one process:
+
+- `checkSource` runs `checkPluginSource`: catalogs, integration and import schemas, compiled script
+  matching, encoding and output audits, the client artifact, and the content hash.
+- `validateDefinitionSet` runs `@ryot-app/definitions` definition-set validation over the active
+  system set inside the ingestion transaction. `validation-worker-protocol.ts` keeps only the fields
+  validation reads and answers `{ valid: true }` or `{ valid: false, issue }` with the string of the
+  error the in-process validator throws.
+
+In process stay the manifest decode, which the rest of ingestion (policy, schema evolution,
+persistence and catalog invalidation) reads and Effect Schema cannot decode without its checks; the
+deployment rules for active system packages, `validateSystemPluginDeployment` (unique package IDs,
+configuration environment keys and HTTP rate-limit lookups); and each package's manifest references.
+These run before the worker jobs, so their errors are reported first. Boot's kernel definition
+replacement runs through `validateActiveSystemPlugins`, which takes the lease before the lock. User
+installations check sources and definition sets in process through `normalizePluginSource` and
+`buildValidatedDefinitionSnapshot`: their scoped validation is shorter than a worker round trip, and
+a worker would add its memory per install and serialize concurrent users' installs behind one
+process.
+
+A failed check or invalid set keeps its `PluginValidationError` and message. CPU time and memory
+above the worker limits also fail as `PluginValidationError`; a worker that cannot start, exits,
+outlasts its elapsed-time limit or answers with an invalid result fails with
+`CompilerWorkerUnavailable`, which ingestion raises as a defect so its transaction rolls back like a
+database failure.
+
+The worker exits when its lease ends, so nothing outlives a job. Its peak memory is garbage from
+receiving and parsing the request and decoding the manifest, which the definition-set job then runs
+on top of, and Bun returns little freed memory to the system; a resident worker would keep that
+memory for an operation that runs only at boot and on rare administrative installs.
+
 Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
 `makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and
 `testing/effect` package entry points. Seed through the exported `platform/db/session` and

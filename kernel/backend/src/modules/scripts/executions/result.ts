@@ -1,3 +1,4 @@
+import type { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	stampBoundaryReason,
 	StampedSandboxBoundaryReason,
@@ -38,3 +39,16 @@ export const SandboxExecutionResult = Schema.Struct({
 });
 
 export type SandboxExecutionResult = Schema.Schema.Type<typeof SandboxExecutionResult>;
+
+/** A run that failed before the sandbox reported a result, as a completed execution. */
+export const sandboxExecutionFailure = (error: SandboxRunError) => ({
+	logs: [],
+	value: null,
+	status: "completed" as const,
+	error: {
+		kind: error.kind,
+		message: error.message,
+		phase: "execute" as const,
+		...(error.data === undefined ? {} : { data: error.data }),
+	},
+});

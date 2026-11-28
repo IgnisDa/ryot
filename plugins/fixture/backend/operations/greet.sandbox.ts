@@ -14,5 +14,5 @@ export default defineOperation({
 	manifest,
 	input: GreetInput,
 	output: GreetOutput,
-	run: (input) => Effect.succeed({ greeting: `Hello, ${input.name}` }),
+	run: (input) => Effect.succeed({ output: { greeting: `Hello, ${input.name}` } }),
 });

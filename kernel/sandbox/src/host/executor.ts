@@ -1,9 +1,9 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
-import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonByteLength, stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 
@@ -18,21 +18,16 @@ import {
 	type SidecarDoneFrame,
 } from "../protocol/messages";
 import { SandboxAdmissionLease } from "./admission";
-import { SandboxExecutionAuthority } from "./authority";
 import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
-import {
-	sandboxDurableHostDispatchStrategy,
-	sandboxHostResultBytes,
-} from "./host-execution-policy";
+import { sandboxDurableHostDispatchStrategy } from "./host-execution-policy";
 import { SandboxHostFunctions } from "./host-functions";
 import {
 	type BoundHostFunction,
 	sandboxPlatformFailureKind,
 	type SandboxRunInput,
-	toSandboxHostError,
 } from "./invocation";
 import { encodedJsonBytes } from "./json-bytes";
 import { recordSandboxExecution, type SandboxExecutionOutcome, sandboxMetricKind } from "./metrics";
@@ -51,8 +46,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Write capabilities may wait for nested sandbox runs, and unbounded results cannot be
-// charged to transient memory, so live executions never bind them while holding a slot and memory.
+// A run keeps its lease while its host calls settle, so live executions bind only capabilities that
+// start no run; service capabilities are dispatched by the workflow body instead.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",
@@ -70,8 +65,7 @@ export const selectSandboxHostFunctions = (
 			!isSandboxHostCapability(name) ||
 			isSandboxFilesystemGrantCapability(name) ||
 			(workflow && name !== "log" && name !== "span") ||
-			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
-			sandboxHostResultBytes(name) === null
+			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name))
 		) {
 			continue;
 		}
@@ -91,7 +85,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 			const gate = yield* SandboxHostCallGate;
 			const files = yield* ExecutionFiles;
 			const hostFunctions = yield* SandboxHostFunctions;
-			const authority = yield* SandboxExecutionAuthority;
 			const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
 				const executionStartedAt = yield* Clock.currentTimeMillis;
 				const kind = sandboxMetricKind(input.principal.metadata);
@@ -109,7 +102,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							? existingLease.value
 							: yield* supervisor.reserve(input.principal, input.lane);
 						const context = input.context ?? {};
-						const contextError = sandboxContextError(context);
+						const contextError = sandboxContextError(context, input.contextBytes);
 						if (contextError !== null) {
 							return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
 						}
@@ -158,18 +151,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 											input,
 											parentSpan,
 											files: access,
-											apiFunctions: Object.fromEntries(
-												Object.entries(selected).map(([name, host]) => [
-													name,
-													(args: ReadonlyArray<unknown>) =>
-														authority
-															.resolve(input.principal)
-															.pipe(
-																Effect.mapError(toSandboxHostError),
-																Effect.andThen(host(args)),
-															),
-												]),
-											),
+											apiFunctions: selected,
 										})
 										.pipe(
 											Effect.mapError(
@@ -266,7 +248,11 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 												isObjectRecord(response.value) && response.value["state"] === "completed"
 													? response.value["output"]
 													: response.value;
-											return { response, harvest: yield* access.harvest(completed) };
+											const output =
+												input.harvestRoot !== undefined && isObjectRecord(completed)
+													? completed[input.harvestRoot]
+													: completed;
+											return { response, harvest: yield* access.harvest(output) };
 										}),
 									};
 								}),

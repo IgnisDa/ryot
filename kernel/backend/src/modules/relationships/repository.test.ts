@@ -7,6 +7,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 
 import { baseInput, relationshipDatabaseLayer } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";
@@ -19,7 +20,7 @@ describe("RelationshipsRepository PostgreSQL", () => {
 				Effect.gen(function* () {
 					const repository = yield* RelationshipsRepository;
 					const session = yield* DatabaseSession;
-					const created = yield* repository.createRelationship(baseInput);
+					const created = yield* repository.createRelationship(new WriteTransaction(), baseInput);
 					const found = yield* repository.findRelationship(baseInput);
 					assert(found);
 					expect(found).toEqual({
@@ -37,7 +38,11 @@ describe("RelationshipsRepository PostgreSQL", () => {
 							Effect.gen(function* () {
 								yield* repository.lockRelationshipMutations([baseInput]);
 								yield* repository.updateRelationshipsById([
-									{ id: created.id, properties: { rank: 5 } },
+									{
+										id: created.id,
+										properties: { rank: 5 },
+										targetEntityId: created.targetEntityId,
+									},
 								]);
 								expect((yield* repository.findRelationship(baseInput))?.properties).toEqual({
 									rank: 5,
@@ -47,18 +52,12 @@ describe("RelationshipsRepository PostgreSQL", () => {
 						)
 						.pipe(Effect.catchTag("DbError", () => Effect.void));
 					expect(yield* repository.findRelationship(baseInput)).toEqual(found);
-					const updated = yield* repository.updatePreparedRelationship({
-						...baseInput,
-						before: found,
-						properties: { rank: 7 },
-					});
-					assert(updated);
-					expect(updated.properties).toEqual({ rank: 7 });
+					const updated = yield* repository.updateRelationshipsById([
+						{ id: found.id, properties: { rank: 7 }, targetEntityId: found.targetEntityId },
+					]);
+					expect(updated.get(found.id)?.properties).toEqual({ rank: 7 });
 					expect(
-						yield* repository.deletePreparedRelationship({ ...baseInput, before: found }),
-					).toBeNull();
-					expect(
-						yield* repository.deletePreparedRelationship({ ...baseInput, before: updated }),
+						(yield* repository.deleteRelationshipsById([found.id])).get(found.id),
 					).toMatchObject({ id: found.id, properties: { rank: 7 } });
 					expect(yield* repository.findRelationship(baseInput)).toBeNull();
 				}),

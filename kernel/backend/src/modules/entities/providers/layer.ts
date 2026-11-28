@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { LifecycleServicesLive } from "#modules/automations/layer";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -10,7 +9,6 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityRetentionRepository } from "#modules/entities/retention/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
@@ -73,9 +71,7 @@ export const EntityPopulationLive = EntityPopulation.layer.pipe(
 );
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(LifecycleServicesLive, ScriptExecutionServiceLive, DomainWriteChecksLive),
-	),
+	Layer.provide(Layer.mergeAll(ScriptExecutionServiceLive, DomainWriteChecksLive)),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(DefinitionRepository.layer),
 );
@@ -87,8 +83,6 @@ export const EntityPopulationJobProvidedLive = EntityPopulationJobLive.pipe(
 			EntitiesRepositoryLive,
 			TranslationsServiceLive,
 			DomainWriteChecksLive,
-			PluginRuntimeResolverLive,
-			RelationshipsRepository.layer,
 			EnrichmentRequests.layer,
 		),
 	),

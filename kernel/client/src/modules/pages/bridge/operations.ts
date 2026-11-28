@@ -75,7 +75,12 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 					})
 					.pipe(
 						Effect.match({
-							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
+							onSuccess: (response) =>
+								({
+									outcome: "success",
+									value: response.result,
+									committed: response.committed,
+								}) as const,
 							onFailure: (error) => {
 								if (
 									Schema.is(PluginRequestError)(error.cause) &&
@@ -88,6 +93,16 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 								}
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
+								}
+								if (
+									Schema.is(PluginConflictError)(error.cause) &&
+									error.cause.reason.code === "changes-conflict"
+								) {
+									return {
+										outcome: "failure",
+										reason: "changes-conflict",
+										conflict: error.cause.reason.conflict,
+									} as const;
 								}
 								if (isOperationRejected(error.cause) || isDemoOperationProtectedError(error)) {
 									return {

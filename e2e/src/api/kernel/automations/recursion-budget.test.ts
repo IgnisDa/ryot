@@ -73,7 +73,7 @@ export const manifest = defineManifest(${JSON.stringify(sandboxManifest(script))
 
 export default defineAutomation({
   manifest,
-  run: () => Effect.succeed(null),
+  run: () => Effect.succeed({}),
 });
 `;
 
@@ -83,44 +83,49 @@ const recursionRootSource = (input: {
 	readonly relationshipSchemaSlug: string;
 }) => `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(input.script))});
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }, host) => Effect.gen(function* () {
+  run: ({ automation }) => Effect.gen(function* () {
     const payload = automation.payload;
-    if (payload.resource !== "event" || payload.operation !== "create") return null;
+    if (payload.resource !== "event" || payload.operation !== "create") return {};
     const chainId = payload.after.properties.chainId;
     const targetEntityId = payload.after.properties.targetEntityId;
     if (typeof chainId !== "string" || typeof targetEntityId !== "string") {
       return yield* Effect.fail(new Error("Recursion root properties are invalid"));
     }
-    yield* Effect.all([
-      host.createEvents([{
-        entityId: payload.after.entityId,
-        eventSchemaSlug: ${JSON.stringify(input.childEventSchemaSlug)},
-        properties: { chainId },
-      }]),
-      host.changeUserRelationships([{
-        deletes: [],
-        creates: [{
-          properties: { chainId },
-          propertiesMode: "replace",
-          targetEntityId,
-          sourceEntityId: payload.after.entityId,
-          relationshipSchemaSlug: ${JSON.stringify(input.relationshipSchemaSlug)},
+    const source = existingEntity(EntityId.make(payload.after.entityId));
+    return {
+      changes: {
+        events: {
+          changes: [{ kind: "create" as const, entity: source,
+            itemIdentity: "child",
+            properties: { chainId },
+            eventSchemaSlug: ${JSON.stringify(input.childEventSchemaSlug)},
+          }],
+        },
+        relationships: {
+          upserts: [{
+            source,
+            properties: { chainId },
+            propertiesMode: "replace" as const,
+            target: existingEntity(EntityId.make(targetEntityId)),
+            relationshipSchemaSlug: ${JSON.stringify(input.relationshipSchemaSlug)},
+          }],
+        },
+        signals: [{
+          schemaSlug: "recursion",
+          discriminator: chainId + "-depth-1",
+          properties: { integrationId: chainId, providerName: "recursion-budget" },
         }],
-      }]),
-      host.emitSignal({
-        schemaSlug: "recursion",
-        discriminator: chainId + "-depth-1",
-        properties: { integrationId: chainId, providerName: "recursion-budget" },
-      }),
-    ], { concurrency: "unbounded" });
-    return null;
+      },
+    };
   }),
 });
 `;
@@ -134,20 +139,23 @@ export const manifest = defineManifest(${JSON.stringify(sandboxManifest(script))
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }, host) => Effect.gen(function* () {
+  run: ({ automation }) => Effect.gen(function* () {
     const payload = automation.payload;
-    if (payload.resource !== "signal") return null;
+    if (payload.resource !== "signal") return {};
     const chainId = payload.properties.integrationId;
     if (typeof chainId !== "string") {
       return yield* Effect.fail(new Error("Recursive signal integrationId is invalid"));
     }
     const depth = automation.causation.depth + 1;
-    yield* host.emitSignal({
-      schemaSlug: "recursion",
-      discriminator: chainId + "-depth-" + depth,
-      properties: { integrationId: chainId, providerName: "recursion-budget" },
-    });
-    return null;
+    return {
+      changes: {
+        signals: [{
+          schemaSlug: "recursion",
+          discriminator: chainId + "-depth-" + depth,
+          properties: { integrationId: chainId, providerName: "recursion-budget" },
+        }],
+      },
+    };
   }),
 });
 `;
@@ -157,22 +165,32 @@ const fanoutRootSource = (input: {
 	readonly childEventSchemaSlug: string;
 }) => `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(input.script))});
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }, host) => Effect.gen(function* () {
+  run: ({ automation }) => Effect.sync(() => {
     const payload = automation.payload;
-    if (payload.resource !== "event" || payload.operation !== "create") return null;
-    yield* Effect.all(["left", "right"].map((branch) => host.createEvents([{
-      entityId: payload.after.entityId,
-      eventSchemaSlug: ${JSON.stringify(input.childEventSchemaSlug)},
-      properties: { branch },
-    }])), { concurrency: "unbounded" });
-    return null;
+    if (payload.resource !== "event" || payload.operation !== "create") return {};
+    const entity = existingEntity(EntityId.make(payload.after.entityId));
+    return {
+      changes: {
+        events: {
+          changes: ["left", "right"].map((branch) => ({
+            kind: "create" as const,
+            entity,
+            itemIdentity: branch,
+            properties: { branch },
+            eventSchemaSlug: ${JSON.stringify(input.childEventSchemaSlug)},
+          })),
+        },
+      },
+    };
   }),
 });
 `;
@@ -194,18 +212,12 @@ describe("automation recursion budgets", () => {
 			const rootHookSlug = AutomationHookSlug.make(`recursion-root-${suffix}`);
 			const recursiveHookSlug = AutomationHookSlug.make(`recursion-signal-${suffix}`);
 			const formatterHookSlug = AutomationHookSlug.make(`recursion-formatter-${suffix}`);
-			const rootScript = automationScript(
-				rootHookSlug,
-				"E2E recursion root",
-				["createEvents", "changeUserRelationships", "emitSignal"],
-				{ event: { compareProperties: [], properties: ["chainId", "targetEntityId"] } },
-			);
-			const recursiveScript = automationScript(
-				recursiveHookSlug,
-				"E2E recursive signal",
-				["emitSignal"],
-				{ signal: { properties: ["integrationId"] } },
-			);
+			const rootScript = automationScript(rootHookSlug, "E2E recursion root", [], {
+				event: { compareProperties: [], properties: ["chainId", "targetEntityId"] },
+			});
+			const recursiveScript = automationScript(recursiveHookSlug, "E2E recursive signal", [], {
+				signal: { properties: ["integrationId"] },
+			});
 			const formatterScript = automationScript(formatterHookSlug, "E2E recursion formatter", [], {
 				signal: { properties: [] },
 			});
@@ -263,7 +275,6 @@ describe("automation recursion budgets", () => {
 					hooks: [
 						{
 							stage: "after",
-							delivery: "async",
 							slug: rootHookSlug,
 							causationSources: ["api"],
 							scriptSlug: rootScript.slug,
@@ -279,7 +290,6 @@ describe("automation recursion budgets", () => {
 						},
 						{
 							stage: "after",
-							delivery: "async",
 							slug: recursiveHookSlug,
 							scriptSlug: recursiveScript.slug,
 							causationSources: ["automation"],
@@ -288,7 +298,6 @@ describe("automation recursion budgets", () => {
 						},
 						{
 							stage: "after",
-							delivery: "async",
 							slug: formatterHookSlug,
 							name: "E2E recursion formatter",
 							scriptSlug: formatterScript.slug,
@@ -423,7 +432,6 @@ describe("automation recursion budgets", () => {
 
 			expect(childEventTriggers).toEqual([]);
 			expect(relationshipTriggers).toEqual([]);
-			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
 			expect(rootTrigger.causation).toMatchObject({
 				depth: 0,
 				source: "api",
@@ -469,10 +477,7 @@ describe("automation recursion budgets", () => {
 			}
 
 			const blocked = requirePresent(signalTriggers[8], "Expected blocked depth-nine trigger");
-			expect(blocked.blockedReason).toMatchObject({
-				hasRequiredHooks: false,
-				code: "automation-limit-reached",
-			});
+			expect(blocked.blockedReason).toMatchObject({ code: "automation-limit-reached" });
 			expect(blocked.blockedReason?.omittedHooks).toEqual<unknown>(
 				arrayContaining([{ pluginId: plugin.pluginId, hookSlug: recursiveHookSlug }]),
 			);
@@ -486,7 +491,7 @@ describe("automation recursion budgets", () => {
 		}),
 	);
 
-	it.live("shares the root run budget across concurrent child fan-out", () =>
+	it.live("shares the root run budget across child fan-out", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const suffix = yield* randomUuid;
@@ -496,7 +501,7 @@ describe("automation recursion budgets", () => {
 			const childEventSchemaSlug = EventSchemaSlug.make(`fanout-child-${suffix}`);
 			const rootHookSlug = AutomationHookSlug.make(`fanout-root-${suffix}`);
 			const noOpScriptSlug = `fanout-noop-${suffix}`;
-			const rootScript = automationScript(rootHookSlug, "E2E fanout root", ["createEvents"], {
+			const rootScript = automationScript(rootHookSlug, "E2E fanout root", [], {
 				event: { properties: [], compareProperties: [] },
 			});
 			const noOpScript = automationScript(noOpScriptSlug, "E2E fanout no-op", [], {
@@ -509,7 +514,6 @@ describe("automation recursion budgets", () => {
 			const hooks: PluginManifest["hooks"] = [
 				{
 					stage: "after",
-					delivery: "async",
 					slug: rootHookSlug,
 					causationSources: ["api"],
 					scriptSlug: rootScript.slug,
@@ -526,7 +530,6 @@ describe("automation recursion budgets", () => {
 				...fanoutHookSlugs.map((hookSlug) => ({
 					slug: hookSlug,
 					stage: "after" as const,
-					delivery: "async" as const,
 					scriptSlug: noOpScript.slug,
 					name: `E2E fanout child hook ${hookSlug}`,
 					causationSources: ["automation" as const],
@@ -642,7 +645,6 @@ describe("automation recursion budgets", () => {
 					trigger.payload.after.eventSchemaSlug === childEventSchemaSlug,
 			);
 			expect(childTriggers).toHaveLength(2);
-			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
 			for (const trigger of childTriggers) {
 				expect(trigger.causation).toMatchObject({
 					depth: 1,
@@ -660,10 +662,7 @@ describe("automation recursion budgets", () => {
 				childTriggers.find(({ blockedReason }) => blockedReason === null),
 				"Expected one accepted concurrent fanout trigger",
 			);
-			expect(blocked.blockedReason).toMatchObject({
-				hasRequiredHooks: false,
-				code: "automation-limit-reached",
-			});
+			expect(blocked.blockedReason).toMatchObject({ code: "automation-limit-reached" });
 			expect(blocked.blockedReason?.omittedHooks).toHaveLength(51);
 			expect(yield* listAutomationRuns({ triggerId: blocked.id })).toEqual([]);
 			expect(yield* listAutomationRuns({ triggerId: accepted.id })).toHaveLength(51);

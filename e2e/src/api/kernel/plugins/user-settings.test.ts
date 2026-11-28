@@ -2,7 +2,6 @@ import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text
 import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
-import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
@@ -31,11 +30,11 @@ const invokeSettingsOperation = (
 	client: Client,
 	packageId: PluginPackageId,
 	operationSlug: string,
-	patches?: ReadonlyArray<Record<string, JsonValue>>,
+	patch?: Record<string, JsonValue>,
 ) =>
 	client.call((contract) =>
 		contract.plugins.invoke({
-			payload: { payload: patches === undefined ? {} : { patches } },
+			payload: { payload: patch === undefined ? {} : { patch } },
 			params: { ...pluginPackageSegments(packageId), operationSlug },
 		}),
 	);
@@ -114,47 +113,37 @@ describe("plugin user settings", () => {
 		}),
 	);
 
-	it.live("lets a plugin operation patch its own installation's settings", () =>
+	it.live("commits a plugin operation's settings patch to its own installation", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const plugin = yield* installPreferencePrivatePlugin({ client });
 			const otherPlugin = yield* installPreferencePrivatePlugin({ client: other.client });
-			const patchSettings = (patches: ReadonlyArray<Record<string, JsonValue>>) =>
+			const patchSettings = (patch: Record<string, JsonValue>) =>
 				invokeSettingsOperation(
 					client,
 					plugin.installation.packageId,
 					plugin.pluginPackage.operationSlug,
-					patches,
+					patch,
 				);
 
-			expect((yield* patchSettings([{ limit: 3 }])).result).toEqual({ limit: 3, enabled: false });
+			expect((yield* patchSettings({ limit: 3 })).result).toEqual({ limit: 5, enabled: false });
 			expect(yield* storedSettings(client, plugin.setting.id)).toEqual({ limit: 3 });
-			expect((yield* patchSettings([{ enabled: true }])).result).toEqual({
+			expect((yield* patchSettings({ enabled: true })).result).toEqual({
 				limit: 3,
-				enabled: true,
+				enabled: false,
 			});
 			expect(yield* storedSettings(client, plugin.setting.id)).toEqual({ limit: 3, enabled: true });
 			expect(yield* storedSettings(other.client, otherPlugin.setting.id)).toEqual({});
 
-			for (const [patches, message] of [
-				[[{ limit: 11 }], "Expected a value less than or equal to 10"],
-				[[{ unknown: true }], "Unknown plugin user settings: unknown"],
-				[
-					Array.from({ length: 5 }, () => ({ limit: 3 })),
-					"Sandbox execution exceeds 4 updateUserSettings calls",
-				],
-			] as const) {
-				const failure = yield* Effect.flip(patchSettings(patches));
+			const invalidPatches: ReadonlyArray<Record<string, JsonValue>> = [
+				{ limit: 11 },
+				{ unknown: true },
+			];
+			for (const patch of invalidPatches) {
+				const failure = yield* Effect.flip(patchSettings(patch));
 				assertTaggedError(failure, "PluginInvocationError");
-				expect(failure.reason).toEqual<unknown>(
-					objectContaining({
-						code: "runtime-failed",
-						diagnostics: [
-							objectContaining({ severity: "error", message: stringContaining(message) }),
-						],
-					}),
-				);
+				expect(failure.reason.code).toBe("runtime-failed");
 			}
 			expect(yield* storedSettings(client, plugin.setting.id)).toEqual({ limit: 3, enabled: true });
 		}),

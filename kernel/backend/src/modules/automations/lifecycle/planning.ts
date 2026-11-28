@@ -1,22 +1,21 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationBatchChangePayload,
-	type AutomationHookIdentity,
 	AutomationPluginAfterRun,
 	type AutomationRun,
 	AutomationTrigger,
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRunId,
 	AutomationTriggerId,
-	PluginId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, type Effect, Schema, Struct } from "effect";
+
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 export const lifecycleTriggerId = (input: {
 	itemIdentity: string;
@@ -51,19 +50,10 @@ export const lifecycleRunId = (
 		)}`,
 	);
 
-export const LifecyclePlannedPolicy = Schema.Struct({
-	position: Schema.Finite,
-	pluginId: Schema.NullOr(PluginId),
-	runId: AutomationPluginAfterRun.fields.id,
-	batchFrequency: PluginBeforeHook.fields.batchFrequency,
-});
-export type LifecyclePlannedPolicy = typeof LifecyclePlannedPolicy.Type;
-
 export type LifecyclePlan = {
 	readonly wasCreated: boolean;
 	readonly trigger: AutomationTrigger;
 	readonly runs: ReadonlyArray<AutomationRun>;
-	readonly policies: ReadonlyArray<LifecyclePlannedPolicy>;
 };
 
 export type LifecyclePlanningResult =
@@ -73,20 +63,11 @@ export type LifecyclePlanningResult =
 			readonly _tag: "NoHooks";
 			readonly wasCreated: false;
 			readonly runs: readonly [];
-			readonly policies: readonly [];
 	  };
 
-export const LifecycleDispatchRun = Schema.Struct(
-	Struct.pick(AutomationPluginAfterRun.fields, [
-		"id",
-		"stage",
-		"status",
-		"delivery",
-		"hookSlug",
-		"triggerId",
-	]),
+const LifecycleDispatchRun = Schema.Struct(
+	Struct.pick(AutomationPluginAfterRun.fields, ["id", "status", "hookSlug", "triggerId"]),
 );
-export type LifecycleDispatchRun = typeof LifecycleDispatchRun.Type;
 
 export const LifecycleDispatchPlan = Schema.Struct({
 	triggerId: AutomationTrigger.fields.id,
@@ -101,20 +82,12 @@ export const toLifecycleDispatchPlan = ({
 }: LifecyclePlan): LifecycleDispatchPlan => ({
 	triggerId: trigger.id,
 	blockedReason: trigger.blockedReason,
-	runs: runs.flatMap((run) =>
-		run.stage === "after"
-			? [
-					{
-						id: run.id,
-						stage: run.stage,
-						status: run.status,
-						delivery: run.delivery,
-						hookSlug: run.hookSlug,
-						triggerId: run.triggerId,
-					},
-				]
-			: [],
-	),
+	runs: runs.map((run) => ({
+		id: run.id,
+		status: run.status,
+		hookSlug: run.hookSlug,
+		triggerId: run.triggerId,
+	})),
 });
 
 export type LifecycleBatchResource = AutomationBatchChangePayload["resource"];
@@ -147,6 +120,7 @@ export class LifecycleWork extends Context.Service<
 	{
 		derive: (
 			triggers: ReadonlyArray<AutomationTrigger>,
+			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<AutomationTrigger>, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecycleWork") {}
@@ -154,27 +128,42 @@ export class LifecycleWork extends Context.Service<
 export class LifecyclePlanner extends Context.Service<
 	LifecyclePlanner,
 	{
+		/**
+		 * Takes the users' catalog lock on the caller's transaction: their ingestion fence, every
+		 * plugin's configuration lock and shared locks on its plugin and installation rows, held to the
+		 * transaction's end.
+		 */
+		lockCatalog: (
+			users: ReadonlyArray<null | UserId>,
+			transaction: WriteTransaction,
+		) => Effect.Effect<void, DbError>;
 		planBatch: (
+			transaction: WriteTransaction,
 			input: LifecycleBatchInput,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
-		planChange: (input: {
-			trigger: AutomationTrigger;
-		}) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
+		planChange: (
+			input: { trigger: AutomationTrigger },
+			transaction: WriteTransaction,
+		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 		recordBatchChange: (
+			transaction: WriteTransaction,
 			id: string,
 			change: LifecycleBatchChange & { readonly index: number },
 		) => Effect.Effect<void, DbError>;
+		/** Plans a committed change or signal trigger's after hooks on the caller's transaction. */
+		plan: (input: {
+			trigger: AutomationTrigger;
+			transaction: WriteTransaction;
+			recipients?: ReadonlyArray<UserId>;
+		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
 		planChanges: (
 			triggers: ReadonlyArray<AutomationTrigger>,
+			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError>;
 		prepareBatch: (
+			transaction: WriteTransaction,
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
-		plan: (input: {
-			trigger: AutomationTrigger;
-			recipients?: ReadonlyArray<UserId>;
-			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
-		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecyclePlanner") {}

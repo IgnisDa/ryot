@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
@@ -9,11 +9,12 @@ import { parseMediaServer } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Emby sink",
 	slug: "integration.emby",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: IntegrationArtifactOutput,
@@ -31,5 +32,8 @@ export default defineScript({
 				occurredAt,
 				(payload) => findEmbyShow(payload, host),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

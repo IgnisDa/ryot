@@ -36,7 +36,7 @@ export const manifest = defineManifest({
 
 export default defineAutomation({
   manifest,
-  run: () => Effect.succeed(null),
+  run: () => Effect.succeed({}),
 });
 `;
 
@@ -53,7 +53,7 @@ export default defineWorkflow({
   manifest,
   input: Schema.Struct({}),
   output: Schema.String,
-  run: () => Effect.succeed("workflow"),
+  run: () => Effect.succeed({ output: "workflow" }),
 });
 `;
 
@@ -121,8 +121,8 @@ layer(SandboxCompiler.layer)((test) => {
 			Effect.gen(function* () {
 				const failure = yield* compileFailure(
 					workflowSource.replace(
-						'Effect.succeed("workflow")',
-						`Effect.succeed(String(${expression}))`,
+						'Effect.succeed({ output: "workflow" })',
+						`Effect.succeed({ output: String(${expression}) })`,
 					),
 				);
 				expect(failure.diagnostics).toEqual<unknown>([

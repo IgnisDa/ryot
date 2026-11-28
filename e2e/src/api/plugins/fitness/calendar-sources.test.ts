@@ -19,7 +19,6 @@ import {
 	workoutOccurrence,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const window = {
@@ -67,7 +66,6 @@ const seedWorkout = (client: Client, startedAt: string, exerciseCount: number) =
 				),
 			}),
 		);
-		assertCondition(created.kind === "saved", "Expected the calendar workout to save");
 		expect(created.sets).toHaveLength(exerciseCount * 2);
 		return created.entityId;
 	});

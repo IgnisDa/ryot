@@ -2,6 +2,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { PolicyRejected, PolicyUnavailable } from "../changes/policies";
 import {
 	CreateRelationshipBody,
 	RelationshipBadRequest,
@@ -18,6 +19,8 @@ export const RelationshipsGroup = HttpApiGroup.make("relationships")
 			error: [
 				RelationshipBadRequest.pipe(HttpApiSchema.status(400)),
 				RelationshipNotFound.pipe(HttpApiSchema.status(404)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 			],
 		}).annotate(OpenApi.Description, "Create a relationship between entities."),
 	)

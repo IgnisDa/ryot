@@ -1,17 +1,13 @@
 import { describe, expect } from "bun:test";
 
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import {
-	absorbFoldValues,
-	deriveHistory,
-	type FoldEvent,
-	type HistoryChange,
-	type MediaFoldValue,
-} from "./history";
+import { absorbFoldValues, deriveHistory, type FoldEvent, type MediaFoldValue } from "./history";
+import { applyHistoryChanges } from "./history.test-support";
 
 const basis = { total: 120, unit: "minutes", property: "runtime" };
 
@@ -31,61 +27,14 @@ const event = (
 	...overrides,
 });
 
-const apply = (events: ReadonlyArray<FoldEvent>, changes: ReadonlyArray<HistoryChange>) => {
-	let next = [...events];
-	const byId = (id: string) => {
-		const found = next.find((value) => value.id === id);
-		assert(found);
-		return found;
-	};
-	for (const change of changes) {
-		if (change.kind === "delete") {
-			next = next.filter(({ id }) => id !== change.eventId);
-		} else if (change.kind === "create") {
-			const anchor = byId(change.item.orderAfter.eventId);
-			next.push({
-				revision: 0,
-				eventSchemaSlug: "complete",
-				id: `derived-${next.length}`,
-				entityId: change.item.entityId,
-				occurredAt: change.item.occurredAt,
-				properties: change.item.properties,
-				orderCreatedAt: anchor.orderCreatedAt,
-				sessionEntityId: change.item.sessionEntityId ?? null,
-				orderKey: `${anchor.orderKey}~${change.item.orderAfter.suffix}`,
-				entitySchemaSlug:
-					change.item.entityId === anchor.entityId ? anchor.entitySchemaSlug : "show",
-			});
-		} else {
-			const current = byId(change.item.eventId);
-			const { patch } = change.item;
-			const anchor = patch.orderAfter === null ? null : byId(patch.orderAfter.eventId);
-			const properties = Object.fromEntries(
-				Object.entries({ ...current.properties, ...patch.properties.set }).filter(
-					([key]) => !patch.properties.remove.includes(key),
-				),
-			);
-			next = next.map((value) =>
-				value.id === current.id
-					? {
-							...current,
-							properties,
-							revision: current.revision + 1,
-							occurredAt: patch.occurredAt ?? current.occurredAt,
-							orderCreatedAt: anchor?.orderCreatedAt ?? current.orderCreatedAt,
-							orderKey:
-								anchor === null ? current.id : `${anchor.orderKey}~${patch.orderAfter?.suffix}`,
-						}
-					: value,
-			);
-		}
-	}
-	return next;
+type Subject = {
+	readonly id: string;
+	readonly terminal: boolean;
+	readonly episodic: boolean;
+	readonly entitySchemaSlug: string;
 };
 
-type Subject = { readonly id: string; readonly terminal: boolean; readonly episodic: boolean };
-
-const movie: Subject = { id: "movie", terminal: false, episodic: false };
+const movie: Subject = { id: "movie", terminal: false, episodic: false, entitySchemaSlug: "movie" };
 
 const fold = (
 	events: ReadonlyArray<FoldEvent>,
@@ -102,7 +51,13 @@ const fold = (
 			previous,
 			...(renamedKeys ? { renamedKeys } : {}),
 		});
-		const settled = apply(events, first.changes);
+		yield* Schema.decodeEffect(FoldResult)({
+			events: [],
+			value: null,
+			relationships: [],
+			changes: first.changes,
+		});
+		const settled = applyHistoryChanges(events, first.changes, subject.entitySchemaSlug);
 		const second = yield* deriveHistory({ ...input, events: settled, previous: first.value });
 		expect(second.changes).toEqual([]);
 		return { events: settled, value: second.value, changes: first.changes };
@@ -111,7 +66,7 @@ const fold = (
 const completions = (events: ReadonlyArray<FoldEvent>) =>
 	events.filter(({ eventSchemaSlug }) => eventSchemaSlug === "complete");
 
-const show: Subject = { id: "show", terminal: true, episodic: true };
+const show: Subject = { id: "show", terminal: true, episodic: true, entitySchemaSlug: "show" };
 const episode = (
 	id: string,
 	slug: "complete" | "progress",
@@ -137,7 +92,7 @@ describe("media history fold", () => {
 		"completes a manga when a volume position reaches its volume total, never by chapters",
 		() =>
 			Effect.gen(function* () {
-				const manga = { id: "manga", terminal: false, episodic: false };
+				const manga = { id: "manga", terminal: false, episodic: false, entitySchemaSlug: "manga" };
 				const progress = (id: string, unit: "volumes" | "chapters", position: number) =>
 					event(id, {
 						entityId: "manga",
@@ -288,7 +243,7 @@ describe("media history fold", () => {
 	);
 
 	it.effect(
-		"completes an ended show once its aired episodes are covered and keeps the frozen inventory",
+		"completes an ended show once its aired episodes are covered and keeps it as its inventory changes",
 		() =>
 			Effect.gen(function* () {
 				const covered = yield* fold(
@@ -420,6 +375,188 @@ describe("media history fold", () => {
 	);
 
 	it.effect(
+		"completes a show again when its deleted closing episode is logged again before the deleted time",
+		() =>
+			Effect.gen(function* () {
+				const inventory = ["episode-1", "episode-2"];
+				const covered = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z"),
+						episode("episode-2", "complete", "2026-01-05T12:00:00.000Z"),
+					],
+					undefined,
+					show,
+					inventory,
+				);
+				const deleted = yield* fold(
+					covered.events.filter(({ id }) => id !== "complete-episode-2"),
+					covered.value,
+					show,
+					inventory,
+				);
+				expect(completions(deleted.events).map(({ entityId }) => entityId)).toEqual(["episode-1"]);
+				const relogged = yield* fold(
+					[
+						...deleted.events,
+						{
+							...episode("episode-2", "complete", "2026-01-03T12:00:00.000Z"),
+							id: "relog-episode-2",
+							orderKey: "relog-episode-2",
+						},
+					],
+					deleted.value,
+					show,
+					inventory,
+				);
+				expect(
+					completions(relogged.events).find(({ entityId }) => entityId === "show"),
+				).toMatchObject({
+					orderKey: "relog-episode-2~parent",
+					occurredAt: "2026-01-03T12:00:00.000Z",
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"moves an automatic completion to the episode its progress moves to",
+		() =>
+			Effect.gen(function* () {
+				const airing = { ...show, terminal: false };
+				const inventory = ["episode-1", "episode-2"];
+				const watched = yield* fold(
+					[episode("episode-1", "progress", "2026-01-01T12:00:00.000Z")],
+					undefined,
+					airing,
+					inventory,
+				);
+				const moved = yield* fold(
+					watched.events.map((value) =>
+						value.id === "progress-episode-1"
+							? { ...value, revision: 1, entityId: "episode-2" }
+							: value,
+					),
+					watched.value,
+					airing,
+					inventory,
+				);
+				expect(moved.changes).toMatchObject([
+					{ kind: "update", item: { patch: { entityId: "episode-2" } } },
+				]);
+				expect(completions(moved.events).map(({ entityId }) => entityId)).toEqual(["episode-2"]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"keeps a show completion at its new episode when counted episodes covered the cycle earlier",
+		() =>
+			Effect.gen(function* () {
+				const inventory = ["episode-1", "episode-2", "episode-3"];
+				const counted = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z"),
+						episode("episode-2", "complete", "2026-01-02T12:00:00.000Z"),
+						episode("episode-3", "complete", "2026-01-03T12:00:00.000Z"),
+					],
+					undefined,
+					show,
+					[...inventory, "episode-4"],
+				);
+				expect(counted.changes).toEqual([]);
+				const rewatch = {
+					...episode("episode-1", "complete", "2026-01-04T12:00:00.000Z"),
+					id: "rewatch-episode-1",
+					orderKey: "rewatch-episode-1",
+				};
+				const completed = yield* fold([...counted.events, rewatch], counted.value, show, inventory);
+				expect(
+					completions(completed.events).find(({ entityId }) => entityId === "show"),
+				).toMatchObject({
+					orderKey: "rewatch-episode-1~parent",
+					occurredAt: "2026-01-04T12:00:00.000Z",
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"keeps a show completion at its closing episode when a duplicate watch in its cycle is deleted",
+		() =>
+			Effect.gen(function* () {
+				const inventory = ["episode-1", "episode-2", "episode-3"];
+				const covered = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z"),
+						episode("episode-2", "complete", "2026-01-02T12:00:00.000Z"),
+						{
+							...episode("episode-2", "complete", "2026-01-03T12:00:00.000Z"),
+							id: "rewatch-episode-2",
+							orderKey: "rewatch-episode-2",
+						},
+						episode("episode-3", "complete", "2026-01-04T12:00:00.000Z"),
+					],
+					undefined,
+					show,
+					inventory,
+				);
+				const parent = completions(covered.events).find(({ entityId }) => entityId === "show");
+				assert(parent);
+				const deduplicated = yield* fold(
+					covered.events.filter(({ id }) => id !== "rewatch-episode-2"),
+					covered.value,
+					show,
+					inventory,
+				);
+				expect(deduplicated.changes).toEqual([]);
+				expect(
+					deduplicated.value.occurrences.find(({ rule }) => rule === "coverage"),
+				).toMatchObject({
+					covered: 3,
+					sourceEventId: "complete-episode-3",
+					key: parent.properties["completionKey"],
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"keeps an edited automatic completion in its source order when it closes a show's coverage",
+		() =>
+			Effect.gen(function* () {
+				const inventory = ["episode-1", "episode-2"];
+				const airing = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z"),
+						episode("episode-2", "progress", "2026-01-02T12:00:00.000Z"),
+					],
+					undefined,
+					{ ...show, terminal: false },
+					inventory,
+				);
+				const ended = yield* fold(
+					airing.events.map((value) =>
+						value.entityId === "episode-2" && value.eventSchemaSlug === "complete"
+							? { ...value, revision: 1, properties: { ...value.properties, timeSpent: 30 } }
+							: value,
+					),
+					airing.value,
+					show,
+					inventory,
+				);
+				expect(
+					completions(ended.events).flatMap(({ entityId, orderKey }) =>
+						entityId === "episode-1" ? [] : [{ entityId, orderKey }],
+					),
+				).toEqual([
+					{ entityId: "episode-2", orderKey: "progress-episode-2~complete" },
+					{ entityId: "show", orderKey: "progress-episode-2~complete~parent" },
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
 		"does not complete a show that is still airing",
 		() =>
 			Effect.gen(function* () {
@@ -436,8 +573,12 @@ describe("media history fold", () => {
 });
 
 describe("absorbFoldValues", () => {
+	const position = {
+		occurredAt: "2026-01-01T12:00:00.000Z",
+		orderCreatedAt: "2026-01-01T12:00:00.000Z",
+	};
 	const suppressed: MediaFoldValue = {
-		coverageSources: ["old-event"],
+		counted: { ...position, id: "old-event", orderKey: "old-event" },
 		occurrences: [
 			{
 				total: 120,
@@ -449,25 +590,24 @@ describe("absorbFoldValues", () => {
 				sourceEventId: "old-event",
 			},
 			{
+				covered: 2,
 				written: null,
 				silent: false,
 				status: "active",
 				rule: "coverage",
 				key: "coverage:old-event",
 				sourceEventId: "old-event",
-				sources: ["old-event", "kept-event"],
-				inventory: ["old-episode", "kept-episode"],
 			},
 		],
 	};
-	const ids = { "old-event": "new-event", "old-episode": "new-episode" };
+	const ids = { "old-event": "new-event" };
 
 	it("rewrites the IDs an absorbed value holds and clears what it wrote", () => {
 		const { renamedKeys, value: absorbed } = absorbFoldValues({ occurrences: [] }, [
 			{ ids, value: suppressed },
 		]);
 		expect(renamedKeys.get("progress:old-event")).toBe("progress:new-event");
-		expect(absorbed.coverageSources).toEqual(["new-event"]);
+		expect(absorbed.counted).toEqual({ ...position, id: "new-event", orderKey: "new-event" });
 		expect(absorbed.occurrences).toEqual([
 			{
 				total: 120,
@@ -479,14 +619,13 @@ describe("absorbFoldValues", () => {
 				sourceEventId: "new-event",
 			},
 			{
+				covered: 2,
 				written: null,
 				silent: false,
 				status: "active",
 				rule: "coverage",
 				key: "coverage:new-event",
 				sourceEventId: "new-event",
-				sources: ["new-event", "kept-event"],
-				inventory: ["new-episode", "kept-episode"],
 			},
 		]);
 	});

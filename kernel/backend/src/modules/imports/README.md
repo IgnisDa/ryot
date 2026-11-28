@@ -16,16 +16,53 @@ The `data-json` source validates records against definitions already available t
 document-local keys resolve entity and relationship dependencies, including schema-declared nested
 property references. Provider entities use normal provider resolution; custom entities remain
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
-failed records do not roll back earlier committed records.
+failed records do not roll back earlier committed records. Each entity and relationship record
+commits as one change set in its own activity, because a later record's property references need
+the IDs an earlier record's commit generated and a record fails alone. An existing or
+provider-resolved entity record is a reference, so its commit checks the entity's schema and records
+its `unchanged` import item. A run of consecutive event records references only records committed
+before it, so it commits as one independent-mode change set in one activity, keyed by the run's
+first committed record, with an outcome per event: a preparation failure (an asset the user may not
+reference among them), policy rejection or policy item error affects only its event, and a failure of
+the whole commit (a policy execution error, `mutation-conflict`, or `asset-forbidden` for an asset that
+changed after preparation) fails every event without an outcome of its own. A run whose activity fails
+records each of its events `unsuccessful`. The commit owns every property and asset check of a
+record, so a record it refuses fails at `database_commit`. Cancellation is checked before each record
+or run.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
-the ingestion identity of the subject entity's operation. Validation selects one write path per
-record. A standalone record writes its entities, relationships, and collections step by step, then
-creates its events through standalone event creation. A record that contains declared event-group
-schemas writes its non-subject entities first, then commits its user-owned subject, relationships,
-and complete event group as one user command whose command identity is `<record>`; the per-item
-identities in that command produce the same per-intent item identities. Event preparation can
-span pages, but the record commits atomically.
+the ingestion identity of the subject entity's operation. Provider entities resolve in their own
+activities first; the record's entities, relationships and events then commit as one change set in
+one activity, under the command identity `<record>`. `commitImportItem` holds the commit's result in
+the account's idempotency key under that identity, so an activity retried after its commit replays
+the result instead of writing again. Before its providers resolve, a record is checked only against
+the import's own rules: unique entity aliases, a subject and memberships naming one of them, an
+`existingOnly` intent naming an entity ID or match, coalescing only for admitted integrations, and no
+`global` scope for a private plugin. Its commit checks everything it writes under the plugin's
+authority. An intent's `entityId` or `match` is resolved inside the commit: a found entity is kept
+with an `unchanged` import item, and an `existingOnly` intent that finds none fails the record. A
+provider-resolved entity whose intent also has a `match` is preferred by that match, so the one
+name-matching rule decides whether it is used. The record's event schemas
+decide how its events commit: a standalone record's events are independent creates with their own
+outcomes, and a record with an event of a declared event group commits its events all-or-nothing,
+which needs a user-owned subject and no coalesced event. Event preparation can span pages, but the
+record commits atomically. Coalesced events commit afterwards, each in its own activity.
+
+`commitImportItem` serves both sources. The transaction that records an item's result also records,
+under the run's projection lock its precondition takes, the outcome and issue of each event the
+commit did not write: `skipped` with the policy's `policy-rejected` reason, or `unsuccessful` with
+`event-policy-failed` for a policy execution error and `database-commit-failed` otherwise. A
+coalesced event's outcome is recorded the same way after its commit. A record or run that fails
+otherwise records its operations `unsuccessful` with its failure stage's code, and a generic record
+with a failure records each intent that has neither a result nor an outcome `unsuccessful` with its
+first failure's code, in one activity that reads the record's results and outcomes as sets.
+
+Collection memberships commit in the record's change set, built by `CollectionsService`: each names
+the user's collection by trimmed name, created with the record when no collection has that name, a
+`member-of` relationship and its membership event. One activity per chunk reads the membership fields
+of the chunk's existing collections; a membership those fields reject is left out of the change set
+and recorded `unsuccessful` with `membership-event-failed`, while the rest of the record commits. A
+failure inside the commit fails the whole record.
 Independent Data JSON event records still follow standalone event rules; they cannot create an empty
 anchor and rely on a later record to repair it.
 
@@ -39,12 +76,12 @@ trusted writer and revision; they cannot borrow kernel or another plugin's domai
 {
   "entities": [
     {
-      "key": "bottle",
+      "key": "item",
       "kind": "custom",
-      "name": "Bottle",
+      "name": "Item",
       "entitySchema": {
-        "owner": { "kind": "plugin", "pluginId": "local-whiskey-id" },
-        "slug": "bottle"
+        "owner": { "kind": "plugin", "pluginId": "local-plugin-id" },
+        "slug": "item"
       },
       "properties": {}
     }
@@ -234,7 +271,7 @@ deterministic durable IDs lets the replacement backend locate and interrupt the 
 ## Plugin checkpoints
 
 Plugin orchestration saves explicit collection, sorting, normalization, and application cursors.
-Media and fitness keep their bounded external sorting and immutable source captures. Each checkpoint
+External sorting stays bounded and source captures are immutable. Each checkpoint
 advances only after its captures, committed application receipts, and required confirmations are
 recorded. A restart loads the saved phase rather than replaying earlier phases. The current unfinished
 step retains private call outcomes for interruption and delivery safety. The execution owner keeps

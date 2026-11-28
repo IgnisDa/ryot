@@ -1,4 +1,4 @@
-import type { RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import type { CommittedChanges, RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
 import type { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type {
 	PluginDeviceRequest,
@@ -9,10 +9,7 @@ import type {
 
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
-import type {
-	WorkoutEditorSaveInput,
-	WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import type { WorkoutEditorSaveInput } from "../../shared/workout-editor-operations";
 import type { FitnessText } from "../messages";
 
 export type TimerName = "rest" | "execution";
@@ -20,7 +17,11 @@ export type WorkoutEditorContext = {
 	readonly pro: boolean;
 } & typeof WorkoutEditorContextOutputSchema.Type;
 
-type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
+export type WorkoutEditorSaveResult =
+	| { readonly kind: "conflict" }
+	| { readonly kind: "saved"; readonly entityId: NonNullable<CommittedChanges["entityId"]> };
+
+type SavedResult = Extract<WorkoutEditorSaveResult, { readonly kind: "saved" }>;
 
 type ContextSnapshot = {
 	readonly saveState: SaveState;
@@ -72,7 +73,7 @@ export type WorkoutEditorControllerPorts = {
 	readonly iosLiveActivities: RyotClient["iosLiveActivities"];
 	readonly refreshContext: Effect.Effect<WorkoutEditorContext, unknown>;
 	readonly device: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult, unknown>;
-	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveOutput, unknown>;
+	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveResult, unknown>;
 	readonly storage: {
 		readonly remove: Effect.Effect<void, unknown>;
 		readonly read: Effect.Effect<unknown, unknown>;

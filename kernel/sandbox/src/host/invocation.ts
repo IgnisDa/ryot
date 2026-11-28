@@ -42,12 +42,15 @@ export type SandboxRunInput = {
 	readonly startedAt: string;
 	readonly lane: ExecutionLane;
 	readonly executionId: string;
+	/** The property of the completed result whose value names the scratch files to harvest; the result itself when absent. */
+	readonly harvestRoot?: string;
 	readonly compiledCode: string;
+	/** The context's byte limit; `SANDBOX_LIMITS.execution.contextBytes` when absent. */
+	readonly contextBytes?: number;
 	readonly checkpoint?: JsonValue;
 	readonly compiledFormat: number;
 	readonly principal: SandboxPrincipal;
 	readonly workflowExecutionId?: string;
-	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
 	readonly replayJournal?: SandboxPinnedJournal;
 	readonly inlineDurableHost?: SandboxInlineDurableHost;

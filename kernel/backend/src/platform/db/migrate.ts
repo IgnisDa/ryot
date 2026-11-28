@@ -2,9 +2,7 @@ import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/effect-postgres/migrator";
 import { Context, Effect, Layer } from "effect";
 
-import { collectionOrderStatements } from "./collection-order";
-import { entityOccursAtStatements } from "./entity-occurs-at";
-import { immutableRevisionStatements } from "./immutable-revisions";
+import { postMigrationStatements } from "./post-migration";
 import { DatabaseSession } from "./session";
 
 const migrateDB = Effect.gen(function* () {
@@ -19,11 +17,7 @@ const migrateDB = Effect.gen(function* () {
 			yield* session.run((database) =>
 				database.execute(sql`select pg_advisory_xact_lock(hashtext('ryot:immutable-revisions'))`),
 			);
-			for (const statement of [
-				...immutableRevisionStatements,
-				...collectionOrderStatements,
-				...entityOccursAtStatements,
-			]) {
+			for (const statement of postMigrationStatements) {
 				yield* session.run((database) => database.execute(sql.raw(statement)));
 			}
 		}),

@@ -10,6 +10,7 @@ import {
 	definitionOwner,
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { PLUGIN_USER_SETTINGS_MAX_BYTES } from "@ryot-app/contract/modules/plugins/user-settings";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import {
 	BackupRunId,
@@ -67,6 +68,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin, StoredPlugin } from "#modules/plugins/packages/types";
+import { pluginUserSettingsTooLargeMessage } from "#modules/plugins/preferences/user-settings-size";
 import { withCatalogs } from "#modules/plugins/source.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -169,6 +171,32 @@ it.effect(
 				settingsSchema,
 			).pipe(Effect.flip);
 			expect(invalidValue._tag).toBe("BackupArchiveError");
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects restored plugin user settings above the user settings cap",
+	() =>
+		Effect.gen(function* () {
+			const settingsSchema: AppSchema = {
+				unknownKeys: "strict",
+				fields: { note: { label: "Note", type: "string", description: "A note" } },
+			};
+			const oversized = yield* resolveRestoredPluginUserSettings(
+				{ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES) },
+				settingsSchema,
+			).pipe(Effect.flip);
+			expect(oversized).toMatchObject({
+				reason: "invalid_entry",
+				message: pluginUserSettingsTooLargeMessage,
+			});
+			expect(
+				yield* resolveRestoredPluginUserSettings(
+					{ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES - 64) },
+					settingsSchema,
+				),
+			).toEqual({ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES - 64) });
 		}),
 	testTimeout,
 );

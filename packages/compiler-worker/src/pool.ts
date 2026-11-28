@@ -35,7 +35,7 @@ export type CompilerWorkerPoolOptions<E> = {
 	readonly idleTimeoutMs: number;
 	readonly startupTimeoutMs: number;
 	readonly recycleMemoryBytes: number;
-	readonly goMemoryLimitBytes: number;
+	readonly goMemoryLimitBytes?: number;
 	readonly verifyEnvironment?: boolean;
 	readonly workspaceDirectory?: string;
 	readonly memoryPollIntervalMs: number;
@@ -166,7 +166,10 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 						stdout: "pipe",
 						stderr: "pipe",
 						stdin: Stream.fromQueue(input),
-						env: { ...options.env, GOMEMLIMIT: String(options.goMemoryLimitBytes) },
+						env:
+							options.goMemoryLimitBytes === undefined
+								? options.env
+								: { ...options.env, GOMEMLIMIT: String(options.goMemoryLimitBytes) },
 					},
 				),
 			);
@@ -447,8 +450,16 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 			yield* Semaphore.release(permits, 1);
 		});
 
+	const lease = Effect.acquireRelease(acquire, release).pipe(
+		Effect.map((slot) => ({
+			run: <E2>(encode: (job: CompilerWorkerJob) => Effect.Effect<string, E2>) =>
+				runJob(slot, encode),
+		})),
+	);
+
 	return {
+		lease,
 		run: <E2>(encode: (job: CompilerWorkerJob) => Effect.Effect<string, E2>) =>
-			Effect.acquireUseRelease(acquire, (slot) => runJob(slot, encode), release),
+			Effect.scoped(Effect.flatMap(lease, (leased) => leased.run(encode))),
 	};
 });

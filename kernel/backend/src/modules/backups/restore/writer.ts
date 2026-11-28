@@ -1,6 +1,7 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	builtinSavedViewReference,
 	definitionKey,
@@ -56,12 +57,19 @@ import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities
 import { EventGroupConstraints } from "#modules/events/event-group-constraints";
 import { eventPropertyReferences } from "#modules/events/event-references";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
-import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
+import {
+	isIntegrationSettingsTooLarge,
+	resolveIntegrationSettingsSchema,
+} from "#modules/integrations/settings-schema";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { validateRestoredProperties } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
+import {
+	isPluginUserSettingsTooLarge,
+	pluginUserSettingsTooLargeMessage,
+} from "#modules/plugins/preferences/user-settings-size";
 import { PUBLICATION_RESULT_BYTES } from "#modules/publications/model";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -447,6 +455,9 @@ export const resolveRestoredPluginUserSettings = Effect.fn(function* (
 	userSettings: Record<string, unknown>,
 	settingsSchema: undefined | AppSchema<unknown>,
 ) {
+	if (isPluginUserSettingsTooLarge(userSettings)) {
+		return yield* archiveError("invalid_entry", pluginUserSettingsTooLargeMessage);
+	}
 	return yield* resolvePluginUserSettings(
 		settingsSchema ?? emptyPluginUserSettingsSchema,
 		userSettings,
@@ -3161,6 +3172,18 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						settingsSchema,
 					);
 					yield* validateIntegrationSettings(integration, providerSpecifics, settingsSchema);
+					if (
+						isIntegrationSettingsTooLarge({
+							providerSpecifics,
+							name: integration.name,
+							provider: integration.provider,
+						})
+					) {
+						return yield* archiveError(
+							"invalid_entry",
+							`Backup integration settings exceed ${INTEGRATION_LIMITS.settingsBytes} UTF-8 bytes`,
+						);
+					}
 					yield* persistence.restoreForUser({
 						userId,
 						providerSpecifics,

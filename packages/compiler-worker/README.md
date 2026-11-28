@@ -1,9 +1,9 @@
 # Compiler Worker
 
-`@ryot-app/compiler-worker` is private, generic infrastructure for running Ryot's compilers in
-long-lived, supervised Bun worker processes. Compilers supply their own request and response
-codecs, limits, failure codes, and warm-up work; this package owns only the process protocol and
-supervision.
+`@ryot-app/compiler-worker` is private, generic infrastructure for running Ryot's compilers and other
+CPU-heavy validation, such as definition sets, in supervised Bun worker processes. Callers supply
+their own request and response codecs, limits, failure codes, and warm-up work; this package owns only
+the process protocol and supervision.
 
 ## Worker Host
 
@@ -20,14 +20,18 @@ lazily, and warm-up has its own startup timeout so it never counts against a job
 worker serves later jobs ahead of an empty slot, so compilers pay process startup and dependency
 loading once instead of per compile, and only concurrent jobs start more workers.
 
+`run` serves one job from any free worker. `lease` reserves one worker slot for a scope, so a
+caller's consecutive jobs share one process; the slot is released, and its idle timeout starts, when
+the scope closes.
+
 Each job receives a fresh `{ parentPath, jobId }` workspace address beneath a private pool directory,
 and the pool removes that directory after the job, including after forced termination. The pool
 enforces the job's CPU-time budget, the hard Linux process-tree proportional memory limit, and the
 response size limit; any of these kills the worker, fails only that job with the compiler's
 `CpuTimeExceeded`, `MemoryExceeded`, or `OutputExceeded` failure, and the next job starts a fresh worker.
 After a successful job, a worker above the recycle threshold is replaced; an idle worker exits after
-its idle timeout. The pool sets the worker's `GOMEMLIMIT` for the native TypeScript server it starts
-and makes each worker the preferred out-of-memory victim.
+its idle timeout. When the caller supplies a Go memory limit, the pool sets the worker's `GOMEMLIMIT`
+for a native TypeScript server it starts. Each worker is the preferred out-of-memory victim.
 
 CPU time is the Linux process tree's, so a busy host does not fail a source that compiles within its
 budget; elsewhere elapsed time stands in for it. A separate elapsed-time limit catches an overloaded

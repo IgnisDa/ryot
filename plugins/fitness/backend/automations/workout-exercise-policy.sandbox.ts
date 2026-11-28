@@ -8,8 +8,10 @@ import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { catalogMessage } from "../../shared/messages.generated";
-import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
-import { WORKOUT_TAXONOMY_LIMIT } from "../../shared/workout-taxonomy";
+import {
+	WORKOUT_TAXONOMY_BATCH,
+	workoutExerciseTaxonomyRecipe,
+} from "../../shared/taxonomy-recipes";
 import { workoutEventExercise } from "./workout-event-exercise";
 
 export const manifest = defineManifest({
@@ -22,92 +24,74 @@ export const manifest = defineManifest({
 	},
 });
 
+const contextMissing: AutomationPolicyResult = {
+	action: "reject",
+	reason: catalogMessage("rejection.workout-exercise.context-missing"),
+};
+
 export default defineAutomationPolicy({
 	manifest,
 	run: ({ items, automation }, host) =>
 		Effect.gen(function* () {
-			const results: { itemIdentity: string; decision: AutomationPolicyResult }[] = [];
-			for (const { payload, itemIdentity } of items) {
-				if (
-					payload.resource !== "event" ||
-					payload.operation !== "create" ||
-					payload.draft.eventSchemaSlug !== "workout-exercise"
-				) {
-					results.push({ itemIdentity, decision: { action: "allow" } });
-					continue;
-				}
-				const draft = payload.draft;
+			const created = items.flatMap(({ payload, itemIdentity }) =>
+				payload.resource === "event" &&
+				payload.operation === "create" &&
+				payload.draft.eventSchemaSlug === "workout-exercise"
+					? [{ itemIdentity, draft: payload.draft }]
+					: [],
+			);
+			const exerciseIds = [...new Set(created.map(({ draft }) => draft.entityId))];
+			const read = [];
+			for (let index = 0; index < exerciseIds.length; index += WORKOUT_TAXONOMY_BATCH) {
+				read.push(
+					...(yield* executeRyotqlRecipe(
+						host.executeRyotql,
+						workoutExerciseTaxonomyRecipe({ reference: { kind: "self" } }),
+						{ exerciseIds: exerciseIds.slice(index, index + WORKOUT_TAXONOMY_BATCH) },
+					)),
+				);
+			}
+			const taxonomy = new Map(read.map((exercise) => [exercise.id, exercise]));
+			const decide = (draft: (typeof created)[number]["draft"]): AutomationPolicyResult => {
 				const exercise = workoutEventExercise(automation, draft);
-				if (exercise === undefined) {
-					results.push({
-						itemIdentity,
-						decision: {
-							action: "reject",
-							reason: catalogMessage("rejection.workout-exercise.context-missing"),
-						},
-					});
-					continue;
-				}
-				const input = {
-					exerciseId: draft.entityId,
-					reference: { kind: "self" },
-					limit: WORKOUT_TAXONOMY_LIMIT,
-				} as const;
 				const exerciseKind = Schema.decodeUnknownResult(exerciseKindSchema)(
-					exercise.properties["kind"],
+					exercise?.properties["kind"],
 				);
-				if (exerciseKind._tag === "Failure") {
-					results.push({
-						itemIdentity,
-						decision: {
-							action: "reject",
-							reason: catalogMessage("rejection.workout-exercise.context-missing"),
-						},
-					});
-					continue;
+				const links = taxonomy.get(draft.entityId);
+				if (exercise === undefined || exerciseKind._tag === "Failure" || links === undefined) {
+					return contextMissing;
 				}
-				const targets = yield* executeRyotqlRecipe(
-					host.executeRyotql,
-					exerciseTargetsRecipe({ reference: input.reference }),
-					{ exerciseId: input.exerciseId },
-					{ pages: { targets: { after: undefined, limit: input.limit } } },
-				);
-				const equipment = yield* executeRyotqlRecipe(
-					host.executeRyotql,
-					exerciseEquipmentRecipe({ reference: input.reference }),
-					{ exerciseId: input.exerciseId },
-					{ pages: { equipment: { after: undefined, limit: input.limit } } },
-				);
-				if (targets.pageInfo.hasMore || equipment.pageInfo.hasMore) {
-					results.push({
-						itemIdentity,
-						decision: {
-							action: "reject",
-							reason: catalogMessage("rejection.workout-exercise.taxonomy-capacity"),
-						},
-					});
-					continue;
+				if (links.targets.pageInfo.hasMore || links.equipment.pageInfo.hasMore) {
+					return {
+						action: "reject",
+						reason: catalogMessage("rejection.workout-exercise.taxonomy-capacity"),
+					};
 				}
-				results.push({
-					itemIdentity,
-					decision: {
-						action: "transform",
-						patch: {
-							resource: "event",
-							draft: {
-								properties: {
-									remove: [],
-									set: {
-										exerciseKind: exerciseKind.success,
-										equipment: equipment.items.map(({ id }) => id),
-										targets: targets.items.map(({ id, role }) => ({ role, entityId: id })),
-									},
+				return {
+					action: "transform",
+					patch: {
+						resource: "event",
+						draft: {
+							properties: {
+								remove: [],
+								set: {
+									exerciseKind: exerciseKind.success,
+									equipment: links.equipment.items.map(({ id }) => id),
+									targets: links.targets.items.map(({ id, role }) => ({ role, entityId: id })),
 								},
 							},
 						},
 					},
-				});
-			}
-			return { items: results };
+				};
+			};
+			const decisions = new Map(
+				created.map(({ draft, itemIdentity }) => [itemIdentity, decide(draft)]),
+			);
+			return {
+				items: items.map(({ itemIdentity }) => ({
+					itemIdentity,
+					decision: decisions.get(itemIdentity) ?? { action: "allow" },
+				})),
+			};
 		}),
 });

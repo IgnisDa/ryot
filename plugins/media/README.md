@@ -158,8 +158,8 @@ explicit library-membership scope.
 
 Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns saved-view data sources.
 
-- `lifecycle-list-recipes.ts` lists library media by current state and recent activity, reusing
-  canonical episodic next-up and flat progress.
+- `lifecycle-list-recipes.ts` lists library media by current state and recent activity, with the
+  library summary's next-up episode and flat progress.
 - `discovery-recipes.ts` selects suggestions from the latest completion that still has suggestions
   and interleaves the latest per-schema trending ranks. Both exclude known NSFW entries.
 - Collection recommendations (`collectionPages.recommendations`) rank every title that collection
@@ -170,7 +170,7 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
 - `upcoming-recipes.ts` feeds the home Upcoming rail from four sources: unwatched regular show and
   podcast episodes of in-progress, caught-up or monitored titles; anime airings after the latest
   watched episode for in-progress or monitored anime; and monitored, incomplete flat releases
-  (anime premieres included). States come from the stored library summary. Dates use server-local today through the typed `daysAhead` argument in the account reporting
+  (anime premieres included). States come from the library summary. Dates use server-local today through the typed `daysAhead` argument in the account reporting
   timezone; anime airings use that civil-midnight instant window, excluding the
   provider's UTC-midnight premiere entry that the release source already lists. Undated items
   never appear, and stored dates are shown without waiting on provider freshness. Each source
@@ -212,7 +212,10 @@ library through the subject's `in-media-library` link:
 
 ### Signal Schedules
 
-`manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary:
+`manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary.
+Each schedule starts at the user's Media library and follows its `media-monitoring` links (releases)
+or `in-media-library` links (stale progress, availability) to the titles, so an evaluation reads only
+the user's linked titles and their episodes:
 
 - `show-episode-releases`, `podcast-episode-releases`, `anime-airing-releases`, and `flat-releases`
   emit `media.released` for monitored library media once the release instant or date is due. Season-0
@@ -222,7 +225,7 @@ library through the subject's `in-media-library` link:
   state has had no activity for 7 or 14 days. The occurrence includes the latest activity, so new
   activity starts a new period. Both require a validated Pro key.
 - `show-episodes-available` and `podcast-episodes-available` emit `media.episodes-available` when the
-  stored next airing of an unmonitored caught-up series arrives; monitored series already receive
+  stored next release of an unmonitored caught-up series arrives; monitored series already receive
   `media.released`. Monitoring is never enabled implicitly.
 
 ## Images And Providers
@@ -316,6 +319,12 @@ SDK. Source-limited inventories fail visibly rather than deleting links or claim
 Recommendations are curated selections, separate from exhaustive credits, group members, and
 catalogs. Metron arc suggestions select the first three arcs and twenty issues per arc; TMDB trending
 selects three pages. Execution limits are safety boundaries, not successful inventory truncation.
+
+`workflow.media-trending` runs `movie.tmdb.trending` and then `show.tmdb.trending` as activities.
+Each returns its fetched titles as global entity upserts and its own batch ranked from 1 at the
+current time, under a `self` selector scoped to its entity schema, so the commit replaces only that
+schema's `media-trending` rows and other schemas' batches stay. A failed fetch returns no changes, so the
+previous ranks stay.
 
 Metron series issues follow validated source next-page links through durable continuations and keep
 global issue order across pages. IGDB reverse game lookups also use durable pages, without a fixed
@@ -412,7 +421,8 @@ seasons and episodes. `media-trending` declares `retention: root` while an item 
 parents offer **Add season**, **Add episode**, **Edit season**, and **Edit episode**; create routes
 carry `parent` plus starting `seasonNumber`/`episodeNumber` search values. Season numbers are
 immutable after creation, so episode season numbers match their season. Deletion is refused while
-an episode has history or a season has episodes.
+an episode has history or a season has episodes; a deleted child's container link is deleted with it,
+so its title refolds.
 
 The API-source before policy `media.custom-publish-year` derives a missing `publishYear` from a
 valid full `publishDate` on custom media creation and update, including direct API writes. An
@@ -453,13 +463,17 @@ An add takes a client-selected ID and returns the complete copy ID. Use the retu
 updates and deletes. The `owned-copies` RyotQL query pages the inventory and accepts technical
 filters. Adding the first copy also saves the title. Removing the last copy clears its Owned status
 while leaving the library membership and history. The plugin protects integration-managed copies
-from manual edits.
+from manual edits: an update expects the copy's origin as it read it, so an update of a copy removed
+or taken over by an integration since fails as a conflict instead of writing it back. The operation
+returns its writes as its change set: a keyed `media-copy` upsert or delete and, for an add, an
+`in-media-library` membership merge. Its schemas live in `shared/media-ownership-operations.ts`.
 
 Jellyfin and Emby inventory integrations scan all visible movie and episode media versions.
 Plex Yank adds copies when **Sync owned copies** is enabled. It reads video and audio stream
 metadata from each Plex version. These scans write each version by its upstream identity and
 the connection's portable source key, including copies with no viewing history. A completed
-authoritative scan removes copies from that connection that are missing from the latest scan. Scans with source,
+authoritative scan removes copies from that connection that are missing from the latest scan: the
+`integration.reconcile-inventory` activity returns one page of keyed deletes per change set. Scans with source,
 resolution, or write failures preserve previously recorded copies. Komga and Audiobookshelf
 upsert the copies they identify. Hardcover and Trakt imports use the same copy model for their
 explicit ownership records. Integration metadata lookup uses integration auth.
@@ -481,12 +495,16 @@ history and reviews keep their IDs and dates; similar records are not deduplicat
 monitoring memberships combine, with destination property values and ranks winning conflicts and
 source-only values retained. Recorded show children match by season/episode number; podcast children
 also require a matching trimmed, case-insensitive title. Missing or ambiguous matches reject the
-whole operation with the affected identities and instructions to refresh or correct metadata before
-trying again. Automatic completions move with their history, and the fold's frozen inventories and
-suppressed occurrences move with them, so an occurrence the user deleted on the source stays deleted on
-the destination. Both actions use the
-kernel's [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md),
-immutable submission identities, and atomic stale-state checks.
+whole operation; the failure names no affected identities, so the user refreshes or corrects metadata
+before trying again. Automatic completions move with their history, and the fold's occurrences move
+with them, so an occurrence the user deleted on the source stays deleted on the destination. The operation returns an
+`entities.clears` or `entities.merges` entry as its change set and an empty output; the kernel's
+[entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md) runs it
+atomically under the operation's idempotency key with stale-state checks. The menu explains the
+`changes-conflict` codes `state-conflict` (the data changed), `child-mapping-conflict` (missing or
+ambiguous child matches) and `entity-not-found`, and shows the kernel's reason for a refused merge or
+clear (same item, another type, mismatched identity). Only a failure whose outcome is unknown offers
+a safe retry; any other failure says the change could not be finished.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.
@@ -528,12 +546,14 @@ an optional `startedOn`; episode batches carry no start or time spent. Dates mus
 `startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Picked dates are
 day-only by default and keep their `calendarDate`; **Add time** switches the sheet to local date and
 time inputs in the user's time zone, and a timed entry writes an exact instant without
-`calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. Writes are chunked
-by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
-writes nothing twice. After a `saved` write of an entry with sources, it appends each trimmed source
-to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
-match exists, stopping when the list holds 30; status entries never do. A settings read or write failure is
-logged and never changes the result. It is protected in demo sessions. The header and the empty activity tab open
+`calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. The operation reads
+only and returns one change set: every event create, keyed by `<eventSchemaSlug>:<entityId>`, and a
+settings patch that appends each trimmed source of an entry to the settings list of the item's type
+(a show or podcast for episodes) unless a case-insensitive match exists, stopping when the list holds
+30; status entries never patch settings. The kernel commits the change set atomically under the
+submission's idempotency key, so a retried submission writes nothing twice and a policy rejection of
+any event rejects the whole log with the policy's message. A settings read that fails or returns a
+malformed list is logged and leaves settings unpatched. It is protected in demo sessions. The header and the empty activity tab open
 the same Log activity sheet. The sheet, quick log button, episode quick mark, review composer, and
 ownership and monitoring toggles hand their writes to the kernel's background submissions: dialogs
 close once the kernel accepts, a finished completion opens the review composer instead, and the
@@ -546,13 +566,19 @@ the caller and to this plugin's event schemas but not to particular schemas, so 
 reads its targets through an explicit allow-list: `complete`, `item-complete`, `progress`, `dropped`, `on_hold`, and
 `backlog` on built-in media and episodes for activity, and `review` on library members for reviews.
 `list-state`, `add-to-media-library`, kernel collection events, and other plugins' events are
-refused. Inputs carry `submittedAt` and the background submission ID; edits use the
-`<submissionId>:write` key. Updates and single-record deletes send the row's full snapshot as a
+refused. Inputs carry `submittedAt` and the background submission ID. Each operation reads its
+targets and returns its writes as one change set that the kernel commits atomically. A review delete
+returns the delete of a visible review without a precondition; an ID that resolves to nothing returns
+no changes and a count of zero. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
-change is reported as stale instead of merged. Edits never touch `sessionEntityId` and touch `entityId` only
+change fails the commit with `changes-conflict` instead of being merged; a single-record delete
+under a snapshot whose record no longer exists fails with `StaleBaselineError`, which reaches the
+caller as the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
 through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another
 episode of the same show (across seasons) or podcast, which must be visible to the caller; moving to the
-record's own episode changes nothing, and any other record or parent is refused. The session policy
+record's own episode changes nothing, and any other record or parent is refused. Reviews that name the moved
+record stop naming it in the same change set, guarded by the old entity's event-scope revision so a
+review linked in between conflicts. The session policy
 then recomputes the record's session, and the fold refolds the subjects it leaves and joins.
 The field matrix in `shared/media-activity-fields.ts` mirrors the declared event schemas; a field
 the schema does not declare, and a stored record carrying keys its schema no longer declares, are
@@ -560,11 +586,9 @@ refused. Progress follows the logging rules: a position on Anime/Manga, a percen
 a date sets `occurredAt` (and `startedOn` where declared); an unknown date keeps `occurredAt` so
 history is not reordered. The edit sheet opens a record without `calendarDate` with its local time
 and keeps the start of progress and completions. Manga progress edits can switch the position's
-unit; a chapter's volume context survives only while the unit stays chapters. Deletes accept up to 500 unique IDs, validate every 100-ID chunk before
-the first write, and delete chunks in input order with `<submissionId>:<chunk>` keys. IDs that
-resolve to nothing pass through as host no-ops, so a retry after a partial commit replays the same
-chunks. A failure after a committed chunk returns `incomplete` for Retry; an earlier failure is a
-rejection.
+unit; a chapter's volume context survives only while the unit stays chapters. Deletes accept up to 500 unique IDs, read them in 100-ID chunks, and return one change set that
+deletes every ID that resolves; IDs that resolve to nothing are skipped. A refusal or conflict leaves
+every record untouched.
 
 Activity and review rows in the Activity tab and complete history offer a row menu. Delete names
 the number of records a folded row stands for; Edit appears only when the row is one completion,
@@ -575,7 +599,7 @@ daily watches in an episodic summary carry no record IDs and are edited from com
 Collection, library, and synced list-state rows have no menu.
 
 History creation, edits, and deletions reconcile automatic completions in the same write.
-Full-progress corrections can create or remove their derived completion; episode corrections reconcile
+Full-progress corrections can create, move or remove their derived completion; episode corrections reconcile
 the affected parent and subsequent consumption cycles. Explicit completions are never removed by
 inference. Editing an automatic completion makes it explicit; deleting one suppresses that occurrence
 without deleting its supporting history. A later independent repeat can complete again. Automatic
@@ -590,11 +614,12 @@ reporting, cancellation, and replay contracts belong to
 [imports](../../kernel/backend/src/modules/imports/README.md). Independent imports append history and
 can duplicate earlier activity.
 
-| Source  | Behavior                                                                                                                                                                                                                                                                                                         |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IMDb    | Watchlist/ratings CSV. Ratings 1–10 become reviews 10–100. Rating or rated date creates an undated completion; review dates do not establish consumption dates. Dates accept `YYYY-MM-DD` or `YYYY/MM/DD`. Rows with neither rating nor date create backlog; malformed values fail per row.                      |
-| Trakt   | `user` imports history/ratings/watchlist/lists/collection; `list` imports a public user list; `export` imports an uploaded ZIP without API calls. API modes need `traktClientId`. List URLs are restricted to Trakt's `/users/{username}/lists/{slug}`. Export ratings/comments may target episodes and seasons. |
-| Spotify | Extended-history ZIP: each `trackdone` Spotify-track source row is independent, including equal `(track, ts)` pairs. Six-play transport groups do not change listening-event counts. Exact `ms_played` supplies recorded minutes; absent duration stays unknown.                                                 |
+| Source        | Behavior                                                                                                                                                                                                                                                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMDb          | Watchlist/ratings CSV. Ratings 1–10 become reviews 10–100. Rating or rated date creates an undated completion; review dates do not establish consumption dates. Dates accept `YYYY-MM-DD` or `YYYY/MM/DD`. Rows with neither rating nor date create backlog; malformed values fail per row.                                                               |
+| Trakt         | `user` imports history/ratings/watchlist/lists/collection; `list` imports a public user list; `export` imports an uploaded ZIP without API calls. API modes need `traktClientId`. List URLs are restricted to Trakt's `/users/{username}/lists/{slug}`. Export ratings/comments may target episodes and seasons.                                          |
+| Spotify       | Extended-history ZIP: each `trackdone` Spotify-track source row is independent, including equal `(track, ts)` pairs. Six-play transport groups do not change listening-event counts. Exact `ms_played` supplies recorded minutes; absent duration stays unknown.                                                                                          |
+| Media history | `shared/media-history.ts` document: a JSON array of provider titles (`entitySchemaSlug`, `providerSlug`, `externalId`, `title`), each with events (`eventSchemaSlug`, UTC `occurredAt`, optional `UnresolvedEpisodeRef` `episode`, `properties`). Event schemas validate properties at write time; an episode the populated parent lacks fails per event. |
 
 Rating scales belong to each source, not the rating value: Goodreads, StoryGraph, Hardcover, and
 Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. MyAnimeList and
@@ -676,17 +701,28 @@ Integration and metadata requests share the declared GraphQL-origin budget.
 Support is declared by `manifest/schemas/entity.ts`. State comes from editable history ordered by
 `occurredAt`, source creation time, then source order, not a separately stored state. Automatic
 completions retain their source-order keys so their later insertion cannot move them past same-time
-activity. Explicit records use their own creation time and ID. Hooks use pinned projections of
+activity, and keep them when an edit makes them explicit. Other explicit records use their own
+creation time and ID. Hooks use pinned projections of
 immutable trigger evidence; current-state RyotQL cannot reconstruct omitted historical values.
 
 | Hook family                     | Responsibility                                                                                                                                                                                                                                                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Library membership              | Required user-scoped entity/provider-import and event-batch hooks merge `in-media-library` properties without clearing annotations. The library never links to itself. A required batch hook (`batchMaxItems` 80) records `add-to-media-library` once per newly created membership in one write; idempotent upserts do not. |
 | Association / relationship sync | Batch hooks filter projected changes; association resolves credits together, and sync uses the population batch leader. Item-count chunks remain subject to the separate invocation byte limit.                                                                                                                             |
-| Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and emits monitoring signals.                                                                                                                                                                                             |
+| Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and returns monitoring signals.                                                                                                                                                                                           |
 | Episodic session                | Before-event policy on episode creates and on episode updates that change `entityId` patches only `sessionEntityId` (a season-0 special stays sessionless); missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                 |
 | Completion reconciliation       | No hook. The `fold.media-history` fold runs on every history write and writes automatic completions; see [the fold](#the-fold).                                                                                                                                                                                             |
 | Review / collection pushes      | Review includes kernel collection reviews; Radarr/Sonarr observe collection additions. Notifications/pushes have one attempt and no automatic external retry.                                                                                                                                                               |
+
+After hooks return their signals, notifications, and fold requests as one change set, which the kernel
+commits with the attempt. The Jellyfin, Radarr, and Sonarr pushes return none.
+
+Association returns one `<person|company>.<media|media-group>.associated` signal per credited subject
+and run, carrying every role it newly holds as `associations` (associated entity ID and name, plus a
+named `role` or a standard `roleCode`). Each credit has one subject, so its batches are capped at the
+change-set signal limit (`batchMaxItems` 100). The notification hook sends one message per
+association, up to the change-set notification limit of 20; past that, the last message counts the
+remaining credits.
 
 Membership batch hooks run after the written prefix, so later items in that request cannot depend on
 their effects. All membership hooks use user execution scope; global population plans none. Batch
@@ -713,8 +749,9 @@ Season completion is derived, never directly written.
 
 Regular episodes share the parent session; season-zero specials are sessionless and outside cycles.
 The active cycle begins strictly after the latest parent completion. Required episodes are aired
-regular-season Show episodes or currently related aired Podcast episodes; null/malformed publication
-dates count as aired, using the server UTC day. Empty coverage is never complete. Specials and empty
+regular-season Show episodes or currently related aired Podcast episodes. An episode with a known
+`airingAt` airs at that instant; otherwise it airs on its publish date in the account reporting
+timezone, and one with neither counts as aired. Empty coverage is never complete. Specials and empty
 seasons neither satisfy nor block it.
 
 `episodeDisplayStateExpression` owns list state, counts, and next-up. Before a new cycle starts it
@@ -725,31 +762,82 @@ Shows without a completion anchor have no next-up; earlier gaps are skipped.
 
 ### The fold
 
-Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSchemaSlugs }` over its
-history schemas. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
-Podcast, its required episodes with `backend/fold/recipes.ts`. An episode with a parent session belongs
-to the parent's fold, and a sessionless special to its own. `backend/fold/history.ts` derives automatic
+Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSchemaSlugs,
+entityProperties }` over its history schemas, naming what the fold reads of entities: a title's
+`publishDate` and `publishYear`, and for a Show or Podcast its `productionStatus` and its episodes'
+`airingAt`, `publishDate` and `episodeNumber`. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
+Podcast, its required episodes with the static documents in `backend/fold/recipes.ts`; the history
+read routes events with the kernel's `foldSubjectEventPredicate` and narrows them by typed
+parameters. An episode with a parent session belongs to the parent's fold, and a sessionless special
+to its own. `foldSubjects` replays a title without a stored value and fails a run whose stored value
+does not decode. `backend/fold/history.ts` derives automatic
 completions, and `backend/fold/consumption.ts` allocates consumption contributions. Each run returns
 the completions to change, one contribution per consumption event, the library summary for each
 `in-media-library` link, and the fold's value.
 
+The library summary holds the lifecycle state, release date and latest activity, and for a Show or
+Podcast its aired, upcoming, completed and in-progress regular-episode counts, its next-up episode and
+its next release: the release instant, else the date, of its first upcoming regular episode in
+release order. The fold returns that release as its refresh time, so the kernel refolds the title
+when it arrives and, for example, a `caught_up` summary turns `in_progress` with the new episode
+counted. `librarySummary` in `shared/library-summary.ts` is the one reader: lifecycle lists, card
+presentations and Upcoming read the stored summary once the title has folded, including while it is
+`pending` or `failed`, and compute the summary the fold would store from the user's history and the
+title's episodes only for a title that has never folded or is outside the library. Browse and the
+signal schedules read only the stored summary, since a signal schedule cannot read the clock.
+
 The fold replays history in order, resetting coverage at each explicit or automatic cycle boundary. A
 new Show or Podcast completion requires a terminal production status (`Ended`, `Canceled`, or
-`Cancelled`, case-insensitive) and either an episode the fold has not counted before or the title newly
-reaching that status, so unrelated edits to an old cycle cannot complete it. The fold's value holds
-each occurrence with its key, status, sources and frozen inventory, plus the coverage sources it has
-counted and whether the title was terminal. A frozen occurrence keeps its inventory, so later provider
-changes do not rewrite past completions. Relationship changes still affect live coverage without
-creating history. The fold reads changes from outside its own events, such as a new status or
-inventory, because `media-entity-updated` and `media-relationship-sync` call
-`requestFoldsForAllUsers`.
+`Cancelled`, case-insensitive) and either a closing episode completion later in history than every
+one the previous fold counted or the title newly reaching that status, so an inventory change or an
+unrelated edit to an old cycle cannot complete it, and neither can a completion logged before the
+latest counted one. The fold's value holds each occurrence with its key and status; a coverage
+occurrence also keeps its closing source and how many episodes it required, and the value keeps the
+history position of the latest episode completion it counted (`counted`) and whether the title was
+terminal, so its size does not grow with the episodes a title covers. A replay restores a coverage
+occurrence at the first episode completion of a cycle that holds its closing source and has completed
+at least that many episodes, so replaying the fold's own completions changes nothing, later provider
+changes do not rewrite past completions, and a corrected source keeps the completion it supports.
+Otherwise the occurrence lapses unless the title completes anew; while a lapsed occurrence's closing
+source is in the open cycle, the value marks it `waiting`. Relationship changes still affect live
+coverage without creating history. A change to one of the declared properties of a title, such as a new status,
+replays it for every user, and one of an episode replays the titles of the users with events on it;
+other content changes, such as a new overview or images, fold nothing. Other users' summaries follow
+episode changes through all-users fold requests, which refold without replaying history:
+`media-entity-updated` returns one for an episode's title when the episode's `airingAt`,
+`publishDate` or `episodeNumber` changes, and `media-relationship-sync` one for the titles whose
+container links are created or deleted, since an inventory change alone completes nothing. One
+request holds at most 100 entities, so relationship sync batches are capped at 100 items.
+
+A full replay (a new subject, a revision whose fold changed, a change to a declared property) reads the
+whole history.
+`backend/fold/incremental.ts` handles a change list without it, and the value carries no events or
+coverage state between runs, so its size does not grow with an unfinished run or with the episodes a
+Show or Podcast covers:
+
+- Each touched title or episode replays from the latest unsourced completion before its earliest
+  change to the present, plus touched source runs in full. Runs that hold an earlier event contribute
+  nothing; their contributions stand. On an Anime or Manga, a changed completion decides whether every
+  earlier progress completes, so that replay starts at the previous explicit completion.
+- A Show or Podcast replays in full, because coverage spans every episode, unless the change is an
+  append, every changed event created after every existing consumption event, that cannot complete
+  the title. Coverage before the appended events is judged as before, so an append that completes or
+  progresses no episode cannot; one that does can only restore a lapsed occurrence while the value
+  is `waiting`, complete a title that just became terminal, or complete a terminal title once no
+  required episode is left uncovered in the current cycle, which the kind's `uncovered` recipe reads
+  from the written history, counting the episodes the append progresses as covered. Suppressed,
+  overridden or lapsed occurrences elsewhere do not replay it. The append still advances `counted`
+  to the latest episode completion it sources, and an explicit title completion ends `waiting`.
+
+Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
+history work; links refresh on every run.
 
 Completion time follows the closing coverage event; consumption sources are the ordered union of the
-supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
-A fold's writes commit with the write that caused them. If it cannot finish inline, the write still
-commits and a `fold` job takes over; meanwhile the previous contributions and summaries stay visible and
-processing reads as pending. A subject that keeps failing reads as failed, and its next write folds it
-again.
+sources of the episodes its cycle completed, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
+A fold runs right after the write that caused it, before the save returns, and commits its own writes.
+If it cannot finish, the write still stands and a `fold` job takes over; meanwhile the previous
+contributions and summaries stay visible and processing reads as pending. A subject that keeps failing
+reads as failed, and its next write folds it again.
 
 100% progress completes other flat media. Anime/Manga complete when a progress event's
 position reaches the total of its basis, in the same unit (episodes, chapters or volumes), or its
@@ -805,6 +893,8 @@ date-only precision. When a historical date/precision cannot be supported, retai
 ordering timestamp and mark the observation undated instead of fabricating hourly activity.
 
 Manual import runs namespace source identity with the ingestion run and original row/event indexes.
+A Media history event's own `sourceRun` replaces the event index, so a title's events that share it
+share one run.
 Baseline progress and its explicit AniList/MyAnimeList completion share a run; independent repeats
 and numbered items retain separate identities across paging. Goodreads/StoryGraph count-derived
 repeats are undated except for the latest supported read date. Hardcover, Grouvee date-only history,
@@ -837,7 +927,7 @@ coverage-derived parent completions have only the parent episode basis and closi
 occurrence carries a `key` fixed when it is created from its source event; the completion stores it as
 `completionKey`, which identifies derived output. Editing a completion makes it explicit, and deleting
 it suppresses its occurrence. Source facts introduce no new typed entity references. Backups carry the
-fold's value, so a restored title keeps its suppressions and frozen inventories; a restored completion
+fold's value, so a restored title keeps its suppressions and coverage occurrences; a restored completion
 takes its source's new ID as its key when the title refolds.
 
 Migration ordering and identity: use one deterministic `sourceRun` per original source occurrence
@@ -892,7 +982,7 @@ reporting periods filter contributions after the complete run is allocated.
 
 `backend/fold/consumption.ts` allocates contributions for one title at a time from the history the fold
 already read, and treats frozen run boundaries as data. A write to any history schema refolds the
-title, so allocation always follows its own completions in the same run. Review, list-state, item,
+runs it touches, so allocation always follows its own completions in the same run. Review, list-state, item,
 and library-admission writes also fold. Episode contributions belong to the parent's fold, and specials
 to their own.
 
@@ -931,7 +1021,7 @@ and lifecycle status remain separate. Episodic activity never replaces missing f
 provider runtime. Library rating and completion columns read live source/canonical rows; browse
 `userRating` (a `rating` browse field), library summaries, card presentations, and analytics share
 `plugins/media/shared/user-rating.ts` for the review rating value and its per-entity average; relationship
-projections cache only lifecycle fields. Pending folds yield null completion totals/dates. The last
+projections cache only lifecycle fields, episode counts, the next-up episode and the next release. Pending folds yield null completion totals/dates. The last
 completion timestamp uses only timed evidence; date-only completions do not invent an instant.
 
 Domain recipes author static documents. Factories configure schema references and plugin identity;
@@ -945,8 +1035,8 @@ analytics-summary, analytics-trend, and analytics-ranking using these recipes. E
 views declare browse controls and an explicit `librarySearch` query with ranked search and summary
 fields. Their search argument is persisted with the saved selection.
 
-The Media test runner provisions PostgreSQL through the canonical scoped database-run setup before
-calling the shared client runner. Executor regressions and node tests share that lifecycle; DOM
+The Media test runner provisions PostgreSQL through the kernel's `runDatabaseTests` before calling
+the shared client runner. Executor regressions and node tests share that lifecycle; DOM
 tests retain the shared browser preload. Package test arguments pass through unchanged.
 
 ## Original language

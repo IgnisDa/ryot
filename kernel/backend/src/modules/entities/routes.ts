@@ -1,52 +1,76 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import { dieOnDbError } from "@ryot-app/contract/errors";
-import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { generateId } from "better-auth";
-import { DateTime, Effect } from "effect";
+import { DbError, dieOnDbError } from "@ryot-app/contract/errors";
+import { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
+import { Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
+import { rejectKernelOwnedSchemas } from "#modules/changes/authority";
+import type { CommitConflict } from "#modules/changes/conflict";
+import { savedEntity } from "#modules/changes/receipts";
+import { ChangeSets } from "#modules/changes/service";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { EntityEditorService } from "./editor/service";
 import { EntityPopulation } from "./populate";
 import { EntityEnrichmentService } from "./providers/enrichment";
-import { EntitiesService } from "./service";
+
+const isRouteFailure = Schema.is(
+	Schema.Union([DbError, PolicyFailure, EntityBadRequest, EntityNotFound, EntityStale]),
+);
+
+const entityConflict = ({
+	reason,
+}: CommitConflict): Effect.Effect<never, EntityStale | EntityNotFound | EntityBadRequest> => {
+	if (reason.code === "entity-stale") {
+		return Effect.fail(new EntityStale({ reason }));
+	}
+	if (reason.code === "entity-not-found") {
+		const [entityId] = reason.entityIds;
+		return Effect.fail(new EntityNotFound({ reason: { entityId, code: reason.code } }));
+	}
+	return Effect.fail(new EntityBadRequest({ reason: { code: "mutation-conflict" } }));
+};
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
 	handlers
 		.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				const lifecycle = {
-					...rootLifecycleCommand({
-						source: "api",
-						lane: "interactive",
-						itemIdentity: "entity",
-						accountUserId: user.id,
-						initiator: { id: user.id, kind: "user" },
-						executionId: AutomationExecutionId.make(generateId()),
-						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-					}),
-					writeContext: null,
-				};
-
-				return yield* service
-					.createFromApi({
-						lifecycle,
-						scope: "user",
-						userId: user.id,
+				if (payload.providerId !== undefined) {
+					return yield* new EntityBadRequest({ reason: { code: "provider-owned" } });
+				}
+				const changes = {
+					userId: user.id,
+					entity: {
 						name: payload.name,
-						externalId: payload.externalId,
 						properties: payload.properties,
-						providerId: payload.providerId,
 						entitySchema: payload.entitySchema,
-					})
-					.pipe(dieOnDbError);
-			}),
+						target: { kind: "create" as const },
+					},
+				};
+				yield* rejectKernelOwnedSchemas(changes);
+				if (payload.externalId !== undefined) {
+					return yield* new EntityBadRequest({
+						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
+					});
+				}
+				const result = yield* (yield* ChangeSets).commit(
+					changes,
+					yield* apiLifecycleCommand(user, "entity"),
+				);
+				return { entity: yield* savedEntity(result) };
+			}).pipe(
+				Effect.catchTag("CommitConflict", entityConflict),
+				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
+				dieOnDbError,
+			),
 		)
 		.handle("saveEditor", ({ payload }) =>
 			Effect.gen(function* () {

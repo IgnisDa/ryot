@@ -48,28 +48,12 @@ it("declares the media automation input projections", () => {
 				parentEntityProperties: ["seasonNumber"],
 			},
 		},
-		"automation.media-entity-updated": {
-			entity: {
-				parentEntityProperties: ["seasonNumber"],
-				compareProperties: [{ property: "images", equality: "unordered-array" }],
-				properties: [
-					"productionStatus",
-					"publishYear",
-					"episodes",
-					"chapters",
-					"episodeNumber",
-					"publishDate",
-				],
-			},
-		},
 		"automation.media-notification": {
 			signal: {
 				properties: [
 					"entityName",
 					"subjectName",
-					"associatedName",
-					"role",
-					"roleCode",
+					"associations",
 					"oldStatus",
 					"newStatus",
 					"contentType",
@@ -87,6 +71,25 @@ it("declares the media automation input projections", () => {
 					"newName",
 					"days",
 					"lifecycleState",
+				],
+			},
+		},
+		"automation.media-entity-updated": {
+			entity: {
+				parentEntityProperties: ["seasonNumber"],
+				properties: [
+					"productionStatus",
+					"publishYear",
+					"episodes",
+					"chapters",
+					"episodeNumber",
+					"publishDate",
+				],
+				compareProperties: [
+					{ property: "images", equality: "unordered-array" },
+					{ equality: "json", property: "airingAt" },
+					{ equality: "json", property: "publishDate" },
+					{ equality: "json", property: "episodeNumber" },
 				],
 			},
 		},

@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 
-import type { UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
@@ -48,13 +48,8 @@ const responses: Record<string, ReturnType<typeof rows>> = {
 it("changes only workout times, moves occurrences to the new start, and sets or clears duration", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			const commands: UserCommandInput[] = [];
+			const commands: ChangeSet[] = [];
 			const host = defineSandboxTestHost(manifest, {
-				commitUserChanges: (command) =>
-					Effect.sync(() => {
-						commands.push(command);
-						return { events: [], entityId: workoutId };
-					}),
 				executeRyotql: (document) =>
 					Effect.succeed({
 						data: Object.fromEntries(
@@ -76,12 +71,11 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					submissionId: "correction-1",
 					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 				});
-				expect(yield* definition.run(input, host)).toEqual<unknown>({
-					kind: "saved",
-					entityId: "workout-1",
-				});
+				const result = yield* definition.run(input, host);
+				expect(result.output).toEqual<unknown>({ entityId: "workout-1" });
+				commands.push(result.changes);
 			}
-			expect(commands.map(({ entity }) => entity.properties)).toEqual([
+			expect(commands.map(({ entity }) => entity?.properties)).toEqual([
 				{
 					endedAt: time,
 					activeDuration: 1200,
@@ -97,11 +91,11 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 				{ endedAt: time, startedAt: corrected, images: [{ type: "s3", key: "keep.jpg" }] },
 			]);
 			expect(commands[0]?.events).toMatchObject({
-				creates: [],
 				baselines: [{ revision: 3, entityId: workoutId }],
 				changes: [
 					{
 						kind: "update",
+						itemIdentity: "update:occurrence-0",
 						item: {
 							eventId: "occurrence-0",
 							expected: { occurredAt: time },
@@ -110,6 +104,40 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					},
 				],
 			});
-			expect(commands[0]?.events.changes).toHaveLength(1);
+			expect(commands[0]?.events?.changes).toHaveLength(1);
+		}),
+	));
+
+it("leaves a vanished workout to the commit's update target and refuses an unreadable token", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: (document) =>
+					Effect.succeed({
+						data: Object.fromEntries(
+							Object.keys(bindTestRequest(document).queries).map((key) => [
+								key,
+								key === "entity" ? rows([]) : responses[key],
+							]),
+						),
+					}),
+			});
+			const input = yield* Schema.decodeEffect(WorkoutTimeCorrectionInputSchema)({
+				submittedAt: time,
+				startedAt: corrected,
+				entityId: "workout-1",
+				submissionId: "correction-1",
+				activeDuration: { kind: "preserve" },
+				conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
+			});
+			expect(yield* definition.run(input, host)).toMatchObject({
+				changes: { entity: { target: { kind: "update", entityId: "workout-1" } } },
+			});
+			expect(
+				yield* Effect.flip(definition.run({ ...input, conflictToken: "garbage" }, host)),
+			).toMatchObject({
+				_tag: "OperationRejectedError",
+				reason: { key: "rejection.workout-time.invalid" },
+			});
 		}),
 	));

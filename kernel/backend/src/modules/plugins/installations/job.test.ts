@@ -6,12 +6,14 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { FoldMarks } from "#modules/derived-values/marks";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import type { ScriptCall } from "#modules/scripts/executions/calls";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
+import { ScriptChanges } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
-import { JobQueue } from "#platform/jobs/queue";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
@@ -55,10 +57,8 @@ type HealthUpdate = Omit<
 	Parameters<PluginInstallationRepository["Service"]["updateHealthForActivation"]>[0],
 	"activationId"
 >;
-type Execution = Pick<
-	Parameters<ScriptExecutionService["Service"]["executeScript"]>[0],
-	"subject" | "scriptId" | "executionId" | "pluginRevision" | "initialization"
->;
+type Execution = Pick<ScriptCall, "lane" | "input" | "executionId"> &
+	Pick<ScriptCall["principal"], "subject" | "scriptId" | "pluginRevision" | "initialization">;
 
 type ScriptPinLookup = {
 	readonly subject: ScriptPinLookupArguments[2];
@@ -83,6 +83,32 @@ const resolved = (
 	entries: [bootstrapEntry("first"), bootstrapEntry("second")],
 	...overrides,
 });
+
+/** The pin of a declared bootstrap script while `bootstrap` is still installing its activation. */
+const bootstrapPin =
+	(lookups: Ref.Ref<ReadonlyArray<ScriptPinLookup>>, bootstrap: Ref.Ref<ResolvedBootstrap>) =>
+	(...[scriptId, expectedRevision, subject, binding]: ScriptPinLookupArguments) =>
+		Effect.gen(function* () {
+			yield* Ref.update(lookups, (all) => [
+				...all,
+				{ subject, scriptId, expectedRevision, initialization: binding },
+			]);
+			const current = yield* Ref.get(bootstrap);
+			return binding?.installationId === installationId &&
+				binding.activationId === current?.activationId &&
+				current.health === "installing" &&
+				pluginRevision.userBootstrapScriptSlugs.includes(scriptId.replace(/-id$/, ""))
+				? {
+						scriptId,
+						pluginRevision,
+						providerId: null,
+						initialization: binding,
+						contentHash: `${scriptId}-hash`,
+						scriptSlug: scriptId.replace(/-id$/, ""),
+						metadata: { ...emptySandboxExecutionMetadata, kind: "script" as const },
+					}
+				: null;
+		});
 
 const libraryEntity = { properties: {}, name: "Library", entitySchemaSlug: "library" };
 const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
@@ -181,15 +207,11 @@ const workflowLayer = (input: {
 				scriptPinLookups,
 			}) =>
 				Layer.mergeAll(
-					Layer.mock(JobQueue)({
-						enqueue: (kind) => pushOrder(`enqueue:${kind.name}`).pipe(Effect.as(true)),
-					}),
+					Layer.mock(FoldMarks)({ queueRevisionReplay: () => pushOrder("replay:folds") }),
 					Layer.succeed(PluginBootstrapEntities)({
-						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
 						ensure: (ensured) =>
 							Effect.sync(() => void ensuredEntities.push(ensured)).pipe(
 								Effect.andThen(pushOrder(`ensure:${ensured.entrySlug}`)),
-								Effect.as([`plan:${ensured.entrySlug}`]),
 							),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
@@ -197,29 +219,20 @@ const workflowLayer = (input: {
 						resolveInstallationBootstrap: () => Ref.get(bootstrap),
 					}),
 					Layer.mock(SandboxRepository)({
-						getScriptPin: (scriptId, expectedRevision, subject, binding) =>
-							Effect.gen(function* () {
-								yield* Ref.update(scriptPinLookups, (lookups) => [
-									...lookups,
-									{ subject, scriptId, expectedRevision, initialization: binding },
-								]);
-								const current = yield* Ref.get(bootstrap);
-								return binding?.installationId === installationId &&
-									binding.activationId === current?.activationId &&
-									current.health === "installing" &&
-									pluginRevision.userBootstrapScriptSlugs.includes(scriptId.replace(/-id$/, ""))
-									? {
-											scriptId,
-											pluginRevision,
-											providerId: null,
-											contentHash: `${scriptId}-hash`,
-											scriptSlug: scriptId.replace(/-id$/, ""),
-											metadata: { ...emptySandboxExecutionMetadata, kind: "script" },
-										}
-									: null;
-							}),
+						getScriptPin: bootstrapPin(scriptPinLookups, bootstrap),
+						pinnedPrincipal: (scriptId, subject, pinned = {}) =>
+							Effect.map(
+								bootstrapPin(scriptPinLookups, bootstrap)(
+									scriptId,
+									pinned.expectedRevision,
+									subject,
+									pinned.initialization,
+								),
+								(pin) => (pin === null ? null : { ...pin, subject }),
+							),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
+						release: () => Effect.void,
 						registerInTransaction: (registration) =>
 							Ref.update(registrations, (all) => [...all, registration]).pipe(
 								Effect.as({ status: "registered" as const }),
@@ -261,63 +274,61 @@ const workflowLayer = (input: {
 								isHidden: input.hiddenInstallation ?? false,
 							})),
 					}),
-					Layer.mock(ScriptExecutionService)({
-						releaseWorkflowRegistration: () => Effect.void,
-						executeScript: (payload) => {
-							const message = input.scriptErrors?.[payload.scriptId];
-							const execution = {
-								lane: payload.lane,
-								subject: payload.subject,
-								scriptId: payload.scriptId,
-								...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
-								...(payload.initialization ? { initialization: payload.initialization } : {}),
-								executionId: payload.executionId,
-							};
-							return Effect.gen(function* () {
-								yield* Ref.update(executions, (all) => [...all, execution]);
-								const current = yield* Ref.get(bootstrap);
-								const failure =
-									message ??
-									(input.quarantineAfterFirstSeed && current?.health === "incompatible"
-										? "Installation identity conflict"
-										: undefined);
-								if (!failure) {
-									yield* Ref.update(seeds, (all) =>
-										all.includes(payload.scriptId) ? all : [...all, payload.scriptId],
-									);
-								}
-								if (
-									input.quarantineAfterFirstSeed &&
-									!(yield* Ref.getAndSet(didQuarantine, true))
-								) {
-									yield* Ref.set(bootstrap, resolved({ health: "incompatible" }));
-								}
-								return failure;
-							}).pipe(
-								Effect.tap(() =>
-									input.quarantineOnExecution
-										? Ref.set(bootstrap, resolved({ health: "incompatible" }))
-										: Effect.void,
-								),
-								Effect.tap(() =>
-									input.bootstrapAfterExecution !== undefined
-										? Ref.set(bootstrap, input.bootstrapAfterExecution)
-										: Effect.void,
-								),
-								Effect.map((failure) => ({
-									logs: [],
-									value: null,
-									status: "completed" as const,
-									error: failure
-										? {
+					Layer.succeed(
+						ScriptChanges,
+						ScriptChanges.of({
+							commit: () => Effect.die("Bootstrap scripts commit keyed by their execution"),
+							commitKeyed: ({ executionId }) =>
+								pushOrder(`commit:${executionId}`).pipe(Effect.as({ events: [] })),
+						}),
+					),
+					scriptCallsLayer(({ lane, principal, executionId, input: callInput }) => {
+						const message = input.scriptErrors?.[principal.scriptId];
+						const execution: Execution = {
+							lane,
+							executionId,
+							input: callInput,
+							subject: principal.subject,
+							scriptId: principal.scriptId,
+							pluginRevision: principal.pluginRevision,
+							...(principal.initialization ? { initialization: principal.initialization } : {}),
+						};
+						return Effect.gen(function* () {
+							yield* Ref.update(executions, (all) => [...all, execution]);
+							const failure = message;
+							if (!failure) {
+								yield* Ref.update(seeds, (all) =>
+									all.includes(principal.scriptId) ? all : [...all, principal.scriptId],
+								);
+							}
+							if (input.quarantineAfterFirstSeed && !(yield* Ref.getAndSet(didQuarantine, true))) {
+								yield* Ref.set(bootstrap, resolved({ health: "incompatible" }));
+							}
+							return failure;
+						}).pipe(
+							Effect.tap(() =>
+								input.quarantineOnExecution
+									? Ref.set(bootstrap, resolved({ health: "incompatible" }))
+									: Effect.void,
+							),
+							Effect.tap(() =>
+								input.bootstrapAfterExecution !== undefined
+									? Ref.set(bootstrap, input.bootstrapAfterExecution)
+									: Effect.void,
+							),
+							Effect.map((failure) =>
+								failure
+									? {
+											...scriptCallResult(null),
+											error: {
 												message: failure,
 												phase: "execute" as const,
 												kind: "script-failure" as const,
-											}
-										: null,
-								})),
-							);
-						},
+											},
+										}
+									: scriptCallResult({}),
+							),
+						);
 					}),
 				),
 		),
@@ -341,11 +352,18 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			Effect.gen(function* () {
 				const fake = yield* FakeInstallationWorkflow;
 				yield* runWorkflow;
-				expect(yield* fake.order).toEqual(["health:ready", "invalidate", "enqueue:fold-rebuild"]);
+				expect(yield* fake.order).toEqual([
+					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "first")}-first-id-hash`,
+					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "second")}-second-id-hash`,
+					"health:ready",
+					"invalidate",
+					"replay:folds",
+				]);
 				expect(yield* fake.executions).toEqual<unknown>([
 					{
 						pluginRevision,
 						initialization,
+						input: { userId },
 						lane: "background",
 						scriptId: "first-id",
 						subject: { userId, type: "user" },
@@ -358,6 +376,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					{
 						pluginRevision,
 						initialization,
+						input: { userId },
 						lane: "background",
 						scriptId: "second-id",
 						subject: { userId, type: "user" },
@@ -378,6 +397,18 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					{
 						initialization,
 						expectedRevision: undefined,
+						subject: { userId, type: "user" },
+						scriptId: SandboxScriptId.make("second-id"),
+					},
+					{
+						initialization,
+						expectedRevision: pluginRevision,
+						subject: { userId, type: "user" },
+						scriptId: SandboxScriptId.make("first-id"),
+					},
+					{
+						initialization,
+						expectedRevision: pluginRevision,
 						subject: { userId, type: "user" },
 						scriptId: SandboxScriptId.make("second-id"),
 					},
@@ -434,10 +465,10 @@ layer(
 				yield* runWorkflow;
 				expect(yield* fake.order).toEqual([
 					"ensure:library",
-					"dispatch:plan:library",
+					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "first")}-first-id-hash`,
 					"health:ready",
 					"invalidate",
-					"enqueue:fold-rebuild",
+					"replay:folds",
 				]);
 				expect(ensuredEntities).toEqual<unknown>([
 					{
@@ -606,7 +637,6 @@ layer(workflowLayer({ bootstrap: resolved(), quarantineAfterFirstSeed: true }))(
 				expect(yield* fake.isInitialized).toBe(true);
 				expect((yield* fake.executions).map(({ executionId: id }) => id)).toEqual([
 					pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
-					pluginInstallationBootstrapExecutionId(installationId, activationId, "second"),
 					pluginInstallationBootstrapExecutionId(installationId, recoveredActivation, "first"),
 					pluginInstallationBootstrapExecutionId(installationId, recoveredActivation, "second"),
 				]);

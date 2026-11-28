@@ -1,9 +1,9 @@
 import { expect } from "bun:test";
 
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -16,6 +16,7 @@ import definition, { manifest } from "./media-relationship-sync.sandbox";
 type Population = typeof AutomationPopulationContext.Encoded;
 
 const input = (overrides: {
+	update?: boolean;
 	isLeader?: boolean;
 	followers?: number;
 	afterCount?: number;
@@ -44,12 +45,8 @@ const input = (overrides: {
 			createdCount: overrides.createdCount ?? 1,
 		},
 	};
-	const item = (id: string, isLeader: boolean) => ({
-		category: "change",
-		operation: "create",
-		resource: "relationship",
-		population: { ...population, batch: { ...population.batch, isLeader } },
-		after: {
+	const item = (id: string, isLeader: boolean) => {
+		const snapshot = {
 			id,
 			properties: {},
 			sourceEntityId: "source-1",
@@ -58,8 +55,16 @@ const input = (overrides: {
 			updatedAt: "2026-07-20T10:00:00.000Z",
 			relationshipSchemaPluginId: "media-owner",
 			relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
-		},
-	});
+		};
+		return {
+			category: "change",
+			resource: "relationship",
+			population: { ...population, batch: { ...population.batch, isLeader } },
+			...(overrides.update
+				? { after: snapshot, before: snapshot, operation: "update", changedProperties: [] }
+				: { after: snapshot, operation: "create" }),
+		};
+	};
 	return automationContext({
 		category: "change",
 		operation: "batch",
@@ -74,38 +79,25 @@ const input = (overrides: {
 const execute = (
 	value: ReturnType<typeof input>,
 	containers: Readonly<Record<string, string>> = {},
-) => {
-	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	const summaryRequests: Array<readonly string[]> = [];
-	return Effect.flatMap(value, (automation) =>
+) =>
+	Effect.flatMap(value, (automation) =>
 		definition.run(
 			automation,
-			defineSandboxTestHost(manifest, {
-				executeRyotql: containmentRyotql(containers),
-				emitSignal: (request) => {
-					calls.push(request);
-					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-				},
-				requestFoldsForAllUsers: (request) => {
-					summaryRequests.push(request.entityIds);
-					return Effect.succeed({ queued: request.entityIds.length });
-				},
-			}),
+			defineSandboxTestHost(manifest, { executeRyotql: containmentRyotql(containers) }),
 		),
-	).pipe(Effect.as({ calls, summaryRequests }));
-};
+	).pipe(Effect.map(({ changes }) => ({ folds: changes?.folds, signals: changes?.signals ?? [] })));
 
 const run = (value: ReturnType<typeof input>) =>
-	execute(value).pipe(Effect.map(({ calls }) => calls));
+	execute(value).pipe(Effect.map(({ signals }) => signals));
 
 it("emits one season-count signal from the batch leader on a net count change", () =>
 	Effect.runPromise(
 		run(input({})).pipe(
-			Effect.map((calls) => {
-				expect(calls).toEqual([
+			Effect.map((signals) => {
+				expect(signals).toEqual([
 					{
 						discriminator: "batch-1",
-						subjectEntityId: "show-1",
+						subjectEntityId: EntityId.make("show-1"),
 						schemaSlug: "media.season-count.changed",
 						properties: { oldCount: 2, newCount: 3, entityName: "Severance" },
 					},
@@ -118,8 +110,8 @@ it("emits one season-count signal from the batch leader on a net count change", 
 it("emits once for a batch that carries the leader alongside other items", () =>
 	Effect.runPromise(
 		run(input({ followers: 1 })).pipe(
-			Effect.map((calls) => {
-				expect(calls.map(({ discriminator }) => discriminator)).toEqual(["batch-1"]);
+			Effect.map((signals) => {
+				expect(signals.map(({ discriminator }) => discriminator)).toEqual(["batch-1"]);
 				return undefined;
 			}),
 		),
@@ -140,8 +132,8 @@ it("emits aggregate episode discovery with the created count and season", () =>
 			},
 		}),
 	).pipe(
-		Effect.map((calls) => {
-			expect(calls[0]).toMatchObject({
+		Effect.map((signals) => {
+			expect(signals[0]).toMatchObject({
 				schemaSlug: "media.episode.discovered",
 				properties: {
 					newCount: 5,
@@ -168,8 +160,8 @@ it("does not treat a podcast parent as season context", () =>
 			},
 		}),
 	).pipe(
-		Effect.map((calls) => {
-			expect(calls[0]?.["properties"]).toEqual({
+		Effect.map((signals) => {
+			expect(signals[0]?.["properties"]).toEqual({
 				oldCount: 2,
 				newCount: 3,
 				discoveredCount: 1,
@@ -211,19 +203,21 @@ it("stays silent without the leader, on first population, without net changes, a
 				),
 			],
 			{ concurrency: "unbounded" },
-		).pipe(Effect.map((calls) => expect(calls).toEqual([[], [], [], [], []]))),
+		).pipe(Effect.map((signals) => expect(signals).toEqual([[], [], [], [], []]))),
 	));
 
-it("refreshes library summaries of the population root, including on first population", () =>
+it("refreshes library summaries of the population root when links are created, including on first population, and not when they are only updated", () =>
 	Effect.runPromise(
 		Effect.all([
 			execute(input({ followers: 1 })),
 			execute(input({ rootPreviouslyPopulated: false })),
+			execute(input({ update: true, followers: 1 })),
 		]).pipe(
 			Effect.map((results) => {
-				expect(results.map(({ summaryRequests }) => summaryRequests)).toEqual([
-					[["show-1"]],
-					[["show-1"]],
+				expect(results.map(({ folds }) => folds)).toEqual([
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					undefined,
 				]);
 			}),
 		),
@@ -257,9 +251,9 @@ it.effect(
 			}),
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
-			Effect.map(({ calls, summaryRequests }) => {
-				expect(summaryRequests).toEqual([["show-1"]]);
-				expect(calls).toEqual([]);
+			Effect.map(({ folds, signals }) => {
+				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
+				expect(signals).toEqual([]);
 			}),
 		),
 	testTimeout,

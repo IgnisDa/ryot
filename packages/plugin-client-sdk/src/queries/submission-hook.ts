@@ -1,15 +1,22 @@
+import { mayHaveApplied } from "@ryot-app/plugin-client-contract";
 import { createUuid } from "@ryot-app/ts-utils/uuid";
-import { Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { useState, useSyncExternalStore } from "react";
 
+import { RyotClientError } from "../client/errors";
 import type { RyotMutation } from "./definitions";
 import { useRyotMutation } from "./hooks";
 import { useRyotSchedule } from "./provider";
 import { createRyotSubmission, type RyotSubmission } from "./submission";
 
+const isOutcomeUnknown = (cause: Cause.Cause<unknown>) => {
+	const error = Cause.squash(cause);
+	return !(error instanceof RyotClientError) || mayHaveApplied(error.reason);
+};
+
 export const useRyotSubmission = <Input, Data, Failure extends Error>(
 	definition: RyotMutation<RyotSubmission<Input>, Data, Failure>,
-	options?: { readonly createId?: () => string; readonly isComplete?: (data: Data) => boolean },
+	options?: { readonly createId?: () => string },
 ) => {
 	const schedule = useRyotSchedule();
 	const [controller] = useState(() =>
@@ -25,9 +32,7 @@ export const useRyotSubmission = <Input, Data, Failure extends Error>(
 			Effect.andThen(Effect.yieldNow, mutation.mutateEffect(submission)).pipe(
 				Effect.onExit((exit) =>
 					Effect.sync(() =>
-						controller.settle(
-							exit._tag === "Success" && (options?.isComplete?.(exit.value) ?? true),
-						),
+						controller.settle(Exit.isSuccess(exit) || !isOutcomeUnknown(exit.cause)),
 					),
 				),
 				Effect.catchCause(() => Effect.void),

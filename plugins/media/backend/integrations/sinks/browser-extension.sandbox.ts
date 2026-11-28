@@ -1,6 +1,6 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { mediaFailureMessage } from "../../lib/error-message";
@@ -19,6 +19,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Ryot browser extension sink",
 	slug: "integration.browser-extension",
 });
@@ -46,7 +47,7 @@ const hostname = (url?: string) => {
 	);
 };
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: IntegrationArtifactOutput,
@@ -116,5 +117,8 @@ export default defineScript({
 					failureResult("Could not parse browser extension webhook payload"),
 				),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

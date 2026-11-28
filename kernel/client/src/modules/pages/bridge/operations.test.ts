@@ -13,7 +13,7 @@ import {
 	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -63,34 +63,41 @@ const failing = (cause: unknown) =>
 	operationsLayer(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin operations service", () => {
-	layer(operationsLayer(() => Effect.succeed({ result: "ignored" })))((test) => {
-		test.effect(
-			"invokes the explicitly targeted plugin and operation at the recorded revision",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* PluginOperationsService;
-					yield* service.invoke({
-						scope,
-						contentHash: "source-hash",
-						request: {
-							operationSlug: "greet",
-							input: { greeting: "hi" },
-							packageId: PluginPackageId.make("test/fixture"),
-						},
-					});
+	layer(operationsLayer(() => Effect.succeed({ result: "ignored", committed: { events: [] } })))(
+		(test) => {
+			test.effect(
+				"invokes the explicitly targeted plugin and operation at the recorded revision",
+				() =>
+					Effect.gen(function* () {
+						const service = yield* PluginOperationsService;
+						yield* service.invoke({
+							scope,
+							contentHash: "source-hash",
+							request: {
+								operationSlug: "greet",
+								input: { greeting: "hi" },
+								packageId: PluginPackageId.make("test/fixture"),
+							},
+						});
 
-					expect(yield* (yield* FakePluginsApi).requests).toEqual([
-						{
-							payload: { contentHash: "source-hash", payload: { greeting: "hi" } },
-							params: { name: "fixture", publisher: "test", operationSlug: "greet" },
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
+						expect(yield* (yield* FakePluginsApi).requests).toEqual([
+							{
+								payload: { contentHash: "source-hash", payload: { greeting: "hi" } },
+								params: { name: "fixture", publisher: "test", operationSlug: "greet" },
+							},
+						]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 
-	layer(operationsLayer(() => Effect.succeed({ result: { greeted: "hi" } })))((test) => {
+	const committed = {
+		entityId: EntityId.make("entity-1"),
+		events: [{ itemIdentity: "item-1", eventId: EventId.make("event-1") }],
+	};
+
+	layer(operationsLayer(() => Effect.succeed({ committed, result: { greeted: "hi" } })))((test) => {
 		test.effect(
 			"maps a successful response to a success outcome",
 			() =>
@@ -106,7 +113,7 @@ describe("plugin operations service", () => {
 						},
 					});
 
-					expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
+					expect(outcome).toEqual({ committed, outcome: "success", value: { greeted: "hi" } });
 				}),
 			testTimeout,
 		);
@@ -135,6 +142,36 @@ describe("plugin operations service", () => {
 					});
 
 					expect(outcome).toEqual({ outcome: "stale-session" });
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(
+		failing(
+			new PluginConflictError({ reason: { code: "changes-conflict", conflict: "entity-stale" } }),
+		),
+	)((test) => {
+		test.effect(
+			"classifies a stale change baseline as a changes-conflict failure",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const outcome = yield* service.invoke({
+						scope,
+						contentHash: "source-hash",
+						request: {
+							input: null,
+							operationSlug: "greet",
+							packageId: PluginPackageId.make("test/fixture"),
+						},
+					});
+
+					expect(outcome).toEqual({
+						outcome: "failure",
+						conflict: "entity-stale",
+						reason: "changes-conflict",
+					});
 				}),
 			testTimeout,
 		);

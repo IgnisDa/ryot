@@ -8,9 +8,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { ChangeSets } from "#modules/changes/service";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -90,8 +88,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const planner = yield* LifecyclePlanner;
-		const execution = yield* LifecycleExecution;
+		const changeSets = yield* ChangeSets;
 		const sandbox = yield* ScriptExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const writes = yield* DomainWriteChecks;
@@ -321,37 +318,24 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					resource: "provider-entity-import" as const,
 					entitySchemaPluginId: importedEntity.entitySchemaPluginId,
 				};
-				const plan = yield* session
-					.transaction(
-						Effect.gen(function* () {
-							yield* writes.check(
-								payload.command,
-								definitionOwner(importedEntity.entitySchemaPluginId),
-								payload.entityScope.type === "user" ? payload.entityScope.userId : null,
-								true,
-							);
-							return yield* planner.planChange({
-								trigger: yield* lifecycleTrigger(
-									payload.command,
-									payload.entityScope.userId,
-									completion,
-								),
-							});
-						}),
+				return yield* changeSets
+					.commit(
+						{
+							userId: payload.entityScope.type === "user" ? payload.entityScope.userId : null,
+							triggers: [
+								{
+									change: completion,
+									scopeUserId: payload.entityScope.userId,
+									owner: definitionOwner(importedEntity.entitySchemaPluginId),
+								},
+							],
+						},
+						payload.command,
 					)
-					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-				const warnings = yield* execution
-					.dispatch(plan)
-					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-				if (warnings.length > 0) {
-					yield* Effect.logWarning("provider import completed with automation warnings").pipe(
-						Effect.annotateLogs({
-							warningCount: warnings.length,
-							warnings: warnings.slice(0, 100),
-						}),
+					.pipe(
+						Effect.asVoid,
+						Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 					);
-				}
-				return yield* Effect.void;
 			});
 
 		const preRegisterProviderImport: EntityImportWorkflowOperationsValue["preRegisterProviderImport"] =

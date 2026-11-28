@@ -1,6 +1,8 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaMonitoringDisableInput,
@@ -28,16 +30,18 @@ export default defineOperation({
 				monitoringLibraryId
 					? [
 							{
-								sourceEntityId: entityId,
-								targetEntityId: monitoringLibraryId,
 								relationshipSchemaSlug: "media-monitoring",
+								source: existingEntity(EntityId.make(entityId)),
+								target: existingEntity(EntityId.make(monitoringLibraryId)),
 							},
 						]
 					: [],
 			);
-			if (deletes.length > 0) {
-				yield* host.changeUserRelationships([{ deletes, creates: [] }]);
-			}
-			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => false) };
+			const output = {
+				results: alignedMediaMonitoringResults(input.entityIds, targets, () => false),
+			};
+			return deletes.length === 0
+				? { output }
+				: { output, changes: { relationships: { deletes } } };
 		}),
 });

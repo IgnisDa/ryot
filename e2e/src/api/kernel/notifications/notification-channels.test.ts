@@ -394,7 +394,7 @@ describe("notification delivery", () => {
 				slug: SignalSchemaSlug.make("workout.created"),
 			};
 			const now = DateTime.formatIso(yield* DateTime.now);
-			const saved = yield* saveWorkoutEditor(
+			yield* saveWorkoutEditor(
 				client,
 				operationInput(
 					workoutData({ startedAt: now, name: `Zero Channel Workout ${yield* randomUuid}` }),
@@ -402,7 +402,6 @@ describe("notification delivery", () => {
 					now,
 				),
 			);
-			expect(saved.kind).toBe("saved");
 
 			const { id: triggerId } = yield* pollSignalTrigger({
 				signalSchema,

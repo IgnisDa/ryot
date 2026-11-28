@@ -49,6 +49,7 @@ import {
 	childScope,
 	conjuncts,
 	correlatedAliasScope,
+	firstGroupKey,
 	hasClosedRootOccursAtRange,
 	jsonKeyColumn,
 	kindResolver,
@@ -166,6 +167,17 @@ const safeInputValid = (value: SqlFragment, target: CastTarget) => {
 	return valid;
 };
 
+// Dates and `toISOString` instants of years 1-9999 always parse, so their literal casts need no check.
+const isCanonicalTimestamp = (value: string) => {
+	const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+	const instant = new Date(dateOnly ? `${value}T00:00:00.000Z` : value);
+	if (!Number.isFinite(instant.getTime()) || instant.getUTCFullYear() < 1) {
+		return false;
+	}
+	const canonical = instant.toISOString();
+	return dateOnly ? canonical.startsWith(`${value}T`) : canonical === value;
+};
+
 const inlineCastOperand = (expr: ScalarExpression, scope: AliasScope): boolean => {
 	if (expr.type === "literal" || expr.type === "jsonElement") {
 		return true;
@@ -262,6 +274,18 @@ const compileCast = (
 	}
 	if (sourceKind === expr.target) {
 		return compileExpression(expr.expr, ctx);
+	}
+	// A local date renders as a valid date or null, so its cast needs no check.
+	if (expr.target === "date" && expr.expr.type === "localDate") {
+		return sql`(${compileExpression(expr.expr, ctx)})::timestamp with time zone`;
+	}
+	if (
+		expr.target === "date" &&
+		expr.expr.type === "literal" &&
+		typeof expr.expr.value === "string" &&
+		isCanonicalTimestamp(expr.expr.value)
+	) {
+		return sql`${expr.expr.value}::timestamp with time zone`;
 	}
 	if (sourceKind === "json") {
 		if (expr.target === "text") {
@@ -382,6 +406,18 @@ const fusedAggregate = (
 	return group && measure ? qualifiedIdentifier(group.alias, measure.alias) : undefined;
 };
 
+const fusedFirst = (
+	expr: Extract<ScalarExpression, { type: "first" }>,
+	ctx: Context,
+): undefined | SqlFragment => {
+	if (!ctx.fused) {
+		return undefined;
+	}
+	const group = ctx.scope.firsts.get(firstGroupKey(expr));
+	const value = group?.values.get(stableStringify(expr.select));
+	return group && value ? qualifiedIdentifier(group.alias, value.alias) : undefined;
+};
+
 const hoistedKey = (expr: ScalarExpression, ctx: Context): undefined | SqlFragment => {
 	const column = ctx.hoisted ? jsonKeyColumn(expr) : undefined;
 	if (!column) {
@@ -465,7 +501,10 @@ const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment =>
 		return fusedAggregate(expr, ctx) ?? compileAggregate(expr, ctx);
 	}
 	if (expr.type === "first") {
-		return compileFirst(expr, ctx, (childCtx) => compileExpression(expr.select, childCtx));
+		return (
+			fusedFirst(expr, ctx) ??
+			compileFirst(expr, ctx, (childCtx) => compileExpression(expr.select, childCtx))
+		);
 	}
 	if (expr.type === "jsonPath") {
 		return sql`NULLIF(jsonb_extract_path(${compileJsonValue(expr.expr, ctx)}, ${sql.join(
@@ -977,17 +1016,40 @@ const querySetSql = (
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
 		return sql`${joinType} ${tableSource(scope, join.table.alias, joined)} ${sql.raw(joined.sqlAlias)} ON ${condition(join.on, joinCtx)}`;
 	});
-	const groups = [...scope.groups].flatMap(([key, group]) =>
-		page?.groups === undefined || page.groups.has(key) ? [group] : [],
-	);
-	const aggregates = groups.map((group) => {
+	const included = <Group>(groups: ReadonlyMap<string, Group>) =>
+		[...groups].flatMap(([key, group]) =>
+			page?.groups === undefined || page.groups.has(key) ? [group] : [],
+		);
+	// A guard reads unguarded laterals only, so guarded ones follow them and skip rows it rejects.
+	const guardCondition = (guard: undefined | Predicate) =>
+		guard ? [compilePredicate(guard, { ...ctx, fused: true })] : [];
+	const aggregates = included(scope.groups).map((group) => {
 		const groupCtx: Context = { ...ctx, scope: group.scope };
 		const measures = [...group.measures.values()].map(
 			({ alias, aggregation }) =>
 				sql`${compileAggregation(aggregation, groupCtx)} AS ${identifier(alias)}`,
 		);
-		return sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx)}) ${identifier(group.alias)}`;
+		return {
+			guard: group.guard,
+			join: sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx, guardCondition(group.guard))}) ${identifier(group.alias)}`,
+		};
 	});
+	const firsts = included(scope.firsts).map((group) => {
+		const groupCtx: Context = { ...ctx, fused: true, scope: group.scope };
+		const values = [...group.values.values()].map(
+			({ alias, select }) => sql`${compileExpression(select, groupCtx)} AS ${identifier(alias)}`,
+		);
+		const orders = appendPrimaryKeyOrders(group.query, group.scope, group.orderBy);
+		return {
+			guard: group.guard,
+			join: sql`LEFT JOIN LATERAL (SELECT ${sql.join(values, sql`, `)} ${querySetSql(group.query, groupCtx, guardCondition(group.guard))} ORDER BY ${expressionOrderSql(orders, groupCtx)} LIMIT 1) ${identifier(group.alias)} ON true`,
+		};
+	});
+	const laterals = [...aggregates, ...firsts];
+	const ordered = [
+		...laterals.filter((lateral) => lateral.guard === undefined),
+		...laterals.filter((lateral) => lateral.guard !== undefined),
+	].map((lateral) => lateral.join);
 	const conditions = [
 		...(query.where ? [condition(query.where, ctx)] : []),
 		...additionalConditions,
@@ -995,7 +1057,7 @@ const querySetSql = (
 	return sql`
 		FROM ${rootSource} ${sql.raw(root.sqlAlias)}
 		${sql.join(joins, sql` `)}
-		${sql.join(aggregates, sql` `)}
+		${sql.join(ordered, sql` `)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
 };
@@ -1397,7 +1459,7 @@ const pagedRoot = (
 		plan,
 	);
 	const root = lookupTable(plan, query.from.alias);
-	if (groups.size === plan.groups.size || root.table.primaryKey.length === 0) {
+	if (groups.size === plan.groups.size + plan.firsts.size || root.table.primaryKey.length === 0) {
 		return undefined;
 	}
 	const keys = root.table.primaryKey.map((field) =>

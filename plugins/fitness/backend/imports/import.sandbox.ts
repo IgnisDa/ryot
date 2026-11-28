@@ -412,6 +412,6 @@ export default defineWorkflow({
 					0,
 				);
 			yield* activity("application", "writing", completed, "completed", unit);
-			return { issues, summary: sealed.summary };
+			return { output: { issues, summary: sealed.summary } };
 		}),
 });

@@ -157,7 +157,6 @@ const automationSubject = (executionUserId: null | UserId): SandboxExecutionSubj
 	stage: "after",
 	pluginId: null,
 	executionUserId,
-	delivery: "async",
 	pluginRevisionId: null,
 	type: "automation-run",
 	pluginConfigRevisionId: null,

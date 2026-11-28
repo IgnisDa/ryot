@@ -1,4 +1,8 @@
-import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import {
+	isEntitlementRequired,
+	isOperationRejected,
+	RyotClientError,
+} from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
@@ -7,10 +11,7 @@ import {
 	encodeWorkoutEditorDraft,
 	type WorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
-import type {
-	WorkoutEditorSaveInput,
-	WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import type { WorkoutEditorSaveInput } from "../../shared/workout-editor-operations";
 import { type ExpectedCountdowns, reconcileWorkoutTimers } from "./actions";
 import { createAlertSynchronizer } from "./controller-alerts";
 import {
@@ -19,6 +20,7 @@ import {
 	type WorkoutEditorContext,
 	type WorkoutEditorControllerPorts,
 	type WorkoutEditorControllerSnapshot,
+	type WorkoutEditorSaveResult,
 } from "./controller-types";
 import { createWorkoutIosActivityPublisher } from "./ios-live-activity-sync";
 import {
@@ -55,7 +57,7 @@ type WorkoutEditorController = {
 			undefined | { readonly draft: WorkoutEditorDraft; readonly input: WorkoutEditorSaveInput },
 			unknown
 		>,
-	) => Effect.Effect<undefined | WorkoutEditorSaveOutput, unknown>;
+	) => Effect.Effect<undefined | WorkoutEditorSaveResult, unknown>;
 };
 
 const initialSnapshot: WorkoutEditorControllerSnapshot = {
@@ -544,7 +546,8 @@ export const createWorkoutEditorController = (
 					yield* flush();
 					const result = yield* ports.save(submission).pipe(
 						Effect.tapError((error) => {
-							if (!isEntitlementRequired(error) || !isReady(snapshot)) {
+							const refused = isEntitlementRequired(error) || isOperationRejected(error);
+							if (!refused || !isReady(snapshot)) {
 								return Effect.void;
 							}
 							setDraft({ ...snapshot.draft, submission: undefined }, true);

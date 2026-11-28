@@ -5,7 +5,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
 
-import { MiB } from "../protocol/limits";
+import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxSidecarAdmission } from "./admission";
 import { idleBytes, makeSandboxAdmission, sandboxAdmissionLayer } from "./gate.test-support";
 import { sandboxMemoryPlan } from "./memory-plan";
@@ -133,7 +133,7 @@ layer(admissionLayer)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"bounds global waiters and refunds an interrupted waiter without consuming a slot",
+		"queues waiters up to its bound, then fails resource-unavailable and refunds interrupted waiters",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -144,25 +144,30 @@ layer(admissionLayer)((test) => {
 					const singleLeaseBytes = admission.snapshot().bytes;
 					yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(second));
 					const entered = yield* Deferred.make<void>();
-					const waiter = yield* Effect.scoped(
+					const firstWaiter = yield* Effect.scoped(
 						admission
 							.reserveRun("system/core", "interactive")
 							.pipe(Effect.tap(() => Deferred.succeed(entered, undefined))),
-					).pipe(Effect.forkScoped);
+					).pipe(Effect.forkScoped({ startImmediately: true }));
+					const waiters = yield* Effect.forEach(
+						Array.from({ length: SANDBOX_LIMITS.admission.waitingRuns - 1 }),
+						() =>
+							Effect.scoped(admission.reserveRun("system/core", "interactive")).pipe(
+								Effect.forkScoped({ startImmediately: true }),
+							),
+					);
 					yield* Effect.yieldNow;
-					expect(admission.snapshot().waiting).toBe(1);
+					expect(admission.snapshot().waiting).toBe(SANDBOX_LIMITS.admission.waitingRuns);
 					expect(yield* Deferred.isDone(entered)).toBe(false);
-					const secondWaiter = yield* Effect.scoped(
-						admission.reserveRun("system/core", "interactive"),
-					).pipe(Effect.forkScoped);
-					yield* Effect.yieldNow;
-					expect(admission.snapshot().waiting).toBe(2);
 					const full = yield* Effect.flip(admission.reserveRun("system/core", "interactive"));
-					expect(full.message).toBe("Sandbox ephemeral admission queue is full");
-					yield* Fiber.interrupt(secondWaiter);
-					yield* Fiber.interrupt(waiter);
-					expect(admission.snapshot().waiting).toBe(0);
+					expect(full).toBeInstanceOf(SandboxRunError);
+					expect(full.kind).toBe("resource-unavailable");
+					yield* Effect.forEach(waiters, Fiber.interrupt);
+					expect(admission.snapshot().waiting).toBe(1);
 					yield* Scope.close(first, Exit.void);
+					yield* Deferred.await(entered);
+					yield* Fiber.join(firstWaiter);
+					expect(admission.snapshot().waiting).toBe(0);
 					yield* Effect.scoped(admission.reserveRun("system/core", "interactive"));
 					expect(admission.snapshot().bytes).toBe(singleLeaseBytes);
 				}),
@@ -356,17 +361,22 @@ it.effect(
 
 				const held = yield* acquireScope;
 				yield* admission.reserveRun("system/core", "background").pipe(Scope.provide(held));
-				const waiters = yield* Effect.forEach([0, 1], () =>
-					Effect.scoped(admission.reserveRun("user/core", "background")).pipe(
-						Effect.forkScoped({ startImmediately: true }),
-					),
+				const waiters = yield* Effect.forEach(
+					Array.from({ length: SANDBOX_LIMITS.admission.waitingRuns }),
+					() =>
+						Effect.scoped(admission.reserveRun("user/core", "background")).pipe(
+							Effect.forkScoped({ startImmediately: true }),
+						),
 				);
 				yield* Effect.yieldNow;
-				expect(admission.snapshot()).toMatchObject({ waiting: 2, reservations: 1 });
+				expect(admission.snapshot()).toMatchObject({
+					reservations: 1,
+					waiting: SANDBOX_LIMITS.admission.waitingRuns,
+				});
 				const overload = yield* Effect.flip(
 					Effect.scoped(admission.reserveRun("user/core", "background")),
 				);
-				expect(overload.message).toBe("Sandbox ephemeral admission queue is full");
+				expect(overload.kind).toBe("resource-unavailable");
 				yield* Effect.forEach(waiters, Fiber.interrupt);
 				yield* closeTwice(held);
 				expect(admission.snapshot()).toMatchObject(idle);

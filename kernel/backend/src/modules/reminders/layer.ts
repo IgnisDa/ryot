@@ -1,8 +1,9 @@
 import { Effect, Layer } from "effect";
 
-import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
+import { LifecycleServicesLive } from "#modules/automations/layer";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import { ChangeSetsLive } from "#modules/changes/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
@@ -28,7 +29,7 @@ const repositories = Layer.mergeAll(
 export const RemindersServiceLive = RemindersService.layer.pipe(Layer.provide(repositories));
 
 export const ReminderWorkerLive = ReminderWorker.layer.pipe(
-	Layer.provide(Layer.mergeAll(repositories, LifecycleServicesLive, SignalEmissionServiceLive)),
+	Layer.provide(Layer.mergeAll(repositories, LifecycleServicesLive, ChangeSetsLive)),
 );
 
 export const ReminderNotificationSourcePolicyLive = Layer.effect(

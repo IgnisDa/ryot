@@ -12,18 +12,25 @@ import { fixtureManifest } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
+import { count } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import {
 	realSandboxLayer,
 	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
+import { ScriptChanges } from "#modules/scripts/executions/script-changes";
+import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
+import { sandboxWorkflowReference } from "#schema/tables/core";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
+import { workflowExecution } from "#schema/tables/workflow-executions";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
@@ -47,10 +54,12 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({ mode: Schema.Literals(["reject", "entitlement", "crash"]) }),
+  input: Schema.Struct({ mode: Schema.Literals(["read", "reject", "entitlement", "crash"]) }),
   output: Schema.String,
   run: (input) =>
-    input.mode === "reject"
+    input.mode === "read"
+      ? Effect.succeed({ output: "read" })
+      : input.mode === "reject"
       ? Effect.fail(
           new OperationRejectedError({
             reason: { key: "episode.parent-required", params: { parent: { key: "episode.parent" } } },
@@ -151,7 +160,7 @@ const fakeLayer = Layer.unwrap(
 	}),
 );
 
-const invoke = (mode: "crash" | "reject" | "entitlement") =>
+const invoke = (mode: "read" | "crash" | "reject" | "entitlement") =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			packageId,
@@ -165,6 +174,19 @@ layer(
 	Layer.provideMerge(
 		OperationsService.layer.pipe(
 			Layer.provide(IntegrationOperationScopeResolverLive),
+			Layer.provide(
+				Layer.succeed(
+					ScriptChanges,
+					ScriptChanges.of({
+						commitKeyed: () => Effect.die("Operations commit against their receipt"),
+						commit: (input) =>
+							input.changes === undefined
+								? input.receipt.record({ events: [] })
+								: Effect.die("This operation returns no changes"),
+					}),
+				),
+			),
+			Layer.provideMerge(ScriptCalls.layer),
 			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
 		),
@@ -172,6 +194,21 @@ layer(
 	),
 	{ excludeTestServices: true },
 )((test) => {
+	test.effect(
+		"runs an operation on the plain host and commits nothing",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* invoke("read")).toEqual({ result: "read", committed: { events: [] } });
+				const session = yield* DatabaseSession;
+				const rows = yield* Effect.forEach(
+					[workflowExecution, sandboxJournalEntry, sandboxWorkflowReference],
+					(table) => session.run((db) => db.select({ rows: count() }).from(table)),
+				).pipe(Effect.orDie);
+				expect(rows).toEqual([[{ rows: 0 }], [{ rows: 0 }], [{ rows: 0 }]]);
+			}),
+		30_000,
+	);
+
 	test.effect(
 		"maps an operation rejection thrown inside the sandbox to a 422 error with the plugin-stamped reason",
 		() =>

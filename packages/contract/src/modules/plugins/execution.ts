@@ -18,13 +18,16 @@ type ExecutableManifest = {
 
 const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
-export const KERNEL_EVENT_CREATE_WORKFLOW = "kernel:event-create";
+/** A `step.activity` target: a script defined with `defineActivity`, declared or stored. */
+export const isActivityScript = (
+	script: undefined | { readonly kind?: string | undefined; readonly activity?: true | undefined },
+) => script?.kind === "script" && script.activity === true;
+
 export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";
 export const KERNEL_ENTITY_IMPORT_WORKFLOW = "kernel:entity-import";
 export const KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW = "kernel:provider-entity-population";
 
 export const kernelWorkflowTargets = [
-	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
@@ -96,9 +99,7 @@ export const hasReachableExternalEffects = (
 			return undefined;
 		}
 		visited.add(slug);
-		hasExternalEffect ||= script.capabilities.some(
-			(capability) => capability === "httpCall" || capability === "sendNotification",
-		);
+		hasExternalEffect ||= script.capabilities.some((capability) => capability === "httpCall");
 
 		for (const dependency of script.executableDependencies) {
 			if (traversalCount >= traversalLimit) {
@@ -106,7 +107,7 @@ export const hasReachableExternalEffects = (
 			}
 			traversalCount += 1;
 			if (dependency.kind === "script") {
-				if (scripts.get(dependency.slug)?.kind !== "script") {
+				if (!isActivityScript(scripts.get(dependency.slug))) {
 					return undefined;
 				}
 				pending.push(dependency.slug);
@@ -220,8 +221,7 @@ export const hasValidExecutableDependencies = (manifest: ExecutableManifest): bo
 	for (const script of manifest.scripts) {
 		for (const dependency of script.executableDependencies) {
 			if (dependency.kind === "script") {
-				const target = scripts.get(dependency.slug);
-				if (target?.kind !== "script") {
+				if (!isActivityScript(scripts.get(dependency.slug))) {
 					return false;
 				}
 			} else if (

@@ -8,7 +8,7 @@ export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
 export { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
-export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export { entityEventScopeRevisionRecipe } from "@ryot-app/ryotql-recipes/event-scope";
 export type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 export type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 export {
@@ -21,18 +21,23 @@ export {
 	reportingTimeZone,
 } from "@ryot-app/ryotql/authoring";
 export {
+	type FoldDeclarations,
+	foldEventImageSelection,
+	foldSubjectEventPredicate,
+} from "@ryot-app/ryotql-recipes/fold-events";
+export {
 	eventReadRecipe,
 	entityReadRecipe,
 	type EventReadResult,
 	type EntityReadResult,
 } from "@ryot-app/ryotql-recipes/scripts";
+
 export {
 	eventIsAfter,
 	latestEventField,
 	eventOrderAscending,
 	eventOrderDescending,
 } from "@ryot-app/ryotql-recipes/event-expressions";
-
 export {
 	ProjectionProcessing,
 	projectionProcessing,
@@ -92,52 +97,3 @@ export const executeRyotqlRecipe = <
 				: Effect.succeed(decoded.success);
 		}),
 	);
-
-export class RyotqlPaginationError extends Schema.TaggedError<
-	RyotqlPaginationError,
-	{ readonly brand: unique symbol }
->()("RyotqlPaginationError", { message: Schema.String }) {}
-
-export const continuationCursor = Effect.fnUntraced(function* (
-	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string },
-	previous?: string,
-) {
-	if (!pageInfo.hasMore) {
-		return undefined;
-	}
-	const cursor = pageInfo.nextCursor;
-	if (cursor === null || cursor === "" || cursor === previous) {
-		return yield* new RyotqlPaginationError({ message: "RyotQL pagination did not advance" });
-	}
-	return cursor;
-});
-
-export const readAllRyotqlPages = <Item, Error, Requirements>(
-	loadPage: (
-		after: string | undefined,
-	) => Effect.Effect<
-		{
-			readonly items: ReadonlyArray<Item>;
-			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-		},
-		Error,
-		Requirements
-	>,
-) =>
-	Effect.gen(function* () {
-		const items: Item[] = [];
-		const cursors = new Set<string>();
-		let after: string | undefined;
-		do {
-			const page = yield* loadPage(after);
-			items.push(...page.items);
-			after = yield* continuationCursor(page.pageInfo).pipe(Effect.orDie);
-			if (after !== undefined) {
-				if (cursors.has(after)) {
-					return yield* Effect.die("RyotQL pagination did not advance");
-				}
-				cursors.add(after);
-			}
-		} while (after !== undefined);
-		return items;
-	});

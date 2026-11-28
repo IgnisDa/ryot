@@ -34,22 +34,22 @@ const catalog = Layer.succeed(
 						{
 							isEffective: true,
 							pluginId: "plugin-a",
-							fold: { scriptSlug: "fold", eventSchemaSlugs: ["record"] },
+							fold: { scriptSlug: "fold", entityProperties: [], eventSchemaSlugs: ["record"] },
 						},
 						{
 							isEffective: true,
 							pluginId: "plugin-a",
-							fold: { scriptSlug: "fold", eventSchemaSlugs: ["other"] },
+							fold: { scriptSlug: "fold", entityProperties: [], eventSchemaSlugs: ["other"] },
 						},
 						{
 							isEffective: true,
 							pluginId: "plugin-b",
-							fold: { scriptSlug: "fold", eventSchemaSlugs: ["record"] },
+							fold: { scriptSlug: "fold", entityProperties: [], eventSchemaSlugs: ["record"] },
 						},
 						{
 							isEffective: false,
 							pluginId: "inactive",
-							fold: { scriptSlug: "fold", eventSchemaSlugs: ["record"] },
+							fold: { scriptSlug: "fold", entityProperties: [], eventSchemaSlugs: ["record"] },
 						},
 						{ fold: null, isEffective: true, pluginId: "no-fold" },
 					].map((schema) => partialFake<CatalogEntitySchema>(schema)),

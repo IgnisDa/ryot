@@ -36,13 +36,9 @@ it.live("joins creation and reset bootstrap for each recreated account", () =>
 		);
 		const upstream = yield* startFakeHttpServerScoped((url) =>
 			Effect.gen(function* () {
-				const [userId, entityId] = url.pathname.slice(1).split("/").map(decodeURIComponent);
-				if (!userId || !entityId) {
-					return Response.json({ error: "Missing bootstrap marker identity" }, { status: 400 });
-				}
 				yield* Queue.offer(requests, url.pathname);
 				const gate = held;
-				if (gate && userId === targetUserId) {
+				if (gate && url.pathname === `/${encodeURIComponent(targetUserId)}`) {
 					yield* Deferred.await(gate);
 				}
 				return Response.json({ ok: true });
@@ -78,32 +74,15 @@ it.live("joins creation and reset bootstrap for each recreated account", () =>
 				}),
 				files: encodePluginSourceFiles({
 					[entry]: `
+import { changesOutputSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { ascending, column, defineRecipe, eq, executeRyotqlRecipe, parameters, selectedField, selectedOptionalRow, table } from "@ryot-app/plugin-backend-sdk/ryotql";
-const bootstrapOwnerRecipe = (() => {
- const input = parameters({ fields: { entityId: { type: "string", label: { key: "parameter.marker" }, description: "Bootstrap marker", validation: { required: true } } } });
- const entity = table("entity", "marker");
- return defineRecipe({ parameters: input.schema,
-  map: ({ owner }) => Result.succeed(owner),
-  queries: { owner: selectedOptionalRow(entity, {
-   where: eq(column(entity, "id"), input.value("entityId")),
-   orderBy: [ascending(column(entity, "id"))],
-   selection: { userId: selectedField(column(entity, "userId"), Schema.String) },
-  }) },
- });
-})();
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", slug: "${scriptSlug}", name: "Record bootstrap identity" });
 export default defineScript({
- manifest, input: Schema.Struct({}), output: Schema.Null,
- run: (_input, host) => Effect.gen(function* () {
-  const [marker] = yield* host.ensureUserEntities([{ entitySchemaSlug: "bootstrap-marker", name: "Bootstrap marker", properties: {} }]);
-  if (!marker) return yield* Effect.fail(new Error("Bootstrap marker missing"));
-  const owner = yield* executeRyotqlRecipe(host.executeRyotql, bootstrapOwnerRecipe, { entityId: marker.entityId });
-  if (!owner) return yield* Effect.fail(new Error("Bootstrap marker owner missing"));
-  yield* host.httpCall("POST", ${upstreamUrl} + "/" + encodeURIComponent(owner.userId) + "/" + encodeURIComponent(marker.entityId));
-  return null;
- }),
+ manifest, input: Schema.Struct({ userId: Schema.String }), output: changesOutputSchema,
+ run: (input, host) => host.httpCall("POST", ${upstreamUrl} + "/" + encodeURIComponent(input.userId)).pipe(
+  Effect.as({ changes: { entities: { ensures: [{ entitySchemaSlug: "bootstrap-marker", name: "Bootstrap marker", properties: {} }] } } }),
+ ),
 });
 `,
 				}),
@@ -117,23 +96,23 @@ export default defineScript({
 		);
 		const { email, userId } = yield* createAuthenticatedClient(target);
 		targetUserId = userId;
+		const userPath = `/${encodeURIComponent(userId)}`;
+		const nextBootstrap = Effect.fnUntraced(function* () {
+			for (;;) {
+				if ((yield* Queue.take(requests)) === userPath) {
+					return;
+				}
+			}
+		});
 		yield* Effect.addFinalizer(() => deleteUserAndWait(userId, target).pipe(Effect.orDie));
 		yield* Effect.addFinalizer(() =>
 			held ? Deferred.succeed(held, undefined).pipe(Effect.asVoid) : Effect.void,
 		);
-		const nextBootstrap = Effect.fnUntraced(function* () {
-			for (;;) {
-				const path = yield* Queue.take(requests);
-				if (path.startsWith(`/${userId}/`)) {
-					return path;
-				}
-			}
-		});
-		const executions = [yield* nextBootstrap()];
+		yield* nextBootstrap();
 		for (let reset = 0; reset < 2; reset++) {
 			held = yield* Deferred.make<void>();
 			const accepted = yield* requestUserReset(userId, target);
-			const markerPath = yield* nextBootstrap();
+			yield* nextBootstrap();
 			const pending = Option.getOrThrow(
 				yield* executeAdminRyotQLRecipe(
 					userLifecycleOperationRecipe,
@@ -164,11 +143,8 @@ export default defineScript({
 					"Reset user is missing",
 				).disabledAt,
 			).toBeNull();
-			executions.push(markerPath);
 			held = undefined;
 		}
-		expect(
-			upstream.requests.map(({ path }) => path).filter((path) => path.startsWith(`/${userId}/`)),
-		).toEqual(executions);
+		expect(upstream.requests.filter(({ path }) => path === userPath)).toHaveLength(3);
 	}),
 );

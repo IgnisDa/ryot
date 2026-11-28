@@ -5,9 +5,4 @@ export const exerciseMergeOperationSlug = "exercise-merge";
 
 export const ExerciseMergeInputSchema = Schema.Struct({ mergeFrom: EntityId, mergeInto: EntityId });
 
-export const ExerciseMergeOutputSchema = Schema.Union([
-	Schema.Struct({ mergeInto: EntityId, kind: Schema.Literal("merged") }),
-	Schema.Struct({ kind: Schema.Literal("kind-mismatch") }),
-	Schema.Struct({ kind: Schema.Literal("missing") }),
-	Schema.Struct({ kind: Schema.Literal("same") }),
-]);
+export const ExerciseMergeOutputSchema = Schema.Struct({ mergeInto: EntityId });

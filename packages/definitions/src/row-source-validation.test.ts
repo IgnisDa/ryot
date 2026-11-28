@@ -11,12 +11,15 @@ import {
 	castJson,
 	castText,
 	column,
+	currentDate,
 	eq,
 	field,
+	gt,
 	literal,
 	pluginId,
 	table,
 } from "@ryot-app/ryotql";
+import { now } from "@ryot-app/ryotql/authoring";
 
 import { validateDefinitionSet } from "./definition-set";
 import { kernelDefinitionSource } from "./kernel-definitions";
@@ -229,6 +232,34 @@ describe("signal schedule materialization", () => {
 			"property name field 'missing' must be a projected field",
 		);
 		expect(materialize({ dueAt: "startAt", query: inaccessibleQuery })).toThrow("backupRun");
+	});
+
+	it("rejects queries that read the clock or tables outside the schedule data", () => {
+		const { query } = authoredSchedule();
+		const where = (predicate: NonNullable<PluginSignalSchedule["query"]["where"]>) => ({
+			query: { ...query, where: predicate },
+		});
+		expect(materialize(where(gt(column(entity, "createdAt"), currentDate())))).toThrow(
+			"query must not read the clock",
+		);
+		expect(materialize(where(gt(column(entity, "createdAt"), now())))).toThrow(
+			"query must not read the clock",
+		);
+		const integration = table("integration", "integration");
+		expect(
+			materialize({
+				query: {
+					...query,
+					joins: [
+						{
+							type: "inner",
+							table: integration,
+							on: eq(column(integration, "id"), column(entity, "id")),
+						},
+					],
+				},
+			}),
+		).toThrow("query must read only entity, relationship and event tables, not 'integration'");
 	});
 
 	it("rejects invalid schedules during installation validation", () => {

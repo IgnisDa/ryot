@@ -124,6 +124,9 @@ for (const { kind, operationSlug, savedViewSlug } of [
 						expect(screen.getByRole("button", { name: "Retry deletion" })).toBeTruthy(),
 					),
 				);
+				expect(
+					screen.getByText("Deletion could not be confirmed. Retry to confirm the result safely."),
+				).toBeTruthy();
 				act(() => {
 					fireEvent.click(screen.getByRole("button", { name: "Retry deletion" }));
 				});
@@ -140,6 +143,7 @@ for (const { kind, operationSlug, savedViewSlug } of [
 				page.send({
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: retry.requestId,
 					value: { entityId: "entity" },
 				});
@@ -163,3 +167,69 @@ for (const { kind, operationSlug, savedViewSlug } of [
 		testTimeout,
 	);
 }
+
+it.live(
+	"shows a rejection message and the normal action after a definite failure",
+	() =>
+		Effect.gen(function* () {
+			const page = mountDeleteEntity("workout", () => {});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("alertdialog", { name: "Delete workout?" })).toBeTruthy(),
+				),
+			);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Delete workout" }));
+			});
+			const first = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page.clientMessages().find(({ type }) => type === "operation-request");
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				requestId: first.requestId,
+				reason: "operation-rejected",
+				message: { namespace: "kernel", key: "client.demo-protection.unavailable" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.getByText("This operation is unavailable while using the shared demo account."),
+					).toBeTruthy(),
+				),
+			);
+			expect(screen.getByRole("button", { name: "Delete workout" })).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Retry deletion" })).toBeNull();
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Delete workout" }));
+			});
+			const second = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page
+						.clientMessages()
+						.filter(({ type }) => type === "operation-request")[1];
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			assert(typeof first.input === "object" && first.input !== null);
+			assert(typeof second.input === "object" && second.input !== null);
+			assert("submissionId" in first.input && "submissionId" in second.input);
+			expect(second.input.submissionId).not.toBe(first.input.submissionId);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "operation-failed",
+				requestId: second.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByText("Nothing was deleted.")).toBeTruthy()),
+			);
+			expect(screen.queryByRole("button", { name: "Retry deletion" })).toBeNull();
+		}),
+	testTimeout,
+);

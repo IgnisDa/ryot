@@ -32,9 +32,7 @@ it.live(
 				kind: "reps_and_weight",
 			});
 			yield* createExerciseEntityFixture(client, { kind: "duration", name: "Editor Timer" });
-			expect(
-				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } }),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } });
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const reference = { pluginId, kind: "local" as const };
 			const selected = yield* fitnessRecipes.execute(
@@ -63,7 +61,7 @@ it.live(
 				["2026-10-02", [30, 40]],
 			] as const) {
 				const timestamp = `${day}T10:00:00.000Z`;
-				const saved = yield* saveWorkoutEditor(
+				yield* saveWorkoutEditor(
 					client,
 					operationInput(
 						workoutData({
@@ -86,7 +84,6 @@ it.live(
 						}),
 					),
 				);
-				assertCondition(saved.kind === "saved", "Expected a saved workout");
 			}
 			const history = yield* fitnessRecipes.execute(client, workoutHistoryRecipe({ reference }), {
 				exerciseId,

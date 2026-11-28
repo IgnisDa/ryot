@@ -1,16 +1,18 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { collectMediaTracker } from "./media-tracker-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.media_tracker",
 	name: "Collect MediaTracker history",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
-	run: collectMediaTracker,
 	output: MediaSourceOutput,
+	run: (input, host) => collectMediaTracker(input, host).pipe(Effect.map((output) => ({ output }))),
 });

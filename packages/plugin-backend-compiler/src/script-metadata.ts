@@ -21,6 +21,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			kind: script.kind,
 			capabilities: script.capabilities,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+			...(script.activity ? { activity: script.activity } : {}),
 			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
 		};
 	}

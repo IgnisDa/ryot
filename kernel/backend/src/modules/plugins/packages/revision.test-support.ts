@@ -136,6 +136,15 @@ export const revisionPackage = (
 				targetEntitySchemaSlug: entitySlug,
 			},
 		],
+		hooks: [
+			{
+				name: "Notify",
+				stage: "after",
+				slug: `${slug}.notify`,
+				scriptSlug: `${slug}.automation`,
+				targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: `${slug}.signal` }],
+			},
+		],
 		signalSchemas: [
 			{
 				slug: `${slug}.signal`,
@@ -144,16 +153,6 @@ export const revisionPackage = (
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
 				notificationHookSlug: `${slug}.notify`,
-			},
-		],
-		hooks: [
-			{
-				name: "Notify",
-				stage: "after",
-				delivery: "async",
-				slug: `${slug}.notify`,
-				scriptSlug: `${slug}.automation`,
-				targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: `${slug}.signal` }],
 			},
 		],
 		scripts: [

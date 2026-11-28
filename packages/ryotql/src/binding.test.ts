@@ -6,12 +6,8 @@ import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request
 import { Result, Schema } from "effect";
 
 import { dateAdd, filter, now, parameters, reportingTimeZone, sort } from "./authoring";
-import {
-	authoredValidationBranches,
-	bindDocument,
-	cursorBindingKey,
-	validateAuthoredDocument,
-} from "./binding";
+import { cursorBindingKey, validateAuthoredDocument } from "./binding";
+import { authoredBranches, bindAuthored } from "./fixture.test-support";
 import {
 	aggregate,
 	and,
@@ -104,7 +100,7 @@ describe("authored query binding", () => {
 		const authored = build();
 		const before = JSON.stringify(authored);
 		const result = Result.getOrThrow(
-			bindDocument(
+			bindAuthored(
 				authored,
 				{
 					sort: "name-desc",
@@ -161,7 +157,7 @@ describe("authored query binding", () => {
 	it("treats null as unset but preserves empty strings and false values as set", () => {
 		for (const search of [null, "", "find"]) {
 			const result = Result.getOrThrow(
-				bindDocument(build(), { arguments: { search } }, bindingContext),
+				bindAuthored(build(), { arguments: { search } }, bindingContext),
 			);
 			const predicate = result.document.queries["items"]?.where;
 			expect(predicate?.type === "and" ? predicate.predicates[0] : undefined).toEqual<unknown>(
@@ -181,14 +177,14 @@ describe("authored query binding", () => {
 			{ sort: "name-desc" },
 		];
 		for (const values of invalid) {
-			expect(Result.isFailure(bindDocument(authored, values, bindingContext))).toBe(true);
+			expect(Result.isFailure(bindAuthored(authored, values, bindingContext))).toBe(true);
 		}
-		expect(Result.isFailure(bindDocument(authored, {}, context))).toBe(true);
+		expect(Result.isFailure(bindAuthored(authored, {}, context))).toBe(true);
 	});
 	it("validates every choice case and whenSet outcome before persisted validation", () => {
 		const authored = build();
 		const branches = Result.getOrThrow(
-			authoredValidationBranches(authored, {
+			authoredBranches(authored, {
 				...context,
 				maximumBranches: 16,
 				sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),
@@ -200,7 +196,7 @@ describe("authored query binding", () => {
 		).toBe(4);
 		expect(
 			Result.isFailure(
-				authoredValidationBranches(authored, {
+				authoredBranches(authored, {
 					...context,
 					maximumBranches: 1,
 					sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),
@@ -291,7 +287,7 @@ it("binds scalar and ordering choices and numeric date offsets, and validates al
 		}),
 	};
 	expect(
-		Result.getOrThrow(bindDocument(authored, { arguments: { mode: "b" } }, context)).document
+		Result.getOrThrow(bindAuthored(authored, { arguments: { mode: "b" } }, context)).document
 			.queries["items"],
 	).toMatchObject({
 		output: {
@@ -301,7 +297,7 @@ it("binds scalar and ordering choices and numeric date offsets, and validates al
 	});
 	expect(
 		Result.getOrThrow(
-			authoredValidationBranches(authored, {
+			authoredBranches(authored, {
 				...context,
 				maximumBranches: 16,
 				sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),
@@ -326,7 +322,7 @@ it("distinguishes scalar parameters in expression arrays from whole-list paramet
 		}),
 	};
 	expect(
-		Result.getOrThrow(bindDocument(authored, { arguments: { id: "one" } }, context)).document
+		Result.getOrThrow(bindAuthored(authored, { arguments: { id: "one" } }, context)).document
 			.queries["items"],
 	).toMatchObject({
 		where: { type: "in", values: [{ value: "one", type: "literal" }] },
@@ -348,10 +344,10 @@ it("pages grouped aggregates and rejects ungrouped pages and invalid stored maxi
 	});
 	expect(
 		Result.getOrThrow(
-			bindDocument(authored, { pages: { grouped: { limit: 8, after: "cursor" } } }, context),
+			bindAuthored(authored, { pages: { grouped: { limit: 8, after: "cursor" } } }, context),
 		).document.queries["grouped"],
 	).toMatchObject({ output: { limit: 8, after: "cursor" } });
-	expect(Result.isFailure(bindDocument(authored, { pages: { total: {} } }, context))).toBe(true);
+	expect(Result.isFailure(bindAuthored(authored, { pages: { total: {} } }, context))).toBe(true);
 	expect(
 		Result.isFailure(
 			validateAuthoredDocument(
@@ -383,7 +379,7 @@ it("keeps false boolean arguments set and validates parameter kinds at placehold
 		input.whenSet("flag", eq(column(entity, "flag"), input.value("flag"))),
 	);
 	expect(
-		Result.getOrThrow(bindDocument(guarded, { arguments: { flag: false } }, context)).document
+		Result.getOrThrow(bindAuthored(guarded, { arguments: { flag: false } }, context)).document
 			.queries["items"],
 	).toMatchObject({ where: { type: "comparison", right: { value: false } } });
 	expect(
@@ -428,7 +424,7 @@ it("preserves date parameter kinds in scalar and list positions and validation p
 		}),
 	};
 	const bound = Result.getOrThrow(
-		bindDocument(authored, { arguments: { at: "2026-01-01T12:00:00Z" } }, context),
+		bindAuthored(authored, { arguments: { at: "2026-01-01T12:00:00Z" } }, context),
 	).document;
 	expect(bound.queries["items"]).toMatchObject({
 		output: { fields: [{ expr: { expr: { type: "cast", target: "date" } } }] },
@@ -437,7 +433,7 @@ it("preserves date parameter kinds in scalar and list positions and validation p
 		},
 	});
 	const branches = Result.getOrThrow(
-		authoredValidationBranches(authored, {
+		authoredBranches(authored, {
 			...context,
 			maximumBranches: 8,
 			sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),
@@ -466,7 +462,7 @@ it("projects repeated correlated choices once per reachable assignment", () => {
 		}),
 	};
 	const branches = Result.getOrThrow(
-		authoredValidationBranches(authored, {
+		authoredBranches(authored, {
 			...context,
 			maximumBranches: 3,
 			sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),
@@ -478,7 +474,7 @@ it("projects repeated correlated choices once per reachable assignment", () => {
 	).toBe(3);
 	expect(
 		Result.isFailure(
-			authoredValidationBranches(authored, {
+			authoredBranches(authored, {
 				...context,
 				maximumBranches: 2,
 				sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity" }),

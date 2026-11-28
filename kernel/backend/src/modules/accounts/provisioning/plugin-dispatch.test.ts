@@ -1,14 +1,13 @@
 import { expect } from "bun:test";
 
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -18,9 +17,18 @@ import {
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
+	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { isUserBootstrapPrincipal } from "#modules/scripts/authorization/principal";
+import {
+	runUserBootstrapScript,
+	type UserBootstrapRun,
+} from "#modules/scripts/executions/bootstrap";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
+import { ScriptChanges, type ScriptChangesInput } from "#modules/scripts/executions/script-changes";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
@@ -119,12 +127,7 @@ const systemInstallation = (pluginName: string) => {
 const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
 
 const recordedBootstrapEntities = Layer.succeed(PluginBootstrapEntities)({
-	dispatch: () => Effect.die("Signup dispatches bootstrap plans from its workflow body"),
-	ensure: (input) =>
-		Effect.sync(() => {
-			ensuredEntities.push(input);
-			return [`plan:${input.entrySlug}`];
-		}),
+	ensure: (input) => Effect.sync(() => void ensuredEntities.push(input)),
 });
 
 const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
@@ -225,7 +228,7 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 	test.effect(
 		"dispatches sorted installed entries with bound user subject and deterministic ids",
 		() => {
-			const payloads: SandboxExecutionPayload[] = [];
+			const payloads: UserBootstrapRun[] = [];
 			return Effect.gen(function* () {
 				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
 					Effect.sync(() => {
@@ -237,21 +240,18 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 
 				expect(payloads).toEqual<unknown>([
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.first-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "example-id", "first"),
 					},
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.second-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "example-id", "second"),
 					},
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.only-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "sample-id", "only"),
 					},
 				]);
@@ -342,7 +342,7 @@ layer(layerFor([]))((test) => {
 	test.effect(
 		"dispatches nothing for a user with no system installations",
 		() => {
-			const payloads: SandboxExecutionPayload[] = [];
+			const payloads: UserBootstrapRun[] = [];
 			return Effect.gen(function* () {
 				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
 					Effect.sync(() => {
@@ -510,7 +510,7 @@ layer(layerFor([systemInstallation("seeded")]))((test) => {
 				const userId = UserId.make("user-1");
 				const accountUserId = userId;
 				ensuredEntities.length = 0;
-				expect(yield* dispatcher.dispatchAll(userId, accountUserId)).toEqual(["plan:library"]);
+				yield* dispatcher.dispatchAll(userId, accountUserId);
 				expect(ensuredEntities).toEqual<unknown>([
 					{
 						userId,
@@ -591,6 +591,110 @@ layer(Layer.merge(revisionDatabaseLayer, recordedBootstrapEntities))((test) => {
 				expect(
 					Object.fromEntries(rows.map(({ pluginId, ...state }) => [pluginId, state])),
 				).toEqual<unknown>({ [beta]: initialized, [idle]: initialized, [alpha]: initialized });
+			}),
+		testTimeout,
+	);
+});
+
+const ensures = {
+	entities: { ensures: [{ name: "Seeded", properties: {}, entitySchemaSlug: "record" }] },
+};
+
+const bootstrapScriptLayer = (value: unknown) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const committed = yield* Ref.make<ReadonlyArray<ScriptChangesInput>>([]);
+			const inputs = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			return Layer.mergeAll(
+				Layer.succeed(BootstrapCommits, { inputs: Ref.get(inputs), committed: Ref.get(committed) }),
+				scriptCallsLayer(({ input }) =>
+					Ref.update(inputs, (all) => [...all, input]).pipe(Effect.as(scriptCallResult(value))),
+				),
+				Layer.succeed(
+					ScriptChanges,
+					ScriptChanges.of({
+						commit: () => Effect.die("Bootstrap scripts commit keyed by their execution"),
+						commitKeyed: (input) =>
+							Ref.update(committed, (all) => [...all, input]).pipe(Effect.as({ events: [] })),
+					}),
+				),
+			);
+		}),
+	);
+
+class BootstrapCommits extends Context.Service<
+	BootstrapCommits,
+	{
+		readonly inputs: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly committed: Effect.Effect<ReadonlyArray<ScriptChangesInput>>;
+	}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/plugin-dispatch.test/BootstrapCommits",
+) {}
+
+const installedBootstrap = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	const userId = UserId.make("owner");
+	const { pluginId } = yield* installRevisionPackage(bootstrappedPackage("gamma", ["seed"]));
+	const [script] = yield* session.run((db) =>
+		db
+			.select({ id: tables.sandboxScript.id, contentHash: tables.sandboxScript.contentHash })
+			.from(tables.sandboxScript)
+			.where(eq(tables.sandboxScript.slug, "gamma.task")),
+	);
+	assert(script);
+	return {
+		script,
+		executionId: userBootstrapExecutionId(userId, pluginId, "seed"),
+		run: {
+			userId,
+			scriptId: SandboxScriptId.make(script.id),
+			executionId: userBootstrapExecutionId(userId, pluginId, "seed"),
+		},
+	};
+});
+
+layer(
+	Layer.mergeAll(bootstrapScriptLayer({ changes: ensures }), SandboxRepository.layer).pipe(
+		Layer.provideMerge(revisionDatabaseLayer),
+	),
+)((test) => {
+	test.effect(
+		"commits a bootstrap script's ensures under its bootstrap principal, keyed by its execution",
+		() =>
+			Effect.gen(function* () {
+				const { run, script, executionId } = yield* installedBootstrap;
+				expect(yield* runUserBootstrapScript(run)).toEqual({ error: null });
+				expect(yield* (yield* BootstrapCommits).inputs).toEqual([{ userId: run.userId }]);
+				const committed = yield* (yield* BootstrapCommits).committed;
+				expect(committed).toHaveLength(1);
+				const [input] = committed;
+				assert(input);
+				expect(input).toMatchObject({
+					changes: ensures,
+					lane: "background",
+					executionId: `${executionId}-${script.contentHash}`,
+				});
+				expect(isUserBootstrapPrincipal(input.principal)).toBe(true);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	Layer.mergeAll(bootstrapScriptLayer({ written: true }), SandboxRepository.layer).pipe(
+		Layer.provideMerge(revisionDatabaseLayer),
+	),
+)((test) => {
+	test.effect(
+		"fails a bootstrap script whose output is not a change set result",
+		() =>
+			Effect.gen(function* () {
+				const { run } = yield* installedBootstrap;
+				expect(yield* runUserBootstrapScript(run)).toMatchObject({
+					error: { phase: "output", kind: "invalid-output" },
+				});
+				expect(yield* (yield* BootstrapCommits).committed).toEqual([]);
 			}),
 		testTimeout,
 	);

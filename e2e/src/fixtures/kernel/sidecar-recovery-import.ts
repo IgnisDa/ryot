@@ -138,6 +138,7 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 				},
 				{
 					kind: "script",
+					activity: true,
 					slug: chunkSlug,
 					entry: chunkEntry,
 					capabilities: ["scratch"],
@@ -173,12 +174,12 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 					name: "Sidecar recovery resolve",
 				}),
 				[chunkEntry]: `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
-export const manifest = defineManifest({ kind: "script", name: "Sidecar recovery chunks", slug: ${literals.chunkSlug} });
-export default defineScript({ manifest, input: Schema.Struct({}), output: sandboxScratchManifestSchema,
-  run: () => writeScratchChunks(${literals.chunks}),
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Sidecar recovery chunks", slug: ${literals.chunkSlug} });
+export default defineActivity({ manifest, input: Schema.Struct({}), output: sandboxScratchManifestSchema,
+  run: () => Effect.map(writeScratchChunks(${literals.chunks}), (output) => ({ output })),
 });`,
 				[detailsEntry]: `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
@@ -215,7 +216,7 @@ export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchem
       });
     }
     const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
-    return { summary: sealed.summary, issues: [] };
+    return { output: { summary: sealed.summary, issues: [] } };
   }),
 });`,
 			},

@@ -2,9 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
-import { collectionOrderStatements } from "#platform/db/collection-order";
-import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
-import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
+import { postMigrationStatements } from "#platform/db/post-migration";
 
 export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 	const directory = new URL("../drizzle/", import.meta.url).pathname;
@@ -18,9 +16,7 @@ export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 	});
 	return [
 		...migrations.flatMap((ddl) => ddl.split("--> statement-breakpoint")),
-		...immutableRevisionStatements,
-		...collectionOrderStatements,
-		...entityOccursAtStatements,
+		...postMigrationStatements,
 	];
 });
 

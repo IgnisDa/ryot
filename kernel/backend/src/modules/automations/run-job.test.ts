@@ -3,17 +3,16 @@ import { expect } from "bun:test";
 import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationPluginAfterRun,
-	AutomationRequestPayload,
 	type AutomationRun,
 	AutomationRunAttempt,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { type ChangeSet, ChangesOutput } from "@ryot-app/contract/modules/changes/change-set";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	AutomationHookSlug,
 	AutomationRunId,
-	EntityId,
-	EntitySchemaSlug,
+	AutomationTriggerId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
@@ -21,29 +20,31 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
+import { decodeScriptCall } from "#modules/scripts/executions/calls";
+import {
+	sandboxExecutionFailure,
+	type SandboxExecutionResult,
+} from "#modules/scripts/executions/result";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
 import {
+	type AutomationAttemptChanges,
 	AutomationRunOperations,
 	classifyAutomationSandboxError,
 	prepareAutomationInvocation,
+	type PreparedAutomationAttempt,
 	runAutomationAttempt,
-	runAutomationAttemptDirect,
 } from "./run-job-live";
 
 const trigger = triggerFixture();
 const accountUserId = UserId.make("owner");
 const run = AutomationPluginAfterRun.make({
-	stage: "after",
 	attemptCount: 0,
 	startedAt: null,
 	hookName: "Hook",
@@ -51,7 +52,6 @@ const run = AutomationPluginAfterRun.make({
 	finishedAt: null,
 	skipReason: null,
 	nextAttemptAt: null,
-	delivery: "required",
 	triggerId: trigger.id,
 	scriptSlug: "hook-script",
 	queuedAt: trigger.createdAt,
@@ -71,7 +71,7 @@ const run = AutomationPluginAfterRun.make({
 		externalIdempotency: "none",
 	},
 });
-const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
+const payload = { runId: run.id, attemptNumber: 1 };
 const afterScript = {
 	...emptySandboxExecutionMetadata,
 	kind: "automation",
@@ -80,11 +80,23 @@ const afterScript = {
 	automationType: "automation",
 	inputProjection: { signal: { properties: ["nested"] } },
 } as const;
-const policyScript = {
-	...afterScript,
-	automationType: "policy",
-	inputProjection: { entity: { properties: [] } },
-} as const;
+const hookChanges = {
+	signals: [{ properties: {}, discriminator: "first", schemaSlug: "hook-done" }],
+} satisfies ChangeSet;
+const withPrincipal = (
+	prepared: Effect.Success<ReturnType<typeof prepareAutomationInvocation>>,
+): PreparedAutomationAttempt => ({
+	...prepared,
+	principal: {
+		providerId: null,
+		pluginRevision: null,
+		metadata: afterScript,
+		subject: prepared.subject,
+		scriptSlug: run.scriptSlug,
+		scriptId: prepared.scriptId,
+		contentHash: run.scriptContentHash,
+	},
+});
 const identity = automationAttemptIdentity(run.id, 1);
 const initialAttempt = AutomationRunAttempt.make({
 	...identity,
@@ -101,21 +113,6 @@ const initialAttempt = AutomationRunAttempt.make({
 	startedAt: trigger.createdAt,
 	attemptNumber: payload.attemptNumber,
 });
-const request: AutomationRequestPayload = {
-	resource: "entity",
-	category: "request",
-	operation: "create",
-	draft: {
-		properties: {},
-		name: "Original",
-		externalId: null,
-		providerId: null,
-		populatedAt: null,
-		entitySchemaPluginId: null,
-		entitySchemaSlug: EntitySchemaSlug.make("record"),
-	},
-};
-
 it.effect(
 	"replays captured kernel collection observer targets without changing plugin write ownership",
 	() =>
@@ -232,42 +229,32 @@ it.effect(
 		}),
 	testTimeout,
 );
-const requestTrigger = AutomationTrigger.make({
-	...trigger,
-	payload: request,
-	kind: { resource: "entity", category: "request", operation: "create" },
-});
-const beforeRun: AutomationRun = {
-	...run,
-	stage: "before",
-	retryPolicy: null,
-	delivery: "policy",
-	nextAttemptAt: null,
-};
+const otherTrigger = AutomationTrigger.make({ ...trigger, id: AutomationTriggerId.make("other") });
 
 type Operations = AutomationRunOperations["Service"];
+type SandboxRun = (
+	input: Parameters<Operations["runSandbox"]>[0],
+) => Effect.Effect<SandboxExecutionResult>;
 
 type HarnessOptions = {
 	readonly run?: AutomationRun;
 	readonly trigger?: AutomationTrigger;
 	readonly failFirstFinalize?: boolean;
-	readonly overrides?: Partial<
-		Pick<Operations, "claim" | "prepare" | "runSandbox" | "runSandboxDirect">
-	>;
+	readonly overrides?: Partial<{ runSandbox: SandboxRun } & Pick<Operations, "claim" | "prepare">>;
 };
 
 type HarnessState = {
-	readonly releases: number;
 	readonly finalizeCalls: number;
 	readonly options: HarnessOptions;
 	readonly attempt: AutomationRunAttempt;
 	readonly children: ReadonlyArray<string>;
+	readonly written: ReadonlyArray<AutomationAttemptChanges>;
 	readonly outcomes: ReadonlyArray<FinalizeAutomationAttempt>;
 };
 
 const initialState = (options: HarnessOptions): HarnessState => ({
 	options,
-	releases: 0,
+	written: [],
 	outcomes: [],
 	children: [],
 	finalizeCalls: 0,
@@ -277,9 +264,9 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 class RunJobHarness extends Context.Service<
 	RunJobHarness,
 	{
-		readonly releases: Effect.Effect<number>;
 		readonly children: Effect.Effect<ReadonlyArray<string>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
+		readonly written: Effect.Effect<ReadonlyArray<AutomationAttemptChanges>>;
 		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/run-job.test/RunJobHarness") {}
@@ -295,19 +282,11 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				trigger: options.trigger ?? trigger,
 			}));
 			const operations = AutomationRunOperations.of({
-				releaseFirstClaim: () =>
-					Ref.update(state, (snapshot) => ({ ...snapshot, releases: snapshot.releases + 1 })),
-				runSandboxDirect: (input) =>
-					Effect.flatMap(selected, ({ overrides }) =>
-						overrides.runSandboxDirect
-							? overrides.runSandboxDirect(input)
-							: operations.runSandbox(input),
-					),
 				claim: (input) =>
 					Effect.flatMap(current, ({ options, attempt }) =>
 						options.overrides?.claim
 							? options.overrides.claim(input)
-							: Effect.succeed({ attempt, claimed: true, stage: (options.run ?? run).stage }),
+							: Effect.succeed({ attempt, claimed: true }),
 					),
 				prepare: (input) =>
 					Effect.flatMap(selected, (chosen) =>
@@ -317,10 +296,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									chosen.run,
 									chosen.trigger,
 									input,
-									chosen.run.stage === "before" ? policyScript : afterScript,
+									afterScript,
 									chosen.run.executionUserId,
 									{ pinned: true },
-								),
+								).pipe(Effect.map(withPrincipal)),
 					),
 				runSandbox: (input) =>
 					Effect.gen(function* () {
@@ -336,10 +315,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							error: null,
 							logs: ["script log"],
 							status: "completed" as const,
-							value: { secretLookingResult: "not-in-completion" },
+							value: { changes: hookChanges },
 						};
-					}),
-				finalize: (input) =>
+					}).pipe(Effect.flatMap((result) => decodeScriptCall(result, ChangesOutput))),
+				finalize: (input, written) =>
 					Effect.gen(function* () {
 						const { options, finalizeCalls } = yield* Ref.updateAndGet(state, (snapshot) => ({
 							...snapshot,
@@ -353,15 +332,16 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							...snapshot,
 							attempt,
 							outcomes: [...snapshot.outcomes, input],
+							written: written === undefined ? snapshot.written : [...snapshot.written, written],
 						}));
 						return attempt;
 					}),
 			});
 			return Context.make(AutomationRunOperations, operations).pipe(
 				Context.add(RunJobHarness, {
+					written: Effect.map(current, ({ written }) => written),
 					outcomes: Effect.map(current, ({ outcomes }) => outcomes),
 					children: Effect.map(current, ({ children }) => children),
-					releases: Effect.map(current, ({ releases }) => releases),
 					reset: (options) => Ref.set(state, initialState(options)),
 				}),
 			);
@@ -383,9 +363,8 @@ it.effect(
 				{ retained: "metadata" },
 			);
 			expect(prepared).toEqual<unknown>({
+				lane: "background",
 				scriptId: "script-old",
-				policyItemIdentity: null,
-				lane: trigger.causation.lane,
 				input: {
 					automation: {
 						runId: run.id,
@@ -402,7 +381,6 @@ it.effect(
 					runId: run.id,
 					stage: "after",
 					pluginId: "plugin",
-					delivery: "required",
 					triggerId: trigger.id,
 					type: "automation-run",
 					executionUserId: "owner",
@@ -483,184 +461,21 @@ it.effect(
 );
 
 it.effect(
-	"feeds a transformed request into the next policy without replacing the immutable trigger",
+	"runs after hooks on the background lane whatever lane triggered them",
 	() =>
 		Effect.gen(function* () {
-			const patch = { resource: "entity", draft: { name: "Transformed" } } as const;
 			const prepared = yield* prepareAutomationInvocation(
-				beforeRun,
-				requestTrigger,
-				{ ...payload, acceptedPatches: [patch] },
-				policyScript,
-				accountUserId,
-			);
-			assert("items" in prepared.input);
-			const item = prepared.input.items[0];
-			assert(item);
-			expect(item.payload).toEqual({
-				...request,
-				draft: { ...request.draft, properties: {}, name: "Transformed" },
-			});
-			expect(requestTrigger.payload).toEqual(request);
-			expect(prepared.subject).toMatchObject({ stage: "before", executionUserId: "owner" });
-			const exit = yield* Effect.exit(
-				prepareAutomationInvocation(
-					beforeRun,
-					requestTrigger,
-					{ ...payload, attemptNumber: 2 },
-					policyScript,
-					accountUserId,
-				),
-			);
-			expect(exit._tag).toBe("Failure");
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"scheduling_lane_survives_durable_boundaries: before and required after runs keep the trigger lane and async after runs are background",
-	() =>
-		Effect.gen(function* () {
-			const interactive = {
-				...trigger,
-				causation: { ...trigger.causation, lane: "interactive" as const },
-			};
-			const after = (delivery: "async" | "required") =>
-				prepareAutomationInvocation(
-					{ ...run, delivery },
-					interactive,
-					payload,
-					afterScript,
-					accountUserId,
-				);
-			const required = yield* after("required");
-			const async = yield* after("async");
-			const before = yield* prepareAutomationInvocation(
-				beforeRun,
-				{ ...requestTrigger, causation: interactive.causation },
+				run,
+				{ ...trigger, causation: { ...trigger.causation, lane: "interactive" } },
 				payload,
-				policyScript,
+				afterScript,
 				accountUserId,
 			);
-			expect([before.lane, required.lane, async.lane]).toEqual([
-				"interactive",
-				"interactive",
-				"background",
-			]);
-			expect(async.subject).toMatchObject({
-				delivery: "async",
+			expect(prepared.lane).toBe("background");
+			expect(prepared.subject).toMatchObject({
+				stage: "after",
 				causation: { lane: "interactive" },
 			});
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"keeps a fifty-item policy batch within the input limit by sharing invocation metadata",
-	() =>
-		Effect.gen(function* () {
-			const itemIdentities = Array.from({ length: 50 }, (_, index) => `item-${index}`);
-			const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-				...requestTrigger,
-				kind: { resource: "entity", operation: "batch", category: "request" },
-				payload: {
-					references: {},
-					itemIdentities,
-					resource: "entity",
-					operation: "batch",
-					category: "request",
-					items: itemIdentities.map(() => request),
-				},
-			});
-			const hookMetadata = { note: "x".repeat(2000) };
-			const prepared = yield* prepareAutomationInvocation(
-				beforeRun,
-				batchTrigger,
-				{ ...payload, acceptedBatchPatches: {}, activeItemIdentities: itemIdentities },
-				policyScript,
-				accountUserId,
-				hookMetadata,
-			);
-			assert("items" in prepared.input);
-			expect(prepared.input.items).toHaveLength(50);
-			expect(prepared.input.automation.hookMetadata).toEqual(hookMetadata);
-			const bytes = jsonByteLength(prepared.input);
-			assert(bytes !== null);
-			expect(bytes).toBeLessThan(65_536);
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"projects captured references for a session changed by an earlier batch policy",
-	() =>
-		Effect.gen(function* () {
-			const eventRequest = yield* Schema.decodeEffect(AutomationRequestPayload)({
-				resource: "event",
-				category: "request",
-				operation: "create",
-				draft: {
-					properties: {},
-					entityId: "entity",
-					entitySchemaSlug: "record",
-					eventSchemaSlug: "activity",
-					sessionEntityId: "original",
-					eventSchemaPluginId: "plugin",
-					entitySchemaPluginId: "plugin",
-					occurredAt: trigger.occurredAt,
-				},
-			});
-			const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-				...requestTrigger,
-				kind: { resource: "event", operation: "batch", category: "request" },
-				payload: {
-					references: {},
-					resource: "event",
-					operation: "batch",
-					category: "request",
-					items: [eventRequest],
-					itemIdentities: ["item"],
-				},
-			});
-			const prepared = yield* prepareAutomationInvocation(
-				beforeRun,
-				batchTrigger,
-				{
-					...payload,
-					acceptedBatchPatches: {
-						item: [{ resource: "event", draft: { sessionEntityId: EntityId.make("replacement") } }],
-					},
-					acceptedReferences: {
-						[EntityId.make("replacement")]: {
-							name: "Related",
-							providerId: null,
-							externalId: null,
-							populatedAt: null,
-							properties: { marker: "captured" },
-							entitySchemaPluginId: PluginId.make("plugin"),
-							entitySchemaSlug: EntitySchemaSlug.make("record"),
-						},
-					},
-				},
-				{
-					...policyScript,
-					inputProjection: {
-						event: { properties: [], entityProperties: [], sessionEntityProperties: ["marker"] },
-					},
-				},
-				accountUserId,
-			);
-			assert("items" in prepared.input);
-			expect(prepared.input.automation.references?.[EntityId.make("replacement")]).toEqual<unknown>(
-				{
-					entitySchemaSlug: "record",
-					entitySchemaPluginId: "plugin",
-					properties: { marker: "captured" },
-				},
-			);
-			const item = prepared.input.items[0];
-			assert(item?.payload.resource === "event");
-			expect(item.payload.draft.sessionEntityId).toBe<unknown>("replacement");
 		}),
 	testTimeout,
 );
@@ -670,10 +485,10 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const mismatch = yield* prepareAutomationInvocation(
-				beforeRun,
-				requestTrigger,
-				{ ...payload, attemptNumber: 2 },
-				policyScript,
+				run,
+				otherTrigger,
+				payload,
+				afterScript,
 				accountUserId,
 			).pipe(Effect.flip);
 			expect(mismatch).toMatchObject({
@@ -709,44 +524,6 @@ it.effect(
 				message:
 					"Automation input projection for script 'hook-script' and hook 'hook' does not declare the retained trigger resource",
 			});
-
-			const oversizedPayload = {
-				actorUserId: "owner",
-				operation: "emit" as const,
-				signalSchemaPluginId: null,
-				category: "signal" as const,
-				resource: "signal" as const,
-				signalSchemaSlug: "fixture.signal",
-				properties: { oversized: "a".repeat(65_536) },
-			};
-			const oversizedTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-				...trigger,
-				payload: oversizedPayload,
-			});
-			const expectedInput = {
-				automation: {
-					runId: run.id,
-					triggerId: trigger.id,
-					hookSlug: run.hookSlug,
-					payload: oversizedPayload,
-					causation: trigger.causation,
-					occurredAt: trigger.occurredAt,
-					executionUserId: run.executionUserId,
-				},
-			};
-			const expectedBytes = jsonByteLength(expectedInput);
-			expect(expectedBytes).not.toBeNull();
-			const oversized = yield* prepareAutomationInvocation(
-				run,
-				oversizedTrigger,
-				payload,
-				{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
-				accountUserId,
-			).pipe(Effect.flip);
-			expect(oversized).toMatchObject({
-				kind: "invalid-input",
-				message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,
-			});
 		}),
 	testTimeout,
 );
@@ -762,7 +539,47 @@ layer(harnessLayer())((test) => {
 				expect(yield* harness.children).toEqual([`${identity.executionId}-sandbox`]);
 				const outcomes = yield* harness.outcomes;
 				expect(outcomes).toHaveLength(1);
-				expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
+				expect(outcomes[0]?.returnedValue).toEqual({ changes: hookChanges });
+				const written = yield* harness.written;
+				expect(written).toHaveLength(1);
+				expect(written[0]).toMatchObject({
+					changes: hookChanges,
+					prepared: {
+						principal: {
+							scriptId: run.sandboxScriptId,
+							subject: { runId: run.id, stage: "after" },
+						},
+					},
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	harnessLayer({
+		overrides: {
+			runSandbox: () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { written: "through a host call" },
+				}),
+		},
+	}),
+)((test) => {
+	test.effect(
+		"fails an after hook whose output is not a change set result without committing",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				expect((yield* harness.outcomes)[0]).toMatchObject({
+					status: "failed",
+					failureKind: "invalid-output",
+				});
+				expect(yield* harness.written).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -772,8 +589,8 @@ layer(
 	harnessLayer({
 		overrides: {
 			runSandbox: () => Effect.die("Terminalized claims must not run a sandbox"),
-			claim: () => Effect.succeed({ attempt: null, claimed: false, stage: "after" }),
 			prepare: () => Effect.die("Terminalized claims must not prepare an invocation"),
+			claim: () => Effect.succeed({ attempt: null, claimed: false, stage: "after" as const }),
 		},
 	}),
 )((test) => {
@@ -813,101 +630,14 @@ layer(harnessLayer({ failFirstFinalize: true }))((test) => {
 
 layer(
 	harnessLayer({
-		run: beforeRun,
-		trigger: requestTrigger,
 		overrides: {
 			runSandbox: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						items: [
-							{
-								itemIdentity: requestTrigger.id,
-								decision: { action: "reject", reason: { key: "rejection.rule-declined" } },
-							},
-						],
-					},
-				}),
+				Effect.succeed({ logs: [], value: 1, error: null, status: "completed" as const }),
 		},
 	}),
 )((test) => {
 	test.effect(
-		"records a policy rejection as success with its output",
-		() =>
-			Effect.gen(function* () {
-				const harness = yield* RunJobHarness;
-				yield* execute();
-				yield* execute();
-				const outcomes = yield* harness.outcomes;
-				expect(outcomes).toHaveLength(1);
-				expect(outcomes[0]).toMatchObject({
-					status: "succeeded",
-					returnedValue: { action: "reject", reason: { key: "rejection.rule-declined" } },
-				});
-			}),
-		testTimeout,
-	);
-});
-
-layer(
-	harnessLayer({
-		run: beforeRun,
-		trigger: requestTrigger,
-		overrides: {
-			runSandbox: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: {
-						items: [
-							{
-								itemIdentity: requestTrigger.id,
-								decision: { action: "reject", reason: { key: "rejection.rule-declined" } },
-							},
-						],
-					},
-				}),
-		},
-	}),
-)((test) => {
-	test.effect(
-		"runs a direct policy attempt without a workflow and replays its settled output",
-		() =>
-			Effect.gen(function* () {
-				const harness = yield* RunJobHarness;
-				const result = yield* runAutomationAttemptDirect(payload);
-				expect(result.policyOutput).toEqual({
-					action: "reject",
-					reason: { key: "rejection.rule-declined" },
-				});
-				expect(result.attempt?.status).toBe("succeeded");
-				expect(yield* runAutomationAttemptDirect(payload)).toEqual(result);
-				expect(yield* harness.outcomes).toHaveLength(1);
-			}),
-	);
-
-	test.effect("releases a deferred direct attempt without finalizing it", () =>
-		Effect.gen(function* () {
-			const harness = yield* RunJobHarness;
-			yield* harness.reset({
-				run: beforeRun,
-				trigger: requestTrigger,
-				overrides: { runSandboxDirect: () => Effect.fail(new DirectScriptDeferred()) },
-			});
-			const error = yield* Effect.flip(runAutomationAttemptDirect(payload));
-			expect(error._tag).toBe("DirectScriptDeferred");
-			expect(yield* harness.releases).toBe(1);
-			expect(yield* harness.outcomes).toHaveLength(0);
-		}),
-	);
-});
-
-layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
-	test.effect(
-		"finalizes invalid policy output and sandbox timeout without waiting or creating another attempt",
+		"finalizes invalid output and sandbox timeout without creating another attempt",
 		() =>
 			Effect.gen(function* () {
 				const harness = yield* RunJobHarness;
@@ -916,11 +646,13 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 				yield* harness.reset({
 					overrides: {
 						runSandbox: () =>
-							Effect.fail(
-								new SandboxRunError({
-									kind: "timeout",
-									message: "Sandbox timed out after 30000ms",
-								}),
+							Effect.succeed(
+								sandboxExecutionFailure(
+									new SandboxRunError({
+										kind: "timeout",
+										message: "Sandbox timed out after 30000ms",
+									}),
+								),
 							),
 					},
 				});
@@ -935,19 +667,19 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 
 layer(
 	harnessLayer({
-		run: beforeRun,
-		trigger: requestTrigger,
 		overrides: {
 			runSandbox: () =>
-				Effect.fail(
-					new SandboxRunError({
-						kind: "script-failure",
-						message: "Rule declined the request",
-						data: {
-							code: "operation-rejected",
-							reason: { namespace: "test", key: "test.declined" },
-						},
-					}),
+				Effect.succeed(
+					sandboxExecutionFailure(
+						new SandboxRunError({
+							kind: "script-failure",
+							message: "Rule declined the request",
+							data: {
+								code: "operation-rejected",
+								reason: { namespace: "test", key: "test.declined" },
+							},
+						}),
+					),
 				),
 		},
 	}),

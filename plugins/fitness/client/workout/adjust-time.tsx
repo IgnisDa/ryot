@@ -1,11 +1,13 @@
-import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isChangesConflict, type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	formatError,
 	type RyotSubmission,
 	useRyotQuery,
 	useRyotSubmission,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -41,6 +43,7 @@ type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
 	"submittedAt" | "submissionId"
 >;
+
 const correctTime = createRyotMutation<
 	RyotSubmission<Correction>,
 	typeof WorkoutTimeCorrectionOutputSchema.Type
@@ -119,6 +122,7 @@ function TimeForm(props: {
 	readonly properties: WorkoutProperties;
 	readonly entity: WorkoutEditorBaseline["entity"];
 }) {
+	const t = useT();
 	const text = useFitnessMessages();
 	const { entity, onClose, properties } = props;
 	const start = useDateTimeInput(properties.startedAt);
@@ -127,9 +131,9 @@ function TimeForm(props: {
 	const [intent, setIntent] = useState("preserve");
 	const [seconds, setSeconds] = useState(String(properties.activeDuration ?? ""));
 	const [message, setMessage] = useState<string>();
-	const save = useRyotSubmission(correctTime, { isComplete: (result) => result.kind === "saved" });
+	const save = useRyotSubmission(correctTime);
 	useEffect(() => {
-		if (save.data?.kind === "saved") {
+		if (save.data !== undefined) {
 			onClose();
 		}
 	}, [save.data, onClose]);
@@ -168,6 +172,8 @@ function TimeForm(props: {
 			conflictToken: conflictToken.success,
 		});
 	};
+	const conflict = isChangesConflict(save.error) ? text("client.adjust.conflict") : undefined;
+	const conflicted = conflict !== undefined;
 	let submitLabel = text("client.adjust.save");
 	if (save.status === "retained") {
 		submitLabel = text("client.adjust.retry-correction");
@@ -184,10 +190,8 @@ function TimeForm(props: {
 			description={text("client.adjust.description")}
 			footer={
 				<Button
+					disabled={save.isPending || conflicted}
 					onClick={save.status === "retained" ? save.retry : submit}
-					disabled={
-						save.isPending || save.data?.kind === "conflict" || save.data?.kind === "invalid"
-					}
 				>
 					{submitLabel}
 				</Button>
@@ -196,7 +200,7 @@ function TimeForm(props: {
 			<div className="grid gap-4">
 				<fieldset
 					className="grid min-w-0 gap-4 border-0 p-0"
-					disabled={save.isPending || save.status === "retained"}
+					disabled={save.isPending || save.status === "retained" || conflicted}
 				>
 					<DateTimeField
 						{...start}
@@ -255,12 +259,13 @@ function TimeForm(props: {
 					) : null}
 				</fieldset>
 				{message ? <Notice tone="danger">{message}</Notice> : null}
-				{save.error ? <Notice tone="danger">{text("client.adjust.unconfirmed")}</Notice> : null}
-				{save.data?.kind === "conflict" ? (
-					<Notice tone="danger">{text("client.adjust.conflict")}</Notice>
-				) : null}
-				{save.data?.kind === "invalid" ? (
-					<Notice tone="danger">{text("client.adjust.rejected")}</Notice>
+				{conflict === undefined ? null : <Notice tone="danger">{conflict}</Notice>}
+				{save.error && !conflicted ? (
+					<Notice tone="danger">
+						{save.status === "retained"
+							? text("client.adjust.unconfirmed")
+							: formatError(t, save.error, text("client.adjust.not-saved"))}
+					</Notice>
 				) : null}
 			</div>
 		</Dialog>

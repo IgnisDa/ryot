@@ -12,35 +12,30 @@ import { Effect } from "effect";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,
 	command,
-	relationshipDatabaseLayer,
+	persistPrepared,
+	prepareUserChange,
+	relationshipChangeSetsLayer,
 	sourceEntityId,
 	targetEntityId,
 	userId,
+	writeRelationship,
 } from "./lifecycle.test-support";
 import { RelationshipsService } from "./service";
 
-layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => {
+layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) => {
 	test.effect(
-		"rejects personal creates and batches from global sources",
+		"rejects personal creates from global sources",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
-				assertExitFails(
-					yield* Effect.exit(service.create(baseInput, command("owned-source-create"))),
-					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
-				);
 				assertExitFails(
 					yield* Effect.exit(
-						service.changeUser(
-							userId,
-							[{ deletes: [], creates: [{ ...baseInput, propertiesMode: "replace" }] }],
-							command("owned-source-batch"),
-						),
+						writeRelationship("upsert", baseInput, command("owned-source-create")),
 					),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
@@ -52,7 +47,7 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 	);
 });
 
-layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => {
+layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) => {
 	test.effect(
 		"permits a user-owned source to reference a global target",
 		() =>
@@ -71,16 +66,19 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 					},
 				]);
 				assert(source);
-				const service = yield* RelationshipsService;
 				const input = { ...baseInput, sourceEntityId: source.id };
 				expect(
-					(yield* service.create(input, command("owned-allowed"))).relationship?.sourceEntityId,
+					(yield* writeRelationship("upsert", input, command("owned-allowed"))).relationship
+						?.sourceEntityId,
 				).toBe(source.id);
 				expect(
-					(yield* service.create({ ...input, properties: { rank: 2 } }, command("owned-update")))
-						.relationship?.properties,
+					(yield* writeRelationship(
+						"upsert",
+						{ ...input, properties: { rank: 2 } },
+						command("owned-update"),
+					)).relationship?.properties,
 				).toEqual({ rank: 2 });
-				yield* service.delete(input, command("owned-delete"));
+				yield* writeRelationship("delete", input, command("owned-delete"));
 				expect(
 					yield* (yield* DatabaseSession).run((db) => db.select().from(tables.relationship)),
 				).toEqual([]);
@@ -89,7 +87,7 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 	);
 });
 
-layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => {
+layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) => {
 	test.effect(
 		"rejects updates and deletes of personal links on global sources",
 		() =>
@@ -108,20 +106,27 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 							relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
 						}),
 				);
-				const service = yield* RelationshipsService;
 				assertExitFails(
 					yield* Effect.exit(
-						service.create({ ...baseInput, properties: { rank: 2 } }, command("denied-update")),
+						writeRelationship(
+							"upsert",
+							{ ...baseInput, properties: { rank: 2 } },
+							command("denied-update"),
+						),
 					),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
 				assertExitFails(
-					yield* Effect.exit(service.delete(baseInput, command("denied-delete"))),
+					yield* Effect.exit(writeRelationship("delete", baseInput, command("denied-delete"))),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
 				assertExitFails(
 					yield* Effect.exit(
-						service.prepareUserDelete(baseInput, command("denied-prepared-delete")),
+						prepareUserChange({
+							mode: "delete",
+							input: baseInput,
+							command: command("denied-prepared-delete"),
+						}),
 					),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
@@ -135,7 +140,7 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 	);
 });
 
-layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => {
+layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) => {
 	test.effect(
 		"allows authorized global reconciliation without a sandbox policy",
 		() =>
@@ -144,6 +149,7 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 				const session = yield* DatabaseSession;
 				const result = yield* session.transaction(
 					service.persistPlannedReconciliation(
+						new WriteTransaction(),
 						[
 							{
 								relationshipSchema: baseInput.relationshipSchema,
@@ -165,32 +171,28 @@ layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => 
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"keeps unrestricted annotation relationships writable from global sources",
 		() =>
 			Effect.gen(function* () {
-				const result = yield* (yield* RelationshipsService).create(
-					baseInput,
-					command("annotation"),
-				);
+				const result = yield* writeRelationship("upsert", baseInput, command("annotation"));
 				expect(result.relationship?.sourceEntityId).toBe(sourceEntityId);
 			}),
 		testTimeout,
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"rechecks source ownership at the prepared commit after schema policy changes",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
-				const prepared = yield* service.prepareUserCreate(
-					baseInput,
-					command("prepared-before-policy"),
-				);
-				assert(prepared !== null);
+				const prepared = yield* prepareUserChange({
+					mode: "upsert",
+					input: baseInput,
+					command: command("prepared-before-policy"),
+				});
 				const definitions = yield* DefinitionRepository;
 				const source = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
 				yield* definitions.replaceKernelDefinitions({
@@ -200,9 +202,7 @@ layer(relationshipDatabaseLayer())((test) => {
 					),
 				});
 				assertExitFails(
-					yield* Effect.exit(
-						(yield* DatabaseSession).transaction(service.persistPreparedUserCreate(prepared)),
-					),
+					yield* Effect.exit(persistPrepared(prepared)),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
 				expect(

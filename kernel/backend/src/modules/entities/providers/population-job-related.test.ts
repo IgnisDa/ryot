@@ -28,7 +28,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
-import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
+import { relationshipChangeSetsLayer } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -316,12 +316,12 @@ const seedRoot = (h: Effect.Success<ReturnType<typeof harness>>) =>
 
 layer(
 	Layer.merge(
-		relationshipDatabaseLayer(),
+		relationshipChangeSetsLayer(),
 		Layer.mock(EnrichmentRequests)({
 			attachEntity: () => Effect.void,
-			guardPopulation: () => Effect.void,
 			recordBaseCheck: () => Effect.void,
 			requesterIds: () => Effect.succeed([]),
+			ownsPopulation: () => Effect.succeed(true),
 		}),
 	),
 )((test) => {

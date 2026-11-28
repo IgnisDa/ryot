@@ -430,16 +430,11 @@
 	"client.background-submissions.reload-may-have-saved": "It may have been saved. Reload to see the latest version.",
 	"client.background-submissions.reload-not-saved": "It was not saved. Reload, then try again.",
 	"client.background-submissions.retry-may-have-saved": "It may have been saved. Retrying won't save it twice.",
-	"client.background-submissions.retry-to-finish": "Retry to finish.",
-	"client.background-submissions.saved-so-far": {
-		"message": "{count, number} saved so far. Retry to finish.",
-		"description": "{count} is how many items were saved before the submission stopped."
-	},
 	"client.background-submissions.status.app-updated": "Ryot was updated",
+	"client.background-submissions.status.changed": "Changed elsewhere, not saved",
 	"client.background-submissions.status.malformed-result": "Unexpected server response",
 	"client.background-submissions.status.not-saved": "Not saved",
 	"client.background-submissions.status.page-write-access-required": "Page write access is required",
-	"client.background-submissions.status.partly-saved": "Partly saved",
 	"client.background-submissions.status.saved": "Saved",
 	"client.background-submissions.status.transport": "Couldn't confirm it was saved",
 	"client.background-submissions.tray-label": "Background activity",
@@ -1133,6 +1128,10 @@
 	"client.integrations.save.failed": "This integration could not be saved. Try again.",
 	"client.integrations.save.progress-bounds": "Progress values must be between 0 and 100.",
 	"client.integrations.save.progress-range": "The lowest progress must not be higher than the highest progress.",
+	"client.integrations.save.settings-too-large": {
+		"message": "These integration settings are larger than the limit of {maxBytes, number} bytes.",
+		"description": "Shown when saving an integration. {maxBytes} is the maximum size in bytes."
+	},
 	"client.integrations.state": {
 		"message": "{state, select, paused {Paused} active {Active} other {Active}}",
 		"description": "{state} is paused or active."
@@ -1442,6 +1441,7 @@
 	"client.plugins.error.already-installed": "This package is already installed.",
 	"client.plugins.error.archive-too-large": "This archive is larger than this server allows.",
 	"client.plugins.error.asset-forbidden": "A file in these settings is not available to you.",
+	"client.plugins.error.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"client.plugins.error.command-failed": "The plugin command failed.",
 	"client.plugins.error.compilation-failed": "The plugin archive failed to compile.",
 	"client.plugins.error.definition-referenced": "Your data still uses definitions this plugin would remove.",
@@ -2507,6 +2507,11 @@
 		"message": "A save can include at most {limit, number} linked items.",
 		"description": "{limit} is the maximum number of linked items in one save."
 	},
+	"error.entity-user-data.identity-mismatch": "These items do not match. Choose a destination with the same identity.",
+	"error.entity-user-data.operation-denied": "Your data cannot be changed for this item.",
+	"error.entity-user-data.required-field": "Required item details are missing.",
+	"error.entity-user-data.same-entity-merge": "Choose a different item to merge into.",
+	"error.entity-user-data.schema-mismatch": "Choose two items of the same kind.",
 	"error.integrations.identifier-required": "An integration ID or webhook token is required.",
 	"error.integrations.not-found": "This integration was not found.",
 	"error.internal.unexpected": {
@@ -2522,6 +2527,7 @@
 		"description": "Shown when saving a plugin's user settings. {maxBytes} is the maximum size in bytes."
 	},
 	"error.sandbox.asset-forbidden": "A file in this request is not available to you.",
+	"error.sandbox.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.entitlement-required": {
 		"message": "{entitlement, select, pro {This requires Ryot Pro.} other {This requires a subscription.}}",
 		"description": "{entitlement} is the code of the missing subscription."

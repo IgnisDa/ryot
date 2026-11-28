@@ -1,8 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import {
-	AutomationEntityDraft,
-	type AutomationEventDraft,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationEntityDraft } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type CreateEventItem,
 	EventCreateItemError,
@@ -20,79 +17,20 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { DateTime, Effect, Option, type Result, Schema } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { automationEntityDraft } from "#modules/entities/automation-drafts";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	type DomainLifecycleCommand,
-	domainWriteCheckKey,
 	DomainWriteChecks,
 	type DomainWriteConflict,
 	type DomainWritePin,
 } from "#modules/entities/write-context";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { EventsRepository } from "./repository";
-
-export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
-
-export type CapturedEventReferences = typeof CapturedEventReferences.Type;
-
-const eventReferences = (
-	draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-): ReadonlyArray<readonly [EntityId, "entity-not-found" | "session-entity-not-found"]> => [
-	[draft.entityId, "entity-not-found"],
-	...(draft.sessionEntityId === null
-		? []
-		: [[draft.sessionEntityId, "session-entity-not-found"] as const]),
-];
-
-const capturedEventReference = (entity: {
-	readonly properties: unknown;
-	readonly entitySchemaSlug: string;
-	readonly entitySchemaPluginId: null | string;
-}) =>
-	stableStringify({
-		properties: entity.properties,
-		entitySchemaSlug: entity.entitySchemaSlug,
-		entitySchemaPluginId: entity.entitySchemaPluginId,
-	});
-
-export const capturedEventReferences = Effect.fn("capturedEventReferences")(function* (
-	userId: UserId,
-	draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-	previous: CapturedEventReferences = {},
-) {
-	const entitiesRepository = yield* EntitiesRepository;
-	const captured: CapturedEventReferences = { ...previous };
-	for (const [entityId, code] of new Map(eventReferences(draft))) {
-		if (Object.hasOwn(captured, entityId)) {
-			continue;
-		}
-		const entity = yield* entitiesRepository.getByIdForUser({ userId, entityId });
-		if (!entity) {
-			return yield* new EventCreateItemError({ reason: { code, entityId } });
-		}
-		Object.assign(captured, { [entityId]: capturedEventReference(entity) });
-	}
-	return captured;
-});
-
-export const validateCapturedEventReferences = Effect.fn("validateCapturedEventReferences")(
-	function* (
-		userId: UserId,
-		draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-		captured: CapturedEventReferences,
-	) {
-		const current = yield* capturedEventReferences(userId, draft);
-		for (const [entityId, code] of eventReferences(draft)) {
-			if (captured[entityId] !== current[entityId]) {
-				return yield* new EventCreateItemError({ reason: { code, entityId } });
-			}
-		}
-		return undefined;
-	},
-);
 
 const resolveOccurredAt = (occurredAt?: string) => {
 	if (!occurredAt) {
@@ -239,33 +177,13 @@ const resolveScopes = Effect.fnUntraced(function* (
 	};
 });
 
-export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(
-	function* (input: {
-		readonly userId: UserId;
-		readonly commit?: boolean;
-		readonly item: CreateEventItem;
-		readonly command: DomainLifecycleCommand;
-	}) {
-		const eventSchemasRepository = yield* EventSchemaReader;
-		const entitiesRepository = yield* EntitiesRepository;
-		const checks = yield* DomainWriteChecks;
-		return yield* resolveScopes(input.item, {
-			pinnedDeclaration: (pinId, slugs) => checks.findPinnedDeclaration("event", pinId, slugs),
-			check: (owner) => checks.check(input.command, owner, input.userId, input.commit ?? false),
-			entityScope: (entityId) =>
-				entitiesRepository.getEntityScopeForUser({ entityId, userId: input.userId }),
-			eventSchemaScope: (scope) =>
-				eventSchemasRepository.getScopeForUser({ ...scope, userId: input.userId }),
-		});
-	},
-);
-
 const schemaInputKey = (input: EventCreateSchemaInput) =>
 	stableStringify([input.eventSchemaSlug, input.entitySchemaPluginId, input.entitySchemaSlug]);
 
 export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes")(
 	function* (input: {
 		readonly userId: UserId;
+		readonly transaction: WriteTransaction;
 		readonly writeCommand: DomainLifecycleCommand;
 		readonly items: ReadonlyArray<CreateEventItem>;
 		readonly commands: ReadonlyArray<DomainLifecycleCommand>;
@@ -316,28 +234,16 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				schemaInputs.set(schemaInputKey(schemaInput), schemaInput);
 			}
 		}
-		const schemaScopes = yield* eventSchemasRepository.getScopesForUser(input.userId, [
-			...schemaInputs.values(),
-		]);
+		const schemaScopes = yield* eventSchemasRepository.getScopesForUser(
+			input.userId,
+			[...schemaInputs.values()],
+			input.transaction,
+		);
 		const eventSchemaScopes = new Map(
 			[...schemaInputs.keys()].map((key, index) => [key, schemaScopes[index] ?? null]),
 		);
-		const checked = new Map<
-			string,
-			Result.Result<null | DomainWritePin, DbError | DomainWriteConflict>
-		>();
-		const check = Effect.fnUntraced(function* (
-			command: DomainLifecycleCommand,
-			owner: DefinitionOwner,
-		) {
-			const key = domainWriteCheckKey({ owner, command, scopeUserId: input.userId });
-			let result = checked.get(key);
-			if (!result) {
-				result = yield* Effect.result(checks.check(command, owner, input.userId, true));
-				checked.set(key, result);
-			}
-			return yield* Effect.fromResult(result);
-		});
+		const check = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
+			checks.check(command, owner, input.userId, input.transaction);
 		const precheck = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
 			check(command, owner).pipe(
 				Effect.catchTags({
@@ -384,46 +290,21 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 			},
 		});
 		return {
-			check,
 			resolve: (item: CreateEventItem, command: DomainLifecycleCommand) =>
 				resolveScopes(item, reads(command)),
-			capture: Effect.fnUntraced(function* (
-				draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-			) {
-				const captured: CapturedEventReferences = {};
-				for (const [entityId, code] of new Map(eventReferences(draft))) {
-					const entity = referenceOf(entityId);
-					if (!entity) {
-						return yield* new EventCreateItemError({ reason: { code, entityId } });
-					}
-					Object.assign(captured, { [entityId]: capturedEventReference(entity) });
-				}
-				return captured;
-			}),
-			references: yield* Schema.decodeUnknownEffect(Schema.Record(EntityId, AutomationEntityDraft))(
-				Object.fromEntries(
+			references: Object.fromEntries(
+				yield* Effect.forEach(
 					[...new Set(entityIds)].flatMap((id) => {
 						const entity = referenceOf(id);
-						return entity
-							? [
-									[
-										id,
-										{
-											name: entity.name,
-											properties: entity.properties,
-											providerId: entity.providerId,
-											externalId: entity.externalId,
-											populatedAt: entity.populatedAt,
-											entitySchemaSlug: entity.entitySchemaSlug,
-											entitySchemaPluginId: entity.entitySchemaPluginId,
-										},
-									],
-								]
-							: [];
+						return entity ? [[id, entity] as const] : [];
 					}),
+					([id, entity]) =>
+						Effect.map(automationEntityDraft(entity), (draft) => [id, draft] as const),
+				).pipe(
+					Effect.mapError(
+						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+					),
 				),
-			).pipe(
-				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
 			),
 		};
 	},

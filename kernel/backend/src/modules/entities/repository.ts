@@ -23,6 +23,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteScope, WriteTransaction } from "#platform/db/write-transaction";
 import { slugify, slugSql } from "#platform/slug";
 import * as schema from "#schema/tables/combined";
 
@@ -267,9 +268,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findUserEntitySchema = Effect.fn(function* (
 				userId: UserId,
 				reference: EntitySchemaReference,
+				writeScope?: WriteScope,
 			) {
 				return (
-					(yield* definitions.findUserEntitySchemas(userId, [reference]))[
+					(yield* definitions.findUserEntitySchemas(userId, [reference], writeScope))[
 						definitionKey("entity", reference.owner, reference.slug)
 					] ?? null
 				);
@@ -343,15 +345,23 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}
 				},
 			);
-			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (input: {
-				name: string;
-				userId: UserId;
-				scope?: "user" | "global";
-				nameNormalization: "slug" | "exact";
-				properties: Record<string, unknown>;
-				entitySchema: EntitySchemaReference;
-			}) {
-				const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
+			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (
+				input: {
+					name: string;
+					userId: UserId;
+					prefer?: EntityId;
+					scope?: "user" | "global";
+					nameNormalization: "slug" | "exact";
+					entitySchema: EntitySchemaReference;
+					properties: Readonly<Record<string, unknown>>;
+				},
+				writeScope?: WriteScope,
+			) {
+				const definition = yield* findUserEntitySchema(
+					input.userId,
+					input.entitySchema,
+					writeScope,
+				);
 				if (!definition) {
 					return null;
 				}
@@ -380,6 +390,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							),
 						)
 						.orderBy(
+							...(input.prefer === undefined
+								? []
+								: [sql`case when ${schema.entity.id} = ${input.prefer} then 0 else 1 end`]),
 							sql`case when ${schema.entity.userId} = ${input.userId} then 0 else 1 end`,
 							asc(schema.entity.name),
 							asc(schema.entity.createdAt),
@@ -462,8 +475,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const findEntitySchemaForUser = Effect.fn("EntitiesRepository.findEntitySchemaForUser")(
-				function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
-					const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
+				function* (
+					input: { userId: UserId; entitySchema: EntitySchemaReference },
+					writeScope?: WriteScope,
+				) {
+					const definition = yield* findUserEntitySchema(
+						input.userId,
+						input.entitySchema,
+						writeScope,
+					);
 					const scope: null | EntitySchemaScope = definition
 						? {
 								userId: null,
@@ -605,17 +625,24 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return scope ?? null;
 				},
 			);
+			const entityScopesByIds = Effect.fnUntraced(function* (
+				entityIds: ReadonlyArray<EntityId>,
+				visibility?: SQL,
+			) {
+				const scopes = yield* Effect.forEach(
+					chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
+					(ids) => listEntityScopes(and(inArray(schema.entity.id, ids), visibility)),
+				);
+				return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
+			});
+
 			const getEntityScopesForUser = Effect.fn("EntitiesRepository.getEntityScopesForUser")(
-				function* (entityIds: ReadonlyArray<EntityId>, userId: UserId) {
-					const scopes = yield* Effect.forEach(
-						chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
-						(ids) =>
-							listEntityScopes(
-								and(inArray(schema.entity.id, ids), entityVisibleToUserClause(userId)),
-							),
-					);
-					return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
-				},
+				(entityIds: ReadonlyArray<EntityId>, userId: UserId) =>
+					entityScopesByIds(entityIds, entityVisibleToUserClause(userId)),
+			);
+
+			const getEntityScopes = Effect.fn("EntitiesRepository.getEntityScopes")(
+				(entityIds: ReadonlyArray<EntityId>) => entityScopesByIds(entityIds),
 			);
 
 			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
@@ -839,12 +866,18 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			);
 
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
+				transaction: WriteTransaction,
 				input: UpdateEntityInput,
 			) {
 				yield* session.requireTransaction;
 				const [current] = yield* session.run((db) =>
 					db
-						.select({ name: schema.entity.name, properties: schema.entity.properties })
+						.select({
+							name: schema.entity.name,
+							properties: schema.entity.properties,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
+							entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+						})
 						.from(schema.entity)
 						.where(eq(schema.entity.id, input.entityId))
 						.limit(1)
@@ -856,6 +889,13 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const contentChanged =
 					current.name !== input.name ||
 					stableStringify(current.properties) !== stableStringify(input.properties);
+				const changedProperties = [
+					...new Set([...Object.keys(current.properties), ...Object.keys(input.properties)]),
+				].filter(
+					(key) =>
+						Object.hasOwn(current.properties, key) !== Object.hasOwn(input.properties, key) ||
+						stableStringify(current.properties[key]) !== stableStringify(input.properties[key]),
+				);
 				const [updated] = yield* session.run((db) =>
 					db
 						.update(schema.entity)
@@ -877,9 +917,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!updated) {
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
-				if (contentChanged) {
-					yield* folds.entityChanged(input.entityId);
-				}
+				yield* folds.entityChanged(transaction, {
+					id: input.entityId,
+					properties: changedProperties,
+					entitySchemaSlug: current.entitySchemaSlug,
+					entitySchemaPluginId: current.entitySchemaPluginId,
+				});
 
 				return toListedEntity(updated);
 			});
@@ -1025,6 +1068,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getByIdForUser,
 				getByIdsForUser,
 				findImportMatch,
+				getEntityScopes,
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,

@@ -9,7 +9,6 @@ import { kernelScripts } from "#modules/definitions/builtin-scripts";
 import { kernelScriptCompiledOutputs } from "#modules/definitions/kernel-scripts.compiled.generated";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
-import { DatabaseSession } from "#platform/db/session";
 
 import { PluginInstallationService } from "../installations/service";
 import { PluginIngestionService } from "./ingestion-service";
@@ -22,7 +21,6 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 	"@ryot-app/kernel-backend/modules/plugins/packages/system-bootstrap/SystemPluginBootstrap",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const systemPlugins = yield* SystemPlugins;
@@ -73,13 +71,11 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 					});
 				});
 			});
-			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect)));
 
 			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {
 				yield* repository.validateConfigurationKeys();
 				const compiledScripts = yield* loadKernelScripts();
-				yield* inTransaction(
+				yield* ingestion.validateActiveSystemPlugins(
 					Effect.gen(function* () {
 						yield* Effect.forEach(
 							compiledScripts,
@@ -87,7 +83,6 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 							{ discard: true },
 						);
 						yield* definitions.replaceKernelDefinitions(kernelDefinitionSource());
-						yield* ingestion.validateActiveSystemPlugins();
 					}),
 				);
 				yield* ingestion.synchronizeSystemPlugins(systemPlugins.sources);

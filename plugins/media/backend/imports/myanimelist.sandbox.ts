@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaXml } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -6,10 +7,11 @@ import { adaptMyanimelistExports } from "./myanimelist";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.myanimelist",
 	name: "Collect MyAnimeList export",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -19,5 +21,5 @@ export default defineScript({
 				importedAt: input.importedAt,
 				...(input.fileIndex === 0 ? { animeXml: xml } : { mangaXml: xml }),
 			}),
-		),
+		).pipe(Effect.map((output) => ({ output }))),
 });

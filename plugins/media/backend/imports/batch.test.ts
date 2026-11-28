@@ -27,13 +27,15 @@ const makeWorkflow = (integrationId?: string) =>
 		}),
 		run: (batch, replay) =>
 			Effect.gen(function* () {
-				return yield* runMediaImportBatch(replay, {
-					batch,
-					runId: "run",
-					batchIndex: 0,
-					...(integrationId === undefined ? {} : { integrationId }),
-					command: mediaImportTestCommand(),
-				});
+				return {
+					output: yield* runMediaImportBatch(replay, {
+						batch,
+						runId: "run",
+						batchIndex: 0,
+						...(integrationId === undefined ? {} : { integrationId }),
+						command: mediaImportTestCommand(),
+					}),
+				};
 			}),
 	});
 
@@ -155,6 +157,115 @@ it.live.each([
 				}
 			}
 			expect(resolved && written).toBe(true);
+		}),
+	testTimeout,
+);
+
+const showEpisodeEvent = (operationId: string, seasonNumber: number, episodeNumber: number) => ({
+	operationId,
+	sourceItemIndex: 7,
+	eventSchemaSlug: "complete",
+	occurredAt: "2024-01-02T00:00:00.000Z",
+	properties: { sourceRun: JSON.stringify([7, `seen:${operationId}`]) },
+	unresolvedEpisode: { seasonNumber, episodeNumber, type: "show" as const },
+	attribution: { recordId: "7", sourceIdentifier: "1399", sourceLabel: "Synthetic Show" },
+});
+
+it.live(
+	"populates a show before resolving history episodes and reports an episode it still lacks",
+	() =>
+		Effect.gen(function* () {
+			const workflow = makeWorkflow();
+			const journal: WorkflowReplayJournalEntry[] = [];
+			const input: typeof MediaImportAdapterBatch.Type = {
+				failures: [],
+				totalItems: 1,
+				entityGroups: [
+					{
+						itemIndex: 7,
+						collectionMemberships: [],
+						events: [showEpisodeEvent("present", 2, 1), showEpisodeEvent("missing", 9, 1)],
+						entityRef: {
+							kind: "resolved",
+							externalId: "1399",
+							entitySchemaSlug: "show",
+							providerSlug: "show.tmdb",
+							sourceLabel: "Synthetic Show",
+						},
+					},
+				],
+			};
+			const requests: string[] = [];
+			for (;;) {
+				const envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+					metadata: {},
+					sandboxScriptId: "batch-test",
+				});
+				if (envelope.state !== "pending") {
+					expect(envelope.state).toBe("completed");
+					break;
+				}
+				const request = envelope.requests[journal.length];
+				assert(request);
+				if (request.kind === "child") {
+					requests.push(request.args.workflowSlug);
+					expect(request.args.input).toMatchObject({
+						items: [{ index: 0, externalId: "1399", providerSlug: "show.tmdb" }],
+					});
+					journal.push({
+						request,
+						value: { results: [{ index: 0, entityId: "show-1", status: "completed" }] },
+					});
+					continue;
+				}
+				assert(request.kind === "activity");
+				requests.push(request.args.scriptSlug);
+				if (request.args.scriptSlug === "import.resolve-episodes") {
+					expect(request.args.input).toEqual({
+						refs: [
+							{ index: 0, kind: "show", seasonNumber: 2, episodeNumber: 1, showEntityId: "show-1" },
+							{ index: 1, kind: "show", seasonNumber: 9, episodeNumber: 1, showEntityId: "show-1" },
+						],
+					});
+					journal.push({
+						request,
+						value: {
+							results: [
+								{ index: 0, entityId: "episode-2-1" },
+								{ index: 1, entityId: null },
+							],
+						},
+					});
+					continue;
+				}
+				expect(request.args.input).toMatchObject({
+					failures: [
+						{
+							operationId: "missing",
+							stage: "provider_resolution",
+							message: "Could not resolve show episode S9E1",
+						},
+					],
+					entityGroups: [
+						{
+							events: [
+								{
+									operationId: "present",
+									subjectEntityId: "episode-2-1",
+									subjectEntitySchemaSlug: "show-episode",
+									properties: { sourceRun: 'run:[7,"seen:present"]' },
+								},
+							],
+						},
+					],
+				});
+				journal.push({ request, value: { chunkHandles: ["chunk"] } });
+			}
+			expect(requests).toEqual([
+				"media-import-population",
+				"import.resolve-episodes",
+				"import.write-chunks",
+			]);
 		}),
 	testTimeout,
 );

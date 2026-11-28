@@ -13,7 +13,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Ref } from "effect";
+import { DateTime, Effect, Layer } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 import {
@@ -21,7 +21,6 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -32,16 +31,13 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { LifecyclePlannerServiceLive } from "./layer";
-import {
-	noLifecycleWorkLayer,
-	withLifecycleBatchPlanning,
-	withLifecycleDispatch,
-} from "./lifecycle.test-support";
-import { SignalEmissionService } from "./signal-service";
+import { noLifecycleWorkLayer, withLifecycleBatchPlanning } from "./lifecycle.test-support";
+import { type EmitSignalInput, SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const owner = UserId.make("owner");
@@ -191,26 +187,6 @@ const plannerLayer = LifecyclePlannerServiceLive.pipe(
 	Layer.provide(noLifecycleWorkLayer),
 	Layer.provide(makeAppConfigLayer()),
 );
-class StartedTriggers extends Context.Service<
-	StartedTriggers,
-	Effect.Effect<ReadonlyArray<string>>
->()("@ryot-app/kernel-backend/modules/automations/signal-service.test/StartedTriggers") {}
-
-const recordingExecutionLayer = Layer.effectContext(
-	Effect.gen(function* () {
-		const started = yield* Ref.make<ReadonlyArray<string>>([]);
-		return Context.make(
-			LifecycleExecution,
-			withLifecycleDispatch({
-				executePolicy: () => Effect.die("Signals cannot execute policies"),
-				skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
-				after: ({ triggerId }) =>
-					Ref.update(started, (all) => [...all, triggerId]).pipe(Effect.as([])),
-			}),
-		).pipe(Context.add(StartedTriggers, Ref.get(started)));
-	}),
-);
-
 const planningFailure = new DbError({ message: "fail after planned writes" });
 const failingPlannerLayer = Layer.effect(
 	LifecyclePlanner,
@@ -225,9 +201,17 @@ const failingPlannerLayer = Layer.effect(
 
 const signalLayer = (planner: typeof plannerLayer = plannerLayer) =>
 	SignalEmissionService.layer.pipe(
-		Layer.provideMerge(Layer.mergeAll(dependencies, planner, recordingExecutionLayer)),
+		Layer.provideMerge(Layer.mergeAll(dependencies, planner)),
 		Layer.provideMerge(revisionDatabaseLayer),
 	);
+
+const planSignal = (emission: EmitSignalInput) =>
+	Effect.gen(function* () {
+		const service = yield* SignalEmissionService;
+		return yield* (yield* DatabaseSession).transaction(
+			Effect.suspend(() => service.planSignal(emission, new WriteTransaction())),
+		);
+	});
 
 describe("Signal emission PostgreSQL", () => {
 	layer(signalLayer())((test) => {
@@ -236,10 +220,9 @@ describe("Signal emission PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const pluginId = yield* setup();
-					const service = yield* SignalEmissionService;
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
-							const first = yield* service.emitSignal(input(pluginId));
+							const first = yield* planSignal(input(pluginId));
 							expect(first.wasCreated).toBe(true);
 							expect(
 								(yield* db.select().from(tables.automationRun))
@@ -252,10 +235,10 @@ describe("Signal emission PostgreSQL", () => {
 								.update(tables.user)
 								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) })
 								.where(eq(tables.user.id, recipient));
-							expect(yield* service.emitSignal(input(pluginId))).toEqual({
-								...first,
-								wasCreated: false,
-							});
+							const second = yield* planSignal(input(pluginId));
+							expect(second.wasCreated).toBe(false);
+							expect(second.trigger.id).toBe(first.trigger.id);
+							expect(second.runs.map(({ id }) => id)).toEqual(first.runs.map(({ id }) => id));
 							expect(
 								(yield* db.select().from(tables.automationTriggerRecipient))
 									.map((row) => row.userId)
@@ -263,14 +246,13 @@ describe("Signal emission PostgreSQL", () => {
 							).toEqual([owner, recipient]);
 							expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
 							assertExitFails(
-								yield* service
-									.emitSignal({ ...input(pluginId), properties: { value: "different" } })
-									.pipe(Effect.exit),
+								yield* planSignal({ ...input(pluginId), properties: { value: "different" } }).pipe(
+									Effect.exit,
+								),
 								new DbError({
-									message: `Automation trigger identity conflict: ${first.triggerId}`,
+									message: `Automation trigger identity conflict: ${first.trigger.id}`,
 								}),
 							);
-							expect(yield* yield* StartedTriggers).toEqual([first.triggerId, first.triggerId]);
 						}),
 					);
 				}),
@@ -288,7 +270,7 @@ describe("Signal emission PostgreSQL", () => {
 							yield* db
 								.update(tables.user)
 								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
-							const result = yield* (yield* SignalEmissionService).emitSignal(input(pluginId));
+							const result = yield* planSignal(input(pluginId));
 							expect(result.wasCreated).toBe(true);
 							expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
 							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
@@ -346,7 +328,7 @@ describe("Signal emission PostgreSQL", () => {
 								},
 							]);
 
-							const result = yield* (yield* SignalEmissionService).emitSignal({
+							const result = yield* planSignal({
 								...input(actorPlugin.pluginId),
 								command: command("private-signal"),
 								reference: {
@@ -376,20 +358,19 @@ describe("Signal emission PostgreSQL", () => {
 	});
 	layer(signalLayer(failingPlannerLayer))((test) => {
 		test.effect(
-			"rolls back trigger, recipients and runs when planning fails, without starting execution",
+			"rolls back trigger, recipients and runs when planning fails",
 			() =>
 				Effect.gen(function* () {
 					const pluginId = yield* setup();
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
 							assertExitFails(
-								yield* (yield* SignalEmissionService).emitSignal(input(pluginId)).pipe(Effect.exit),
+								yield* planSignal(input(pluginId)).pipe(Effect.exit),
 								planningFailure,
 							);
 							expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
 							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
 							expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-							expect(yield* yield* StartedTriggers).toEqual([]);
 						}),
 					);
 				}),
@@ -404,9 +385,10 @@ describe("Signal emission PostgreSQL", () => {
 					const pluginId = yield* setup();
 					const foreign = yield* insertManagedAsset(UserId.make("signal-asset-foreign"));
 					assertExitFails(
-						yield* (yield* SignalEmissionService)
-							.emitSignal({ ...input(pluginId), properties: { value: "first", image: foreign } })
-							.pipe(Effect.exit),
+						yield* planSignal({
+							...input(pluginId),
+							properties: { value: "first", image: foreign },
+						}).pipe(Effect.exit),
 						new ManagedAssetReferenceRejected(),
 					);
 					expect(
@@ -424,14 +406,12 @@ describe("Signal emission PostgreSQL", () => {
 					const pluginId = yield* setup();
 					const own = yield* insertManagedAsset(owner);
 					assertExitFails(
-						yield* (yield* SignalEmissionService)
-							.emitSignal({
-								...input(pluginId),
-								principal: { kind: "system" },
-								command: command("system-signal"),
-								properties: { image: own, value: "first" },
-							})
-							.pipe(Effect.exit),
+						yield* planSignal({
+							...input(pluginId),
+							principal: { kind: "system" },
+							command: command("system-signal"),
+							properties: { image: own, value: "first" },
+						}).pipe(Effect.exit),
 						new ManagedAssetReferenceRejected(),
 					);
 				}),

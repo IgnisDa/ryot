@@ -5,7 +5,10 @@ import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scr
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
-import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
+import {
+	automationRunSubject,
+	policyRunSubject,
+} from "@ryot-app/sandbox/host/run-input.test-support";
 import { SandboxStateStore } from "@ryot-app/sandbox/host/state-store";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -38,12 +41,26 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 		() =>
 			Effect.gen(function* () {
 				const { bind } = yield* SandboxHostFunctions;
+				const policy = policyRunSubject(UserId.make("user_1"));
 				const before = yield* bind(
-					makeSubjectRunInput(automationRunSubject("before", UserId.make("user_1"))),
+					makeSubjectRunInput(
+						policy,
+						null,
+						{},
+						{
+							pluginRevision: {
+								...makeUserPluginRevision({
+									compiledHashes: {},
+									slug: policy.pluginId,
+									ownerId: policy.executionUserId,
+								}),
+								revisionId: policy.pluginRevisionId,
+								configRevisionId: policy.pluginConfigRevisionId,
+							},
+						},
+					),
 				);
-				const after = yield* bind(
-					makeSubjectRunInput(automationRunSubject("after", UserId.make("user_1"))),
-				);
+				const after = yield* bind(makeSubjectRunInput(automationRunSubject(UserId.make("user_1"))));
 
 				expect(new Set(Object.keys(before))).toEqual(
 					new Set(
@@ -52,10 +69,10 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 						),
 					),
 				);
-				expect(after).toHaveProperty("createEvents");
-				expect(after).toHaveProperty("sendNotification");
-				expect(after).not.toHaveProperty("ensureUserEntities");
-				expect(after).not.toHaveProperty("upsertGlobalEntities");
+				expect(after).toHaveProperty("httpCall");
+				expect(after).toHaveProperty("getEntitlements");
+				expect(after).not.toHaveProperty("getOAuthAccessToken");
+				expect(after).not.toHaveProperty("invokeCapability");
 			}),
 		testTimeout,
 	);
@@ -68,7 +85,7 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 				const exit = yield* Effect.exit(
 					bind(
 						makeSubjectRunInput(
-							automationRunSubject("after", UserId.make("user_1")),
+							automationRunSubject(UserId.make("user_1")),
 							null,
 							{},
 							{
@@ -117,7 +134,7 @@ layer(recordingHostFunctionsLayer)("SandboxHostFunctionsLive job identity", (it)
 		() =>
 			Effect.gen(function* () {
 				const { bind } = yield* SandboxHostFunctions;
-				const input = makeSubjectRunInput(automationRunSubject("after", UserId.make("user_1")));
+				const input = makeSubjectRunInput(automationRunSubject(UserId.make("user_1")));
 				const fromJob = yield* bind(input).pipe(Effect.provideService(CurrentJobId, "current"));
 				const fromRequest = yield* bind(input);
 

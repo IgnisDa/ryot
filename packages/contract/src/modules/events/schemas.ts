@@ -2,7 +2,6 @@ import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
-	AutomationRunId,
 	AutomationTriggerId,
 	EntityId,
 	EventId,
@@ -11,7 +10,7 @@ import {
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { AutomationEventSnapshot, AutomationWarning } from "../automations/lifecycle";
+import { AutomationEventSnapshot } from "../automations/lifecycle";
 
 export const EventPropertiesPatch = strictStruct({
 	remove: Schema.Array(Schema.String),
@@ -76,14 +75,6 @@ export const EventUpdateRequest = strictStruct({
 	),
 );
 
-export const UpdateEventItem = strictStruct({
-	eventId: EventId,
-	patch: EventUpdatePatch,
-	expected: Schema.optional(EventWritePrecondition),
-});
-
-export type UpdateEventItem = typeof UpdateEventItem.Type;
-
 export class EventStale extends Schema.TaggedError<EventStale, { readonly brand: unique symbol }>()(
 	"EventStale",
 	{ reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }) },
@@ -102,25 +93,20 @@ export class EventBadRequest extends Schema.TaggedError<
 >()("EventBadRequest", {
 	reason: Schema.Union([
 		strictStruct({ code: Schema.Literal("asset-forbidden") }),
-		strictStruct({ message: Message, code: Schema.Literal("policy-rejected") }),
 		strictStruct({
 			code: Schema.Literals([
 				"automation-limit",
-				"invalid-policy-transform",
 				"invalid-properties",
 				"mutation-conflict",
-				"policy-execution-failed",
 				"owner-mismatch",
 				"global-scope-forbidden",
+				"root-entity-required",
 			]),
 		}),
 	]),
 }) {}
 
-export const EventMutationResponse = strictStruct({
-	eventId: Schema.NullOr(EventId),
-	warnings: Schema.Array(AutomationWarning),
-});
+export const EventMutationResponse = strictStruct({ eventId: Schema.NullOr(EventId) });
 
 export type EventMutationResponse = typeof EventMutationResponse.Type;
 
@@ -151,7 +137,7 @@ export const CreateEventItem = Schema.Struct({
 export type CreateEventItem = typeof CreateEventItem.Type;
 
 export const EventCreateFailureReason = Schema.Union([
-	strictStruct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
+	strictStruct({ code: Schema.Literal("policy-execution-failed") }),
 	strictStruct({
 		triggerId: AutomationTriggerId,
 		code: Schema.Literal("automation-limit-reached"),
@@ -200,7 +186,6 @@ export type EventCreateItemOutcome = typeof EventCreateItemOutcome.Type;
 
 export const CreateEventsResponse = strictStruct({
 	count: Schema.Finite,
-	warnings: Schema.Array(AutomationWarning),
 	outcomes: Schema.Array(EventCreateItemOutcome),
 	failure: Schema.NullOr(strictStruct({ index: Schema.Finite, reason: EventCreateFailureReason })),
 });

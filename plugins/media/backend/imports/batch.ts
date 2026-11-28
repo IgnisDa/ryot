@@ -12,6 +12,7 @@ import {
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../shared/integration-operations";
+import type { UnresolvedEpisodeRef } from "../../shared/media-history";
 import {
 	MediaImportPopulationWorkflowInput,
 	MediaImportPopulationWorkflowOutput,
@@ -24,7 +25,6 @@ import type {
 	MediaImportAdapterBatch,
 	MediaImportFailure,
 	MediaImportWriteChunkInput,
-	UnresolvedEpisodeRef,
 } from "./schemas";
 import {
 	MediaImportWriteChunkActivityInput,

@@ -105,7 +105,6 @@ const portuguese = testCatalog("plugin-1", { "plugin.name": "Português" });
 const brazilian = testCatalog("plugin-1", { "plugin.name": "Brasileiro" });
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
 const membership = MembershipResponse.make({
-	warnings: [],
 	memberOf: {
 		properties: {},
 		relationshipSchemaPluginId: null,
@@ -2161,7 +2160,7 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
 				yield* Effect.promise(() => waitFor(() => expect(signal?.aborted).toBe(true)));
 				pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
-				call.resolve({ value: "late", outcome: "success" });
+				call.resolve({ value: "late", outcome: "success", committed: { events: [] } });
 				yield* Effect.promise(() => delay(10));
 
 				expect(navigations).toEqual([]);
@@ -2178,7 +2177,7 @@ describe("plugin bridge", () => {
 				const { init, received, pluginPort } = yield* connect({
 					onOperation: (request) => {
 						calls.push(request);
-						return Effect.succeed({ value: "ok", outcome: "success" });
+						return Effect.succeed({ value: "ok", outcome: "success", committed: { events: [] } });
 					},
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -2198,6 +2197,7 @@ describe("plugin bridge", () => {
 							outcome: "success",
 							requestId: "request-1",
 							type: "operation-result",
+							committed: { events: [] },
 						}),
 					),
 				);
@@ -2251,7 +2251,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const calls: PluginCollectionRequest[] = [];
 				let count = 0;
-				const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
+				const invalidFailure = { reason: "private", outcome: "failure" };
 				const { init, received, failures, pluginPort } = yield* connect({
 					onCollection: (request) => {
 						calls.push(request);
@@ -2259,8 +2259,8 @@ describe("plugin bridge", () => {
 						return Effect.succeed(
 							count === 1
 								? { outcome: "success", response: membership }
-								: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-									(redactedFailure as unknown as PluginCollectionOutcome),
+								: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+									(invalidFailure as unknown as PluginCollectionOutcome),
 						);
 					},
 				});
@@ -2703,7 +2703,11 @@ describe("plugin bridge", () => {
 					const diagnostics: unknown[] = [];
 					const asset: PluginAssetOutcome = { resolutions: [], outcome: "success" };
 					const collection: PluginCollectionOutcome = { outcome: "success", response: membership };
-					const operation: PluginOperationOutcome = { value: null, outcome: "success" };
+					const operation: PluginOperationOutcome = {
+						value: null,
+						outcome: "success",
+						committed: { events: [] },
+					};
 					const storage: PluginStorageOutcome = { value: null, outcome: "success" };
 					const upload: PluginUploadOutcome = {
 						outcome: "success",
@@ -2937,14 +2941,20 @@ describe("plugin bridge", () => {
 		() =>
 			Effect.gen(function* () {
 				let calls = 0;
-				const malformedOutcome: PluginOperationOutcome = { value: null, outcome: "success" };
+				const malformedOutcome: PluginOperationOutcome = {
+					value: null,
+					outcome: "success",
+					committed: { events: [] },
+				};
 				// Model an untyped callback violating its declared return type at runtime.
 				Reflect.set(malformedOutcome, "value", () => undefined);
 				const { init, received, failures, pluginPort } = yield* connect({
 					onOperation: () => {
 						calls += 1;
 						return Effect.succeed(
-							calls === 1 ? malformedOutcome : { value: "ok", outcome: "success" },
+							calls === 1
+								? malformedOutcome
+								: { value: "ok", outcome: "success", committed: { events: [] } },
 						);
 					},
 				});
@@ -2981,6 +2991,7 @@ describe("plugin bridge", () => {
 							outcome: "success",
 							requestId: "request-2",
 							type: "operation-result",
+							committed: { events: [] },
 						}),
 					),
 				);
@@ -2995,16 +3006,11 @@ describe("plugin bridge", () => {
 		"malformed-result",
 	] satisfies PluginOperationBridgeErrorReason[]) {
 		it.live(
-			`round-trips a ${reason} operation bridge error without extra details`,
+			`round-trips a ${reason} operation bridge error`,
 			() =>
 				Effect.gen(function* () {
 					const { init, received, failures, pluginPort } = yield* connect({
-						onOperation: () =>
-							Effect.succeed({
-								reason,
-								outcome: "failure",
-								cause: new Error("private"),
-							} as PluginOperationOutcome),
+						onOperation: () => Effect.succeed({ reason, outcome: "failure" }),
 					});
 					pluginPort.postMessage(readyFor(init));
 					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
@@ -3125,7 +3131,7 @@ describe("plugin bridge", () => {
 				});
 				yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(2)));
 
-				calls[1]?.resolve({ value: "b-value", outcome: "success" });
+				calls[1]?.resolve({ value: "b-value", outcome: "success", committed: { events: [] } });
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(received).toContainEqual({
@@ -3133,11 +3139,12 @@ describe("plugin bridge", () => {
 							outcome: "success",
 							requestId: "request-b",
 							type: "operation-result",
+							committed: { events: [] },
 						}),
 					),
 				);
 
-				calls[0]?.resolve({ value: "a-value", outcome: "success" });
+				calls[0]?.resolve({ value: "a-value", outcome: "success", committed: { events: [] } });
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(received).toContainEqual({
@@ -3145,6 +3152,7 @@ describe("plugin bridge", () => {
 							outcome: "success",
 							requestId: "request-a",
 							type: "operation-result",
+							committed: { events: [] },
 						}),
 					),
 				);
@@ -3186,7 +3194,7 @@ describe("plugin bridge", () => {
 				yield* Effect.promise(() => delay(10));
 
 				expect(calls).toHaveLength(1);
-				calls[0]?.resolve({ value: "a-value", outcome: "success" });
+				calls[0]?.resolve({ value: "a-value", outcome: "success", committed: { events: [] } });
 
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -3195,6 +3203,7 @@ describe("plugin bridge", () => {
 							outcome: "success",
 							requestId: "request-a",
 							type: "operation-result",
+							committed: { events: [] },
 						}),
 					),
 				);
@@ -3293,7 +3302,7 @@ describe("plugin bridge", () => {
 				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
 				expect(signal?.aborted).toBe(true);
 
-				call.resolve({ value: "late", outcome: "success" });
+				call.resolve({ value: "late", outcome: "success", committed: { events: [] } });
 				yield* Effect.promise(() => delay(10));
 
 				expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
@@ -3368,7 +3377,11 @@ describe("plugin bridge", () => {
 				expect(operationSignal?.aborted).toBe(true);
 				expect(querySignal?.aborted).toBe(true);
 
-				operationCall.resolve({ outcome: "success", value: "late-operation" });
+				operationCall.resolve({
+					outcome: "success",
+					value: "late-operation",
+					committed: { events: [] },
+				});
 				queryCall.resolve({ outcome: "success", response: { data: {} } });
 				yield* Effect.promise(() => delay(10));
 
@@ -3427,7 +3440,7 @@ describe("plugin bridge", () => {
 				session.close();
 				expect(signal?.aborted).toBe(true);
 
-				call.resolve({ value: "too-late", outcome: "success" });
+				call.resolve({ value: "too-late", outcome: "success", committed: { events: [] } });
 				yield* Effect.promise(() => delay(10));
 
 				expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
@@ -3501,7 +3514,7 @@ describe("plugin bridge", () => {
 					onRyotQL: () => Effect.promise(() => query.promise),
 					onOperation: (request) => {
 						operationCalls.push(request);
-						return Effect.succeed({ value: null, outcome: "success" });
+						return Effect.succeed({ value: null, outcome: "success", committed: { events: [] } });
 					},
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -3662,7 +3675,11 @@ describe("plugin bridge", () => {
 						Effect.succeed(
 							request.operationSlug === "fail"
 								? ({ outcome: "failure", reason: "operation-failed" } as const)
-								: ({ outcome: "success", value: { echoed: request.input } } as const),
+								: ({
+										outcome: "success",
+										committed: { events: [] },
+										value: { echoed: request.input },
+									} as const),
 						),
 				});
 				pluginPort.postMessage(readyFor(init));
@@ -3692,6 +3709,7 @@ describe("plugin bridge", () => {
 						outcome: "success",
 						requestId: "request-1",
 						type: "operation-result",
+						committed: { events: [] },
 						value: { echoed: { greeting: "hi" } },
 					},
 					{
@@ -3961,13 +3979,13 @@ describe("page frame authority", () => {
 					const calls: PluginRyotQLRequest[] = [];
 					const operations: string[] = [];
 					const { init, received, pluginPort } = yield* connect({
-						onOperation: () => {
-							operations.push("invoke");
-							return Effect.succeed({ value: null, outcome: "success" });
-						},
 						onRyotQL: (request) => {
 							calls.push(request);
 							return Effect.succeed({ outcome: "success", response: { data: {} } });
+						},
+						onOperation: () => {
+							operations.push("invoke");
+							return Effect.succeed({ value: null, outcome: "success", committed: { events: [] } });
 						},
 						page: {
 							...authoredPage("published", true),
@@ -4141,7 +4159,7 @@ describe("page frame authority", () => {
 						page: authoredPage(stage, grant),
 						onOperation: () => {
 							operations.push("invoke");
-							return Effect.succeed({ value: null, outcome: "success" });
+							return Effect.succeed({ value: null, outcome: "success", committed: { events: [] } });
 						},
 						onBackgroundOperation: () => {
 							operations.push("background");

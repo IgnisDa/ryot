@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import { bindDocument } from "@ryot-app/ryotql/binding";
+import { bindDocument, validateAuthoredDocument } from "@ryot-app/ryotql/binding";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { Result } from "effect";
 
@@ -50,10 +50,14 @@ describe("media saved views", () => {
 			expect(
 				validateRyotQLDocument(
 					Result.getOrThrow(
-						bindDocument(
-							stampRyotQLDocument("media", view.dataSources),
-							{ arguments: { search: "" } },
-							{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
+						Result.flatMap(
+							validateAuthoredDocument(stampRyotQLDocument("media", view.dataSources)),
+							(validated) =>
+								bindDocument(
+									validated,
+									{ arguments: { search: "" } },
+									{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
+								),
 						),
 					).document,
 					savedViewDataSourceAccess,

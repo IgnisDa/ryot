@@ -4,6 +4,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { EventId } from "../../schema/brands";
+import { PolicyRejected, PolicyUnavailable } from "../changes/policies";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
@@ -24,7 +25,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 			success: CreateEventsResponse.pipe(HttpApiSchema.status(201)),
 		}).annotate(
 			OpenApi.Description,
-			"Create events and return each item's outcome. Policy failures stop the batch and required-hook warnings do not roll back committed events.",
+			"Create events and return each item's outcome. Policy failures stop the batch.",
 		),
 	)
 	.add(
@@ -36,6 +37,8 @@ export const EventsGroup = HttpApiGroup.make("events")
 				EventBadRequest.pipe(HttpApiSchema.status(400)),
 				EventNotFound.pipe(HttpApiSchema.status(404)),
 				EventStale.pipe(HttpApiSchema.status(409)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 				EventsInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Update an event owned by the authenticated user."),
@@ -48,6 +51,8 @@ export const EventsGroup = HttpApiGroup.make("events")
 				EventBadRequest.pipe(HttpApiSchema.status(400)),
 				EventNotFound.pipe(HttpApiSchema.status(404)),
 				EventStale.pipe(HttpApiSchema.status(409)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 				EventsInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Delete an event owned by the authenticated user."),

@@ -1,4 +1,5 @@
 import type {
+	AutomationEntitySnapshot,
 	AutomationEventDraft,
 	AutomationEventSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -8,12 +9,7 @@ import {
 	automationInputSchema,
 	automationPolicyInputSchema,
 } from "@ryot-app/plugin-backend-sdk/automation";
-import type {
-	EntityRecord,
-	EntitySchemaRecord,
-	EventRecord,
-	IntegrationRecord,
-} from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet, IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
@@ -21,10 +17,8 @@ const timestamp = "2026-01-01T00:00:00.000Z";
 
 export const execution = { metadata: {}, startedAt: timestamp, sandboxScriptId: "script-test" };
 
-const invocation = {
-	runId: "run-1",
+const policyInvocation = {
 	occurredAt: timestamp,
-	triggerId: "trigger-1",
 	hookSlug: "media.test",
 	executionUserId: "user-1",
 	causation: {
@@ -38,6 +32,8 @@ const invocation = {
 		initiator: { kind: "user", id: "user-1" },
 	},
 };
+
+const invocation = { ...policyInvocation, runId: "run-1", triggerId: "trigger-1" };
 
 export const automationContext = (payload: unknown, overrides: Record<string, unknown> = {}) =>
 	Schema.decodeUnknownEffect(automationInputSchema)({
@@ -109,7 +105,10 @@ const policyEventDraft = {
 
 const policyInput = (payload: Record<string, unknown>) =>
 	Schema.decodeUnknownEffect(automationPolicyInputSchema)({
-		automation: { ...invocation, payload: { resource: "event", category: "request", ...payload } },
+		automation: {
+			...policyInvocation,
+			payload: { resource: "event", category: "request", ...payload },
+		},
 	}).pipe(Effect.orDie);
 
 export const policyAutomationContext = (
@@ -135,7 +134,9 @@ export const updatePolicyAutomationContext = (
 	});
 };
 
-export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecord => ({
+export const entityRecord = (
+	overrides: Partial<typeof AutomationEntitySnapshot.Encoded> = {},
+): typeof AutomationEntitySnapshot.Encoded => ({
 	id: "entity-1",
 	properties: {},
 	name: "Entity",
@@ -149,39 +150,20 @@ export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecor
 	...overrides,
 });
 
-export const entitySchemaRecord = (
-	overrides: Partial<EntitySchemaRecord> = {},
-): EntitySchemaRecord => ({
-	providers: [],
-	icon: "circle",
-	slug: "entity",
-	isBuiltin: true,
-	propertiesSchema: {},
-	id: "entity-schema-1",
-	pluginId: PluginId.make("media-owner"),
-	name: { namespace: "media", key: "test.entity-schema" },
-	...overrides,
-});
-
-export const entitySchemaProvider = (
-	slug: string,
-	providerId: string,
-): EntitySchemaRecord["providers"][number] => ({
-	slug,
-	providerId,
-	name: { namespace: "media", key: "test.provider" },
-});
-
-export const eventRecord = (overrides: Partial<EventRecord> = {}): EventRecord => ({
+export const eventRecord = (
+	overrides: Partial<typeof AutomationEventSnapshot.Encoded> = {},
+): typeof AutomationEventSnapshot.Encoded => ({
 	id: "event-1",
 	properties: {},
 	entityId: "entity-1",
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	occurredAt: timestamp,
-	eventSchemaName: "Progress",
+	sessionEntityId: null,
 	eventSchemaSlug: "event-schema-1",
+	entitySchemaSlug: "entity-schema-1",
 	eventSchemaPluginId: PluginId.make("media-owner"),
+	entitySchemaPluginId: PluginId.make("media-owner"),
 	...overrides,
 });
 
@@ -204,6 +186,10 @@ export const integrationRecord = (
 	extraSettings: { disableOnContinuousErrors: false },
 	...overrides,
 });
+
+/** The change set an after hook returned, empty when it wrote nothing. */
+export const returnedChanges = (result: { readonly changes?: ChangeSet }): ChangeSet =>
+	result.changes ?? {};
 
 export const hostSuccess = <Data>(data: Data) => Effect.succeed(data);
 
@@ -265,4 +251,25 @@ export const containmentRyotql =
 					.map(([childId, containerId]) => ({ childId, containerId })),
 			),
 		);
+	};
+
+/** Answers an integration push's reads: its entity, then the slug of that entity's provider. */
+export const integrationPushRyotql =
+	(
+		entity: null | undefined | typeof AutomationEntitySnapshot.Encoded,
+		providerSlugs: Readonly<Record<string, string>>,
+	) =>
+	(document: unknown) => {
+		const requested = JSON.stringify(document);
+		if (requested.includes('"sandboxProvider"')) {
+			return hostSuccess(
+				ryotqlRows(
+					"provider",
+					Object.entries(providerSlugs)
+						.filter(([providerId]) => requested.includes(`"${providerId}"`))
+						.map(([, slug]) => ({ slug })),
+				),
+			);
+		}
+		return entity ? hostSuccess(ryotqlRows("entities", [entity])) : hostFailure();
 	};

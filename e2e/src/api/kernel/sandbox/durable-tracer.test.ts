@@ -1,5 +1,4 @@
 import { startFakeHttpServerScoped } from "@ryot-app/testing/fake-http-server";
-import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -15,31 +14,28 @@ import {
 	requireCompletedSandboxValue,
 	sampleOperationalPressure,
 	uninstallTestPlugin,
-	waitForEventCount,
 } from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const operationSource = (input: { readonly name: string; readonly slug: string }) => `
-import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+const scriptSource = (input: { readonly name: string; readonly slug: string }) => `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export const manifest = defineManifest({
-  kind: "operation",
+  kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
 
-export default defineOperation({
+export default defineScript({
   manifest,
   output: Schema.Unknown,
   input: Schema.Struct({
     entityId: Schema.String,
     successUrl: Schema.String,
     failureUrl: Schema.String,
-    eventSchemaSlug: Schema.String,
   }),
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
@@ -50,11 +46,6 @@ export default defineOperation({
       { executionId: execution.sandboxScriptId },
       3600,
     );
-    const events = yield* host.createEvents([{
-      entityId: input.entityId,
-      eventSchemaSlug: input.eventSchemaSlug,
-      properties: { rating: 9 },
-    }]);
     const http = yield* host.httpCall("GET", input.successUrl);
     const failure = yield* host.httpCall("GET", input.failureUrl).pipe(
       Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })),
@@ -79,7 +70,6 @@ export default defineOperation({
       http,
       child,
       claim,
-      events,
       failure,
       parallel,
       preferences,
@@ -103,12 +93,12 @@ export default defineWorkflow({
   output: Schema.String,
   input: Schema.Struct({ value: Schema.String }),
   checkpoint: Schema.Boolean,
-  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed("child:" + input.value),
+  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed({ output: "child:" + input.value }),
 });
 `;
 
 describe("universal durable sandbox tracer", () => {
-	it.live("replays a role-specific operation without duplicating durable effects", () =>
+	it.live("replays a script without duplicating durable effects", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const http = yield* startFakeHttpServerScoped((url) =>
@@ -116,9 +106,9 @@ describe("universal durable sandbox tracer", () => {
 					? new Response("try later", { status: 503 })
 					: Response.json({ tracer: true }),
 			);
-			const operationSlug = `durable-tracer-${yield* randomUuid}`;
+			const scriptSlug = `durable-tracer-${yield* randomUuid}`;
 			const childSlug = `durable-tracer-child-${yield* randomUuid}`;
-			const operationEntry = "backend/scripts/durable-tracer.sandbox.ts";
+			const scriptEntry = "backend/scripts/durable-tracer.sandbox.ts";
 			const childEntry = "backend/scripts/durable-tracer-child.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
@@ -127,21 +117,20 @@ describe("universal durable sandbox tracer", () => {
 					pluginSlug: `e2e-durable-tracer-${yield* randomUuid}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {
+						[scriptEntry]: scriptSource({ slug: scriptSlug, name: "Durable tracer" }),
 						[childEntry]: childSource({ slug: childSlug, name: "Durable tracer child" }),
-						[operationEntry]: operationSource({ slug: operationSlug, name: "Durable tracer" }),
 					},
 					scripts: [
 						{
-							kind: "operation",
-							slug: operationSlug,
-							entry: operationEntry,
+							kind: "script",
+							slug: scriptSlug,
+							entry: scriptEntry,
 							name: "Durable tracer",
 							requiredPluginConfigKeys: [],
 							capabilities: [
 								"log",
 								"span",
 								"httpCall",
-								"createEvents",
 								"getCachedValue",
 								"getUserPreferences",
 								"executeRyotql",
@@ -157,36 +146,13 @@ describe("universal durable sandbox tracer", () => {
 							requiredPluginConfigKeys: [],
 						},
 					],
-					operations: [
-						{
-							output: {},
-							auth: "user",
-							demoAccess: "allowed",
-							slug: "durable-tracer",
-							scriptSlug: operationSlug,
-							title: "Fixture operation",
-							description: "Exercises the universal durable host protocol",
-							hints: { readOnly: false, idempotent: false, destructive: false },
-							input: {
-								type: "object",
-								additionalProperties: false,
-								required: ["entityId", "successUrl", "failureUrl", "eventSchemaSlug"],
-								properties: {
-									entityId: { type: "string" },
-									successUrl: { type: "string" },
-									failureUrl: { type: "string" },
-									eventSchemaSlug: { type: "string" },
-								},
-							},
-						},
-					],
 				}),
 				uninstallTestPlugin,
 			);
 			const fixture = yield* createRatedItem(client, plugin.pluginId);
 			const scriptId = requirePresent(
-				plugin.scriptIds[operationSlug],
-				"Durable tracer operation was not installed",
+				plugin.scriptIds[scriptSlug],
+				"Durable tracer script was not installed",
 			);
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
@@ -195,29 +161,24 @@ describe("universal durable sandbox tracer", () => {
 					entityId: fixture.entityId,
 					successUrl: `${http.url}/success`,
 					failureUrl: `${http.url}/failure`,
-					eventSchemaSlug: fixture.eventSchemaSlug,
 				},
 			});
 			yield* pollUntil(
 				"durable tracer journal projection",
 				sampleOperationalPressure([executionId]).pipe(
 					Effect.map((pressure) =>
-						pressure.journal.maxJournalEntries >= 8 ? pressure.journal.maxJournalEntries : null,
+						pressure.journal.maxJournalEntries >= 7 ? pressure.journal.maxJournalEntries : null,
 					),
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
 			const value = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "durable tracer"),
-				"Durable tracer output must be an object",
+				"Durable tracer result must be an object",
 			);
 
 			expect(requireArray(value.rows, "Durable tracer rows")).toHaveLength(1);
 			expect(value.claim).toEqual({ claimed: true });
-			expect(value.events).toEqual({
-				count: 1,
-				outcomes: [{ index: 0, status: "written", eventId: anyOf(String) }],
-			});
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);
 			expect(value.preferences).toEqual({ disableIntegrations: false });
@@ -232,7 +193,6 @@ describe("universal durable sandbox tracer", () => {
 			});
 			expect(value.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(http.requests.map(({ path }) => path)).toEqual(["/success", "/failure"]);
-			expect(yield* waitForEventCount(client, fixture.entityId, 1)).toHaveLength(1);
 		}),
 	);
 });

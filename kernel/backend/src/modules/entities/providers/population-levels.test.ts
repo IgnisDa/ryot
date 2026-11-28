@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -8,6 +9,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -22,7 +24,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import {
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	userId as owner,
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -233,14 +235,14 @@ const setup = Effect.gen(function* () {
 
 const given = (value: unknown) => Effect.succeed(value);
 
-const populationDatabaseLayer = () =>
+const populationDatabaseLayer = (ownsPopulation = true) =>
 	Layer.merge(
-		relationshipDatabaseLayer(),
+		relationshipChangeSetsLayer(),
 		Layer.mock(EnrichmentRequests)({
 			attachEntity: () => Effect.void,
-			guardPopulation: () => Effect.void,
 			recordBaseCheck: () => Effect.void,
 			requesterIds: () => Effect.succeed([]),
+			ownsPopulation: () => Effect.succeed(ownsPopulation),
 		}),
 	);
 
@@ -427,6 +429,44 @@ layer(populationDatabaseLayer())((test) => {
 				expect(stored?.populatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(baseAt)));
 				expect(stored?.relatedPopulatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(fullAt)));
 				expect((yield* entity("part"))?.properties).toEqual({ title: "Base part" });
+			}),
+		testTimeout,
+	);
+});
+
+layer(populationDatabaseLayer(false))((test) => {
+	test.effect(
+		"writes nothing for a request that no longer owns its population",
+		() =>
+			Effect.gen(function* () {
+				const { entity, populate, relationships, seedUnpopulated } = yield* setup;
+				yield* seedUnpopulated;
+				const exit = yield* Effect.exit(
+					populate({
+						level: "full",
+						mode: "refresh",
+						executionId: "released-full",
+						details: given(details({ title: "Full", partTitle: "Part" })),
+					}),
+				);
+				assertExitFails(
+					exit,
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider population no longer owns its writes",
+					}),
+				);
+				expect(yield* entity("root")).toMatchObject({
+					name: "Bottle",
+					populatedAt: null,
+					relatedPopulatedAt: null,
+				});
+				expect({
+					part: yield* entity("part"),
+					related: yield* entity("related"),
+					credits: yield* relationships("credits"),
+					parts: yield* relationships("bottle-part"),
+				}).toEqual({ parts: [], part: null, credits: [], related: null });
 			}),
 		testTimeout,
 	);

@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
@@ -16,8 +15,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Fiber, Layer, Ref, Schema } from "effect";
-import { TestClock } from "effect/testing";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
 import { DatabaseSession } from "#platform/db/session";
@@ -37,7 +35,6 @@ import {
 } from "./fixtures.test-support";
 import {
 	executeSandboxExecution,
-	HeldInlineBatch,
 	SandboxProjectionMissing,
 	SandboxRecoverySuspended,
 } from "./queues";
@@ -100,13 +97,7 @@ const runtimeSandboxLayer = (
 		}),
 	);
 
-type InlineSettlement = {
-	lane: string;
-	context: unknown;
-	startedAt: string;
-	executionId: string;
-	held: null | string;
-};
+type InlineSettlement = { lane: string; context: unknown; startedAt: string; executionId: string };
 
 class RecordedSettlements extends Context.Service<
 	RecordedSettlements,
@@ -121,10 +112,9 @@ const settlingDispatcherLayer = Layer.unwrap(
 				dispatch: () => Effect.die("durable dispatch is not expected"),
 				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
 					Effect.gen(function* () {
-						const held = yield* HeldInlineBatch;
 						yield* Ref.update(settlements, (all) => [
 							...all,
-							{ lane, held, context, startedAt, executionId },
+							{ lane, context, startedAt, executionId },
 						]);
 						return requests.map(() => ({ value: "cached", state: "success" as const }));
 					}),
@@ -281,23 +271,6 @@ const queuedRepositoryLayer = scriptRepositoryLayer((scriptId) => ({
 }));
 const queuedArtifactsLayer = compiledArtifactsLayer(queuedRepositoryLayer);
 
-const nestedRun = (lane: ExecutionLane, held: ExecutionLane) =>
-	executeSandboxExecution({
-		lane,
-		...queuedReplay,
-		context: {},
-		executionId: `nested-${lane}-${held}`,
-		principal: {
-			providerId: null,
-			scriptSlug: "kernel",
-			pluginRevision: null,
-			scriptId: kernelScriptId,
-			subject: { type: "system" },
-			contentHash: kernelContentHash,
-			metadata: { runtimeImports: [] },
-		},
-	}).pipe(Effect.provideService(HeldInlineBatch, held));
-
 layer(
 	Layer.mergeAll(
 		isolatedDatabaseLayer("sandbox_queues"),
@@ -366,68 +339,6 @@ layer(
 					kernelContentHash,
 				]);
 				expect(result.value).toBe("queued-result");
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"uses capacity reserved before a transaction for consecutive script runs",
-		() =>
-			Effect.gen(function* () {
-				const runtime = yield* SandboxExecutor;
-				const recorded = yield* RecordedRuns;
-				const session = yield* DatabaseSession;
-				const principal = {
-					providerId: null,
-					pluginRevision: null,
-					scriptSlug: "kernel",
-					scriptId: kernelScriptId,
-					contentHash: kernelContentHash,
-					metadata: { runtimeImports: [] },
-					subject: { type: "system" as const },
-				};
-				const before = (yield* recorded.reserved).length;
-				yield* Effect.scoped(
-					Effect.gen(function* () {
-						const lease = yield* runtime.reserve(principal, "background");
-						yield* session.transaction(
-							Effect.gen(function* () {
-								for (const executionId of ["reserved-first", "reserved-second"]) {
-									const result = yield* executeSandboxExecution(
-										{ ...queuedReplay, principal, executionId, context: {}, lane: "background" },
-										{ lease, lane: "background" },
-									);
-									expect(result.value).toBe("queued-result");
-								}
-							}),
-						);
-					}),
-				);
-				expect((yield* recorded.reserved).slice(before)).toEqual(["background"]);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"runs a script nested in an inline batch on the lane that batch does not hold",
-		() =>
-			Effect.gen(function* () {
-				const recorded = yield* RecordedRuns;
-				const before = (yield* recorded.reserved).length;
-				const runsBefore = (yield* recorded.runs).length;
-				yield* nestedRun("interactive", "interactive");
-				yield* nestedRun("background", "background");
-				yield* nestedRun("background", "interactive");
-				expect((yield* recorded.reserved).slice(before)).toEqual([
-					"background",
-					"interactive",
-					"background",
-				]);
-				expect((yield* recorded.runs).slice(runsBefore).map(({ lane }) => lane)).toEqual([
-					"background",
-					"interactive",
-					"background",
-				]);
 			}),
 		testTimeout,
 	);
@@ -533,7 +444,7 @@ layer(
 					workflowExecutionId: inlineWorkflowId,
 					startedAt: "2026-01-01T00:00:00.000Z",
 					executionId: `${inlineWorkflowId}-replay-2`,
-					principal: inlinePrincipal(["createEvents", "getCachedValue", "log"]),
+					principal: inlinePrincipal(["invokeCapability", "getCachedValue", "log"]),
 				});
 				yield* executeSandboxExecution({
 					context: {},
@@ -542,7 +453,7 @@ layer(
 					workflowExecutionId: "other-id",
 					executionId: "other-id-replay-0",
 					startedAt: "2026-01-01T00:00:00.000Z",
-					principal: inlinePrincipal(["createEvents", "emitSignal"]),
+					principal: inlinePrincipal(["invokeCapability"]),
 				});
 				const runs = (yield* (yield* RecordedRuns).runs).slice(before);
 				const offered = runs.map(({ inlineDurableHost: inline }) =>
@@ -558,7 +469,6 @@ layer(
 				]);
 				expect(yield* (yield* RecordedSettlements).settlements).toEqual([
 					{
-						held: "background",
 						lane: "background",
 						context: { item: 1 },
 						executionId: inlineWorkflowId,
@@ -684,61 +594,6 @@ layer(
 
 				assertExitFails(result, new SandboxProjectionMissing());
 				expect(yield* (yield* RecordedRuns).runs).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
-const fullQueue = new SandboxRunError({
-	kind: "resource-unavailable",
-	message: "Sandbox ephemeral admission queue is full",
-});
-
-const fullQueueSandboxLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const rejections = yield* Ref.make(2);
-		const stub = stubRuntimeSandboxExecutor((input) =>
-			Effect.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				success: true,
-				harvest: null,
-				pendingInline: [],
-				value: "queued-result",
-				executionId: input.executionId,
-				timing: { totalMs: 1, executionMs: 1 },
-				recovery: recoveryIdentity(input.executionId),
-			}),
-		);
-		return Layer.succeed(SandboxExecutor, {
-			...stub,
-			reserve: (principal, lane) =>
-				Ref.getAndUpdate(rejections, (count) => count - 1).pipe(
-					Effect.flatMap((count) =>
-						count > 0 ? Effect.fail(fullQueue) : stub.reserve(principal, lane),
-					),
-				),
-		});
-	}),
-);
-
-layer(
-	Layer.mergeAll(
-		isolatedDatabaseLayer("sandbox_queues"),
-		dispatcherLayer,
-		unusedKernelWorkflowReferencesLayer,
-		queuedArtifactsLayer,
-		fullQueueSandboxLayer,
-	),
-)((test) => {
-	test.effect(
-		"waits out a full admission queue instead of failing a queued execution",
-		() =>
-			Effect.gen(function* () {
-				const execution = yield* Effect.forkChild(nestedRun("background", "interactive"));
-				yield* TestClock.adjust("1 second");
-				expect((yield* Fiber.join(execution)).value).toBe("queued-result");
 			}),
 		testTimeout,
 	);

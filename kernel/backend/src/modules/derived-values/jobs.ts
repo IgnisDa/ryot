@@ -1,5 +1,4 @@
-import { DbError } from "@ryot-app/contract/errors";
-import { Duration, Effect, Layer, Schedule } from "effect";
+import { Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventMutations } from "#modules/events/mutations";
@@ -8,32 +7,42 @@ import { DatabaseSession } from "#platform/db/session";
 import { registerJobHandler } from "#platform/jobs/worker";
 
 import { FoldJob, FoldMarks, FoldRebuildJob } from "./marks";
-import { FoldReservation, Folds } from "./service";
+import { Folds } from "./service";
 
-const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
+/**
+ * Folds a job's subjects. A job of several subjects that fails queues each subject alone, so one
+ * subject's failure stays its own; a job that wrote derived state publishes the refresh hint.
+ */
+const FoldJobLive = registerJobHandler(FoldJob, ({ userId, entityIds }, job) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const marks = yield* FoldMarks.make;
 		const folds = yield* Folds;
 		const mutations = yield* EventMutations;
-		yield* Effect.gen(function* () {
-			const reservation = yield* folds.reserve(subject);
-			yield* mutations
-				.transaction(marks.markSubjects([subject]), "job")
-				.pipe(Effect.provideService(FoldReservation, reservation));
-		}).pipe(
-			Effect.scoped,
-			Effect.retry({
-				schedule: Schedule.spaced(Duration.millis(100)),
-				while: (error) => error instanceof DbError && error.code === "55P03",
-			}),
-			Effect.tapError(() =>
-				job.attempt >= FoldJob.maxAttempts
-					? session.transaction(folds.failed(subject)).pipe(Effect.ignore)
-					: Effect.void,
-			),
-		);
-		yield* publishDerivedDataUpdated(subject.userId);
+		const fold = mutations.fold({ userId, entityIds, lane: "background" });
+		const subjects = entityIds.map((entityId) => ({ userId, entityId }));
+		const written = yield* entityIds.length > 1
+			? fold.pipe(
+					Effect.catch(() =>
+						session
+							.transaction(
+								Effect.flatMap(marks.route({ subjects, sources: [] }), (resolved) =>
+									marks.enqueue(resolved, { size: 1 }),
+								),
+							)
+							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
+					),
+				)
+			: fold.pipe(
+					Effect.tapError(() =>
+						job.attempt >= FoldJob.maxAttempts
+							? session.transaction(folds.failed(userId, entityIds)).pipe(Effect.ignore)
+							: Effect.void,
+					),
+				);
+		if (written) {
+			yield* publishDerivedDataUpdated(userId);
+		}
 	}),
 );
 

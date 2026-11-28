@@ -44,7 +44,7 @@ import {
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { readWorkoutOccurrences } from "~/fixtures/plugins/fitness/workout-occurrences";
-import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
@@ -162,13 +162,17 @@ describe("Workout editor E2E", () => {
 			);
 
 			const saved = yield* saveWorkoutEditor(client, input);
-			assertCondition(saved.kind === "saved", "Expected a completed workout save");
 			const [retry, concurrent] = yield* Effect.all(
 				[saveWorkoutEditor(client, input), saveWorkoutEditor(client, input)],
 				{ concurrency: "unbounded" },
 			);
-			expect(retry).toEqual(saved);
-			expect(concurrent).toEqual(saved);
+			const savedSet = requirePresent(saved.sets[0], "Expected the saved set");
+			expect(saved.committed.events).toContainEqual({
+				eventId: EventId.make(savedSet.eventId),
+				itemIdentity: `set:${savedSet.clientId}`,
+			});
+			expect(retry.committed).toEqual(saved.committed);
+			expect(concurrent.committed).toEqual(saved.committed);
 
 			const changed = { ...input, data: { ...input.data, name: `${name} changed` } };
 			const rejected = yield* Effect.flip(saveWorkoutEditor(client, changed));
@@ -210,7 +214,6 @@ describe("Workout editor E2E", () => {
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 			);
-			assertCondition(created.kind === "saved", "Expected the new workout to save");
 
 			const signal = yield* pollSignalTrigger(filter);
 			expect(signal.payload.properties["workoutId"]).toBe(created.entityId);
@@ -219,7 +222,7 @@ describe("Workout editor E2E", () => {
 			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected the created set");
 			const editedName = `${baseline.baseline.entity.name} edited`;
-			const edited = yield* saveWorkoutData(
+			yield* saveWorkoutData(
 				client,
 				workoutData({
 					name: editedName,
@@ -233,7 +236,6 @@ describe("Workout editor E2E", () => {
 					],
 				}),
 			);
-			assertCondition(edited.kind === "saved", "Expected the workout edit to save");
 			expect((yield* loadWorkoutBaseline(client, created.entityId)).baseline.entity.name).toBe(
 				editedName,
 			);
@@ -261,17 +263,19 @@ describe("Workout editor E2E", () => {
 				});
 				const editInput = operationInput(editData);
 				const saved = yield* saveWorkoutEditor(client, editInput);
-				assertCondition(saved.kind === "saved", "Expected the historical workout edit to save");
 				expect(saved.sets).toEqual<unknown>([{ eventId: originalSet.id, clientId: anyOf(String) }]);
 
 				const replay = yield* saveWorkoutEditor(client, editInput);
-				expect(replay).toEqual(saved);
-				const stale = yield* saveWorkoutEditor(client, {
-					...editInput,
-					submissionId: yield* randomUuid,
-					submittedAt: DateTime.formatIso(yield* DateTime.now),
-				});
-				expect(stale).toEqual({ kind: "conflict" });
+				expect(replay.committed).toEqual(saved.committed);
+				const stale = yield* Effect.flip(
+					saveWorkoutEditor(client, {
+						...editInput,
+						submissionId: yield* randomUuid,
+						submittedAt: DateTime.formatIso(yield* DateTime.now),
+					}),
+				);
+				assertTaggedError(stale, "PluginConflictError");
+				expect(stale.reason).toMatchObject({ code: "changes-conflict" });
 
 				const edited = yield* loadWorkoutBaseline(client, workoutId);
 				const editedSet = requirePresent(edited.baseline.sets[0], "Expected edited workout set");
@@ -300,8 +304,7 @@ describe("Workout editor E2E", () => {
 						conflictToken: edited.conflictToken,
 					}),
 				);
-				const removed = yield* saveWorkoutEditor(client, removeInput);
-				assertCondition(removed.kind === "saved", "Expected protected data removal to save");
+				yield* saveWorkoutEditor(client, removeInput);
 				const withoutProtectedData = yield* loadWorkoutBaseline(client, workoutId);
 				const remainingSet = requirePresent(
 					withoutProtectedData.baseline.sets[0],
@@ -347,7 +350,6 @@ describe("Workout editor E2E", () => {
 					],
 				}),
 			);
-			assertCondition(created.kind === "saved", "Expected workout creation with occurrence media");
 			const original = yield* loadWorkoutBaseline(client, created.entityId);
 			const firstSet = requirePresent(
 				original.baseline.sets.find(({ properties }) => properties["exerciseOrder"] === 0),
@@ -357,7 +359,7 @@ describe("Workout editor E2E", () => {
 				original.baseline.sets.find(({ properties }) => properties["exerciseOrder"] === 1),
 				"Expected the second occurrence set",
 			);
-			const reordered = yield* saveWorkoutData(
+			yield* saveWorkoutData(
 				client,
 				workoutData({
 					target: editTarget(original),
@@ -376,7 +378,6 @@ describe("Workout editor E2E", () => {
 					],
 				}),
 			);
-			assertCondition(reordered.kind === "saved", "Expected workout reordering to save");
 			const current = yield* loadWorkoutBaseline(client, created.entityId);
 			expect(current.baseline.entity.properties["exerciseMedia"]).toMatchObject([
 				{ exerciseOrder: 0, images: secondImages, videos: secondVideos },
@@ -412,32 +413,29 @@ describe("Workout editor E2E", () => {
 			});
 
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			expect(
-				yield* updateExerciseOverrides(client, {
+			const missing = yield* Effect.flip(
+				updateExerciseOverrides(client, {
 					overrides: { normalRestTime: 0 },
 					exerciseId: EntityId.make(yield* randomUuid),
 				}),
-			).toEqual({ kind: "missing-exercise" });
-			const membershipWorkout = yield* saveWorkoutData(
+			);
+			assertTaggedError(missing, "PluginOperationRejected");
+			expect(missing.reason).toMatchObject({ key: "rejection.exercise-override.missing-exercise" });
+			yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [])] }),
 			);
-			assertCondition(membershipWorkout.kind === "saved", "Expected membership workout save");
-			expect(
-				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } }),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } });
 			const membership = yield* fitnessRecipes.execute(
 				client,
 				workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
 				{ exerciseId },
 			);
 			expect(membership?.properties).toMatchObject({ normalRestTime: 45 });
-			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					overrides: { dropRestTime: 0, defaultDurationUnit: "minutes" },
-				}),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, {
+				exerciseId,
+				overrides: { dropRestTime: 0, defaultDurationUnit: "minutes" },
+			});
 			expect(
 				(yield* fitnessRecipes.execute(
 					client,
@@ -445,12 +443,10 @@ describe("Workout editor E2E", () => {
 					{ exerciseId },
 				))?.properties,
 			).toMatchObject({ dropRestTime: 0, normalRestTime: 45, defaultDurationUnit: "minutes" });
-			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					overrides: { normalRestTime: null, defaultDurationUnit: null },
-				}),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, {
+				exerciseId,
+				overrides: { normalRestTime: null, defaultDurationUnit: null },
+			});
 			expect(
 				(yield* fitnessRecipes.execute(
 					client,
@@ -510,10 +506,6 @@ describe("Workout editor E2E", () => {
 				],
 			});
 			const occurrenceMediaSaved = yield* saveWorkoutData(client, occurrenceMediaWorkout);
-			assertCondition(
-				occurrenceMediaSaved.kind === "saved",
-				"Expected occurrence media to save without Pro",
-			);
 			const occurrenceMediaBaseline = yield* loadWorkoutBaseline(
 				client,
 				occurrenceMediaSaved.entityId,
@@ -537,7 +529,6 @@ describe("Workout editor E2E", () => {
 				client,
 				workoutData({ occurrences: [workoutOccurrence(originalExerciseId, [workoutSet()])] }),
 			);
-			assertCondition(created.kind === "saved", "Expected initial workout save");
 			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected the original set");
 			const replacement = workoutData({
@@ -570,10 +561,9 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* saveWorkoutData(client, unrelatedEvent)).toEqual({
-				kind: "invalid",
-				code: "unrelated-event",
-			});
+			const unrelated = yield* Effect.flip(saveWorkoutData(client, unrelatedEvent));
+			assertTaggedError(unrelated, "PluginOperationRejected");
+			expect(unrelated.reason).toMatchObject({ key: "rejection.workout-save.unrelated-event" });
 		}),
 	);
 
@@ -586,7 +576,6 @@ describe("Workout editor E2E", () => {
 				owner,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 			);
-			assertCondition(created.kind === "saved", "Expected owner workout save");
 			const baseline = yield* loadWorkoutBaseline(owner, created.entityId);
 			const otherReference = yield* workoutReference(other);
 
@@ -617,7 +606,9 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* saveWorkoutData(other, foreignEdit)).toEqual({ kind: "conflict" });
+			const foreign = yield* Effect.flip(saveWorkoutData(other, foreignEdit));
+			assertTaggedError(foreign, "PluginConflictError");
+			expect(foreign.reason).toMatchObject({ code: "changes-conflict" });
 		}),
 	);
 
@@ -642,7 +633,7 @@ describe("Workout editor E2E", () => {
 					conflictToken: original.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				});
-				expect(corrected).toEqual({ kind: "saved", entityId: workoutId });
+				expect(corrected).toEqual({ entityId: workoutId });
 				const correctedBaseline = yield* loadWorkoutBaseline(client, workoutId);
 				expect(correctedBaseline.baseline.entity.properties).toMatchObject({
 					activeDuration: 2400,
@@ -665,7 +656,7 @@ describe("Workout editor E2E", () => {
 					conflictToken: correctedBaseline.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				});
-				expect(zeroDuration).toEqual({ kind: "saved", entityId: workoutId });
+				expect(zeroDuration).toEqual({ entityId: workoutId });
 				const zeroBaseline = yield* loadWorkoutBaseline(client, workoutId);
 				expect(zeroBaseline.baseline.entity.properties["activeDuration"]).toBe(0);
 
@@ -678,7 +669,7 @@ describe("Workout editor E2E", () => {
 					conflictToken: zeroBaseline.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				});
-				expect(cleared).toEqual({ kind: "saved", entityId: workoutId });
+				expect(cleared).toEqual({ entityId: workoutId });
 				const clearedBaseline = yield* loadWorkoutBaseline(client, workoutId);
 				expect(clearedBaseline.baseline.entity.properties).not.toHaveProperty("activeDuration");
 				expect(clearedBaseline.baseline.sets[0]?.occurredAt).toBe(originalSet.occurredAt);

@@ -10,7 +10,7 @@ import {
 	RelationshipId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -93,18 +93,21 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 					: null;
 			});
 
-			const findCollectionByNameForUser = Effect.fn(
-				"CollectionsRepository.findCollectionByNameForUser",
-			)(function* (input: { name: string; userId: UserId }) {
-				const [row] = yield* session.run((db) =>
+			const findCollectionsByNameForUser = Effect.fn(
+				"CollectionsRepository.findCollectionsByNameForUser",
+			)(function* (input: { userId: UserId; names: ReadonlyArray<string> }) {
+				if (input.names.length === 0) {
+					return [];
+				}
+				const rows = yield* session.run((db) =>
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
-						.where(and(eq(schema.entity.name, input.name), userCollectionWhere(input.userId)))
-						.limit(1),
+						.where(
+							and(inArray(schema.entity.name, [...input.names]), userCollectionWhere(input.userId)),
+						),
 				);
-
-				return row ? toCollectionResponse(row) : null;
+				return rows.map(toCollectionResponse);
 			});
 
 			const findMembership = Effect.fn("CollectionsRepository.findMembership")(function* (input: {
@@ -190,7 +193,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				getCollectionById,
 				getEntityForMembership,
 				getBuiltinCollectionSchema,
-				findCollectionByNameForUser,
+				findCollectionsByNameForUser,
 				findBuiltinEventSchemaBySlug,
 			};
 		}),

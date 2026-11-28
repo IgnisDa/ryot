@@ -1,5 +1,6 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { ManagedAssetResolutionBatch } from "@ryot-app/contract/modules/assets/schemas";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	CollectionResponse,
 	type CreateCollectionBody,
@@ -101,6 +102,8 @@ const BackgroundSettlementMessage = Schema.Struct({
 	submissionId: Schema.String,
 	outcome: BackgroundSubmissionOutcome,
 });
+
+const OperationAdapterResult = Schema.Struct({ value: JsonValue, committed: CommittedChanges });
 
 const decodeCapability = <A>(
 	schema: Schema.Codec<A, unknown>,
@@ -472,6 +475,42 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		return { response, data: decoded.success };
 	});
 
+	/** Invokes an operation, answering its output and what its changes committed. */
+	const invokeCommitted = <
+		Input extends Schema.Codec<unknown, unknown>,
+		Output extends Schema.Codec<unknown, unknown>,
+	>(
+		request: OperationInvocation<Input, Output>,
+	): Effect.Effect<
+		{ readonly output: Output["Type"]; readonly committed: CommittedChanges },
+		RyotClientError
+	> =>
+		Effect.gen(function* () {
+			const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
+				request.input,
+			).pipe(Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })));
+			const invoke = adapter.invokeOperation;
+			if (!invoke) {
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
+			}
+			const result = yield* adapterEffect(() =>
+				invoke({
+					input,
+					slug: request.slug,
+					packageId: request.packageId,
+					...(request.idempotencyKey === undefined
+						? {}
+						: { idempotencyKey: request.idempotencyKey }),
+					...(request.submittedAt === undefined ? {} : { submittedAt: request.submittedAt }),
+				}),
+			);
+			const { value, committed } = yield* decodeCapability(OperationAdapterResult, result);
+			const output = yield* decodeCapability(request.output, value);
+			if (request.refreshOnSuccess !== false) {
+				mutationCompleted.hint();
+			}
+			return { output, committed };
+		});
 	const executeQuery = <Success>(
 		request: PluginExecutionRequest,
 		decode: (response: unknown) => Result.Result<Success, unknown>,
@@ -777,6 +816,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				),
 		},
 		operations: {
+			invokeCommitted,
+			invoke: <
+				Input extends Schema.Codec<unknown, unknown>,
+				Output extends Schema.Codec<unknown, unknown>,
+			>(
+				request: OperationInvocation<Input, Output>,
+			): Effect.Effect<Output["Type"], RyotClientError> =>
+				invokeCommitted(request).pipe(Effect.map(({ output }) => output)),
 			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {
 				const subscribe = adapter.subscribeBackgroundSettled;
 				if (!subscribe) {
@@ -814,40 +861,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					const { operationSlug, ...submission } = decoded.success;
 					const value = yield* adapterEffect(() => submit({ ...submission, slug: operationSlug }));
 					return yield* decodeCapability(Schema.String, value);
-				}),
-			invoke: <
-				Input extends Schema.Codec<unknown, unknown>,
-				Output extends Schema.Codec<unknown, unknown>,
-			>(
-				request: OperationInvocation<Input, Output>,
-			): Effect.Effect<Output["Type"], RyotClientError> =>
-				Effect.gen(function* () {
-					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
-						request.input,
-					).pipe(Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })));
-					const invoke = adapter.invokeOperation;
-					if (!invoke) {
-						return yield* new RyotClientError({ reason: "unsupported-capability" });
-					}
-					const value = yield* adapterEffect(() =>
-						invoke({
-							input,
-							slug: request.slug,
-							packageId: request.packageId,
-							...(request.idempotencyKey === undefined
-								? {}
-								: { idempotencyKey: request.idempotencyKey }),
-							...(request.submittedAt === undefined ? {} : { submittedAt: request.submittedAt }),
-						}),
-					);
-					if (!isJsonValue(value)) {
-						return yield* new RyotClientError({ reason: "malformed-result" });
-					}
-					const decoded = yield* decodeCapability(request.output, value);
-					if (request.refreshOnSuccess !== false) {
-						mutationCompleted.hint();
-					}
-					return decoded;
 				}),
 		},
 	};

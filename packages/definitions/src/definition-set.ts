@@ -1,5 +1,8 @@
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	type PluginIdentityReference,
+	PluginPackageReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	mapPluginIdentityReferences,
 	pluginIdentityReferences,
@@ -11,21 +14,25 @@ import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { ControlSchema } from "@ryot-app/ryotql-recipes/controls";
 import { presentationDocument } from "@ryot-app/ryotql-recipes/presentations";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
-import { Result } from "effect";
+import { Result, Schema } from "effect";
 
 import { buildDefinitionSnapshot, type DefinitionSource } from "./snapshot";
 import { mergeManifestDefinitions } from "./source";
 
+export const DefinitionSetScope = PluginPackageReference.fields.scope;
+
 export type DefinitionSetChange = {
-	readonly scope: "user" | "system";
 	readonly pluginIds: ReadonlySet<string>;
+	readonly scope: typeof DefinitionSetScope.Type;
 };
 
-export type DefinitionSetPlugin = {
-	readonly id: string;
-	readonly manifest: PluginManifest;
-	readonly scope?: "user" | "system";
-};
+export const DefinitionSetPlugin = Schema.Struct({
+	id: Schema.String,
+	manifest: PluginManifest,
+	scope: Schema.optional(DefinitionSetScope),
+});
+
+export type DefinitionSetPlugin = typeof DefinitionSetPlugin.Type;
 
 export const validateDefinitionSet = (
 	baseline: DefinitionSource,

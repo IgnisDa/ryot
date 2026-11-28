@@ -1,9 +1,9 @@
 import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
+import { ChangeSetsLive } from "#modules/changes/layer";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ImportsServiceLive, IngestionExecutionLive } from "#modules/imports/layer";
@@ -11,7 +11,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginIngestionServiceLive, PluginInstallationRuntimeLive } from "#modules/plugins/layer";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { RelationshipsServiceLive } from "#modules/relationships/layer";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
@@ -30,12 +30,12 @@ export const TestSupportServicesLive = Layer.mergeAll(
 			Layer.mergeAll(
 				AutomationInspectionRepository.layer,
 				AuthServiceLive,
-				EntitiesServiceRuntimeLive,
 				EntitiesRepositoryLive,
 				PluginCronServiceLive,
 				ScriptExecutionServiceLive,
 				TranslationsRepository.layer,
-				RelationshipsServiceLive,
+				ChangeSetsLive,
+				RelationshipsRepository.layer,
 				PluginIngestionServiceLive,
 				PluginInstallationRuntimeLive,
 				RelationshipSchemaReaderLive,

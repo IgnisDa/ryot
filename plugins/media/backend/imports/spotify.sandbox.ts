@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	collectMediaJson,
@@ -16,10 +16,11 @@ import { adaptSpotifyStreamingHistory } from "./spotify";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.spotify",
 	name: "Collect Spotify history",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -72,5 +73,5 @@ export default defineScript({
 				itemIndex,
 				header: input.header,
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

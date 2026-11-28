@@ -1,6 +1,9 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { DbError } from "@ryot-app/contract/errors";
-import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import {
+	PLUGIN_CONFIG_MAX_BYTES,
+	pluginConfigEnvironmentKey,
+} from "@ryot-app/contract/modules/plugins/plugin-config";
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -8,6 +11,7 @@ import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
+import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -18,6 +22,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/core";
 
 import { availablePluginConfigKeys } from "../catalog/readiness-metadata";
+import { pluginConfigLockKey } from "../packages/ingestion-fence";
 import { PluginConfigEncryptionKey } from "./encryption-key";
 import { concretePluginConfigSecretPaths, redactPluginConfig } from "./redaction";
 
@@ -45,6 +50,11 @@ const attribution = (
 	pluginRevisionId: row.pluginRevisionId,
 	payloadFingerprint: row.payloadFingerprint,
 });
+
+export const pluginConfigTooLargeMessage = `Plugin config exceeds ${PLUGIN_CONFIG_MAX_BYTES} UTF-8 bytes`;
+
+export const isPluginConfigTooLarge = (properties: Readonly<Record<string, unknown>>) =>
+	exceedsJsonBytes(properties, PLUGIN_CONFIG_MAX_BYTES);
 
 const encodePointerSegment = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
@@ -291,7 +301,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			const encryptionKey = yield* PluginConfigEncryptionKey;
 			const lock = Effect.fn("PluginConfigRevisions.lock")(function* (pluginId: string) {
 				yield* database.run((db) =>
-					db.execute(sql`select pg_advisory_xact_lock(hashtext(${"plugin-config:" + pluginId}))`),
+					db.execute(sql`select pg_advisory_xact_lock(hashtext(${pluginConfigLockKey(pluginId)}))`),
 				);
 			});
 			const decrypt = (row: ConfigRow) =>
@@ -408,6 +418,9 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								allowMissingRequiredSecrets ?? false,
 							);
 				const properties = restored.properties;
+				if (isPluginConfigTooLarge(properties)) {
+					return yield* new DbError({ message: pluginConfigTooLargeMessage });
+				}
 				yield* assetReferences.lock([
 					{
 						properties,

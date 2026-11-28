@@ -277,7 +277,6 @@ describe("Exercises E2E", () => {
 					],
 				}),
 			);
-			assertCondition(alphaWorkout.kind === "saved", "Expected the Alpha workout to save");
 			expect(alphaWorkout.sets).toHaveLength(3);
 			const betaWorkout = yield* saveWorkoutData(
 				client,
@@ -289,7 +288,6 @@ describe("Exercises E2E", () => {
 					],
 				}),
 			);
-			assertCondition(betaWorkout.kind === "saved", "Expected the Beta workout to save");
 			expect(betaWorkout.sets).toHaveLength(1);
 			const zuluFirstWorkout = yield* saveWorkoutData(
 				client,
@@ -301,7 +299,6 @@ describe("Exercises E2E", () => {
 					],
 				}),
 			);
-			assertCondition(zuluFirstWorkout.kind === "saved", "Expected the first Zulu workout to save");
 			expect(zuluFirstWorkout.sets).toHaveLength(1);
 			const zuluSecondWorkout = yield* saveWorkoutData(
 				client,
@@ -312,10 +309,6 @@ describe("Exercises E2E", () => {
 						]),
 					],
 				}),
-			);
-			assertCondition(
-				zuluSecondWorkout.kind === "saved",
-				"Expected the second Zulu workout to save",
 			);
 			expect(zuluSecondWorkout.sets).toHaveLength(1);
 
@@ -367,7 +360,6 @@ describe("Exercises E2E", () => {
 				}),
 			);
 
-			assertCondition(workout.kind === "saved", "Expected the source workout to save");
 			expect(workout.sets).toHaveLength(1);
 
 			const result = yield* mergeEntityUserData(client, {

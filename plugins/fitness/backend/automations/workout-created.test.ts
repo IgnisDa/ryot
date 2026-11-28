@@ -1,8 +1,8 @@
 import { expect } from "bun:test";
 
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import type { changesOutputSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -51,24 +51,14 @@ const input = (payload: unknown) =>
 const eventCreateInput = (event: ReturnType<typeof workoutCompletedEvent>) =>
 	input({ after: event, resource: "event", category: "change", operation: "create" });
 
-const hostWithSignals = (calls: unknown[]) =>
-	defineSandboxTestHost(manifest, {
-		emitSignal: (request) => {
-			calls.push(request);
-			return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-		},
-	});
-
 it.effect(
 	"emits a workout.created signal from a workout completion event",
 	() =>
 		Effect.gen(function* () {
-			const calls: unknown[] = [];
-			yield* definition.run(
+			const result: changesOutputSchema = yield* definition.run(
 				yield* eventCreateInput(workoutCompletedEvent()),
-				hostWithSignals(calls),
 			);
-			expect(calls).toEqual([
+			expect(result.changes?.signals).toEqual([
 				{
 					discriminator: "workout-1",
 					schemaSlug: "workout.created",
@@ -99,7 +89,6 @@ it.effect(
 	"ignores workout entity creation and unrelated events",
 	() =>
 		Effect.gen(function* () {
-			const calls: unknown[] = [];
 			const entityInput = yield* input({
 				category: "change",
 				resource: "entity",
@@ -120,9 +109,8 @@ it.effect(
 			const unrelatedEventInput = yield* eventCreateInput(
 				workoutCompletedEvent({ eventSchemaSlug: "workout-set" }),
 			);
-			expect(yield* definition.run(entityInput, hostWithSignals(calls))).toBeNull();
-			expect(yield* definition.run(unrelatedEventInput, hostWithSignals(calls))).toBeNull();
-			expect(calls).toEqual([]);
+			expect(yield* definition.run(entityInput)).toEqual({});
+			expect(yield* definition.run(unrelatedEventInput)).toEqual({});
 		}),
 	testTimeout,
 );
@@ -131,14 +119,12 @@ it.effect(
 	"ignores completion events with an invalid workout name",
 	() =>
 		Effect.gen(function* () {
-			const calls: unknown[] = [];
 			for (const invalidInput of [
 				yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: "" } })),
 				yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: 7 } })),
 			]) {
-				expect(yield* definition.run(invalidInput, hostWithSignals(calls))).toBeNull();
+				expect(yield* definition.run(invalidInput)).toEqual({});
 			}
-			expect(calls).toEqual([]);
 		}),
 	testTimeout,
 );

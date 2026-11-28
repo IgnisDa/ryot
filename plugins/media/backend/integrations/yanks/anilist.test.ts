@@ -194,7 +194,7 @@ const runWindows = (state: AniListSetup, startedAts: readonly string[] = [execut
 		for (let window = 0; window < 20; window++) {
 			const startedAt = startedAts[Math.min(window, startedAts.length - 1)] ?? execution.startedAt;
 			yield* TestClock.setTime(Date.parse(startedAt));
-			const output = yield* runSandboxTestScript(definition, input, state.host, {
+			const { output } = yield* runSandboxTestScript(definition, input, state.host, {
 				...execution,
 				startedAt,
 			});
@@ -394,7 +394,12 @@ describe("AniList yank", () => {
 				});
 				const fs = mediaFilesystem({});
 				yield* TestClock.setTime(Date.parse(execution.startedAt));
-				const first = yield* runSandboxTestScript(definition, {}, state.host, execution);
+				const { output: first } = yield* runSandboxTestScript(
+					definition,
+					{},
+					state.host,
+					execution,
+				);
 				const firstRecords = yield* fs.records();
 				assert(first.carryFile);
 				const carry = fs.scratch.get(first.carryFile);
@@ -424,10 +429,12 @@ describe("AniList yank", () => {
 				const replayOneEvent = events(replayOneRecords)[0];
 				assert(replayOneEvent);
 				fs.files.set("carry", carry.slice());
-				const replayTwo = yield* runSandboxTestScript(definition, continuation, state.host, {
-					...execution,
-					startedAt: "2026-01-03T00:00:00.000Z",
-				});
+				const { output: replayTwo } = yield* runSandboxTestScript(
+					definition,
+					continuation,
+					state.host,
+					{ ...execution, startedAt: "2026-01-03T00:00:00.000Z" },
+				);
 				const replayTwoRecords = yield* fs.records();
 				expect(replayTwo.carryFile).toBeNull();
 				expect(events(firstRecords)[0]?.occurredAt).toBe(execution.startedAt);
@@ -453,7 +460,12 @@ describe("AniList yank", () => {
 				});
 				const fs = mediaFilesystem({});
 				yield* TestClock.setTime(Date.parse(execution.startedAt));
-				const first = yield* runSandboxTestScript(definition, {}, state.host, execution);
+				const { output: first } = yield* runSandboxTestScript(
+					definition,
+					{},
+					state.host,
+					execution,
+				);
 				assert(first.carryFile);
 				const carry = fs.scratch.get(first.carryFile);
 				assert(carry);
@@ -664,7 +676,7 @@ describe("AniList yank", () => {
 		() =>
 			Effect.gen(function* () {
 				const state = setup();
-				const output = yield* runSandboxTestScript(
+				const { output } = yield* runSandboxTestScript(
 					definition,
 					{
 						ingestionConfirmation: {

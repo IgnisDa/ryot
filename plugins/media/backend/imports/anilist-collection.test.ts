@@ -44,7 +44,7 @@ for (const { volumes, chapters } of [
 						}),
 					),
 				});
-				const collected = yield* anilist.run(mediaStageInput());
+				const { output: collected } = yield* anilist.run(mediaStageInput());
 				expect(collected.done).toBe(true);
 				fs.files.set(
 					"records",
@@ -59,7 +59,7 @@ for (const { volumes, chapters } of [
 				});
 				const records: MediaSourceRecord[] = [];
 				for (;;) {
-					const result = yield* anilist.run(input);
+					const { output: result } = yield* anilist.run(input);
 					records.push(...(yield* fs.records()));
 					if (result.done) {
 						break;

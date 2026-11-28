@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { recoverMediaApiTask } from "./api-collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -7,15 +7,17 @@ import { collectPlex } from "./plex-collection";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.plex",
 	name: "Collect Plex history",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
 	run: (input, host) =>
 		collectPlex(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Plex")),
+			Effect.map((output) => ({ output })),
 		),
 });

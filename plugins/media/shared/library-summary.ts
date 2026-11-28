@@ -3,90 +3,109 @@ import {
 	and,
 	ascending,
 	castDate,
+	castNumber,
 	castText,
 	coalesce,
 	column,
 	concat,
 	conditional,
-	count,
 	defineRecipe,
 	eq,
 	first,
-	gt,
 	inArray,
-	isNull,
+	isNotNull,
 	IsoDateString,
 	join,
 	jsonPath,
 	literal,
-	maximum,
-	not,
 	parameters,
 	type Recipe,
 	selectedField,
 	selectedRows,
-	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 
-import {
-	consumptionNumber,
-	consumptionReady,
-	consumptionRows,
-	consumptionValue,
-} from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 import {
-	episodeReleaseOrder,
-	episodeReleaseTime,
-	episodicEpisodeQuery,
+	type EpisodicEpisodeCounts,
+	episodicEpisodeCounts,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
+	episodicNewCycleJoin,
+	episodicNextRelease,
+	episodicNextUpId,
 	mediaLifecycleExpressions,
 	podcastEpisodicKindConfig,
-	releaseHasArrived,
+	type Predicate,
 	sameSchemaOwner,
 	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
 import { catalogMessage } from "./messages.generated";
-import { averageUserRating } from "./user-rating";
 
 /** Output of the `in-media-library` projection; absent values are omitted. */
 export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
-		nextAiringEpisodeId: {
-			type: "string" as const,
-			label: catalogMessage("property.episode"),
-			description: "Identity of the next episode",
+		airedEpisodes: {
+			type: "number" as const,
+			description: "Aired regular episodes",
+			label: catalogMessage("property.aired-episodes"),
 		},
-		nextAiringAt: {
-			type: "datetime" as const,
-			label: catalogMessage("property.next-airing"),
-			description: "Exact release instant for the next episode",
+		nextUpEpisodeId: {
+			type: "string" as const,
+			label: catalogMessage("property.next-episode"),
+			description: "The episode the user watches next",
 		},
 		lifecycleState: {
 			type: "string" as const,
 			label: catalogMessage("property.status"),
 			description: "Lifecycle state computed from the user's history",
 		},
+		upcomingEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.upcoming-episodes"),
+			description: "Regular episodes that have not aired",
+		},
 		releaseDate: {
 			type: "datetime" as const,
 			label: catalogMessage("property.release-date"),
 			description: "Publish date, else the start of the publish year",
 		},
-		nextAiringDate: {
-			type: "datetime" as const,
-			label: catalogMessage("property.next-airing"),
-			description: "Date for the next episode when its airtime is unknown",
+		watchedEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.completed-episodes"),
+			description: "Aired regular episodes the user completed",
 		},
 		lastActivityAt: {
 			type: "datetime" as const,
 			label: catalogMessage("property.recent-activity"),
 			description: "When the user's latest lifecycle activity occurred",
+		},
+		inProgressEpisodes: {
+			type: "number" as const,
+			label: catalogMessage("property.in-progress-episodes"),
+			description: "Aired regular episodes the user is partway through",
+		},
+		nextRelease: {
+			type: "object" as const,
+			unknownKeys: "strict" as const,
+			label: catalogMessage("property.next-airing"),
+			description: "Release of the first unaired regular episode, when the summary next changes",
+			properties: {
+				instant: {
+					type: "datetime" as const,
+					description: "Release instant",
+					label: catalogMessage("property.airing-at"),
+				},
+				date: {
+					type: "datetime" as const,
+					label: catalogMessage("property.date"),
+					description: "Release date of an episode without a release instant",
+				},
+			},
 		},
 	},
 };
@@ -94,58 +113,12 @@ export const librarySummaryPropertiesSchema = {
 const SummaryRowSchema = {
 	id: Schema.String,
 	state: EpisodicLifecycleStateSchema,
-	releaseDate: Schema.NullOr(IsoDateString),
-	nextAiringAt: Schema.NullOr(IsoDateString),
-	nextAiringDate: Schema.NullOr(IsoDateString),
-	lastActivityAt: Schema.NullOr(IsoDateString),
-	nextAiringEpisodeId: Schema.NullOr(Schema.String),
+	release: Schema.NullOr(IsoDateString),
+	episodeCount: Schema.NullOr(Schema.Finite),
+	nextUpEpisodeId: Schema.NullOr(Schema.String),
 };
 
 const property = (entity: Table, name: string) => jsonPath(column(entity, "properties"), name);
-
-const releaseDate = (entity: Table) =>
-	coalesce(
-		castDate(property(entity, "publishDate")),
-		castDate(concat(castText(property(entity, "publishYear")), literal("-01-01T00:00:00.000Z"))),
-	);
-
-const sharedSummarySelection = (entity: Table) => {
-	return {
-		id: selectedField(column(entity, "id"), SummaryRowSchema.id),
-		releaseDate: selectedField(releaseDate(entity), SummaryRowSchema.releaseDate),
-	};
-};
-
-const nextAiring = (config: EpisodicKindConfig, parent: Table) => {
-	const episode = table("entity", "summaryUpcoming");
-	const { joins, where } = episodicEpisodeQuery(
-		config,
-		parent,
-		episode,
-		"summaryUpcoming",
-		"upcoming",
-	);
-	const { date, instant } = episodeReleaseTime(episode);
-	const id = column(episode, "id");
-	const select = (value: ScalarExpression) =>
-		first(episode, {
-			joins,
-			where,
-			select: value,
-			orderBy: [...episodeReleaseOrder(episode), ascending(id)],
-		});
-	return {
-		nextAiringAt: select(instant),
-		nextAiringEpisodeId: select(id),
-		nextAiringDate: select(conditional(isNull(instant), date, literal(null))),
-	};
-};
-
-const noNextAiring = {
-	nextAiringAt: literal(null),
-	nextAiringDate: literal(null),
-	nextAiringEpisodeId: literal(null),
-};
 
 export type LibrarySummaryKind = "flat" | "other" | EpisodicKindConfig;
 
@@ -156,57 +129,69 @@ export const librarySummaryKind = (entitySchemaSlug: string): LibrarySummaryKind
 		({ parentSchemaSlug }) => parentSchemaSlug === entitySchemaSlug,
 	) ?? (flatSlugs.has(entitySchemaSlug) ? "flat" : "other");
 
-const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
+/** A library summary as expressions, stored or computed alike. */
+type Summary = EpisodicEpisodeCounts & {
+	readonly releaseDate: ScalarExpression;
+	readonly lifecycleState: ScalarExpression;
+	readonly lastActivityAt: ScalarExpression;
+	readonly nextUpEpisodeId: ScalarExpression;
+	readonly nextRelease: { readonly date: ScalarExpression; readonly instant: ScalarExpression };
+};
+
+const noEpisodes = {
+	airedEpisodes: literal(null),
+	nextUpEpisodeId: literal(null),
+	watchedEpisodes: literal(null),
+	upcomingEpisodes: literal(null),
+	inProgressEpisodes: literal(null),
+	nextRelease: { date: literal(null), instant: literal(null) },
+};
+
+/**
+ * `entity`'s summary computed from the user's history and its episodes. `newCycle` reads whether a
+ * new cycle has begun once for every episode; without it each episode reads it.
+ */
+const computedSummary = (
+	kind: LibrarySummaryKind,
+	entity: Table,
+	alias: string,
+	newCycle?: Predicate,
+): Summary => {
+	const releaseDate = coalesce(
+		castDate(property(entity, "publishDate")),
+		castDate(concat(castText(property(entity, "publishYear")), literal("-01-01T00:00:00.000Z"))),
+	);
 	if (kind === "other") {
-		return { activity: literal(null), state: literal("untracked"), ...noNextAiring };
+		return {
+			...noEpisodes,
+			releaseDate,
+			lastActivityAt: literal(null),
+			lifecycleState: literal("untracked"),
+		};
 	}
 	if (kind === "flat") {
-		const lifecycle = mediaLifecycleExpressions(entity, "summaryLifecycle");
-		return { state: lifecycle.state, ...noNextAiring, activity: lifecycle.latestSignal.occurredAt };
+		const lifecycle = mediaLifecycleExpressions(entity, `${alias}Lifecycle`);
+		return {
+			...noEpisodes,
+			releaseDate,
+			lifecycleState: lifecycle.state,
+			lastActivityAt: lifecycle.latestSignal.occurredAt,
+		};
 	}
-	const lifecycle = episodicLifecycleExpressions(kind, entity, "summaryLifecycle");
+	const lifecycle = episodicLifecycleExpressions(kind, entity, alias);
 	return {
-		state: lifecycle.state,
-		...nextAiring(kind, entity),
-		activity: lifecycle.latestSignal.occurredAt,
+		releaseDate,
+		lifecycleState: lifecycle.state,
+		lastActivityAt: lifecycle.latestSignal.occurredAt,
+		nextRelease: episodicNextRelease(kind, entity, `${alias}NextRelease`),
+		nextUpEpisodeId: episodicNextUpId(kind, entity, `${alias}NextUp`, newCycle),
+		...episodicEpisodeCounts(kind, entity, alias, lifecycle.aired, newCycle),
 	};
 };
-export const librarySummaryEntitiesRecipe = (() => {
-	const inputParameters = parameters({
-		fields: {
-			entityIds: {
-				type: "array",
-				validation: { required: true },
-				description: "entityIds for this selection",
-				label: catalogMessage("query-parameter.entities"),
-				items: {
-					type: "string",
-					description: "Selected ID",
-					label: catalogMessage("query-parameter.id"),
-				},
-			},
-		},
-	});
-	const entity = table("entity", "summaryKindEntity");
-	return defineRecipe({
-		parameters: inputParameters.schema,
-		map: ({ items }) => Result.succeed(items.items),
-		queries: {
-			items: selectedRows(entity, {
-				limit: 100,
-				orderBy: [ascending(column(entity, "id"))],
-				where: inArray(column(entity, "id"), inputParameters.list("entityIds")),
-				selection: {
-					id: selectedField(column(entity, "id"), Schema.String),
-					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-				},
-			}),
-		},
-	});
-})();
+
 /**
- * Library summaries computed live from the user's history for `entityIds` of one kind. Only the
- * projection processor runs this; readers use `librarySummary` over the stored projection.
+ * Library summaries computed from the user's history for `entityIds` of one kind. Only the fold runs
+ * this; readers use `librarySummary` over the stored projection.
  */
 const summaryParameters = parameters({
 	fields: {
@@ -225,25 +210,31 @@ const summaryParameters = parameters({
 });
 export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummaryKind }) => {
 	const entity = table("entity", "summaryEntity");
-	const lifecycle = lifecycleOf(input.kind, entity);
+	const cycle =
+		typeof input.kind === "object" ? episodicNewCycleJoin(entity, "summaryCycle") : null;
+	const summary = computedSummary(input.kind, entity, "summary", cycle?.newCycle);
+	const count = (value: ScalarExpression) => selectedField(value, SummaryRowSchema.episodeCount);
 	return defineRecipe({
 		parameters: summaryParameters.schema,
 		map: ({ items }) => Result.succeed(items.items),
 		queries: {
 			items: selectedRows(entity, {
 				limit: 100,
+				joins: cycle === null ? [] : [cycle.join],
 				orderBy: [ascending(column(entity, "id"))],
 				where: inArray(column(entity, "id"), summaryParameters.list("entityIds")),
 				selection: {
-					...sharedSummarySelection(entity),
-					state: selectedField(lifecycle.state, SummaryRowSchema.state),
-					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
-					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
-					nextAiringDate: selectedField(lifecycle.nextAiringDate, SummaryRowSchema.nextAiringDate),
-					nextAiringEpisodeId: selectedField(
-						lifecycle.nextAiringEpisodeId,
-						SummaryRowSchema.nextAiringEpisodeId,
-					),
+					airedEpisodes: count(summary.airedEpisodes),
+					watchedEpisodes: count(summary.watchedEpisodes),
+					upcomingEpisodes: count(summary.upcomingEpisodes),
+					inProgressEpisodes: count(summary.inProgressEpisodes),
+					id: selectedField(column(entity, "id"), SummaryRowSchema.id),
+					state: selectedField(summary.lifecycleState, SummaryRowSchema.state),
+					releaseDate: selectedField(summary.releaseDate, SummaryRowSchema.release),
+					lastActivityAt: selectedField(summary.lastActivityAt, SummaryRowSchema.release),
+					nextReleaseDate: selectedField(summary.nextRelease.date, SummaryRowSchema.release),
+					nextReleaseAt: selectedField(summary.nextRelease.instant, SummaryRowSchema.release),
+					nextUpEpisodeId: selectedField(summary.nextUpEpisodeId, SummaryRowSchema.nextUpEpisodeId),
 				},
 			}),
 		},
@@ -252,85 +243,58 @@ export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummar
 export type LibrarySummarySourceRow = Recipe.Success<
 	ReturnType<typeof librarySummarySourceRecipe>
 >[number];
-export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
-	Object.fromEntries(
-		Object.entries({
-			lifecycleState: row.state,
-			releaseDate: row.releaseDate,
-			nextAiringAt: row.nextAiringAt,
-			nextAiringDate: row.nextAiringDate,
-			lastActivityAt: row.lastActivityAt,
-			nextAiringEpisodeId: row.nextAiringEpisodeId,
-		}).filter(([, value]) => value !== null),
+
+/** The release the summary next changes at, as the fold stores it: its instant, else its date. */
+export const librarySummaryNextRelease = (
+	row: LibrarySummarySourceRow,
+): null | { readonly date: string } | { readonly instant: string } => {
+	if (row.nextReleaseAt !== null) {
+		return { instant: row.nextReleaseAt };
+	}
+	return row.nextReleaseDate === null ? null : { date: row.nextReleaseDate };
+};
+
+/**
+ * When the fold refolds the title on its own: when its next release arrives, at its instant or from
+ * the start of its date's calendar day.
+ */
+export const librarySummaryRefresh = (row: LibrarySummarySourceRow) => {
+	const nextRelease = librarySummaryNextRelease(row);
+	if (nextRelease === null) {
+		return undefined;
+	}
+	return "instant" in nextRelease ? nextRelease : { date: nextRelease.date.slice(0, 10) };
+};
+
+export const librarySummaryProperties = (row: LibrarySummarySourceRow) => {
+	const nextRelease = librarySummaryNextRelease(row);
+	return {
+		...Object.fromEntries(
+			Object.entries({
+				lifecycleState: row.state,
+				releaseDate: row.releaseDate,
+				airedEpisodes: row.airedEpisodes,
+				lastActivityAt: row.lastActivityAt,
+				watchedEpisodes: row.watchedEpisodes,
+				nextUpEpisodeId: row.nextUpEpisodeId,
+				upcomingEpisodes: row.upcomingEpisodes,
+				inProgressEpisodes: row.inProgressEpisodes,
+			}).filter(([, value]) => value !== null),
+		),
+		...(nextRelease === null ? {} : { nextRelease }),
+	};
+};
+
+const libraryLinkWhere = (membership: Table, entity: Table) =>
+	and(
+		eq(column(membership, "sourceEntityId"), column(entity, "id")),
+		sameSchemaOwner(membership, "relationshipSchemaPluginId", entity),
+		eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
 	);
 
 export const libraryMembershipJoin = (entity: Table, alias: string) => {
 	const membership = table("relationship", alias);
-	return {
-		membership,
-		join: join(
-			"inner",
-			membership,
-			and(
-				eq(column(membership, "sourceEntityId"), column(entity, "id")),
-				sameSchemaOwner(membership, "relationshipSchemaPluginId", entity),
-				eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-			),
-		),
-	};
-};
-
-/**
- * Library summary values read from a `in-media-library` relationship's projection. A pending
- * projection reads as null. A caught-up title whose next episode has aired reads as in progress.
- */
-export const librarySummary = (membership: Table) => {
-	const read = (name: string) => jsonPath(column(membership, "projection"), name);
-	const stored = castText(read("lifecycleState"));
-	const event = table("event", "libraryConsumption");
-	const own = and(
-		eq(column(event, "entityId"), column(membership, "sourceEntityId")),
-		eq(column(event, "eventSchemaPluginId"), column(membership, "relationshipSchemaPluginId")),
-	);
-	const scope = and(own, consumptionRows(event));
-	const ready = and(scope, consumptionReady(event));
-	const pending = gt(count(event, { where: and(scope, not(consumptionReady(event))) }), literal(0));
-	return {
-		releaseDate: castDate(read("releaseDate")),
-		lastActivityAt: castDate(read("lastActivityAt")),
-		userRating: averageUserRating(
-			"libraryReview",
-			column(membership, "sourceEntityId"),
-			column(membership, "relationshipSchemaPluginId"),
-		),
-		timesCompleted: conditional(
-			pending,
-			literal(null),
-			coalesce(
-				sum(event, consumptionNumber(event, "titleCompletions"), { where: ready }),
-				literal(0),
-			),
-		),
-		lifecycleState: conditional(
-			and(
-				eq(stored, literal("caught_up")),
-				releaseHasArrived(castDate(read("nextAiringDate")), castDate(read("nextAiringAt"))),
-			),
-			literal("in_progress"),
-			stored,
-		),
-		lastCompletedAt: conditional(
-			pending,
-			literal(null),
-			maximum(event, castDate(consumptionValue(event, "attribution", "value")), {
-				where: and(
-					ready,
-					gt(consumptionNumber(event, "titleCompletions"), literal(0)),
-					eq(castText(consumptionValue(event, "attribution", "kind")), literal("instant")),
-				),
-			}),
-		),
-	};
+	return { membership, join: join("inner", membership, libraryLinkWhere(membership, entity)) };
 };
 
 /** A value read from `entity`'s own `in-media-library` relationship; null outside the library. */
@@ -341,11 +305,88 @@ export const libraryMembershipValue = (
 	const membership = table("relationship", "summaryMembership");
 	return first(membership, {
 		select: read(membership),
+		where: libraryLinkWhere(membership, entity),
 		orderBy: [ascending(column(membership, "id"))],
-		where: and(
-			eq(column(membership, "sourceEntityId"), column(entity, "id")),
-			sameSchemaOwner(membership, "relationshipSchemaPluginId", entity),
-			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-		),
 	});
+};
+
+/** How a query reaches a title's `in-media-library` link: one it joins, or the title's own. */
+export type LibraryLink = (read: (membership: Table) => ScalarExpression) => ScalarExpression;
+
+export const joinedLibraryLink =
+	(membership: Table): LibraryLink =>
+	(read) =>
+		read(membership);
+
+export const ownLibraryLink =
+	(entity: Table): LibraryLink =>
+	(read) =>
+		libraryMembershipValue(entity, read);
+
+/** Builds a summary whose every field is `field` of the summary that `pick` reads that field from. */
+const summaryFields = (
+	field: (pick: (summary: Summary) => ScalarExpression) => ScalarExpression,
+): Summary => ({
+	releaseDate: field((summary) => summary.releaseDate),
+	airedEpisodes: field((summary) => summary.airedEpisodes),
+	lifecycleState: field((summary) => summary.lifecycleState),
+	lastActivityAt: field((summary) => summary.lastActivityAt),
+	nextUpEpisodeId: field((summary) => summary.nextUpEpisodeId),
+	watchedEpisodes: field((summary) => summary.watchedEpisodes),
+	upcomingEpisodes: field((summary) => summary.upcomingEpisodes),
+	inProgressEpisodes: field((summary) => summary.inProgressEpisodes),
+	nextRelease: {
+		date: field((summary) => summary.nextRelease.date),
+		instant: field((summary) => summary.nextRelease.instant),
+	},
+});
+
+type SummaryFieldName = keyof typeof librarySummaryPropertiesSchema.fields;
+
+/** A stored summary field as the fold wrote it, such as a date in the text it was stored as. */
+export const storedLibrarySummaryValue = (
+	link: LibraryLink,
+	name: SummaryFieldName,
+	...path: readonly string[]
+) => link((membership) => jsonPath(column(membership, "projection"), name, ...path));
+
+/** The summary a link stores; every field is null before the title's first fold. */
+const storedSummary = (membership: Table): Summary => {
+	const read = (name: SummaryFieldName, ...path: readonly string[]) =>
+		jsonPath(column(membership, "projection"), name, ...path);
+	return {
+		releaseDate: castDate(read("releaseDate")),
+		lifecycleState: castText(read("lifecycleState")),
+		lastActivityAt: castDate(read("lastActivityAt")),
+		airedEpisodes: castNumber(read("airedEpisodes")),
+		nextUpEpisodeId: castText(read("nextUpEpisodeId")),
+		watchedEpisodes: castNumber(read("watchedEpisodes")),
+		upcomingEpisodes: castNumber(read("upcomingEpisodes")),
+		inProgressEpisodes: castNumber(read("inProgressEpisodes")),
+		nextRelease: {
+			date: castDate(read("nextRelease", "date")),
+			instant: castDate(read("nextRelease", "instant")),
+		},
+	};
+};
+
+/**
+ * A title's library summary. Once the title has folded, its link stores one, which holds while the
+ * summary is pending or failed and which the fold refreshes when its next release arrives. Until then,
+ * and outside the library, `computed` gives the summary the fold would store, from the user's history
+ * and the title's episodes; without it, such a summary reads as null, as a query that cannot read the
+ * clock needs.
+ */
+export const librarySummary = (
+	link: LibraryLink,
+	computed?: { readonly entity: Table; readonly alias: string; readonly kind: LibrarySummaryKind },
+): Summary => {
+	const stored = (pick: (summary: Summary) => ScalarExpression) =>
+		link((membership) => pick(storedSummary(membership)));
+	if (computed === undefined) {
+		return summaryFields(stored);
+	}
+	const live = computedSummary(computed.kind, computed.entity, computed.alias);
+	const folded = isNotNull(stored((summary) => summary.lifecycleState));
+	return summaryFields((pick) => conditional(folded, stored(pick), pick(live)));
 };

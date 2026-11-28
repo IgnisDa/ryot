@@ -140,6 +140,14 @@ Once Ryot is running, open `<FRONTEND_URL>/instance-admin`, unlock it with your
 skipped during the upgrade, such as an episode that could not be matched or an image that could
 not be moved.
 
+Some watches and reviews name an episode or season that `v10` never stored for a show or podcast.
+Instead of skipping them, Ryot adds a **Media history (JSON)** import for each affected user when it
+first starts. The import fetches those titles again from their provider and adds the history it can
+place. Each user can follow it under **Settings > Import data**, where its report lists anything the
+provider does not know either. Configure your Media providers, such as
+`RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN`, before the first start; otherwise Ryot waits and adds
+these imports on a later start.
+
 ### Sign in again
 
 Everyone is signed out after the upgrade.

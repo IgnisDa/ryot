@@ -22,6 +22,7 @@ import {
 	mediaReferenceForEntity,
 	queryInMediaLibraryRelationship,
 	seedShow,
+	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -271,6 +272,11 @@ describe("custom Media seasons and episodes", () => {
 					parentEntityId: tree.show.id,
 				},
 			});
+			expect(yield* waitForLibrarySummary(client, tree.show.id)).toMatchObject({
+				airedEpisodes: 2,
+				state: "in_progress",
+				nextUpEpisodeId: unwatched,
+			});
 			const remove = (entitySchema: SchemaReference, entityId: string) =>
 				Effect.gen(function* () {
 					const entity = yield* getEntity(client, entityId);
@@ -301,6 +307,12 @@ describe("custom Media seasons and episodes", () => {
 			expect((yield* replayDelete).output).toEqual({ kind: "deleted" });
 			expect(yield* entityExists(client, unwatched)).toBe(false);
 			expect(yield* entityExists(client, watched)).toBe(true);
+			expect(yield* waitForLibrarySummary(client, tree.show.id)).toMatchObject({
+				airedEpisodes: 1,
+				watchedEpisodes: 1,
+				state: "caught_up",
+				nextUpEpisodeId: null,
+			});
 		}),
 	);
 });

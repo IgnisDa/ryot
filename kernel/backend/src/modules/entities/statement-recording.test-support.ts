@@ -10,11 +10,17 @@ const transactionEnd = "</transaction>";
 
 export type StatementClass = "lock" | "check" | "lookup" | "admission";
 
+export type RecordedStatement = {
+	readonly statement: string;
+	readonly params: ReadonlyArray<unknown>;
+};
+
 export class StatementLog extends Context.Service<
 	StatementLog,
 	{
 		readonly errorCodes: Effect.Effect<ReadonlyArray<string>>;
 		readonly lastTransaction: Effect.Effect<ReadonlyArray<string>>;
+		readonly transactions: Effect.Effect<ReadonlyArray<ReadonlyArray<RecordedStatement>>>;
 	}
 >()("@ryot-app/kernel-backend/modules/entities/statement-recording.test-support/StatementLog") {}
 
@@ -53,9 +59,11 @@ export const recordingDatabaseLayer = (options: { readonly holdLocks?: RegExp } 
 		Effect.gen(function* () {
 			const client = yield* PgClient.PgClient;
 			const statements: string[] = [];
+			const parameters: Array<ReadonlyArray<unknown>> = [];
 			const errorCodes: string[] = [];
 			const unsafe = (statement: string, params?: ReadonlyArray<unknown>) => {
 				statements.push(statement);
+				parameters.push(params ?? []);
 				return client.unsafe(
 					options.holdLocks?.test(statement)
 						? `select (select count(*) from (${statement}) locked), pg_sleep(0.2)`
@@ -76,10 +84,18 @@ export const recordingDatabaseLayer = (options: { readonly holdLocks?: RegExp } 
 			const run: DatabaseSession["Service"]["run"] = (operation) =>
 				session.run(operation).pipe(Effect.tapError(recordError));
 			const transaction: DatabaseSession["Service"]["transaction"] = (work) =>
-				Effect.sync(() => statements.push(transactionStart)).pipe(
+				Effect.sync(() => {
+					statements.push(transactionStart);
+					parameters.push([]);
+				}).pipe(
 					Effect.andThen(session.transaction(work)),
 					Effect.tapError(recordError),
-					Effect.ensuring(Effect.sync(() => statements.push(transactionEnd))),
+					Effect.ensuring(
+						Effect.sync(() => {
+							statements.push(transactionEnd);
+							parameters.push([]);
+						}),
+					),
 				);
 			return Layer.merge(
 				Layer.succeed(DatabaseSession, { ...session, run, transaction }),
@@ -89,6 +105,21 @@ export const recordingDatabaseLayer = (options: { readonly holdLocks?: RegExp } 
 						const start = statements.lastIndexOf(transactionStart);
 						const end = statements.indexOf(transactionEnd, start);
 						return statements.slice(start + 1, end === -1 ? undefined : end);
+					}),
+					transactions: Effect.sync(() => {
+						const recorded: Array<Array<RecordedStatement>> = [];
+						let current: null | Array<RecordedStatement> = null;
+						for (const [index, statement] of statements.entries()) {
+							if (statement === transactionStart) {
+								current = [];
+								recorded.push(current);
+							} else if (statement === transactionEnd) {
+								current = null;
+							} else {
+								current?.push({ statement, params: parameters[index] ?? [] });
+							}
+						}
+						return recorded;
 					}),
 				}),
 			);

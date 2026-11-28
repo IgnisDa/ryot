@@ -22,7 +22,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Effect, Exit, Layer } from "effect";
 
 import { CollectionOrderingService } from "#modules/collections/ordering-service";
@@ -34,6 +34,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 
@@ -170,6 +171,14 @@ const orderRevision = Effect.fnUntraced(function* (
 	const revision = yield* collections.getOrderRevision(collectionId, userId);
 	assert(revision !== null);
 	return revision;
+});
+
+const collectionMembership = (collectionId: EntityId, sourceEntityId: EntityId, rank: number) => ({
+	sourceEntityId,
+	userId: ownerId,
+	targetEntityId: collectionId,
+	relationshipSchemaSlug: "member-of",
+	properties: { rank, note: `note-${rank}` },
 });
 
 const reorderInput = (
@@ -413,7 +422,7 @@ layer(orderingLayer())((test) => {
 						session.transaction(
 							Effect.gen(function* () {
 								yield* relationships.lockRelationshipMutations([input]);
-								return yield* relationships.createRelationship(input);
+								return yield* relationships.createRelationship(new WriteTransaction(), input);
 							}),
 						),
 					{ concurrency: 2 },
@@ -431,7 +440,11 @@ layer(orderingLayer())((test) => {
 				const initialRank = rankOf(firstCreated.properties);
 				const updatedRevision = yield* orderRevision(fixture.collectionId);
 				const updatedRows = yield* relationships.updateRelationshipsById([
-					{ id: firstCreated.id, properties: { rank: 9_999_999, note: "metadata-updated" } },
+					{
+						id: firstCreated.id,
+						targetEntityId: firstCreated.targetEntityId,
+						properties: { rank: 9_999_999, note: "metadata-updated" },
+					},
 				]);
 				const updated = updatedRows.get(firstCreated.id);
 				assert(updated);
@@ -585,6 +598,130 @@ layer(orderingLayer())((test) => {
 					),
 					new CollectionConflict({ reason: { code: "order-stale" } }),
 				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"advances each collection's order revision once per membership statement",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const left = yield* makeFixture({ memberCount: 3, seededMemberCount: 0 });
+				const right = yield* makeFixture({ memberCount: 2, seededMemberCount: 0 });
+				const revisions = Effect.all([
+					orderRevision(left.collectionId),
+					orderRevision(right.collectionId),
+				]);
+				const [leftStart, rightStart] = yield* revisions;
+				yield* session.run((db) =>
+					db
+						.insert(tables.relationship)
+						.values([
+							...left.memberIds.map((id, index) =>
+								collectionMembership(left.collectionId, id, index),
+							),
+							...right.memberIds.map((id, index) =>
+								collectionMembership(right.collectionId, id, index),
+							),
+						]),
+				);
+				expect(yield* revisions).toEqual([leftStart + 1, rightStart + 1]);
+				const inLeft = eq(tables.relationship.targetEntityId, left.collectionId);
+				yield* session.run((db) =>
+					db
+						.update(tables.relationship)
+						.set({
+							properties: sql`jsonb_set(${tables.relationship.properties}, '{rank}', to_jsonb((${tables.relationship.properties} ->> 'rank')::bigint + 10))`,
+						})
+						.where(inLeft),
+				);
+				expect(yield* revisions).toEqual([leftStart + 2, rightStart + 1]);
+				yield* session.run((db) =>
+					db
+						.update(tables.relationship)
+						.set({ properties: sql`${tables.relationship.properties} || '{"note":"bulk"}'` })
+						.where(inLeft),
+				);
+				yield* session.run((db) =>
+					db.update(tables.relationship).set({ updatedAt: new Date() }).where(inLeft),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.relationship)
+						.values(
+							left.memberIds.map((sourceEntityId) => ({
+								sourceEntityId,
+								userId: ownerId,
+								properties: { rank: 1 },
+								targetEntityId: left.collectionId,
+								relationshipSchemaSlug: "fixture-link",
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.delete(tables.relationship)
+						.where(and(inLeft, eq(tables.relationship.relationshipSchemaSlug, "fixture-link"))),
+				);
+				expect(yield* revisions).toEqual([leftStart + 2, rightStart + 1]);
+				yield* session.run((db) => db.delete(tables.relationship).where(inLeft));
+				expect(yield* revisions).toEqual([leftStart + 3, rightStart + 1]);
+				expect(yield* membershipRows(left.collectionId)).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"advances the order revision on a membership upsert only when it inserts or changes a rank",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const fixture = yield* makeFixture({ memberCount: 3, seededMemberCount: 0 });
+				const [first, second, third] = fixture.memberIds;
+				assert(first && second && third);
+				const upsert = (members: ReadonlyArray<readonly [EntityId, number]>) =>
+					session.run((db) =>
+						db.execute(sql`insert into relationship
+							(id, user_id, source_entity_id, target_entity_id, relationship_schema_slug, properties)
+							values ${sql.join(
+								members.map(
+									([id, rank]) =>
+										sql`(${`upsert-${id}`}, ${ownerId}, ${id}, ${fixture.collectionId}, 'member-of', ${JSON.stringify({ rank, note: `upsert-${rank}` })}::jsonb)`,
+								),
+								sql`, `,
+							)}
+							on conflict ((case when user_id is null then '0' else '1' || user_id end), source_entity_id,
+								target_entity_id, relationship_schema_slug,
+								(case when relationship_schema_plugin_id is null then '0' else '1' || relationship_schema_plugin_id end))
+								where key is null
+							do update set properties = excluded.properties`),
+					);
+				yield* session.run((db) =>
+					db
+						.insert(tables.relationship)
+						.values([
+							collectionMembership(fixture.collectionId, first, 0),
+							collectionMembership(fixture.collectionId, second, 1),
+						]),
+				);
+				const start = yield* orderRevision(fixture.collectionId);
+				yield* upsert([
+					[first, 0],
+					[second, 1],
+				]);
+				expect(yield* orderRevision(fixture.collectionId)).toBe(start);
+				yield* upsert([
+					[first, 3],
+					[second, 1],
+				]);
+				expect(yield* orderRevision(fixture.collectionId)).toBe(start + 1);
+				yield* upsert([
+					[second, 4],
+					[third, 2],
+				]);
+				expect(yield* orderRevision(fixture.collectionId)).toBe(start + 3);
+				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual([third, first, second]);
 			}),
 		testTimeout,
 	);

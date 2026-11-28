@@ -14,5 +14,5 @@
 - Keep batch locks, admission, and lookups set-based. Historical restore persistence belongs only to backups.
 - Repositories own canonical lock ordering. Provider callers retain input order for results and lifecycle dispatch.
 - One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.
-- Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`. Lifecycle execution inside an activity runs as request work, outside the workflow journal.
+- Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`. Durable callers run `ChangeSets` commits inside an activity, where policies run through `LifecyclePolicies` as request work, outside the workflow journal.
 - Assert typed failures with `assertExitFails`. Database tests connect only through `#testing/database` URLs and isolate schemas/databases; never skip because setup is absent.

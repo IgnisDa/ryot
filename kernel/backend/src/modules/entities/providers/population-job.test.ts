@@ -2,13 +2,9 @@ import { expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import {
-	definitionOwner,
-	definitionOwnerPluginId,
-} from "@ryot-app/contract/modules/plugins/references";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
-	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -23,18 +19,12 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 
-import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import {
-	type LifecyclePlan,
-	toLifecycleDispatchPlan,
-} from "#modules/automations/lifecycle/planning";
+import type { RecordedCommit } from "#modules/changes/change-sets.test-support";
 import { EnrichmentRequestsRepository } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -43,8 +33,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -52,7 +40,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowAccountsTestLayer } from "#testing/effect";
 
-import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	EntityPopulationJob,
@@ -60,6 +47,7 @@ import {
 	runEntityPopulationJob,
 	runPopulationAttempt,
 } from "./population-job";
+import { populationCommitsLayer } from "./population.test-support";
 
 const now = IsoUtcString.make("2026-09-17T00:00:00.000Z");
 const userId = UserId.make("population-user");
@@ -109,21 +97,6 @@ const definitions = {
 	},
 } satisfies EntityRelationshipDefinitions;
 
-const listedEntity = (
-	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
-): ListedEntity => ({
-	createdAt: now,
-	updatedAt: now,
-	properties: {},
-	name: "Record",
-	populatedAt: now,
-	providerId: input.providerId,
-	externalId: input.externalId,
-	id: EntityId.make(input.externalId),
-	entitySchemaSlug: input.entitySchema.slug,
-	entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
-});
-
 const payloadFields = {
 	level: "full" as const,
 	externalId: "record-1",
@@ -155,8 +128,6 @@ const sandboxResult = {
 	},
 };
 
-type DispatchedPlans = Parameters<LifecycleExecution["Service"]["dispatch"]>[0];
-
 class FakePopulationWrites extends Context.Service<
 	FakePopulationWrites,
 	{
@@ -167,13 +138,19 @@ class FakePopulationWrites extends Context.Service<
 	"@ryot-app/kernel-backend/modules/entities/providers/population-job.test/FakePopulationWrites",
 ) {}
 
-const populationLayer = (options: {
-	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;
-	readonly dispatch: (plans: DispatchedPlans) => {
-		readonly entry: string;
-		readonly warnings: Effect.Success<ReturnType<LifecycleExecution["Service"]["dispatch"]>>;
-	};
-}) =>
+/** The writes of a population commit, labelled by what they write. */
+const commitLabels = ({ changes }: RecordedCommit, rootExternalId: string) => [
+	...(changes.globalEntities ?? []).map((item) => {
+		if (item.externalId !== rootExternalId) {
+			return "child-entity";
+		}
+		return item.populatedAt === null ? "root-upsert" : "root-write";
+	}),
+	...(changes.globalRelationships ?? []).map(() => "relationships"),
+	...(changes.population?.relatedPopulated ?? []).map(() => "related-stamp"),
+];
+
+const populationLayer = () =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
@@ -257,108 +234,34 @@ const populationLayer = (options: {
 			};
 			const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
 			const record = (entry: string) => Ref.update(recorded, (all) => [...all, entry]);
-			const upsertItem = (
-				input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
-			) => {
-				const kind = input.populatedAt === null ? "upsert" : "write";
-				const label = input.externalId === payload.externalId ? `root-${kind}` : "child-entity";
-				const entity = listedEntity(input);
-				return record(label).pipe(
-					Effect.as({
-						result: { entity },
-						dispatch:
-							label === "root-upsert"
-								? (options.rootPlans ?? [planFixture("root-upsert")]).map(toLifecycleDispatchPlan)
-								: [toLifecycleDispatchPlan(planFixture(label))],
-					}),
-				);
-			};
 			return Layer.mergeAll(
 				workflowAccountsTestLayer,
 				Layer.mock(EnrichmentRequests)({
 					attachEntity: () => Effect.void,
-					guardPopulation: () => Effect.void,
-					recordBaseCheck: () => Effect.void,
 					requesterIds: () => Effect.succeed([]),
 				}),
 				Layer.mock(TranslationsService)({ requestFill: () => Effect.succeed(false) }),
 				Layer.mock(ScriptExecutionService)({ releaseWorkflowRegistration: () => Effect.void }),
 				Layer.succeed(PluginRuntimeResolver, runtime),
 				DomainWriteChecksLive,
-				Layer.mock(EntitiesRepository)({
-					lockMutationKeys: () => Effect.void,
-					invalidateRelatedPopulated: () => Effect.void,
-					findPopulationTarget: () => Effect.succeed(null),
-					stampRelatedPopulated: () => record("related-stamp"),
-					holdsRelatedPopulationGeneration: () => Effect.succeed(true),
-				}),
-				Layer.mock(EntitiesService)({
-					persistPlannedProviderUpsert: upsertItem,
-					persistPlannedProviderUpserts: (input) =>
-						Effect.forEach(input.items, upsertItem).pipe(
-							Effect.map((works) => ({
-								results: works.map(({ result }) => result),
-								dispatch: [
-									...works.flatMap(({ dispatch }) => dispatch),
-									toLifecycleDispatchPlan(planFixture("entities-batch")),
-								],
-							})),
-						),
-				}),
-				Layer.mock(RelationshipsRepository)({
-					listRelationshipsForReconciliation: () => Effect.succeed([]),
-				}),
-				Layer.mock(RelationshipsService)({
-					persistPlannedReconciliation: (_groups, _command, _scope) =>
-						record("relationships").pipe(
-							Effect.as({
-								result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }],
-								dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
-							}),
-						),
-				}),
+				Layer.mock(EntitiesRepository)({ findPopulationTarget: () => Effect.succeed(null) }),
+				populationCommitsLayer((commit) =>
+					Effect.forEach(commitLabels(commit, payload.externalId), record, { discard: true }),
+				),
 				Layer.mock(EntityImportWorkflowOperations)({
 					completeProviderEntityImport: () => Effect.void,
 					processProviderResolve: () => Effect.die("unexpected provider resolve"),
 					processSandbox: (_payload, _executionId, level) =>
 						record(`details:${level}`).pipe(Effect.as(sandboxResult)),
 				}),
-				Layer.succeed(LifecycleExecution, {
-					after: () => Effect.die("unexpected after"),
-					executePolicy: () => Effect.die("unexpected policy"),
-					skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-					executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
-					dispatch: (plans) => {
-						const { entry, warnings } = options.dispatch(plans);
-						return record(entry).pipe(Effect.as(warnings));
-					},
-				}),
 				Layer.succeed(FakePopulationWrites, { payload, recorded: Ref.get(recorded) }),
 			);
 		}),
 	).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-const blocked = {
-	omittedHooks: [],
-	hasRequiredHooks: true,
-	code: "automation-limit-reached" as const,
-};
-
-layer(
-	Layer.merge(
-		recordLogAnnotationsLayer("automation warnings"),
-		populationLayer({
-			dispatch: (plans) => ({
-				entry: `dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`,
-				warnings: plans.some(({ triggerId }) => triggerId === "root-upsert")
-					? [{ ...blocked, triggerId: AutomationTriggerId.make("root-upsert") }]
-					: [],
-			}),
-		}),
-	),
-)((test) => {
+layer(populationLayer())((test) => {
 	test.effect(
-		"dispatches each population write between activities and logs blocked hooks",
+		"commits each population write between activities",
 		() =>
 			Effect.gen(function* () {
 				const payload = (yield* FakePopulationWrites).payload;
@@ -369,20 +272,12 @@ layer(
 							expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
 								"details:full",
 								"root-upsert",
-								"dispatch:root-upsert",
 								"child-entity",
 								"relationships",
-								"dispatch:child-entity,entities-batch,relationships",
 								"root-write",
-								"dispatch:root-write",
 								"child-entity",
 								"relationships",
-								"dispatch:child-entity,entities-batch,relationships",
 								"related-stamp",
-							]);
-							const warningLogs = yield* (yield* RecordedLogAnnotations).annotations;
-							expect(warningLogs.map((annotations) => annotations["phase"])).toEqual([
-								"root-upsert",
 							]);
 						}),
 					),
@@ -393,7 +288,7 @@ layer(
 	);
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer())((test) => {
 	test.effect(
 		"refuses a non-root schema without a child its parent populated",
 		() =>
@@ -412,7 +307,7 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 	);
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer())((test) => {
 	test.effect(
 		"persists the root and children at base level, ignores returned related groups, and stamps only populated_at",
 		() =>
@@ -422,12 +317,9 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 				expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
 					"details:base",
 					"root-upsert",
-					"dispatch",
 					"child-entity",
 					"relationships",
-					"dispatch",
 					"root-write",
-					"dispatch",
 				]);
 			}),
 		testTimeout,
@@ -505,7 +397,7 @@ const existingRequestFixture = Effect.fnUntraced(function* (
 	};
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer())((test) => {
 	test.effect(
 		"attaches an existing stub before details fail so exact-entity retry lookup finds the request",
 		() =>
@@ -583,7 +475,7 @@ const runFailing = (
 		),
 	);
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer())((test) => {
 	test.effect(
 		"leaves infrastructure and timeout failures to the job's next attempt, then settles as failed",
 		() =>

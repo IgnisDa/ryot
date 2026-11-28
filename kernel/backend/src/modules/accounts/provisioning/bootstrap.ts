@@ -41,10 +41,10 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 					}),
 				);
 				if (shouldSkip) {
-					return [];
+					return yield* Effect.void;
 				}
 				yield* pluginInstallations.provisionSystemInstallations(accountUserId);
-				const plans = yield* pluginBootstrap.dispatchAll(user, accountUserId);
+				yield* pluginBootstrap.dispatchAll(user, accountUserId);
 				yield* session.transaction(
 					Effect.gen(function* () {
 						const state = yield* accounts.lockBootstrapState(userId);
@@ -58,7 +58,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 						yield* accounts.markBootstrapComplete(userId, avatar);
 					}),
 				);
-				return plans;
+				return yield* Effect.void;
 			});
 
 			return { perform, listIncomplete: accounts.listIncompleteBootstraps };

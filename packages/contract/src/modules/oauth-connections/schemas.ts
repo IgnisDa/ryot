@@ -6,6 +6,8 @@ import { DeclarationReference } from "../plugins/references";
 
 export const OAUTH_CONNECTION_RETURN_PATH = "/settings/oauth-return";
 
+export const OAUTH_TOKEN_RESPONSE_MAX_BYTES = 64 * 1024;
+
 export const OAuthConnectionClient = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("web") }),
 	Schema.Struct({ kind: Schema.Literal("native"), applicationId: NativeOAuthApplicationId }),

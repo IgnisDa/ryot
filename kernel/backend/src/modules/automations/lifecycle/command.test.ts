@@ -7,6 +7,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
@@ -24,7 +25,7 @@ import {
 	rootLifecycleCommand,
 } from "./command";
 
-const writes = (lane: "background" | "interactive") => {
+const write = (lane: "background" | "interactive") => {
 	const { causation } = rootLifecycleCommand({
 		lane,
 		source: "api",
@@ -34,18 +35,14 @@ const writes = (lane: "background" | "interactive") => {
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make("root"),
 	});
-	return (["policy", "required", "async"] as const).map(
-		(delivery) =>
-			automationLifecycleCausation(
-				{
-					delivery,
-					causation,
-					runId: AutomationRunId.make(`${delivery}-run`),
-					triggerId: AutomationTriggerId.make("trigger"),
-				},
-				AutomationExecutionId.make(`${delivery}-write`),
-			).lane,
-	);
+	return automationLifecycleCausation(
+		{
+			causation,
+			runId: AutomationRunId.make("after-run"),
+			triggerId: AutomationTriggerId.make("trigger"),
+		},
+		AutomationExecutionId.make("after-write"),
+	).lane;
 };
 
 describe("lifecycle commands", () => {
@@ -76,9 +73,9 @@ describe("lifecycle commands", () => {
 		expect(provider.causation).toBe(command.causation);
 		expect(provider.population).toBe(population);
 	});
-	it("scheduling_lane_survives_durable_boundaries: automation writes run in their run's lane", () => {
-		expect(writes("interactive")).toEqual(["interactive", "interactive", "background"]);
-		expect(writes("background")).toEqual(["background", "background", "background"]);
+	it("scheduling_lane_survives_durable_boundaries: after hook writes run in the background lane", () => {
+		expect(write("interactive")).toBe("background");
+		expect(write("background")).toBe("background");
 	});
 	it.effect(
 		"preserves causal metadata and changes trigger identity by resource or item",
@@ -90,28 +87,34 @@ describe("lifecycle commands", () => {
 				const scopeUserId = UserId.make("user-1");
 				const entityPayload = {
 					resource: "entity",
-					category: "request",
+					category: "change",
 					operation: "create",
-					draft: {
+					after: {
 						name: "Item",
 						properties: {},
 						providerId: null,
 						externalId: null,
 						populatedAt: null,
+						createdAt: occurredAt,
+						updatedAt: occurredAt,
 						entitySchemaPluginId: null,
+						id: EntityId.make("entity-1"),
 						entitySchemaSlug: EntitySchemaSlug.make("item"),
 					},
 				} satisfies AutomationTriggerPayload;
 				const eventPayload = {
 					resource: "event",
-					category: "request",
+					category: "change",
 					operation: "create",
-					draft: {
+					after: {
 						occurredAt,
 						properties: {},
+						createdAt: occurredAt,
+						updatedAt: occurredAt,
 						sessionEntityId: null,
 						eventSchemaPluginId: null,
 						entitySchemaPluginId: null,
+						id: EventId.make("event-1"),
 						entityId: EntityId.make("entity-1"),
 						entitySchemaSlug: EntitySchemaSlug.make("item"),
 						eventSchemaSlug: EventSchemaSlug.make("progress"),
@@ -150,7 +153,7 @@ describe("lifecycle commands", () => {
 					payloadPrunedAt: null,
 					payload: entityPayload,
 					causation: command.causation,
-					kind: { resource: "entity", category: "request", operation: "create" },
+					kind: { resource: "entity", category: "change", operation: "create" },
 				});
 			}),
 		testTimeout,

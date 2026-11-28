@@ -22,11 +22,20 @@ rows use `NO KEY UPDATE`, compatible with entity reference locks. Rank allocatio
 hold a transaction across lifecycle policies or network calls.
 
 The database advances `entity.collection_order_revision` for committed membership insertion, deletion,
-or rank changes, including cascading deletion. Metadata-only changes do not advance it. This trigger
-does not alter the collection's content, timestamps, or content generation. A partial rank index serves
+or rank changes, including cascading deletion. Metadata-only changes do not advance it. Its statement
+triggers advance each affected collection once per statement, so a bulk membership write updates the
+collection row once; an upsert that both adds members and changes ranks fires the insert and update
+triggers, so it advances twice. Readers only compare revisions. The triggers do not alter the collection's
+content, timestamps, or content generation. A partial rank index serves
 the RyotQL `relationship.collectionRank` field, ordered with the member's stable identity, not its title.
 
 ## Commands and reads
+
+Adding or removing a member commits its relationship change and the membership event it records as
+one change set, so a failed event leaves the membership unchanged. `CollectionsService` builds these
+parts, checking member fields against the collection's declarations, for its routes and for import
+records, which add members to collections by name in the record's own change set. A member's `rank`
+is never sent: the relationship write keeps a stored rank and allocates a new member's.
 
 `POST /collections/memberships/reorder` takes the member, an anchor or absolute end, and the expected
 revision. Ownership, revision validation and position changes commit atomically. Moving a member to where it

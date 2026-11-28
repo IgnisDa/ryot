@@ -149,38 +149,38 @@ export default defineAutomation({
 			payload.resource !== "event" ||
 			payload.operation !== "create"
 		) {
-			return Effect.succeed(null);
+			return Effect.succeed({});
 		}
 
 		return Effect.gen(function* () {
 			const event = payload.after;
 			if (event.properties["completionSilent"] === true) {
-				return null;
+				return {};
 			}
 			const entitySchemaSlug = event.entitySchemaSlug;
 			if (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show") {
-				return null;
+				return {};
 			}
 			const [disabled, integrations] = yield* Effect.all(
 				[integrationsDisabledForUser(host), listActiveIntegrations(host, "jellyfin_push")],
 				{ concurrency: "unbounded" },
 			);
 			if (disabled || integrations.length === 0) {
-				return null;
+				return {};
 			}
 			const entity = yield* fetchEntity(host, event.entityId);
 			const providerSlug = yield* resolveEntityProviderSlug(host, entity);
 			const tmdbId = providerSlug === `${entitySchemaSlug}.tmdb` ? entity.externalId : null;
 			const title = entity.name || null;
 			if (!tmdbId && !title) {
-				return null;
+				return {};
 			}
 			yield* Effect.forEach(
 				integrations,
 				(integration) => markPlayedInJellyfin(host, integration, { title, tmdbId }),
 				{ discard: true, concurrency: 1 },
 			);
-			return null;
+			return {};
 		});
 	},
 });

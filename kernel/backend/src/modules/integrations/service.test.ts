@@ -4,6 +4,7 @@ import { BunCrypto } from "@effect/platform-bun";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	INTEGRATION_LIMITS,
 	integrationCommonPropertyNames,
 	integrationCommonSchema,
 	IntegrationRequestError,
@@ -466,6 +467,36 @@ describe("create", () => {
 					expect(result).toEqual({ id: makeIntegration().id });
 					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toEqual({
 						token: "create-secret",
+					});
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(
+		makeServiceLayer({
+			dependencies: () => ({
+				catalog: { findForUser: () => Effect.succeed(pushProvider) },
+				repository: { createForUser: () => Effect.die("create should not be reached") },
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"rejects settings over the integration settings cap",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* Effect.flip(
+						(yield* IntegrationsService).create(user, {
+							provider: { ...pushProvider.reference, slug: pushProvider.slug },
+							providerSpecifics: { token: "x".repeat(INTEGRATION_LIMITS.settingsBytes) },
+						}),
+					);
+					expect(error).toBeInstanceOf(IntegrationRequestError);
+					expect(error).toMatchObject({
+						reason: {
+							code: "integration-settings-too-large",
+							maxBytes: INTEGRATION_LIMITS.settingsBytes,
+						},
 					});
 				}),
 			testTimeout,

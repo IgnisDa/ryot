@@ -17,24 +17,45 @@ import { Effect } from "effect";
 
 import { automationLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,
 	command,
 	propertiesSchema,
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	relationshipSchemaSlug,
 	sourceEntityId,
 	targetEntityId,
+	upsertGlobalRelationship,
 	userId,
+	writeRelationship,
 } from "./lifecycle.test-support";
+import type { ReconcileGlobalRelationshipGroup } from "./mutation-support";
 import { RelationshipsService } from "./service";
+
+const reconcileGlobal = (
+	groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
+	lifecycle: DomainLifecycleCommand,
+) =>
+	Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const committed = yield* (yield* DatabaseSession)
+			.transaction(
+				service.persistPlannedReconciliation(new WriteTransaction(), groups, lifecycle, {
+					scope: "global",
+				}),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		return committed.result;
+	});
 
 const automationCommand = (id: string) => {
 	const parent = command(id, UserId.make("initiator"));
@@ -42,7 +63,6 @@ const automationCommand = (id: string) => {
 		...parent,
 		causation: automationLifecycleCausation(
 			{
-				delivery: "required",
 				causation: parent.causation,
 				runId: AutomationRunId.make("automation-run"),
 				triggerId: AutomationTriggerId.make("automation-trigger"),
@@ -128,7 +148,6 @@ const installGlobalHooks = Effect.fn(function* () {
 						frequency,
 						stage: "after" as const,
 						scriptSlug: script.slug,
-						delivery: "async" as const,
 						name: `Ownership ${frequency}`,
 						executionScope: "global" as const,
 						slug: `executor-ownership.${frequency}`,
@@ -173,18 +192,17 @@ const installGlobalHooks = Effect.fn(function* () {
 	};
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"persists global system automation item and batch writes with user attribution",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const input = yield* installGlobalHooks();
 				const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } = input;
 				const singleCommand = { ...automationCommand("system-item"), accountUserId: null };
-				const created = yield* service.create(input, singleCommand);
-				expect(created.relationship).toMatchObject({ wasInserted: true, properties: { rank: 1 } });
+				const created = yield* upsertGlobalRelationship(input, singleCommand);
+				expect(created).toMatchObject({ userId: null, properties: { rank: 1 } });
 				const group = {
 					relationshipSchema: input.relationshipSchema,
 					selector: {
@@ -206,10 +224,8 @@ layer(relationshipDatabaseLayer())((test) => {
 					],
 				};
 				const batchCommand = { ...automationCommand("system-batch"), accountUserId: null };
-				const reconciled = yield* service.reconcileGlobal([group], batchCommand);
-				expect(reconciled).toEqual([
-					{ created: 1, updated: 1, deleted: 0, upserted: 2, warnings: [] },
-				]);
+				const reconciled = yield* reconcileGlobal([group], batchCommand);
+				expect(reconciled).toEqual([{ created: 1, updated: 1, deleted: 0, upserted: 2 }]);
 				const relationships = yield* session.run((db) => db.select().from(tables.relationship));
 				expect(relationships).toHaveLength(2);
 				expect(
@@ -231,12 +247,11 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"owns global automation items and batches by the executor and rejects missing or retired user tokens",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const executing = { ...automationCommand("user-batch"), accountUserId: userId };
 				const group = {
@@ -248,25 +263,28 @@ layer(relationshipDatabaseLayer())((test) => {
 						anchorEntityId: sourceEntityId,
 					},
 				};
-				expect(yield* service.reconcileGlobal([group], executing)).toEqual([
-					{ created: 1, updated: 0, deleted: 0, upserted: 1, warnings: [] },
+				expect(yield* reconcileGlobal([group], executing)).toEqual([
+					{ created: 1, updated: 0, deleted: 0, upserted: 1 },
 				]);
 				const missing = yield* Effect.flip(
-					service.create(baseInput, { ...automationCommand("missing-user"), accountUserId: null }),
+					writeRelationship("upsert", baseInput, {
+						...automationCommand("missing-user"),
+						accountUserId: null,
+					}),
 				);
 				expect(missing).toMatchObject({ message: "Mutation command account is missing" });
 				yield* session.run((db) =>
 					db.update(tables.user).set({ retiringAt: new Date() }).where(eq(tables.user.id, userId)),
 				);
 				const retired = yield* Effect.flip(
-					service.reconcileGlobal([group], {
-						...automationCommand("retired-user"),
-						accountUserId: userId,
-					}),
+					reconcileGlobal([group], { ...automationCommand("retired-user"), accountUserId: userId }),
 				);
 				expect(retired).toMatchObject({ message: "Mutation command account is being retired" });
 				const missingRoot = yield* Effect.flip(
-					service.create(globalInput, { ...command("missing-root"), accountUserId: null }),
+					upsertGlobalRelationship(globalInput, {
+						...command("missing-root"),
+						accountUserId: null,
+					}),
 				);
 				expect(missingRoot).toMatchObject({ message: "Mutation command account is missing" });
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);

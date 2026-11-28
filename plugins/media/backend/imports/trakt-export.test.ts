@@ -29,7 +29,7 @@ const captureFiles = Effect.fn(function* (files: ReadonlyArray<readonly [string,
 		new DataView(bytes.buffer).setUint32(0, 0x04034b50, true);
 		bytes.set(contents, 30);
 		fs.files.set("exportUploadToken", bytes);
-		const result = yield* trakt.run(
+		const { output: result } = yield* trakt.run(
 			mediaStageInput({
 				itemIndex,
 				entry: {
@@ -105,13 +105,13 @@ it.live(
 				action: "normalize",
 				ingestionArtifacts: { runId: "run", captures: { records: "records" } },
 			});
-			const first = yield* trakt.run(input);
+			const { output: first } = yield* trakt.run(input);
 			expect(first.itemIndex).toBe(20);
 			expect(first.done).toBe(false);
 			expect(yield* fs.records()).toEqual([]);
 			const carry = fs.scratch.get("metadata.json")?.slice();
 			expect(carry).toBeDefined();
-			const replay = yield* trakt.run(input);
+			const { output: replay } = yield* trakt.run(input);
 			expect(replay.offset).toBe(first.offset);
 			expect(fs.scratch.get("metadata.json")).toEqual(carry);
 			fs.files.set("carry", carry ?? new Uint8Array());
@@ -121,7 +121,7 @@ it.live(
 				itemIndex: first.itemIndex,
 				ingestionArtifacts: { runId: "run", captures: { carry: "carry", records: "records" } },
 			});
-			const second = yield* trakt.run(next);
+			const { output: second } = yield* trakt.run(next);
 			const records = yield* fs.records();
 			expect(second.done).toBe(true);
 			expect(second.itemIndex).toBe(31);

@@ -1,12 +1,13 @@
 import { expect } from "bun:test";
 
+import { OAUTH_TOKEN_RESPONSE_MAX_BYTES } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Option, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 
-import { OAUTH_TOKEN_RESPONSE_MAX_BYTES, OAuthTokenClient } from "./token-client";
+import { OAuthTokenClient } from "./token-client";
 
 const provider = {
 	scopes: [],

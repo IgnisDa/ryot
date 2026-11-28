@@ -33,7 +33,7 @@ it.live(
 			const records: MediaSourceRecord[] = [];
 			let steps = 0;
 			for (;;) {
-				const result = yield* goodreads.run(input);
+				const { output: result } = yield* goodreads.run(input);
 				records.push(...(yield* fs.records()));
 				steps++;
 				if (result.done) {
@@ -79,7 +79,7 @@ it.live(
 			let input = mediaStageInput({ fileIndex: 1 });
 			const records: MediaSourceRecord[] = [];
 			for (;;) {
-				const result = yield* myanimelist.run(input);
+				const { output: result } = yield* myanimelist.run(input);
 				records.push(...(yield* fs.records()));
 				if (result.done) {
 					break;

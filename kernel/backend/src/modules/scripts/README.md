@@ -21,9 +21,15 @@ Scripts build messages with its `catalogMessage`, and the kernel stamps the `ker
 them. The package `build` script runs both, and Turbo runs it after the kernel catalog build; the
 module is git-ignored.
 
-Every invocation reloads persisted authority and verifies compiled SHA-256 and package identity
-across manifest, plugin row, and authority projection. Historical pins preserve code/config/definitions,
-not expired authority: fresh host calls still enforce current account and installation access.
+Every run verifies compiled SHA-256 and package identity across manifest, plugin row, and authority
+projection, and resolves persisted authority once, when it reserves admission; that outcome covers every host call
+of the run, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
+The run's host calls also share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use.
+Like the job reference, it is provided around each bound host call, because host calls reach the
+catalog through RyotQL, the plugin runtime resolver and message catalogs, which HTTP shares; writes
+share their readings through their write scope instead (see [change sets](../changes/README.md#source-writes)).
+A revocation or installation change applies from the next run. Historical pins preserve code/config/definitions,
+not expired authority: fresh runs still enforce current account and installation access.
 A plugin pin carries the revision's identity and a digest of its script hashes, so a revision that
 lost scripts no longer matches; the revision's scripts and schema scope are read by revision ID.
 System authority requires verified kernel/system ownership; user plugins execute as their owner.
@@ -50,7 +56,9 @@ A failed envelope carries the escaped error's boundary reason as `data`, which r
 The `operation-rejected` reason marks a deliberate operation refusal: the guest runner keeps it,
 `OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying a message reason while every
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
-`business-failure` under the code `operation-rejected`, and workflow classification is unchanged.
+`business-failure` under the code `operation-rejected`, and workflow classification is unchanged. A
+`changes-conflict` reason carries the conflict code of a stale baseline the script found while
+reading; `OperationsService` answers it as the commit of stale changes is answered.
 
 Plugin workflow activations load their current checkpoint. A checkpoint commit stores the next
 revision and discards the completed scope's activities and deferreds atomically. In-memory caches and
@@ -71,6 +79,23 @@ the metric's duration is the run's own.
 Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
 idempotent dispatch: durable ownership is not a single-flight guarantee.
+
+### Script calls
+
+`ScriptCalls` is the one executor for scripts that run once: operations, policies, folds, after-hook
+attempts, and bootstrap scripts. It runs a pinned script on the plain host, with no workflow, journal,
+durable host, or workflow reference, and never inside a database transaction.
+`ScriptExecutionWorkflow` remains only for plugin workflows with steps, HTTP parking, and workflow
+children. Every host read declares a result bound that its producer enforces (see the
+[sandbox limits](../../../../sandbox/README.md#limits)), so the plain host serves all of them; only
+service-dispatched capabilities are unavailable to it.
+
+A call takes one sandbox lease and releases it before returning; it waits in the admission queue, and
+a full queue fails the call as `resource-unavailable`, which is never retried. No caller holds a lease
+while waiting for another, so callers that nest phases (a policy, then the commit and its folds) never
+deadlock on admission. A host call never starts a script: the plain host binds only capabilities that
+start no run. Boot provides `ScriptCalls` to the runtime only; the migration graph builds nothing that
+calls scripts.
 
 ### Journal projection
 
@@ -115,10 +140,10 @@ Allowance is reserved before waiting and unused cancelled time is refunded by mo
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
 continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
 bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
-end; deferred calls may already have executed and must tolerate replay. A batch keeps its lane's pool
-until its host calls settle, so a script nested in one of those calls, such as a fold or a before-policy
-inside a write, runs on the other lane. Budgets too small for lane mode share one pool, so a nested script
-there defers.
+end; deferred calls may already have executed and must tolerate replay. A batch keeps its run's lease and
+its lane's pool until its host calls settle, so it offers only activity capabilities, which run no
+script. A replay's changes commit in the workflow body after its job has released both, so the
+policies and folds of that commit take admission like any other phase, in every budget.
 
 Only validated inline waits pause the script timeout/extend session expiry. Settlement is bounded to
 30 seconds per wait and five minutes absolute; HTTP attempts remain eight seconds. The isolate must
@@ -137,36 +162,27 @@ be disposed within two seconds before its reservation is refunded.
   TTL is leak cleanup, not normal ownership. Logs/spans/console output are diagnostics, not journal.
 - Trusted subjects override input user IDs; relayed ingestion/automation attribution is owner-validated.
 
-### Folds
-
-`requestFolds({ entityIds })` queues a `fold` job for each of at most 100 subjects of the execution
-user. The owning plugin's `requestFoldsForAllUsers` does the same for every user with events on those
-subjects. See [folds](../events/README.md#folds).
-
 ## Capabilities
 
 Compiler-derived local metadata constrains every runner, host, durable dispatch, and filesystem grant.
 Replay never analyzes current source or borrows child capabilities. Authored identity/kind/projection
 fields are validated separately and grant no privileges. Runtime policy combines script kind,
-subject, scope, provider association, and bootstrap designation; services enforce domain ownership.
+subject, and scope; services enforce domain ownership.
 
 `authorization/` owns principal policy, `SANDBOX_CAPABILITY_REQUIREMENTS` is the exhaustive vocabulary,
 and host contracts have exhaustive durable dispatch coverage. New operations extend these owners,
 not a source-authored grant list. `scratch`/`artifact-read` are filesystem grants requiring trusted
 resources, not host calls.
 
-| Subject                   | Capability boundary                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Valid subjects            | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                                              |
-| User/user automation      | Events, schema/integration/preference reads, managed-asset verification, relationships, and RyotQL                       |
-| Designated user bootstrap | `ensureUserEntities` within its plugin schemas, in either plugin scope                                                   |
-| User-subject plugin       | User-owned entity create/update/delete/save/clear/merge within pinned plugin ownership                                   |
-| Pinned system plugin      | Global entity/relationship upserts and RyotQL within owned definitions; entity upsert also requires provider association |
-| User/system automation    | Signals; notification delivery requires a user automation run                                                            |
-| Own integration run       | Access/invalidation of OAuth fields declared by its current settings schema                                              |
+| Subject              | Capability boundary                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Valid subjects       | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                 |
+| User/user automation | Integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL |
+| Pinned system plugin | RyotQL within owned definitions                                                             |
+| Own integration run  | Access/invalidation of OAuth fields declared by its current settings schema                 |
 
 User-subject definition reads pin only the caller's own declarations; visible foreign definitions
-remain current. Entity/event reads use RyotQL, not schema metadata calls. Before policies receive
+remain current. Entity, event, and schema reads use RyotQL. Before policies receive
 only the [policy-safe surface](../../../../../packages/plugin-kit/README.md#lifecycle-hooks).
 
 Hidden unfinished installations may execute only their dispatched initializer under an exact current
@@ -190,32 +206,27 @@ single host map shared by inline and durable dispatch.
 
 ## Script Writes
 
-Entity capabilities enforce exact schema, plugin, scope, and user ownership through normal services,
-and policies. Scripts cannot set global scope, provider provenance, ownership, or
-`populatedAt`; policies/system subjects cannot use user-entity creation.
+Host capabilities only read. Every writer returns a [change set](../changes/README.md) and the
+kernel commits it through the `ScriptChanges` port (`executions/script-changes.ts`), under the
+script's principal and the durable identity of its execution:
 
-| Operation                               | Contract                                                                                                                                        |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createUserEntity` / `updateUserEntity` | Create one owned entity or update against expected name, time, and properties                                                                   |
-| `deleteUserEntity`                      | Delete the owned schema-matching entity through lifecycle handling, including referencing events                                                |
-| `clearUserEntityData`                   | Delete the user's events and relationships for an entity in a pinned plugin schema and return deleted counts                                    |
-| `mergeUserEntityData`                   | Move the user's events/relationships into a same-schema entity using merge policy and return moved counts                                       |
-| `updateEvents` / `deleteEvents`         | Atomic batches of at most 100; updates use `{ eventId, patch }` with properties `{ remove, set }`, occurrence time, entity, or nullable session |
-| `changeUserRelationships`               | Each create chooses merge (preserve unspecified fields/union arrays) or replace (full property record); membership writes use merge             |
-
-Merge requires a user-owned source and same-plugin/schema endpoints. It retains the sandbox principal
-but marks the command as a kernel collection command, allowing owned domain events and kernel
-review/collection/member-of state to move. Other plugins' events/relationships fail `owner-mismatch`.
-All source user relationships move; scripts detach those they do not want first.
-
-Entity, event, and relationship writes accept optional `{ submittedAt, idempotencyKey }`, scoped by
-account, installation, script, and capability. Retries preserve ordered input/time/key;
-changed committed input conflicts. Without options, execution-scoped identities apply. Event update
-items may also include an expected entity/time/properties/session snapshot.
-
-Event creation returns count and one indexed outcome per input: written event ID or policy skip.
-Partial failures retain count/outcomes/code/partial. Later failures do not roll back earlier committed
-operations or weaken their owning services' transaction/lifecycle boundaries.
+- An operation returns `{ output, changes? }`; `OperationsService` runs it through `ScriptCalls`.
+- An after hook returns `{ changes? }`; its attempt's finalize commits them (see
+  [automations](../automations/README.md)).
+- A plugin workflow step returns `{ output, changes? }` or saves `(checkpoint, changes?)`; the
+  replay envelope carries `changes`. A script called with `step.activity` runs with `activity: true`
+  on its payload and returns `{ output, changes? }`; only `output` reaches the parent's journal, and
+  its replay names `output` as the sandbox's harvest root, so scratch files are harvested from it. The
+  body commits a step's or activity's changes in the `commit-sandbox-workflow-changes` activity,
+  before saving the checkpoint or returning the output, with `commitKeyed` under the step's
+  execution ID (`<executionId>-checkpoint-<revision>` for checkpointed workflows). The journaled
+  activity result covers replays; the account's idempotency key covers a stop between the commit and
+  that result.
+- A user bootstrap script receives `{ userId }`, the bootstrapped user's ID, and returns
+  `{ changes? }`, usually `entities.ensures`. `runUserBootstrapScript` serves both the system user
+  bootstrap and the private installation job: it pins the script, runs it through `ScriptCalls`, and
+  commits with `commitKeyed` under `<bootstrap execution ID>-<script content hash>`, so a rerun of the
+  same script reuses the commit and a new script version commits its own ensures.
 
 ## Global HTTP Admission
 
@@ -272,6 +283,12 @@ fence. Current revisions, source-zero scripts, active workflows, and retained au
 their artifacts. Completion/cancellation releases workflow references. Pruning deletes unreferenced
 database rows transactionally, not compiled caches/files.
 
+Pinning a workflow (`SandboxWorkflowPinning.establish`) runs no script: it admits the account,
+resolves the exact pin and registers the workflow reference. It joins the caller's active transaction,
+so the reference commits or rolls back with the admission that owns it (an import's reserved pins, a
+translation request, a provider workflow), and opens its own transaction otherwise. The script runs
+later, from the workflow, outside any transaction.
+
 `executeRyotql` accepts canonical `{ source, arguments?, filter?, sort?, pages? }` requests. User
 scripts execute in their user/plugin audience; system scripts retain exact plugin/revision authority,
 including declared queries from that pin. The backend host performs decoding and authority resolution;
@@ -282,8 +299,8 @@ the sandbox continues to own only isolation and its generic host boundary.
 `agent/` compiles submitted TypeScript with `SandboxCompiler` and executes it as an `agent` subject.
 The principal carries the authenticated user and access class; it has no plugin revision, provider
 or kernel identity. Only `log`, `span` and `invokeCapability` are available. Compiler-derived
-metadata requesting HTTP, raw writes, queries, files, configuration, cache or other host
-capabilities is rejected before execution.
+metadata requesting HTTP, queries, files, configuration, cache or other host capabilities is
+rejected before execution.
 
 The caller supplies the `invokeCapability` port, bound to its authenticated credential; the
 [agent tools](../agent-tools/README.md) registry resolves capabilities, owns write authorization and

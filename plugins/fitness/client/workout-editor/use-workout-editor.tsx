@@ -1,4 +1,9 @@
-import { type RyotClient, RyotClientError, type RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import {
+	isChangesConflict,
+	type RyotClient,
+	RyotClientError,
+	type RyotSchedule,
+} from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type PluginNavigationTarget,
@@ -22,7 +27,7 @@ import {
 import { type FitnessText, useFitnessMessages } from "../messages";
 import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
-import { isWorkoutEditorSaving } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorSaveResult } from "./controller-types";
 import { DRAFT_STORAGE_KEY } from "./draft-storage";
 import { createWorkoutEditorSounds } from "./sounds";
 
@@ -78,7 +83,7 @@ const createEditorSession = (
 		},
 		save: (submission) =>
 			client.operations
-				.invoke({
+				.invokeCommitted({
 					input: submission,
 					refreshOnSuccess: false,
 					packageId: PLUGIN_PACKAGE_ID,
@@ -89,6 +94,13 @@ const createEditorSession = (
 					inputSchema: WorkoutEditorSaveInputSchema,
 				})
 				.pipe(
+					Effect.flatMap(
+						({ committed }): Effect.Effect<WorkoutEditorSaveResult, RyotClientError> =>
+							committed.entityId === undefined
+								? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+								: Effect.succeed({ kind: "saved", entityId: committed.entityId }),
+					),
+					Effect.catchIf(isChangesConflict, () => Effect.succeed({ kind: "conflict" } as const)),
 					Effect.tap((result) =>
 						Effect.sync(() => {
 							if (result.kind === "saved") {

@@ -162,7 +162,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				);
 				return row ?? null;
 			});
-			const guardPopulation = Effect.fn("EnrichmentRequestsRepository.guardPopulation")(function* (
+			const ownsPopulation = Effect.fn("EnrichmentRequestsRepository.ownsPopulation")(function* (
 				id: string,
 				attempt?: number,
 			) {
@@ -361,8 +361,8 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				failOrphaned,
 				requesterIds,
 				attachEntity,
+				ownsPopulation,
 				recordBaseCheck,
-				guardPopulation,
 				latestTranslation,
 			};
 		}),

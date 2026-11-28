@@ -9,17 +9,24 @@ Routes decode requests and call services. Services own access control, business 
 boundaries; repositories own row normalization and persistence through their captured
 `DatabaseSession`. Its `session.run` selects the active executor and maps native database failures.
 Shared writes join the caller's transaction without passing raw executors between services. Owners
-that require a top-level transaction reject an already active one.
+that require a top-level transaction reject an already active one. State a feature keeps for one
+transaction, such as the locks it holds or a catalog reading, is keyed on the transaction's
+`WriteTransaction` through `writeState`, never on the executor. A savepoint's writes get their own
+`WriteTransaction`, so rolling the savepoint back drops what they took.
 
-Runtime writes from imports, jobs, sandbox callbacks, bootstrap, and HTTP use the same owning
-services. Historical backup restore instead uses the
+Runtime writes from imports, collections, provider population, reminders, signal schedules, jobs,
+the change sets scripts return, bootstrap, the entity editor, and HTTP commit
+through [`ChangeSets`](src/modules/changes/README.md), whose owning services prepare and persist each
+part. Historical backup restore instead uses the
 [backup-owned persistence path](src/modules/backups/README.md). Schema-backed entity,
 event, and relationship properties are validated before persistence. Account preferences use the
 canonical user-row schema and atomic validated patches; Better Auth sessions neither own nor expose
 those preferences.
 
 `DefinitionCatalog` resolves precedence and effectiveness in memory from installations and persisted
-`definition_*` rows, caching only immutable revision rows and kernel definitions. SQL readers receive a
+`definition_*` rows, caching only immutable revision rows and kernel definitions; pinned declarations
+are read from those revision rows. A write's preparation and each of its transactions read a user's
+installed plugins once, under their `WritePreparation` or `WriteTransaction`. SQL readers receive a
 resolved catalog as `user_*` relations prefixed to their statement. `DefinitionRepository` is the
 common reader; event and relationship readers add ownership-scoped
 projections. Definitions contain stable plugin identity and local slugs, not user/domain records.
@@ -34,9 +41,10 @@ loss of the ownership connection interrupts application work. Stop the old proce
 its replacement. Multiple backend processes require additional engineering.
 
 Feature Layers compose dependencies; boot composes features. Upward effects use generic durable
-queue hooks or transaction-scoped ports rather than reverse module dependencies. The common
-[background-work owner](src/modules/background-work/README.md) admits pinned user scripts and event
-projection batches in their owning transaction, dispatches after commit, and recovers admitted work.
+queue hooks or transaction-scoped ports rather than reverse module dependencies. A write's
+transaction admits its pinned [after-hook runs](src/modules/automations/README.md) and queues its
+[fold jobs](src/modules/derived-values/README.md); runs dispatch after commit, and the frequent cron
+recovers admitted runs.
 `LifecyclePlanner` persists source-write planning, immutable triggers, recipients, and pinned runs in
 the caller's transaction. It executes neither sandbox code nor workflows; execution starts after
 commit. Provider population composes the import workflow, and external event creation runs
@@ -48,13 +56,14 @@ occurrence.
 
 Activities and workflows use `makeActivity` and `implementWorkflow` from
 `src/platform/workflow/scope.ts` and run on the kernel's
-[PostgreSQL workflow engine](src/platform/workflow/README.md). Event creates run synchronously
-through `EventsService.create`; durable callers run them inside an activity, where `LifecycleExecution`
-runs policies and hooks as request work rather than journaling them.
+[PostgreSQL workflow engine](src/platform/workflow/README.md). Kernel and script writes commit
+synchronously through [`ChangeSets`](src/modules/changes/README.md); durable callers run the commit
+inside an activity, where policies run through `LifecyclePolicies` as request work rather than
+journaling them, and after hooks are dispatched as jobs.
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
 [mutation admission](src/modules/mutations/README.md), [events and folds](src/modules/events/README.md),
-[user commands](src/modules/user-commands/README.md), [imports](src/modules/imports/README.md),
+[change sets](src/modules/changes/README.md), [imports](src/modules/imports/README.md),
 [script execution](src/modules/scripts/README.md), and [sandbox isolation](../sandbox/README.md).
 
 ## Storage And Transport
@@ -88,6 +97,8 @@ The [MCP transport](src/modules/mcp/README.md) exposes the shared per-user agent
 ## Tests
 
 `test.ts` provisions one PostgreSQL for the run, reusing `TEST_DATABASE_URL` when supplied. It runs four workers unless `--parallel=N` says otherwise.
+`runDatabaseTests({ label, workers, run })` from `#testing/database-run` is that launcher; the server
+and Media test runners use it too, passing their own runner as `run`.
 
 PostgreSQL connections are bounded by construction. The launcher migrates one template database and
 sizes a started container's `max_connections` from the worker count; a supplied server must already

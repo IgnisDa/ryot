@@ -2,13 +2,14 @@ import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	AssetArtWell,
+	type Text,
 	useFormatters,
 	useHostScreen,
 	useRyot,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { type ComponentProps, useState } from "react";
+import { useState } from "react";
 
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
@@ -251,8 +252,7 @@ function ExerciseActions(props: {
 	const client = useRyot();
 	const [action, setAction] = useState<"merge" | "preferences">();
 	const openScreen = useHostScreen();
-	const [mergeFailure, setMergeFailure] =
-		useState<ComponentProps<typeof MergeFailureMessage>["failure"]>();
+	const [mergeFailure, setMergeFailure] = useState<Text>();
 	const overrides = Schema.decodeResult(WorkoutExerciseOverridesSchema)(
 		exercise.membershipProperties ?? {},
 	);
@@ -336,7 +336,7 @@ function ExerciseActions(props: {
 					...mergeItem,
 				]}
 			/>
-			{mergeFailure === undefined ? null : <MergeFailureMessage failure={mergeFailure} />}
+			{mergeFailure === undefined ? null : <MergeFailureMessage message={mergeFailure} />}
 			{action === "merge" && exerciseKind !== null ? (
 				<ExerciseMergeFlow
 					kind={exerciseKind}

@@ -14,6 +14,7 @@ import {
 	descending,
 	divide,
 	eq,
+	exists,
 	first,
 	gt,
 	gte,
@@ -26,6 +27,7 @@ import {
 	localDate,
 	lt,
 	lte,
+	minimum,
 	multiply,
 	neq,
 	now,
@@ -34,6 +36,7 @@ import {
 	round,
 	selectedInclude,
 	type SelectedSelection,
+	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 
@@ -108,17 +111,6 @@ type EventOrderExpressions = {
 	readonly occurredAt: ScalarExpression;
 };
 
-type AggregateLifecycleExpressions = {
-	readonly state: ScalarExpression;
-	readonly coverageComplete: Predicate;
-	readonly coverageStructureValid: Predicate;
-	readonly boundaryCompleteEvent: EventOrderExpressions;
-	readonly latestSignal: EventOrderExpressions & {
-		readonly entityId: ScalarExpression;
-		readonly eventSchemaSlug: ScalarExpression;
-	};
-};
-
 export const lifecycleEventSlugs = ["progress", "complete"] as const;
 const parentLifecycleEventSlugs = ["backlog", "complete", "dropped", "on_hold"] as const;
 const mediaLifecycleSignalSlugs = [
@@ -136,6 +128,18 @@ export const sameSchemaOwner = (from: TableReference, ownerField: string, parent
 export const entitySchemaIs = (entity: TableReference, slug: string) =>
 	eq(column(entity, "entitySchemaSlug"), literal(slug));
 
+/** The ownership and slug of a relationship from `parent` to `child`, without its endpoints. */
+const relationshipOwnership = (
+	relationship: TableReference,
+	parent: TableReference,
+	child: TableReference,
+	slug: string,
+) => [
+	sameSchemaOwner(relationship, "relationshipSchemaPluginId", parent),
+	sameSchemaOwner(child, "entitySchemaPluginId", parent),
+	eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
+];
+
 export const relationshipConnects = (
 	relationship: TableReference,
 	parent: TableReference,
@@ -145,9 +149,7 @@ export const relationshipConnects = (
 	and(
 		eq(column(relationship, "sourceEntityId"), column(parent, "id")),
 		eq(column(relationship, "targetEntityId"), column(child, "id")),
-		sameSchemaOwner(relationship, "relationshipSchemaPluginId", parent),
-		sameSchemaOwner(child, "entitySchemaPluginId", parent),
-		eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
+		...relationshipOwnership(relationship, parent, child, slug),
 	);
 
 export const eventSlugIsOneOf = (event: TableReference, slugs: readonly string[]) =>
@@ -202,18 +204,42 @@ const latestEventOrderExpressions = (where: Predicate, alias: string): EventOrde
 	};
 };
 
-const latestParentCompletionExpressions = (
-	parent: TableReference,
-	alias: string,
-): EventOrderExpressions => {
-	const event = table("event", alias);
-	const where = and(
-		eq(column(event, "entityId"), column(parent, "id")),
-		sameSchemaOwner(event, "eventSchemaPluginId", parent),
-		eq(column(event, "sessionEntityId"), column(parent, "id")),
-		eq(column(event, "eventSchemaSlug"), literal("complete")),
+/** Whether `later` sorts at or before `event` in `mediaEventOrderDescending`. */
+const orderIsAtLeast = (later: TableReference, event: TableReference) => {
+	const laterOrder = mediaEventOrderExpressions(later);
+	const order = mediaEventOrderExpressions(event);
+	return or(
+		gt(laterOrder.occurredAt, order.occurredAt),
+		and(
+			eq(laterOrder.occurredAt, order.occurredAt),
+			or(
+				gt(laterOrder.createdAt, order.createdAt),
+				and(eq(laterOrder.createdAt, order.createdAt), gte(laterOrder.id, order.id)),
+			),
+		),
 	);
-	return latestEventOrderExpressions(where, alias);
+};
+
+/**
+ * A left join of the parent's completions at or after `event`. `event` follows the latest one, as
+ * `orderExpressionsAreAfter` judges it, exactly when none joins.
+ */
+const parentCompletionsSince = (event: TableReference, parent: TableReference, alias: string) => {
+	const completion = table("event", alias);
+	return {
+		none: isNull(column(completion, "id")),
+		join: join(
+			"left",
+			completion,
+			and(
+				eq(column(completion, "entityId"), column(parent, "id")),
+				sameSchemaOwner(completion, "eventSchemaPluginId", parent),
+				eq(column(completion, "sessionEntityId"), column(parent, "id")),
+				eq(column(completion, "eventSchemaSlug"), literal("complete")),
+				orderIsAtLeast(completion, event),
+			),
+		),
+	};
 };
 
 export const orderExpressionsAreAfter = (
@@ -375,29 +401,31 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	};
 };
 
-const latestEpisodeLifecycleExpressions = (
+/**
+ * The state of the episode's latest progress or completion in the parent's session while that event
+ * follows the parent's latest completion, otherwise `untracked`.
+ */
+export const currentCycleEpisodeState = (
 	episode: TableReference,
 	parent: TableReference,
 	alias: string,
 ) => {
 	const event = table("event", alias);
-	const where = and(
-		eq(column(event, "entityId"), column(episode, "id")),
-		sameSchemaOwner(event, "eventSchemaPluginId", episode),
-		eq(column(event, "sessionEntityId"), column(parent, "id")),
-		eventSlugIsOneOf(event, lifecycleEventSlugs),
+	const since = parentCompletionsSince(event, parent, `${alias}Completion`);
+	return coalesce(
+		latestLifecycleField(event, {
+			joins: [since.join],
+			select: episodeStateFromLatest(column(event, "eventSchemaSlug")),
+			where: and(
+				eq(column(event, "entityId"), column(episode, "id")),
+				sameSchemaOwner(event, "eventSchemaPluginId", episode),
+				eq(column(event, "sessionEntityId"), column(parent, "id")),
+				eventSlugIsOneOf(event, lifecycleEventSlugs),
+				since.none,
+			),
+		}),
+		literal("untracked"),
 	);
-	return {
-		...latestEventOrderExpressions(where, alias),
-		eventSchemaSlug: latestField(event, "eventSchemaSlug", where),
-		state: coalesce(
-			latestLifecycleField(event, {
-				where,
-				select: episodeStateFromLatest(column(event, "eventSchemaSlug")),
-			}),
-			literal("untracked"),
-		),
-	};
 };
 
 const latestEpisodeEventExpressions = (episode: TableReference, alias: string) => {
@@ -408,7 +436,6 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 		eventSlugIsOneOf(event, lifecycleEventSlugs),
 	);
 	return {
-		...latestEventOrderExpressions(where, alias),
 		sessionEntityId: latestField(event, "sessionEntityId", where),
 		state: coalesce(
 			latestLifecycleField(event, {
@@ -429,6 +456,7 @@ export const publishDate = (episode: TableReference) =>
  */
 export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
+/** An episode's release: its known `airingAt` instant, otherwise its `occursAt` date. */
 export const episodeReleaseTime = (episode: TableReference) => ({
 	date: occursAt(episode),
 	instant: castDate(jsonPath(column(episode, "properties"), "airingAt")),
@@ -441,6 +469,7 @@ export const episodeReleaseDay = (episode: TableReference) => {
 	return coalesce(castDate(localDate(instant, { timeZone: reportingTimeZone })), date);
 };
 
+/** Release order is arrival order: by reporting day, a date-only release before timed ones. */
 export const episodeReleaseOrder = (episode: TableReference) => {
 	const { instant } = episodeReleaseTime(episode);
 	return [
@@ -450,8 +479,9 @@ export const episodeReleaseOrder = (episode: TableReference) => {
 	] as const;
 };
 
-export const releaseHasArrived = (date: ScalarExpression, instant: ScalarExpression) =>
-	or(lte(instant, now()), and(isNull(instant), lte(date, reportingToday)));
+const instantHasArrived = (instant: ScalarExpression) => lte(instant, now());
+
+const dateHasArrived = (date: ScalarExpression) => lte(date, reportingToday);
 
 /**
  * `occursAt` holds an episode's release instant when it has one and its publish date otherwise, so
@@ -471,12 +501,15 @@ export const episodeReleaseCandidates = (
 	to: ScalarExpression,
 ) => [gte(occursAt(episode), releaseFloor(from)), lt(occursAt(episode), releaseCeiling(to))];
 
+/** An episode with neither a date nor an instant counts as aired. */
 export const episodeHasAired = (episode: TableReference) => {
 	const { date, instant } = episodeReleaseTime(episode);
 	return or(
-		and(isNull(date), isNull(instant)),
 		lt(date, releaseSettledBefore),
-		and(lt(date, releaseUnsettledUntil), releaseHasArrived(date, instant)),
+		and(
+			or(isNull(date), lt(date, releaseUnsettledUntil)),
+			or(instantHasArrived(instant), and(isNull(instant), or(isNull(date), dateHasArrived(date)))),
+		),
 	);
 };
 
@@ -494,6 +527,12 @@ export const episodeIsUpcoming = (episode: TableReference) => {
 
 type EpisodeAiring = "any" | "aired" | "upcoming";
 
+const episodeNumberOf = (episode: TableReference) =>
+	castNumber(jsonPath(column(episode, "properties"), "episodeNumber"));
+
+const seasonNumberOf = (season: TableReference) =>
+	castNumber(jsonPath(column(season, "properties"), "seasonNumber"));
+
 const airingFilters = {
 	any: () => undefined,
 	aired: episodeHasAired,
@@ -506,6 +545,8 @@ const airingFilters = {
  * The aired set is the required set that coverage, counts, and next-up are judged over. `position`
  * orders the episodes: `(seasonNumber, episodeNumber)` for a show, `episodeNumber` for a podcast.
  * `seasons: "all"` also selects season-zero specials; `parentId` links each episode to its parent.
+ * `joins` start from the episode; `parentJoins` start from `parent` and end at the episode. Either
+ * holds the links' endpoints, so `where` must be read with one of them.
  */
 export const episodicEpisodeQuery = (
 	config: EpisodicKindConfig,
@@ -517,13 +558,13 @@ export const episodicEpisodeQuery = (
 ) => {
 	const airingFilter = airingFilters[airing](episode);
 	const airingPredicates = airingFilter === undefined ? [] : [airingFilter];
-	const episodeNumber = castNumber(jsonPath(column(episode, "properties"), "episodeNumber"));
+	const episodeNumber = episodeNumberOf(episode);
 	if (config.kind === "podcast") {
 		const relationship = table("relationship", `${alias}Relationship`);
 		return {
 			season: null,
 			links: [relationship],
-			position: [episodeNumber],
+			position: [episodeNumber] as const,
 			parentId: column(relationship, "sourceEntityId"),
 			joins: [
 				join(
@@ -532,9 +573,23 @@ export const episodicEpisodeQuery = (
 					eq(column(relationship, "targetEntityId"), column(episode, "id")),
 				),
 			],
+			parentJoins: [
+				join(
+					"inner",
+					relationship,
+					eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+				),
+				join("inner", episode, eq(column(relationship, "targetEntityId"), column(episode, "id"))),
+			],
 			where: and(
 				entitySchemaIs(episode, config.episodeSchemaSlug),
-				relationshipConnects(relationship, parent, episode, config.parentEpisodeRelationshipSlug),
+				eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+				...relationshipOwnership(
+					relationship,
+					parent,
+					episode,
+					config.parentEpisodeRelationshipSlug,
+				),
 				...airingPredicates,
 			),
 		};
@@ -543,12 +598,12 @@ export const episodicEpisodeQuery = (
 	const season = table("entity", `${alias}Season`);
 	const showSeason = table("relationship", `${alias}ShowSeason`);
 	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
-	const seasonNumber = castNumber(jsonPath(column(season, "properties"), "seasonNumber"));
+	const seasonNumber = seasonNumberOf(season);
 	return {
 		season,
 		links: [showSeason, seasonEpisode],
-		position: [seasonNumber, episodeNumber],
 		parentId: column(showSeason, "sourceEntityId"),
+		position: [seasonNumber, episodeNumber] as const,
 		joins: [
 			join(
 				"inner",
@@ -558,46 +613,54 @@ export const episodicEpisodeQuery = (
 			join("inner", season, eq(column(seasonEpisode, "sourceEntityId"), column(season, "id"))),
 			join("inner", showSeason, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
 		],
+		parentJoins: [
+			join("inner", showSeason, eq(column(showSeason, "sourceEntityId"), column(parent, "id"))),
+			join("inner", season, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
+			join(
+				"inner",
+				seasonEpisode,
+				eq(column(seasonEpisode, "sourceEntityId"), column(season, "id")),
+			),
+			join("inner", episode, eq(column(seasonEpisode, "targetEntityId"), column(episode, "id"))),
+		],
 		where: and(
 			entitySchemaIs(episode, config.episodeSchemaSlug),
 			entitySchemaIs(season, "show-season"),
 			...(seasons === "regular" ? [gt(seasonNumber, literal(0))] : []),
-			relationshipConnects(showSeason, parent, season, config.parentSeasonRelationshipSlug),
-			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
+			eq(column(showSeason, "sourceEntityId"), column(parent, "id")),
+			...relationshipOwnership(showSeason, parent, season, config.parentSeasonRelationshipSlug),
+			...relationshipOwnership(
+				seasonEpisode,
+				season,
+				episode,
+				config.seasonEpisodeRelationshipSlug,
+			),
 			...airingPredicates,
 		),
 	};
 };
 
-const episodeIsCovered = (episode: TableReference, parent: TableReference, alias: string) => {
-	const latest = latestEpisodeLifecycleExpressions(episode, parent, `${alias}Lifecycle`);
-	const boundary = latestParentCompletionExpressions(parent, `${alias}Boundary`);
-	return and(
-		eq(latest.eventSchemaSlug, literal("complete")),
-		orderExpressionsAreAfter(latest, boundary),
-	);
-};
-
 /**
- * Current-cycle coverage over the required (aired) episodes. A season with nothing aired holds no
- * required episode, so it neither satisfies nor blocks coverage; empty coverage is never complete.
+ * A parent's regular episodes of one airing. Its measures share one query set, so they fuse into one
+ * pass over the episodes.
  */
-const episodicCoverageExpressions = (
+export type EpisodicEpisodeWalk = ReturnType<typeof episodicEpisodeWalk>;
+
+export const episodicEpisodeWalk = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
-	alias = "episodicCoverage",
+	alias: string,
+	airing: "aired" | "upcoming",
 ) => {
 	const episode = table("entity", `${alias}Episode`);
-	const { joins, where } = episodicEpisodeQuery(config, parent, episode, `${alias}Required`);
-	const requiredCount = count(episode, { joins, where });
-	const coveredCount = count(episode, {
-		joins,
-		where: and(where, episodeIsCovered(episode, parent, `${alias}Episode`)),
-	});
-	const coverageStructureValid = gt(requiredCount, literal(0));
+	const { joins, where } = episodicEpisodeQuery(config, parent, episode, alias, airing);
+	const scope = { joins, where };
 	return {
-		coverageStructureValid,
-		coverageComplete: and(coverageStructureValid, eq(coveredCount, requiredCount)),
+		episode,
+		count: count(episode, scope),
+		minimum: (expr: ScalarExpression) => minimum(episode, expr, scope),
+		countWhere: (predicate: Predicate) =>
+			coalesce(sum(episode, conditional(predicate, literal(1), literal(0)), scope), literal(0)),
 	};
 };
 
@@ -625,50 +688,62 @@ const latestAggregateSignalExpressions = (
 			),
 		),
 	);
+	const slug = column(event, "eventSchemaSlug");
 	return {
-		id: latestField(event, "id", where, joins),
-		entityId: latestField(event, "entityId", where, joins),
-		createdAt: latestField(event, "createdAt", where, joins),
 		occurredAt: latestField(event, "occurredAt", where, joins),
-		eventSchemaSlug: latestField(event, "eventSchemaSlug", where, joins),
+		parentState: latestLifecycleField(event, {
+			joins,
+			where,
+			select: conditional(
+				eq(column(event, "entityId"), column(parent, "id")),
+				conditional(
+					eq(slug, literal("backlog")),
+					literal("backlog"),
+					conditional(
+						eq(slug, literal("on_hold")),
+						literal("on_hold"),
+						conditional(eq(slug, literal("dropped")), literal("dropped"), literal("complete")),
+					),
+				),
+				literal(null),
+			),
+		}),
 	};
 };
 
+/**
+ * The parent's state from its latest aggregate signal: the parent's own state when that signal is a
+ * parent event, otherwise `caught_up` once current-cycle coverage over the required (aired) episodes
+ * is complete and `in_progress` before. A season with nothing aired holds no required episode, so it
+ * neither satisfies nor blocks coverage; empty coverage is never complete. `aired` is its walk over the
+ * required episodes, which `episodicEpisodeCounts` can share.
+ */
 export const episodicLifecycleExpressions = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
 	alias = "episodicLifecycle",
-): AggregateLifecycleExpressions => {
+) => {
 	const latestSignal = latestAggregateSignalExpressions(config, parent, `${alias}Signal`);
-	const { coverageComplete, coverageStructureValid } = episodicCoverageExpressions(
-		config,
-		parent,
-		`${alias}Coverage`,
-	);
-	const boundaryCompleteEvent = latestParentCompletionExpressions(parent, `${alias}Boundary`);
-	const parentState = conditional(
-		eq(latestSignal.eventSchemaSlug, literal("backlog")),
-		literal("backlog"),
-		conditional(
-			eq(latestSignal.eventSchemaSlug, literal("on_hold")),
-			literal("on_hold"),
-			conditional(
-				eq(latestSignal.eventSchemaSlug, literal("dropped")),
-				literal("dropped"),
-				literal("complete"),
-			),
+	const required = episodicEpisodeWalk(config, parent, `${alias}Aired`, "aired");
+	const covered = required.countWhere(
+		eq(
+			currentCycleEpisodeState(required.episode, parent, `${alias}AiredCurrent`),
+			literal("complete"),
 		),
 	);
 	const state = conditional(
-		isNull(latestSignal.id),
+		isNull(latestSignal.occurredAt),
 		literal("untracked"),
-		conditional(
-			eq(latestSignal.entityId, column(parent, "id")),
-			parentState,
-			conditional(coverageComplete, literal("caught_up"), literal("in_progress")),
+		coalesce(
+			latestSignal.parentState,
+			conditional(
+				and(gt(required.count, literal(0)), eq(covered, required.count)),
+				literal("caught_up"),
+				literal("in_progress"),
+			),
 		),
 	);
-	return { state, latestSignal, coverageComplete, boundaryCompleteEvent, coverageStructureValid };
+	return { state, latestSignal, aired: required };
 };
 
 const episodeStateFromLatest = (latestEventSchemaSlug: ScalarExpression) =>
@@ -683,6 +758,52 @@ const episodeStateFromLatest = (latestEventSchemaSlug: ScalarExpression) =>
 	);
 
 /**
+ * Progresses and completions in the parent's session, other than on the parent itself, after the
+ * parent's latest completion.
+ */
+const newCycleSignals = (parent: TableReference, alias: string) => {
+	const event = table("event", alias);
+	const since = parentCompletionsSince(event, parent, `${alias}Completion`);
+	return {
+		event,
+		joins: [since.join],
+		where: and(
+			eq(column(event, "sessionEntityId"), column(parent, "id")),
+			sameSchemaOwner(event, "eventSchemaPluginId", parent),
+			neq(column(event, "entityId"), column(parent, "id")),
+			eventSlugIsOneOf(event, lifecycleEventSlugs),
+			since.none,
+		),
+	};
+};
+
+/** Whether a new cycle has begun: one of `newCycleSignals` exists. */
+const episodicNewCycle = (parent: TableReference, alias: string) => {
+	const { event, ...signals } = newCycleSignals(parent, alias);
+	return exists(event, signals);
+};
+
+/**
+ * The parent's latest new-cycle signal as a left join, for a query that reads whether a new cycle
+ * has begun for many episodes: `newCycle` is `episodicNewCycle` read once.
+ */
+export const episodicNewCycleJoin = (parent: TableReference, alias: string) => {
+	const { event, ...signals } = newCycleSignals(parent, `${alias}Signal`);
+	const signal = table("event", alias);
+	return {
+		newCycle: isNotNull(column(signal, "id")),
+		join: join(
+			"left",
+			signal,
+			eq(
+				column(signal, "id"),
+				latestLifecycleField(event, { ...signals, select: column(event, "id") }),
+			),
+		),
+	};
+};
+
+/**
  * The state an episode shows in lists, counts, and next-up. Once a new cycle has begun - a
  * regular-episode progress or completion after the parent's latest completion - it is the
  * episode's current-cycle state; until then it is the episode's lifetime latest state, so a
@@ -693,97 +814,208 @@ export const episodeDisplayStateExpression = (
 	episode: TableReference,
 	parent: TableReference,
 	alias = "episodeDisplayState",
+	newCycle: Predicate = episodicNewCycle(parent, `${alias}Cycle`),
 ) => {
-	const boundary = latestParentCompletionExpressions(parent, `${alias}Boundary`);
-	const cycleEvent = table("event", `${alias}Cycle`);
-	const cycleSignal = latestEventOrderExpressions(
-		and(
-			eq(column(cycleEvent, "sessionEntityId"), column(parent, "id")),
-			sameSchemaOwner(cycleEvent, "eventSchemaPluginId", parent),
-			neq(column(cycleEvent, "entityId"), column(parent, "id")),
-			eventSlugIsOneOf(cycleEvent, lifecycleEventSlugs),
-		),
-		`${alias}Cycle`,
-	);
-	const current = latestEpisodeLifecycleExpressions(episode, parent, `${alias}Current`);
 	const lifetime = latestEpisodeEventExpressions(episode, `${alias}Lifetime`);
 	return conditional(
-		and(
-			isNotNull(lifetime.sessionEntityId),
-			isNotNull(cycleSignal.id),
-			orderExpressionsAreAfter(cycleSignal, boundary),
-		),
-		conditional(orderExpressionsAreAfter(current, boundary), current.state, literal("untracked")),
+		and(isNotNull(lifetime.sessionEntityId), newCycle),
+		currentCycleEpisodeState(episode, parent, `${alias}Current`),
 		lifetime.state,
 	);
 };
 
-const showPositionIsAfterAnchor = (
+export type EpisodicEpisodeCounts = Readonly<
+	Record<
+		"airedEpisodes" | "watchedEpisodes" | "upcomingEpisodes" | "inProgressEpisodes",
+		ScalarExpression
+	>
+>;
+
+/**
+ * A parent's aired and upcoming regular episodes, and the aired ones watched or in progress, counted on
+ * `aired`, a walk over the aired regular episodes such as `episodicLifecycleExpressions`' own.
+ */
+export const episodicEpisodeCounts = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
-	position: readonly ScalarExpression[],
 	alias: string,
-) => {
-	const anchor = table("entity", `${alias}Anchor`);
-	const anchorQuery = episodicEpisodeQuery(config, parent, anchor, `${alias}Anchor`);
-	const where = and(
-		anchorQuery.where,
-		eq(episodeDisplayStateExpression(anchor, parent, `${alias}AnchorState`), literal("complete")),
+	aired: EpisodicEpisodeWalk,
+	newCycle?: Predicate,
+): EpisodicEpisodeCounts => {
+	const state = episodeDisplayStateExpression(
+		aired.episode,
+		parent,
+		`${alias}AiredState`,
+		newCycle,
 	);
-	const [anchorSeasonNumber, anchorEpisodeNumber] = anchorQuery.position;
-	const [season, episode] = position;
-	if (!anchorSeasonNumber || !anchorEpisodeNumber || !season || !episode) {
-		throw new Error("Show episodes are positioned by season and episode number");
-	}
-	const orderBy = [
-		descending(anchorSeasonNumber),
-		descending(anchorEpisodeNumber),
-		descending(column(anchor, "id")),
-	] as const;
-	const anchorAt = (select: ScalarExpression) =>
-		first(anchor, { where, select, orderBy, joins: anchorQuery.joins });
-	const anchorSeason = anchorAt(anchorSeasonNumber);
-	const anchorEpisode = anchorAt(anchorEpisodeNumber);
-	return and(
-		or(gt(season, anchorSeason), and(eq(season, anchorSeason), gt(episode, anchorEpisode))),
-	);
+	return {
+		airedEpisodes: aired.count,
+		watchedEpisodes: aired.countWhere(eq(state, literal("complete"))),
+		inProgressEpisodes: aired.countWhere(eq(state, literal("in_progress"))),
+		upcomingEpisodes: episodicEpisodeWalk(config, parent, `${alias}Upcoming`, "upcoming").count,
+	};
 };
 
 /**
- * The parent's next episode as a limit-1 include, judged by display state over the required set:
- * the `in_progress` episode (lowest position for a show, newest for a podcast); otherwise, for a
- * show, the lowest untracked episode after the highest completed one - none without that anchor
- * or with nothing after it - and for a podcast the newest untracked episode.
+ * The release of a parent's first unaired regular episode in `episodeReleaseOrder`: its instant when it
+ * has one, and otherwise its date. Both are null when no regular episode is unaired.
  */
+export const episodicNextRelease = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+) => {
+	const episode = table("entity", `${alias}Episode`);
+	const { joins, where } = episodicEpisodeQuery(config, parent, episode, alias, "upcoming");
+	const release = episodeReleaseTime(episode);
+	const next = (select: ScalarExpression) =>
+		first(episode, { joins, where, select, orderBy: episodeReleaseOrder(episode) });
+	return {
+		instant: next(release.instant),
+		date: next(conditional(isNull(release.instant), release.date, literal(null))),
+	};
+};
+
+/**
+ * The highest completed regular episode of a show by season and episode number, joined through its
+ * season link, and whether a position is after it; nothing is after a missing anchor.
+ */
+const showAnchor = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+	newCycle?: Predicate,
+) => {
+	const anchor = table("entity", `${alias}Anchor`);
+	const anchorQuery = episodicEpisodeQuery(config, parent, anchor, `${alias}Anchor`);
+	const [anchorSeasonNumber, anchorEpisodeNumber] = anchorQuery.position;
+	const [, anchorLink] = anchorQuery.links;
+	if (!anchorEpisodeNumber || !anchorLink) {
+		throw new Error("Show episodes are positioned by season and episode number");
+	}
+	const link = table("relationship", `${alias}AnchorLink`);
+	const season = table("entity", `${alias}AnchorSeason`);
+	const episode = table("entity", `${alias}AnchorEpisode`);
+	const anchorLinkId = first(anchor, {
+		joins: anchorQuery.joins,
+		select: column(anchorLink, "id"),
+		orderBy: [
+			descending(anchorSeasonNumber),
+			descending(anchorEpisodeNumber),
+			descending(column(anchor, "id")),
+		],
+		where: and(
+			anchorQuery.where,
+			eq(
+				episodeDisplayStateExpression(anchor, parent, `${alias}AnchorState`, newCycle),
+				literal("complete"),
+			),
+		),
+	});
+	return {
+		joins: [
+			join("left", link, eq(column(link, "id"), anchorLinkId)),
+			join("left", season, eq(column(season, "id"), column(link, "sourceEntityId"))),
+			join("left", episode, eq(column(episode, "id"), column(link, "targetEntityId"))),
+		],
+		isAfter: (position: readonly ScalarExpression[]) => {
+			const [seasonNumber, episodeNumber] = position;
+			if (!seasonNumber || !episodeNumber) {
+				throw new Error("Show episodes are positioned by season and episode number");
+			}
+			const anchorSeason = seasonNumberOf(season);
+			return or(
+				gt(seasonNumber, anchorSeason),
+				and(eq(seasonNumber, anchorSeason), gt(episodeNumber, episodeNumberOf(episode))),
+			);
+		},
+	};
+};
+
+/**
+ * The lowest regular episode of the parent that `narrow` keeps, by position for a show and newest
+ * first for a podcast.
+ */
+const nextEpisodeId = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+	narrow: (
+		episode: TableReference,
+		position: readonly ScalarExpression[],
+	) => { readonly where: Predicate; readonly joins?: readonly ReturnType<typeof join>[] },
+) => {
+	const episode = table("entity", `${alias}Episode`);
+	const scope = episodicEpisodeQuery(config, parent, episode, alias);
+	const narrowed = narrow(episode, scope.position);
+	const direction = config.kind === "show" ? ascending : descending;
+	const [leading, ...trailing] = scope.position;
+	return first(episode, {
+		select: column(episode, "id"),
+		where: and(scope.where, narrowed.where),
+		joins: [...scope.joins, ...(narrowed.joins ?? [])],
+		orderBy: [
+			direction(leading),
+			...[...trailing, column(episode, "id")].map((expression) => direction(expression)),
+		],
+	});
+};
+
+/**
+ * The ID of the parent's next episode, judged by display state over the required set: the
+ * `in_progress` episode (lowest position for a show, newest for a podcast); otherwise, for a show, the
+ * lowest episode after the highest completed one, which is untracked - none without that anchor or
+ * with nothing after it - and for a podcast the newest untracked episode. Null when there is none.
+ */
+export const episodicNextUpId = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	alias: string,
+	newCycle?: Predicate,
+) => {
+	const progress = table("event", `${alias}Progress`);
+	return coalesce(
+		nextEpisodeId(config, parent, `${alias}InProgress`, (episode) => ({
+			where: and(
+				exists(progress, {
+					where: and(
+						eq(column(progress, "entityId"), column(episode, "id")),
+						sameSchemaOwner(progress, "eventSchemaPluginId", episode),
+						eq(column(progress, "eventSchemaSlug"), literal("progress")),
+					),
+				}),
+				eq(
+					episodeDisplayStateExpression(episode, parent, `${alias}InProgressState`, newCycle),
+					literal("in_progress"),
+				),
+			),
+		})),
+		config.kind === "show"
+			? nextEpisodeId(config, parent, `${alias}AfterAnchor`, (_, position) => {
+					const anchor = showAnchor(config, parent, alias, newCycle);
+					return { joins: anchor.joins, where: anchor.isAfter(position) };
+				})
+			: nextEpisodeId(config, parent, `${alias}Untracked`, (episode) => ({
+					where: eq(
+						episodeDisplayStateExpression(episode, parent, `${alias}UntrackedState`, newCycle),
+						literal("untracked"),
+					),
+				})),
+	);
+};
+
+/** The episode `episodicNextUpId` resolves, as a limit-1 include. */
 export const episodicNextUpInclude = <const Selection extends SelectedSelection>(
 	config: EpisodicKindConfig,
 	parent: TableReference,
 	selection: (episode: TableReference) => Selection,
 	alias = "nextUp",
 ) => {
-	const candidate = table("entity", `${alias}Candidate`);
-	const scope = episodicEpisodeQuery(config, parent, candidate, `${alias}Candidate`);
-	const state = episodeDisplayStateExpression(candidate, parent, `${alias}CandidateState`);
-	const isInProgress = eq(state, literal("in_progress"));
-	const isUntracked = eq(state, literal("untracked"));
-	const direction = config.kind === "show" ? ascending : descending;
-	return selectedInclude(candidate, {
+	const episode = table("entity", alias);
+	return selectedInclude(episode, {
 		limit: 1,
-		joins: scope.joins,
-		selection: selection(candidate),
-		orderBy: [
-			ascending(conditional(isInProgress, literal(0), literal(1))),
-			...scope.position.map((expression) => direction(expression)),
-			direction(column(candidate, "id")),
-		],
-		where: and(
-			scope.where,
-			or(
-				isInProgress,
-				config.kind === "show"
-					? and(isUntracked, showPositionIsAfterAnchor(config, parent, scope.position, alias))
-					: isUntracked,
-			),
-		),
+		selection: selection(episode),
+		orderBy: [ascending(column(episode, "id"))],
+		where: eq(column(episode, "id"), episodicNextUpId(config, parent, alias)),
 	});
 };

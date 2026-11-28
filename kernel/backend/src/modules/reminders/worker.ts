@@ -10,11 +10,11 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
 
+import { KernelSignals } from "#modules/automations/kernel-signals";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
-import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -23,6 +23,7 @@ import { summarizeNotification } from "#modules/notifications/ledger";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { REMINDER_PAGE_LIMIT, RemindersRepository } from "./repository";
 
@@ -41,17 +42,20 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 			const entities = yield* EntitiesRepository;
 			const plugins = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
-			const signals = yield* SignalEmissionService;
+			const kernelSignals = yield* KernelSignals.make;
 			const execution = yield* LifecycleExecution;
 			const notifications = yield* NotificationDeliveryRepository;
 			const runs = yield* AutomationRunRepository;
 			const config = yield* AppConfig;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-			const lockCandidate = Effect.fnUntraced(function* (captured: ReminderRecord) {
+			const lockCandidate = Effect.fnUntraced(function* (
+				captured: ReminderRecord,
+				writes?: WriteTransaction,
+			) {
 				const userId = UserId.make(captured.userId);
-				yield* admission.admitAccount(userId);
-				yield* plugins.lockIngestionShared([userId]);
+				yield* admission.admitAccount(userId, writes);
+				yield* plugins.lockIngestionShared([userId], writes);
 				yield* entities.lockUserDataReferences(
 					[captured.entityId, captured.parentEntityId]
 						.filter((id) => id !== null)
@@ -81,78 +85,71 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 				captured: ReminderRecord,
 				now: Date,
 			) {
-				return yield* transaction(
-					Effect.gen(function* () {
-						const row = yield* lockCandidate(captured);
-						if (
-							row?.state !== "scheduled" ||
-							row.dueAt === null ||
-							row.dueAt > now ||
-							row.entityId === null ||
-							row.message === null ||
-							row.entityTitle === null ||
-							row.timezone === null
-						) {
-							return null;
-						}
-						const userId = UserId.make(row.userId);
-						const reference = {
-							owner: { kind: "kernel" as const },
-							slug: SignalSchemaSlug.make("reminder.due"),
-						};
-						const definition = yield* definitions.findGlobalSignalSchema(reference);
-						if (!definition) {
-							return yield* new DbError({ message: "Reminder signal definition is unavailable" });
-						}
-						const command = rootLifecycleCommand({
-							lane: "background",
-							source: "scheduler",
-							itemIdentity: row.id,
-							accountUserId: userId,
-							occurredAt: now.toISOString(),
-							initiator: { id: userId, kind: "user" },
-							executionId: AutomationExecutionId.make(`reminder-due:${row.id}`),
-						});
-						const plan = yield* signals.planSignal({
-							reference,
-							principal: { userId, kind: "user" },
-							command: { ...command, writeContext: null },
-							subjectEntityId: EntityId.make(row.entityId),
-							properties: {
-								reminderId: row.id,
-								message: row.message,
-								timezone: row.timezone,
-								entityId: row.entityId,
-								dueAt: row.dueAt.toISOString(),
-							},
-						});
-						if (plan.trigger.blockedReason !== null) {
-							return yield* new DbError({ message: "Reminder signal planning was blocked" });
-						}
-						yield* repository.update(row.id, { triggerId: plan.trigger.id });
-						const formatter = plan.runs.find(
-							(run) =>
-								run.pluginId === null &&
-								run.hookSlug === definition.notificationHookSlug &&
-								run.executionUserId === userId,
-						);
-						if (!formatter) {
-							yield* settle(row, now, "not-sent", "subscription-disabled");
-							return null;
-						}
-						const dispatch = toLifecycleDispatchPlan(plan);
-						yield* repository.update(row.id, {
-							dispatch,
-							updatedAt: now,
-							reconcileAt: now,
-							processingAt: now,
-							state: "processing",
-							revision: row.revision + 1,
-							formatterRunId: formatter.id,
-						});
-						return dispatch;
+				if (
+					captured.state !== "scheduled" ||
+					captured.dueAt === null ||
+					captured.dueAt > now ||
+					captured.entityId === null ||
+					captured.message === null ||
+					captured.entityTitle === null ||
+					captured.timezone === null
+				) {
+					return;
+				}
+				const userId = UserId.make(captured.userId);
+				const reference = {
+					owner: { kind: "kernel" as const },
+					slug: SignalSchemaSlug.make("reminder.due"),
+				};
+				yield* kernelSignals.commit({
+					userId,
+					reference,
+					subjectEntityId: EntityId.make(captured.entityId),
+					properties: {
+						reminderId: captured.id,
+						message: captured.message,
+						timezone: captured.timezone,
+						entityId: captured.entityId,
+						dueAt: captured.dueAt.toISOString(),
+					},
+					command: rootLifecycleCommand({
+						lane: "background",
+						source: "scheduler",
+						accountUserId: userId,
+						itemIdentity: captured.id,
+						occurredAt: now.toISOString(),
+						initiator: { id: userId, kind: "user" },
+						executionId: AutomationExecutionId.make(`reminder-due:${captured.id}`),
 					}),
-				);
+					ledger: {
+						check: (writes) => Effect.map(lockCandidate(captured, writes), (row) => row !== null),
+						record: Effect.fnUntraced(function* (plan) {
+							const definition = yield* definitions.findGlobalSignalSchema(reference);
+							if (!definition) {
+								return yield* new DbError({ message: "Reminder signal definition is unavailable" });
+							}
+							yield* repository.update(captured.id, { triggerId: plan.trigger.id });
+							const formatter = plan.runs.find(
+								(run) =>
+									run.pluginId === null &&
+									run.hookSlug === definition.notificationHookSlug &&
+									run.executionUserId === userId,
+							);
+							if (!formatter) {
+								return yield* settle(captured, now, "not-sent", "subscription-disabled");
+							}
+							return yield* repository.update(captured.id, {
+								updatedAt: now,
+								reconcileAt: now,
+								processingAt: now,
+								state: "processing",
+								formatterRunId: formatter.id,
+								revision: captured.revision + 1,
+								dispatch: toLifecycleDispatchPlan(plan),
+							});
+						}),
+					},
+				});
 			});
 			const reconcile = Effect.fn("ReminderWorker.reconcile")(function* (
 				captured: ReminderRecord,
@@ -213,9 +210,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 						} else if (formatter.status === "succeeded") {
 							yield* settle(row, now, "failed", "admission-missing");
 						} else if (
-							(formatter.status === "failed" ||
-								formatter.status === "rejected" ||
-								formatter.status === "skipped") &&
+							(formatter.status === "failed" || formatter.status === "skipped") &&
 							formatter.nextAttemptAt === null
 						) {
 							yield* settle(row, now, "failed", "formatter-failed");
@@ -226,6 +221,22 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 					}),
 				);
 			});
+			/** Moves an unsettled reminder's next attempt `RECONCILE_DELAY_MS` past `now`. */
+			const defer = (row: ReminderRecord, now: Date) =>
+				transaction(
+					Effect.gen(function* () {
+						const current = yield* lockCandidate(row);
+						if (current && (current.state === "scheduled" || current.state === "processing")) {
+							yield* repository.update(row.id, {
+								reconcileAt: DateTime.toDate(
+									DateTime.addDuration(DateTime.makeUnsafe(now), RECONCILE_DELAY_MS),
+								),
+							});
+						}
+					}),
+				).pipe(
+					Effect.catchCause((failure) => Effect.logWarning("Reminder deferral failed", failure)),
+				);
 			const run = Effect.fn("ReminderWorker.run")(function* () {
 				if (config.scheduler.disableDispatchers) {
 					return;
@@ -242,36 +253,26 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 						}
 						for (const row of rows) {
 							yield* Effect.gen(function* () {
-								const dispatch = yield* processing ? reconcile(row, now) : admitDue(row, now);
-								if (dispatch !== null) {
-									yield* execution.dispatch([dispatch]);
+								if (processing) {
+									const dispatch = yield* reconcile(row, now);
+									if (dispatch !== null) {
+										yield* execution.dispatch([dispatch]);
+									}
+								} else {
+									yield* admitDue(row, now);
 								}
 							}).pipe(
+								Effect.catchTag("KernelSignalBlocked", ({ reason }) =>
+									Effect.logInfo("Reminder deferred: its signal was blocked").pipe(
+										Effect.annotateLogs({ reminderId: row.id, reason: reason.code }),
+										Effect.andThen(defer(row, now)),
+									),
+								),
 								Effect.catchCause((cause) =>
-									Effect.gen(function* () {
-										yield* Effect.logWarning("Reminder processing deferred", cause).pipe(
-											Effect.annotateLogs({ reminderId: row.id }),
-										);
-										yield* transaction(
-											Effect.gen(function* () {
-												const current = yield* lockCandidate(row);
-												if (
-													current &&
-													(current.state === "scheduled" || current.state === "processing")
-												) {
-													yield* repository.update(row.id, {
-														reconcileAt: DateTime.toDate(
-															DateTime.addDuration(DateTime.makeUnsafe(now), RECONCILE_DELAY_MS),
-														),
-													});
-												}
-											}),
-										).pipe(
-											Effect.catchCause((failure) =>
-												Effect.logWarning("Reminder deferral failed", failure),
-											),
-										);
-									}),
+									Effect.logWarning("Reminder processing deferred", cause).pipe(
+										Effect.annotateLogs({ reminderId: row.id }),
+										Effect.andThen(defer(row, now)),
+									),
 								),
 							);
 						}

@@ -1,6 +1,7 @@
 import { expect, it } from "bun:test";
 
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { CHANGE_SET_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
@@ -31,36 +32,16 @@ const rowsFor = (
 	),
 });
 
-const recordingHost = (tables: Readonly<Record<string, ReadonlyArray<Row>>>) => {
-	const writes: unknown[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: (document) => Effect.succeed(rowsFor(bindTestRequest(document), tables)),
-		updateUserEntity: (item) =>
-			Effect.sync(() => {
-				writes.push({ update: item });
-				return { entityId: item.entityId };
-			}),
-		mergeUserEntityData: (item) =>
-			Effect.sync(() => {
-				writes.push({ merge: item });
-				return { movedEventsCount: 2, movedRelationshipsCount: 0 };
-			}),
-		changeUserRelationships: (batches) =>
-			Effect.sync(() => {
-				writes.push({ detach: batches });
-				return batches.map(() => ({ created: 0, deleted: 1 }));
-			}),
-	});
-	return { host, writes };
-};
-
 const run = (
 	tables: Readonly<Record<string, ReadonlyArray<Row>>>,
 	input: { mergeFrom: EntityId; mergeInto: EntityId } = { mergeFrom, mergeInto },
-) => {
-	const { host, writes } = recordingHost(tables);
-	return definition.run(input, host).pipe(Effect.map((output) => ({ output, writes })));
-};
+) =>
+	definition.run(
+		input,
+		defineSandboxTestHost(manifest, {
+			executeRyotql: (document) => Effect.succeed(rowsFor(bindTestRequest(document), tables)),
+		}),
+	);
 
 const occurrence = (exerciseId: string, order: number) => ({
 	sets: [],
@@ -76,7 +57,9 @@ const template = (id: string, exerciseIds: ReadonlyArray<string>) => ({
 	properties: { comment: "Push", exercises: exerciseIds.map(occurrence) },
 });
 
-it("returns a typed failure for each invalid merge without writing", () =>
+const subjects = [subject(mergeFrom), subject(mergeInto)];
+
+it("rejects each invalid merge", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const cases = [
@@ -89,20 +72,21 @@ it("returns a typed failure for each invalid merge without writing", () =>
 					"kind-mismatch",
 				],
 			] as const;
-			for (const [input, tables, kind] of cases) {
-				const { output, writes } = yield* run(tables, input);
-				expect(output).toEqual({ kind });
-				expect(writes).toEqual([]);
+			for (const [input, tables, code] of cases) {
+				expect(yield* Effect.flip(run(tables, input))).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: `rejection.exercise-merge.${code}` },
+				});
 			}
 		}),
 	));
 
-it("merges source data and swaps template references", () =>
+it("detaches the source, merges its data, and swaps template references in one change set", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const matching = template("template-1", ["other", mergeFrom, mergeFrom]);
-			const { output, writes } = yield* run({
-				exercises: [subject(mergeFrom), subject(mergeInto)],
+			const result = yield* run({
+				exercises: subjects,
 				templates: [matching, template("template-2", ["other"])],
 				links: [
 					{ slug: "in-fitness-library", targetEntityId: "library-1" },
@@ -111,62 +95,74 @@ it("merges source data and swaps template references", () =>
 				],
 			});
 
-			expect(output).toEqual({ mergeInto, kind: "merged" });
-			expect(writes).toEqual([
-				{
-					detach: [
-						{
-							creates: [],
-							deletes: [
-								{
-									sourceEntityId: mergeFrom,
-									targetEntityId: "library-1",
-									relationshipSchemaSlug: "in-fitness-library",
+			expect(result).toEqual<unknown>({
+				output: { mergeInto },
+				changes: {
+					relationships: {
+						deletes: [
+							["in-fitness-library", "library-1"],
+							["exercise-targets", "chest"],
+							["exercise-uses-equipment", "barbell"],
+						].map(([relationshipSchemaSlug, entityId]) => ({
+							relationshipSchemaSlug,
+							target: { entityId, kind: "existing" },
+							source: { kind: "existing", entityId: mergeFrom },
+						})),
+					},
+					entities: {
+						merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }],
+						updates: [
+							{
+								name: matching.name,
+								entitySchemaSlug: "workout-template",
+								properties: {
+									comment: "Push",
+									exercises: ["other", mergeInto, mergeInto].map(occurrence),
 								},
-								{
-									targetEntityId: "chest",
-									sourceEntityId: mergeFrom,
-									relationshipSchemaSlug: "exercise-targets",
+								target: {
+									kind: "update",
+									entityId: matching.id,
+									expected: {
+										name: matching.name,
+										updatedAt: matching.updatedAt,
+										properties: matching.properties,
+									},
 								},
-								{
-									sourceEntityId: mergeFrom,
-									targetEntityId: "barbell",
-									relationshipSchemaSlug: "exercise-uses-equipment",
-								},
-							],
-						},
-					],
-				},
-				{ merge: { mergeFrom, mergeInto, entitySchemaSlug: "exercise" } },
-				{
-					update: {
-						name: matching.name,
-						entityId: matching.id,
-						properties: {
-							comment: "Push",
-							exercises: ["other", mergeInto, mergeInto].map(occurrence),
-						},
-						expected: {
-							name: matching.name,
-							updatedAt: matching.updatedAt,
-							properties: matching.properties,
-						},
+							},
+						],
 					},
 				},
-			]);
+			});
 		}),
 	));
 
-it("completes when re-run after the source was already detached", () =>
+it("merges with no detaches or template updates after the source was already detached", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
-			const { output, writes } = yield* run({
-				links: [],
-				templates: [],
-				exercises: [subject(mergeFrom), subject(mergeInto)],
+			expect(yield* run({ links: [], templates: [], exercises: subjects })).toEqual<unknown>({
+				output: { mergeInto },
+				changes: {
+					relationships: { deletes: [] },
+					entities: {
+						updates: [],
+						merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }],
+					},
+				},
 			});
+		}),
+	));
 
-			expect(output).toEqual({ mergeInto, kind: "merged" });
-			expect(writes).toEqual([{ merge: { mergeFrom, mergeInto, entitySchemaSlug: "exercise" } }]);
+it("rejects a merge whose templates exceed one change set's entity updates", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const templates = Array.from({ length: CHANGE_SET_LIMITS.entityUpdates + 1 }, (_, index) =>
+				template(`template-${index}`, [mergeFrom]),
+			);
+			expect(yield* Effect.flip(run({ templates, links: [], exercises: subjects }))).toMatchObject({
+				_tag: "OperationRejectedError",
+				reason: { key: "rejection.exercise-merge.too-many-templates" },
+			});
+			const allowed = yield* run({ links: [], exercises: subjects, templates: templates.slice(1) });
+			expect(allowed.changes.entities.updates).toHaveLength(CHANGE_SET_LIMITS.entityUpdates);
 		}),
 	));

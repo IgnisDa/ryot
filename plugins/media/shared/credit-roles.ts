@@ -25,6 +25,15 @@ export const CreditRoleCodeSchema = Schema.Literals(creditRoleCodes);
 
 export const isCreditRoleCode = Schema.is(CreditRoleCodeSchema);
 
+const associatedFields = { associatedName: Schema.String, associatedEntityId: Schema.String };
+
+/** A role a person or company newly holds on a media title or group, named by the provider or standard. */
+export const MediaAssociationSchema = Schema.Union([
+	Schema.Struct({ ...associatedFields, role: Schema.String }),
+	Schema.Struct({ ...associatedFields, roleCode: CreditRoleCodeSchema }),
+]);
+export type MediaAssociation = typeof MediaAssociationSchema.Type;
+
 /** A creator without an entity: `role` is the source's own name, `roleCode` a role the provider implies. */
 export const UnlinkedCreatorSchema = Schema.Struct({
 	name: Schema.String,

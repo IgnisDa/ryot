@@ -1,6 +1,7 @@
+import { createEventChange, existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -15,7 +16,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { reviewProperties } from "@ryot-app/plugin-kit/schema";
+import { EntityId, reviewProperties } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaReviewCreateInput,
@@ -24,7 +25,6 @@ import {
 } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 import { requireReviewConsumption } from "./media-review-consumption";
 
 const reviewTargetRecipe = (() => {
@@ -87,16 +87,23 @@ export default defineOperation({
 			if (consumptionEventId) {
 				yield* requireReviewConsumption(host, { entityId: target.id, eventId: consumptionEventId });
 			}
-			return yield* host.createEvents([
-				{
-					entityId: target.id,
-					eventSchemaSlug: "review",
-					properties: {
-						...reviewProperties(input),
-						...(position ? { position } : {}),
-						...(consumptionEventId ? { consumptionEventId } : {}),
+			return {
+				output: { count: 1 },
+				changes: {
+					events: {
+						changes: [
+							createEventChange(`review:${target.id}`, {
+								eventSchemaSlug: "review",
+								entity: existingEntity(EntityId.make(target.id)),
+								properties: {
+									...reviewProperties(input),
+									...(position ? { position } : {}),
+									...(consumptionEventId ? { consumptionEventId } : {}),
+								},
+							}),
+						],
 					},
 				},
-			]);
+			};
 		}),
 });

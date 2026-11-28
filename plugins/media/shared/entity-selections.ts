@@ -78,6 +78,35 @@ export const libraryLinkExists = (entity: Table, alias: string, slug: string) =>
 	});
 };
 
+/**
+ * A query set starting at the user's Media library and following its `slug` links to `entity`, so
+ * it visits only linked titles; `link` is the relationship.
+ */
+export const libraryLinkSource = (entity: Table, alias: string, slug: string) => {
+	const mediaLibrary = table("entity", alias);
+	const link = table("relationship", `${alias}Relationship`);
+	return {
+		link,
+		from: mediaLibrary,
+		where: and(
+			entitySchemaIs(mediaLibrary, "media-library"),
+			sameSchemaOwner(mediaLibrary, "entitySchemaPluginId", entity),
+			sameSchemaOwner(link, "relationshipSchemaPluginId", entity),
+		),
+		joins: [
+			join(
+				"inner",
+				link,
+				and(
+					eq(column(link, "targetEntityId"), column(mediaLibrary, "id")),
+					eq(column(link, "relationshipSchemaSlug"), literal(slug)),
+				),
+			),
+			join("inner", entity, eq(column(link, "sourceEntityId"), column(entity, "id"))),
+		] as const,
+	};
+};
+
 export const mediaLibrarySelection = (entity: Table) => ({
 	isInMediaLibrary: selectedField(
 		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),

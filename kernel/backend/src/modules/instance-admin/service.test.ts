@@ -20,7 +20,6 @@ import { PluginUserBootstrapDispatcher } from "#modules/accounts/provisioning/pl
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldMarks } from "#modules/derived-values/marks";
-import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
@@ -59,7 +58,6 @@ const fakeAuthLayer = (errors: {
 				AuthService,
 				partialFake<AuthService["Service"]>({
 					currentUser: () => Effect.die("unused"),
-					purgeApiKeyCaches: () => Effect.die("unused"),
 					deleteUserSessions: () => Ref.set(sessionsDeleted, true),
 					auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 					createAuthUser: (user: Record<string, unknown>) =>
@@ -126,15 +124,9 @@ const instanceAdminLayer = (options: {
 					makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
 					fakeAuthLayer(options.errors ?? {}),
 					Layer.mock(DefinitionRepository)({}),
-					Layer.mock(EntitiesService)({
-						create: () =>
-							Effect.succeed(
-								partialFake<Effect.Success<ReturnType<EntitiesService["Service"]["create"]>>>({}),
-							),
-					}),
 					Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
 					Layer.mock(SavedViewsService)({}),
-					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.succeed([]) }),
+					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
 					options.lifecycle ?? defaultUserLifecycleServiceLayer,
 				).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
 			),
