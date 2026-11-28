@@ -1,7 +1,8 @@
+import { readAllPages } from "@ryot-app/plugin-backend-sdk/core";
 import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MEASUREMENT_EVENT_BATCH_SIZE } from "../../shared/measurement-reading-operations";
@@ -28,7 +29,7 @@ export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(func
 });
 
 export const readMeasurementEntryReadings = (entryId: string, executeRyotql: ExecuteRyotql) =>
-	readAllRyotqlPages((after) =>
+	readAllPages((after) =>
 		executeRyotqlRecipe(
 			executeRyotql,
 			measurementEntryReadingsRecipe({ reference: { kind: "self" } }),

@@ -2,11 +2,12 @@ import {
 	CHANGE_SET_LIMITS,
 	entityUpdateTarget,
 	existingEntity,
+	readAllPages,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
 	ExerciseMergeInputSchema,
@@ -73,7 +74,7 @@ export default defineOperation({
 			if (source.kind !== target.kind) {
 				return yield* reject(catalogMessage("rejection.exercise-merge.kind-mismatch"));
 			}
-			const links = yield* readAllRyotqlPages((after) =>
+			const links = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
 					exerciseMergeLinksRecipe({ reference }),
@@ -81,7 +82,7 @@ export default defineOperation({
 					{ pages: { links: { after } } },
 				),
 			);
-			const templates = yield* readAllRyotqlPages((after) =>
+			const templates = yield* readAllPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
 					exerciseMergeTemplatesRecipe({ reference }),

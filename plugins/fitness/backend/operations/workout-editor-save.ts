@@ -1,5 +1,6 @@
 import {
 	type ChangeSet,
+	continuationCursor,
 	createEventChange,
 	deleteEventChange,
 	EntitlementRequiredError,
@@ -19,7 +20,6 @@ import {
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { reject, StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
-	continuationCursor,
 	entityEventScopeRevisionRecipe,
 	executeRyotqlRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
@@ -664,7 +664,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 				);
 				recorded.push(...page.items);
 				after = yield* continuationCursor(page.pageInfo, after).pipe(
-					Effect.catchTag("RyotqlPaginationError", () => invalid("invalid-source")),
+					Effect.catchTag("PaginationError", () => invalid("invalid-source")),
 				);
 			} while (after !== undefined);
 		}

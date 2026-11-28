@@ -12,7 +12,10 @@ and sends it a `PluginExecutionRequest`; the host stamps inline parameter text w
 plugin namespace.
 Options carry request filter, sort, and pages; selected recipes include their named query. Server
 binding supplies execution clock and authority. `executeRyotqlRecipe` keeps host failures in their original channel and returns
-`RyotqlRecipeDecodeError` for malformed recipe responses. `runSandboxTestScript` infers the
+`RyotqlRecipeDecodeError` for malformed recipe responses. `readAllPages(loadPage)` from `core` reads
+every page of a cursor-paged read whose pages are `{ items, pageInfo }`, such as a RyotQL rows query
+or `listIntegrations`; `continuationCursor(pageInfo, previous?)` answers the next cursor and fails
+with `PaginationError` when a continuing page does not advance. `runSandboxTestScript` infers the
 script's failure channel rather than erasing it in tests.
 
 Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-backend-sdk/workflow`.

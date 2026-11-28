@@ -1,3 +1,4 @@
+export type { PageInfo } from "./core/pages";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export { EntitlementRequiredError } from "./core/entitlements";
 export { sandboxHostCapabilitySchema } from "./core/capabilities";
@@ -5,6 +6,7 @@ export { isEntitled } from "@ryot-app/contract/schema/entitlement";
 export { MANAGED_ASSET_VERIFY_SANDBOX_LIMITS } from "./core/limits";
 export type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 export { verifyManagedAssets, ManagedAssetForbiddenError } from "./core/assets";
+export { readAllPages, PaginationError, continuationCursor } from "./core/pages";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
 export type { SignalChange, RelationshipUpsert, GlobalRelationship } from "./core/changes";

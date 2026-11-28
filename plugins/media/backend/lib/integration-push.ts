@@ -1,7 +1,8 @@
-import type {
-	IntegrationRecord,
-	ListIntegrationsOptions,
-	ScriptHost,
+import {
+	type IntegrationRecord,
+	type ListIntegrationsOptions,
+	readAllPages,
+	type ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { type EntityReadResult, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
@@ -56,18 +57,13 @@ export const listActiveIntegrations = Effect.fnUntraced(function* (
 	host: IntegrationPushHost,
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
 ) {
-	const integrations: Array<IntegrationRecord> = [];
-	let cursor: string | undefined;
-	do {
-		const page = yield* host.listIntegrations({
+	return yield* readAllPages((cursor) =>
+		host.listIntegrations({
 			provider,
 			isDisabled: false,
 			...(cursor === undefined ? {} : { cursor }),
-		});
-		integrations.push(...page.items);
-		cursor = page.nextCursor ?? undefined;
-	} while (cursor !== undefined);
-	return integrations;
+		}),
+	);
 });
 
 export const resolveEntityProviderSlug = (

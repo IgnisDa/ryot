@@ -87,7 +87,11 @@ const createHost = (options: {
 		log: options.log ?? (() => Effect.succeed(null)),
 		executeRyotql: integrationPushRyotql(options.entity, providerSlugs),
 		getUserPreferences: () => hostSuccess({ disableIntegrations: false }),
-		listIntegrations: () => hostSuccess({ nextCursor: null, items: options.integrations ?? [] }),
+		listIntegrations: () =>
+			hostSuccess({
+				items: options.integrations ?? [],
+				pageInfo: { hasMore: false, nextCursor: null },
+			}),
 	});
 
 describe("sonarr-push sandbox script", () => {

@@ -1,4 +1,5 @@
 import {
+	continuationCursor,
 	entityUpdateTarget,
 	expectedEventFields,
 	updateEventChange,
@@ -7,7 +8,6 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
-	continuationCursor,
 	entityEventScopeRevisionRecipe,
 	executeRyotqlRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";

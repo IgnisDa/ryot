@@ -1,3 +1,4 @@
+import { readAllPages } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -6,7 +7,7 @@ import {
 	FoldOutput,
 	type FoldResult,
 } from "@ryot-app/plugin-backend-sdk/folds";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { consumptionEventSlugs } from "../shared/consumption-projection";
 import {
@@ -50,7 +51,7 @@ export default defineScript({
 				return yield* new MediaSandboxError({ message: "Fold subject is unavailable" });
 			}
 			const events = (filter?: MediaFoldEventFilter) =>
-				readAllRyotqlPages((after) =>
+				readAllPages((after) =>
 					executeRyotqlRecipe(
 						host.executeRyotql,
 						mediaFoldEventsRecipe(filter),
@@ -108,7 +109,7 @@ export default defineScript({
 					inventory:
 						config === undefined
 							? Effect.succeed([])
-							: readAllRyotqlPages((after) =>
+							: readAllPages((after) =>
 									executeRyotqlRecipe(
 										host.executeRyotql,
 										mediaFoldInventoryRecipe({ config: config }),

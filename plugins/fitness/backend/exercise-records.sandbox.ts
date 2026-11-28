@@ -1,3 +1,4 @@
+import { readAllPages } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -7,7 +8,7 @@ import {
 	FoldInput,
 	FoldOutput,
 } from "@ryot-app/plugin-backend-sdk/folds";
-import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../shared/exercise-kinds";
 import {
@@ -64,7 +65,7 @@ export default defineScript({
 	run: foldEachSubject((input, host) =>
 		Effect.gen(function* () {
 			const sets = (range?: WorkoutRecordRange) =>
-				readAllRyotqlPages((after) =>
+				readAllPages((after) =>
 					executeRyotqlRecipe(
 						host.executeRyotql,
 						workoutRecordPageRecipe(range === undefined ? { reference } : { range, reference }),
@@ -95,7 +96,7 @@ export default defineScript({
 			const starts = new Map(
 				workoutIds.length === 0
 					? []
-					: (yield* readAllRyotqlPages((after) =>
+					: (yield* readAllPages((after) =>
 							executeRyotqlRecipe(
 								host.executeRyotql,
 								workoutStartsRecipe({ reference }),

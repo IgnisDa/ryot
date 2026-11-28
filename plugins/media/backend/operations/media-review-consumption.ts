@@ -1,4 +1,4 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { readAllPages, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
@@ -10,7 +10,6 @@ import {
 	executeRyotqlRecipe,
 	literal,
 	parameters,
-	readAllRyotqlPages,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
@@ -108,7 +107,7 @@ export const reviewsNamingConsumption = (
 	host: Pick<ScriptHost, "executeRyotql">,
 	eventId: string,
 ) =>
-	readAllRyotqlPages((after) =>
+	readAllPages((after) =>
 		executeRyotqlRecipe(
 			host.executeRyotql,
 			reviewsOfConsumptionRecipe,
