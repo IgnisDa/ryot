@@ -136,6 +136,7 @@ const chunkFixture = Effect.fnUntraced(function* (
 			read: () => Effect.succeed(Buffer.from(JSON.stringify({ failures: [], items: [item] }))),
 		}),
 		Layer.mock(ImportsRepository)({
+			lockOutcomes: () => Effect.void,
 			getBatch: () => Effect.succeed(null),
 			startBatch: () => Effect.succeed(true),
 			projectBatch: () => Effect.succeed(true),
@@ -559,10 +560,10 @@ layer(
 						reason,
 					]),
 				).toEqual(
-					["created", "found", "link", "note"].map((operationId) => [
+					["note", "created", "found", "link"].map((operationId) => [
 						operationId,
 						"unsuccessful",
-						{ key: null, code: "asset-forbidden" },
+						{ key: null, code: "database-commit-failed" },
 					]),
 				);
 				const database = yield* DatabaseSession;

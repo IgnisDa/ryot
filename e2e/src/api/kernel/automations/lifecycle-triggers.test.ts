@@ -427,38 +427,51 @@ describe("automation lifecycle triggers", () => {
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			const entity = yield* createFixtureEntity(user.client, "native-policy-source");
-			const { run, runId } = yield* startDataJsonImport(user, {
-				relationships: [],
-				events: ["transform", "reject", "fail"].map((marker, index) => ({
-					key: marker,
-					entityKey: "entity",
-					properties: { marker },
-					eventSchemaSlug: slugs.policyEvent,
-					occurredAt: `2026-10-01T00:0${index}:00.000Z`,
-				})),
-				entities: [
-					{
-						key: "entity",
-						kind: "existing",
-						entityId: entity.id,
-						entitySchema: {
-							slug: EntitySchemaSlug.make(slugs.entity),
-							owner: { kind: "plugin" as const, pluginId: lifecyclePluginId() },
+			const importEvents = (markers: ReadonlyArray<string>) =>
+				startDataJsonImport(user, {
+					relationships: [],
+					events: markers.map((marker, index) => ({
+						key: marker,
+						entityKey: "entity",
+						properties: { marker },
+						eventSchemaSlug: slugs.policyEvent,
+						occurredAt: `2026-10-01T00:0${index}:00.000Z`,
+					})),
+					entities: [
+						{
+							key: "entity",
+							kind: "existing",
+							entityId: entity.id,
+							entitySchema: {
+								slug: EntitySchemaSlug.make(slugs.entity),
+								owner: { kind: "plugin" as const, pluginId: lifecyclePluginId() },
+							},
 						},
-					},
-				],
-			});
+					],
+				});
+			const entities = {
+				unit: "entities",
+				recordKind: "entity",
+				counts: { created: 0, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 0 },
+			};
+			const { run, runId } = yield* importEvents(["transform", "reject"]);
 			expect(run.status).toBe("completed");
 			expect(run.summary).toEqual([
-				{
-					unit: "entities",
-					recordKind: "entity",
-					counts: { created: 0, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 0 },
-				},
+				entities,
 				{
 					unit: "events",
 					recordKind: "event",
-					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 0 },
+				},
+			]);
+			const failed = yield* importEvents(["allow", "fail"]);
+			expect(failed.run.status).toBe("completed");
+			expect(failed.run.summary).toEqual([
+				entities,
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
 				},
 			]);
 			const events = yield* listEventsForEntity(user.client, entity.id, undefined, 100);

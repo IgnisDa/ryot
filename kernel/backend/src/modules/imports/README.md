@@ -23,14 +23,11 @@ provider-resolved entity record is a reference, so its commit checks the entity'
 its `unchanged` import item. A run of consecutive event records references only records committed
 before it, so it commits as one independent-mode change set in one activity, keyed by the run's
 first committed record, with an outcome per event: a preparation failure, policy rejection or policy
-item error affects only its event. A record's or run's commit records the `skipped` outcomes and
-warnings of the events its policies skip in its own transaction, under the run's projection lock,
-which it takes before its catalog lock. When the run's commit fails as a whole (a policy execution
-error, `mutation-conflict`, `asset-forbidden`, or a failed activity) it writes nothing, and every
-event without an outcome of its own commits again alone, each in its own activity under its own
-receipt, so each record gets the outcome it would have had alone. The run activity's recorded result decides
-this, so a replay takes the same path. An event naming managed assets commits alone after its
-ownership check. Cancellation is checked before each record or run.
+item error affects only its event, and a failure of the whole commit (a policy execution error,
+`mutation-conflict` or `asset-forbidden`) fails every event without an outcome of its own. An event
+naming managed assets commits in a run of its own, because the commit checks the assets of all its
+creates at once and one it may not reference fails every create. A run whose activity fails records
+each of its events `unsuccessful`. Cancellation is checked before each record or run.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
 the ingestion identity of the subject entity's operation. Provider entities resolve in their own
@@ -45,6 +42,15 @@ events commit: a standalone record's events are independent creates with their o
 record that contains declared event-group schemas commits its complete event group all-or-nothing.
 Event preparation can span pages, but the record commits atomically. Coalesced events commit
 afterwards, each in its own activity.
+
+`commitImportItem` serves both sources. The transaction that records an item's result also records,
+under the run's projection lock its precondition takes, the outcome and issue of each event the
+commit did not write: `skipped` with the policy's `policy-rejected` reason, or `unsuccessful` with
+`event-policy-failed` for a policy execution error and `database-commit-failed` otherwise. A
+coalesced event's outcome is recorded the same way after its commit. A record or run that fails
+otherwise records its operations `unsuccessful` with its failure stage's code, and a generic record
+with a failure records each intent that has neither a result nor an outcome `unsuccessful` with its
+first failure's code.
 
 Collection memberships commit in the record's change set, built by `CollectionsService`: each names
 the user's collection by trimmed name, created with the record when no collection has that name, a

@@ -17,13 +17,12 @@ import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators"
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
 import type { Changes } from "#modules/changes/changes";
-import type { CommitOptions } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
-import { IngestionOperation, operationIssue, reconcileIngestionBatch } from "./batch-results";
+import { IngestionOperation, reconcileIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
 import { maximumDocumentBytes } from "./data-admission";
 import {
@@ -102,13 +101,6 @@ const DataImportSegmentResult = Schema.Struct({
 });
 
 const DATA_IMPORT_SEGMENT_SIZE = 50;
-
-/** Event outcomes that an independent commit gives every item it rejected as a whole. */
-const runRejections: ReadonlySet<string> = new Set([
-	"asset-forbidden",
-	"mutation-conflict",
-	"policy-execution-failed",
-]);
 
 const DataRecordWritten = Schema.Union([
 	Schema.Struct({
@@ -545,7 +537,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		});
 		/** The record's one change set; an entity the record names without writing is referenced. */
 		const recordChanges = Effect.fnUntraced(function* (
-			item: DataGraphRecord,
+			item: Exclude<DataGraphRecord, { readonly kind: "event" }>,
 			properties: Record<string, unknown>,
 			itemIdentity: string,
 			resolved: EntityId | undefined,
@@ -576,27 +568,21 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					},
 				} satisfies Changes;
 			}
-			if (item.kind === "relationship") {
-				return {
-					userId,
-					relationships: {
-						upserts: [
-							{
-								properties,
-								itemIdentity,
-								propertiesMode: "replace",
-								relationshipSchema: item.record.relationshipSchema,
-								...(item.record.identityKey === undefined ? {} : { key: item.record.identityKey }),
-								source: yield* existing(item.record.sourceEntityKey),
-								target: yield* existing(item.record.targetEntityKey),
-							},
-						],
-					},
-				} satisfies Changes;
-			}
 			return {
 				userId,
-				events: { changes: [yield* eventCreate(item, properties, itemIdentity)] },
+				relationships: {
+					upserts: [
+						{
+							properties,
+							itemIdentity,
+							propertiesMode: "replace",
+							relationshipSchema: item.record.relationshipSchema,
+							...(item.record.identityKey === undefined ? {} : { key: item.record.identityKey }),
+							source: yield* existing(item.record.sourceEntityKey),
+							target: yield* existing(item.record.targetEntityKey),
+						},
+					],
+				},
 			} satisfies Changes;
 		});
 		/** The record's schema, rewritten properties and command, or why it cannot be written. */
@@ -640,54 +626,10 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			const command = ingestionOperationCommand(input.command, operation.operationId);
 			return { schema, command, operation, properties };
 		});
-		/**
-		 * Commits an item and records the events its policies skipped in the same transaction, so a
-		 * failed record writes nothing. The precondition takes the record's locks before the catalog lock.
-		 */
-		const commitRecorded = (
-			changes: Parameters<typeof commitImportItem>[0],
-			command: DomainLifecycleCommand,
-			options: CommitOptions,
-			operationOf: (index: number) => undefined | IngestionOperation,
-		) =>
-			commitImportItem(
-				changes,
-				command,
-				{
-					...options,
-					precondition: {
-						written: () => Effect.void,
-						check: (transaction) =>
-							repository
-								.lockOutcomes(scope, transaction)
-								.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
-					},
-				},
-				(committed) =>
-					Effect.forEach(
-						committed.events.outcomes,
-						(outcome) => {
-							const operation = operationOf(outcome.index);
-							if (!operation || outcome.status !== "skipped_by_policy") {
-								return Effect.void;
-							}
-							const skip = { message: outcome.reason, code: "policy-rejected" as const };
-							return Effect.all([
-								repository.recordOutcome(scope, {
-									...operation,
-									reason: skip,
-									result: "skipped",
-									inputFingerprint: input.batch.inputFingerprint,
-								}),
-								repository.recordIssue(scope, operationIssue(operation, "warning", skip)),
-							]);
-						},
-						{ discard: true },
-					).pipe(
-						Effect.catchTags({ SchemaError: Effect.die, DatabaseSessionStateError: Effect.die }),
-					),
-			);
-		const writeRecord = Effect.fnUntraced(function* (item: DataGraphRecord, index: number) {
+		const writeRecord = Effect.fnUntraced(function* (
+			item: Exclude<DataGraphRecord, { readonly kind: "event" }>,
+			index: number,
+		) {
 			const { schema, command, operation, properties } = yield* prepareRecord(item);
 			let resolved: EntityId | undefined;
 			if (item.kind === "entity" && item.record.kind === "provider") {
@@ -744,27 +686,12 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					if (invalid) {
 						return invalid;
 					}
-					const committed = yield* commitRecorded(
+					const committed = yield* commitImportItem(
 						changes,
 						command,
-						{
-							entities: { verbatimIdentities: true },
-							relationships: { verbatimIdentities: true },
-							events: { independent: true, verbatimIdentities: true },
-						},
-						() => operation,
+						{ entities: { verbatimIdentities: true }, relationships: { verbatimIdentities: true } },
+						{ scope, events: [], inputFingerprint: input.batch.inputFingerprint },
 					);
-					const failure = committed.events.failure;
-					if (failure) {
-						return {
-							kind: "failed" as const,
-							message: failure.reason.code,
-							stage:
-								failure.reason.code === "policy-execution-failed"
-									? ("event_policy" as const)
-									: ("database_commit" as const),
-						};
-					}
 					const relationshipId = committed.relationships[0]?.relationshipId ?? null;
 					if (item.kind === "relationship" && relationshipId === null) {
 						return {
@@ -803,87 +730,80 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		});
 		/**
 		 * Writes consecutive event records, which reference only records committed before them, as one
-		 * commit with an outcome per event. An event naming managed assets is written alone, since its
-		 * ownership check reads state the commit's receipt could not replay. When the commit fails as a
-		 * whole it writes nothing, and each event without an outcome of its own is written alone, so a
-		 * record fails alone.
+		 * commit with an outcome per event, each of which the commit records. An event naming managed
+		 * assets commits alone: the commit checks the assets of all its creates at once, and an asset one
+		 * of them may not reference fails every create.
 		 */
 		const writeEvents = Effect.fnUntraced(function* (
 			run: ReadonlyArray<Extract<DataGraphRecord, { readonly kind: "event" }>>,
 			index: number,
 		) {
-			const results: Array<Result.Result<unknown, unknown>> = [];
-			const batch: Array<{
+			type Prepared = {
 				readonly position: number;
-				readonly item: (typeof run)[number];
 				readonly create: Effect.Success<ReturnType<typeof eventCreate>>;
 				readonly prepared: Effect.Success<ReturnType<typeof prepareRecord>>;
-			}> = [];
+			};
+			const results: Array<Result.Result<"imported" | "unsuccessful", unknown>> = [];
+			const batch: Array<Prepared> = [];
+			const alone: Array<Prepared> = [];
 			for (const [position, item] of run.entries()) {
 				const prepared = yield* prepareRecord(item).pipe(Effect.result);
 				if (prepared._tag === "Failure") {
-					results[position] = prepared;
-				} else if (
-					collectManagedAssetLocators([
-						{ properties: prepared.success.properties, propertiesSchema: prepared.success.schema },
-					]).length > 0
-				) {
-					results[position] = yield* writeRecord(item, index + position).pipe(Effect.result);
-				} else {
-					const create = yield* eventCreate(
-						item,
-						prepared.success.properties,
-						prepared.success.command.itemIdentity,
-					).pipe(Effect.result);
-					if (create._tag === "Failure") {
-						results[position] = create;
-					} else {
-						batch.push({ item, position, create: create.success, prepared: prepared.success });
-					}
+					results[position] = Result.fail(prepared.failure);
+					continue;
 				}
+				const { schema, command, properties } = prepared.success;
+				const create = yield* eventCreate(item, properties, command.itemIdentity).pipe(
+					Effect.result,
+				);
+				if (create._tag === "Failure") {
+					results[position] = Result.fail(create.failure);
+					continue;
+				}
+				const locators = collectManagedAssetLocators([{ properties, propertiesSchema: schema }]);
+				(locators.length > 0 ? alone : batch).push({
+					position,
+					create: create.success,
+					prepared: prepared.success,
+				});
 			}
-			const [first] = batch;
-			if (first === undefined) {
-				return results;
-			}
-			const committed = yield* makeActivity({
-				error: ImportRunError,
-				success: CreateEventsResponse,
-				name: `write-data-events-${index + first.position}`,
-				execute: Effect.gen(function* () {
-					const written = yield* commitRecorded(
-						{ userId: input.userId, events: { changes: batch.map(({ create }) => create) } },
+			for (const events of [batch, ...alone.map((event) => [event])]) {
+				const [first] = events;
+				if (first === undefined) {
+					continue;
+				}
+				const committed = yield* makeActivity({
+					error: ImportRunError,
+					success: CreateEventsResponse,
+					name: `write-data-events-${index + first.position}`,
+					execute: commitImportItem(
+						{ userId: input.userId, events: { changes: events.map(({ create }) => create) } },
 						{
 							...first.prepared.command,
 							itemIdentity: stableStringify(["data-events", first.prepared.command.itemIdentity]),
 						},
 						{ events: { independent: true, verbatimIdentities: true } },
-						(eventIndex) => batch[eventIndex]?.prepared.operation,
-					);
-					return written.events;
-				}).pipe(Effect.mapError(toWorkflowError)),
-			}).pipe(Effect.result);
-			for (const [eventIndex, { item, position }] of batch.entries()) {
-				const outcome =
-					committed._tag === "Success"
-						? committed.success.outcomes.find((value) => value.index === eventIndex)
-						: undefined;
-				if (
-					committed._tag === "Failure" ||
-					(outcome?.status === "failed" && runRejections.has(outcome.reason.code))
-				) {
-					results[position] = yield* writeRecord(item, index + position).pipe(Effect.result);
-					continue;
+						{
+							scope,
+							inputFingerprint: input.batch.inputFingerprint,
+							events: events.map(({ prepared }) => prepared.operation),
+						},
+					).pipe(
+						Effect.mapBoth({ onFailure: toWorkflowError, onSuccess: (written) => written.events }),
+					),
+				}).pipe(Effect.result);
+				for (const [eventIndex, { position }] of events.entries()) {
+					results[position] =
+						committed._tag === "Failure"
+							? Result.fail(committed.failure)
+							: Result.succeed(
+									committed.success.outcomes.some(
+										(outcome) => outcome.index === eventIndex && outcome.status === "failed",
+									)
+										? "unsuccessful"
+										: "imported",
+								);
 				}
-				results[position] =
-					outcome?.status === "failed"
-						? Result.fail(
-								new DataImportRecordError({
-									stage: "database_commit",
-									message: outcome.reason.code,
-								}),
-							)
-						: Result.succeed(undefined);
 			}
 			return results;
 		});
@@ -896,13 +816,15 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			if (item === undefined) {
 				break;
 			}
-			const run: Array<Extract<DataGraphRecord, { readonly kind: "event" }>> = [];
-			for (let next = records[position]; next?.kind === "event"; next = records[position]) {
-				run.push(next);
-				position++;
-			}
-			let written: ReadonlyArray<readonly [DataGraphRecord, Result.Result<unknown, unknown>]>;
-			if (run.length > 0) {
+			let written: ReadonlyArray<
+				readonly [DataGraphRecord, Result.Result<"imported" | "unsuccessful", unknown>]
+			>;
+			if (item.kind === "event") {
+				const run: Array<Extract<DataGraphRecord, { readonly kind: "event" }>> = [];
+				for (let next = records[position]; next?.kind === "event"; next = records[position]) {
+					run.push(next);
+					position++;
+				}
 				const results = yield* writeEvents(run, index);
 				written = yield* Effect.forEach(run, (event, offset) => {
 					const result = results[offset];
@@ -911,26 +833,33 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 						: Effect.die("An event record has no result");
 				});
 			} else {
-				written = [[item, yield* writeRecord(item, index).pipe(Effect.result)]];
+				written = [
+					[
+						item,
+						yield* writeRecord(item, index).pipe(Effect.as("imported" as const), Effect.result),
+					],
+				];
 				position++;
 			}
 			for (const [record, result] of written) {
 				processedItems++;
-				if (result._tag === "Success") {
+				if (result._tag === "Success" && result.success === "imported") {
 					importedItems++;
 					continue;
 				}
 				failedItems++;
 				failedKeys.add(record.record.key);
 				segmentFailedKeys.add(record.record.key);
-				yield* report(record, {
-					message: unknownToMessage(result.failure),
-					stage:
-						result.failure instanceof DataImportRecordError ||
-						result.failure instanceof GenericImportProviderError
-							? result.failure.stage
-							: "database_commit",
-				});
+				if (result._tag === "Failure") {
+					yield* report(record, {
+						message: unknownToMessage(result.failure),
+						stage:
+							result.failure instanceof DataImportRecordError ||
+							result.failure instanceof GenericImportProviderError
+								? result.failure.stage
+								: "database_commit",
+					});
+				}
 			}
 		}
 		const result = {

@@ -1,5 +1,8 @@
-import { type DbError, unknownToMessage } from "@ryot-app/contract/errors";
-import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
+import { unknownToMessage } from "@ryot-app/contract/errors";
+import {
+	CreateEventsResponse,
+	type EventCreateFailureReason,
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	type IngestionReason,
 	type IngestionScope,
@@ -118,18 +121,70 @@ const ImportItemCommitted = Schema.Struct({
 	),
 });
 
+/** The run an import commit records event outcomes in, and each event create's operation by position. */
+type ImportEventOutcomes = {
+	readonly scope: IngestionScope;
+	readonly inputFingerprint: string;
+	readonly events: ReadonlyArray<undefined | IngestionOperation>;
+};
+
+const eventFailureReason = (reason: EventCreateFailureReason): IngestionReason => ({
+	key: null,
+	code: failureReasonByStage[
+		reason.code === "policy-execution-failed" ? "event_policy" : "database_commit"
+	].code,
+});
+
+/**
+ * Records the outcome and issue of every event create that was skipped by a policy or failed; an event
+ * without an operation records nothing.
+ */
+const recordEventOutcomes = Effect.fn("imports.recordEventOutcomes")(function* (
+	target: ImportEventOutcomes,
+	events: CreateEventsResponse,
+) {
+	const repository = yield* ImportsRepository;
+	for (const outcome of events.outcomes) {
+		const operation = target.events[outcome.index];
+		if (operation === undefined || outcome.status === "written") {
+			continue;
+		}
+		const skipped = outcome.status === "skipped_by_policy";
+		const reason: IngestionReason = skipped
+			? { message: outcome.reason, code: "policy-rejected" }
+			: eventFailureReason(outcome.reason);
+		if (!skipped) {
+			yield* Effect.logWarning("Import event failed", {
+				code: outcome.reason.code,
+				operationId: operation.operationId,
+			});
+		}
+		yield* repository.recordOutcome(target.scope, {
+			...operation,
+			reason,
+			inputFingerprint: target.inputFingerprint,
+			result: skipped ? "skipped" : "unsuccessful",
+		});
+		yield* repository.recordIssue(
+			target.scope,
+			operationIssue(operation, skipped ? "warning" : "error", reason),
+		);
+	}
+});
+
 /**
  * Commits one import item once: the account's idempotency key under the item's command identity holds
- * the result, so an activity retried after its commit replays it instead of writing again. `recorded`
- * runs in the transaction that records the result.
+ * the result, so an activity retried after its commit replays it instead of writing again. The
+ * transaction that records the result also records the outcomes of the events it did not write, under
+ * the run's outcome locks.
  */
 export const commitImportItem = Effect.fn("imports.commitImportItem")(function* (
 	changes: Changes & { readonly userId: UserId },
 	command: DomainLifecycleCommand,
-	options: CommitOptions,
-	recorded: (committed: typeof ImportItemCommitted.Type) => Effect.Effect<void, DbError> = () =>
-		Effect.void,
+	options: Omit<CommitOptions, "precondition">,
+	outcomes: ImportEventOutcomes,
 ) {
+	const repository = yield* ImportsRepository;
 	const identity = idempotencyIdentity({
 		request: changes,
 		kind: "import-item",
@@ -152,11 +207,25 @@ export const commitImportItem = Effect.fn("imports.commitImportItem")(function* 
 			})),
 		}),
 	);
+	const recorded = (committed: typeof ImportItemCommitted.Type) =>
+		recordEventOutcomes(outcomes, committed.events).pipe(
+			Effect.catchTags({ SchemaError: Effect.die, DatabaseSessionStateError: Effect.die }),
+			Effect.provideService(ImportsRepository, repository),
+		);
 	return yield* (yield* ChangeSets).commitOnce(
 		changes,
 		command,
 		{ ...receipt, record: (result) => Effect.tap(receipt.record(result), recorded) },
-		options,
+		{
+			...options,
+			precondition: {
+				written: () => Effect.void,
+				check: (transaction) =>
+					repository
+						.lockOutcomes(outcomes.scope, transaction)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
+			},
+		},
 	);
 });
 
@@ -614,6 +683,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	command: DomainLifecycleCommand,
 	pluginRevision: ScriptPluginRevision,
 	membershipFields: Readonly<Record<string, unknown>>,
+	outcomes: ImportEventOutcomes,
 ) {
 	const owner = definitionOwner(pluginRevision.id);
 	const writeItem = Effect.fnUntraced(function* () {
@@ -685,6 +755,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 								? { verbatimIdentities: true }
 								: { independent: true, verbatimIdentities: true },
 					},
+					outcomes,
 				);
 			}).pipe(Effect.mapError(toWorkflowError)),
 		});
@@ -863,6 +934,13 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 			if (run?.status !== "running") {
 				break;
 			}
+			const operationOf = (operationId: string) =>
+				operations.find((value) => value.operationId === operationId);
+			const outcomesOf = (events: GenericImportWriteItem["events"]) => ({
+				scope,
+				inputFingerprint: payload.inputFingerprint,
+				events: events.map(({ operationId }) => operationOf(operationId)),
+			});
 			const outcome = yield* writeGenericItem(
 				item,
 				payload.userId,
@@ -871,28 +949,21 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 				payload.command,
 				sourceState.pluginRevision,
 				membershipFields,
+				outcomesOf(item.events.filter((event) => event.coalescing === undefined)),
 			);
 			let failureCode: null | string =
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
 			if (outcome._tag === "ready") {
 				const { aliases, committed } = outcome;
-				const ids = item.events
-					.filter((event) => event.coalescing === undefined)
-					.map((event) => event.operationId);
-				failureCode ??= committed.events.failure?.reason.code ?? null;
-				for (const event of committed.events.outcomes) {
-					const operation = operations.find((value) => value.operationId === ids[event.index]);
-					if (operation && event.status === "skipped_by_policy") {
-						yield* record(operation, "skipped", { message: event.reason, code: "policy-rejected" });
-					}
-				}
+				const failure = committed.events.failure;
+				failureCode ??= failure ? eventFailureReason(failure.reason).code : null;
 				const written = new Set(committed.relationships.map(({ itemIdentity }) => itemIdentity));
 				for (const { operationId } of item.collectionMemberships ?? []) {
 					if (written.has(genericImportOperationIdentity(scope.runId, item, operationId))) {
 						continue;
 					}
 					failureCode ??= "membership-event-failed";
-					const operation = operations.find((value) => value.operationId === operationId);
+					const operation = operationOf(operationId);
 					if (operation) {
 						yield* record(operation, "unsuccessful", {
 							key: null,
@@ -943,11 +1014,14 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 							})
 							.pipe(Effect.mapError(toWorkflowError)),
 					});
-					failureCode ??= result.failure?.reason.code ?? null;
-					const operation = operations.find((value) => value.operationId === intent.operationId);
-					const [first] = result.outcomes;
-					if (operation && first?.status === "skipped_by_policy") {
-						yield* record(operation, "skipped", { message: first.reason, code: "policy-rejected" });
+					if (result.outcomes.some(({ status }) => status !== "written")) {
+						yield* makeActivity({
+							error: ImportRunError,
+							name: `record-import-events-${item.itemIndex}-${groupIndex}`,
+							execute: database
+								.transaction(recordEventOutcomes(outcomesOf([intent]), result))
+								.pipe(Effect.mapError(toWorkflowError)),
+						});
 					}
 				}
 			}
