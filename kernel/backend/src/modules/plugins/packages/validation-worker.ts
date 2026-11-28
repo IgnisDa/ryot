@@ -8,7 +8,6 @@ import type {
 	DefinitionSetChange,
 	DefinitionSetPlugin,
 } from "@ryot-app/definitions/definition-set";
-import { definitionSetValidationRequest } from "@ryot-app/definitions/definition-set-protocol";
 import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { Context, Effect, Layer, Match } from "effect";
 
@@ -91,9 +90,7 @@ export const makePluginValidationWorker = Effect.fnUntraced(function* (
 			change?: DefinitionSetChange,
 		) {
 			const output = yield* worker.run(() =>
-				encodeValidateDefinitionSetRequest(
-					definitionSetValidationRequest(baseline, plugins, change),
-				).pipe(Effect.orDie),
+				encodeValidateDefinitionSetRequest(baseline, plugins, change).pipe(Effect.orDie),
 			);
 			const response = yield* decodeValidateDefinitionSetResponse(output).pipe(
 				Effect.mapError(() => invalidResult),

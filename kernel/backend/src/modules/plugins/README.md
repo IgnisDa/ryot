@@ -212,8 +212,10 @@ two jobs on the one process:
 
 - `checkSource` runs `checkPluginSource`: catalogs, integration and import schemas, compiled script
   matching, encoding and output audits, the client artifact, and the content hash.
-- `validateDefinitionSet` runs `@ryot-app/definitions/definition-set-protocol` over the active system
-  set inside the ingestion transaction.
+- `validateDefinitionSet` runs `@ryot-app/definitions` definition-set validation over the active
+  system set inside the ingestion transaction. `validation-worker-protocol.ts` keeps only the fields
+  validation reads and answers `{ valid: true }` or `{ valid: false, issue }` with the string of the
+  error the in-process validator throws.
 
 In process stay the manifest decode, which the rest of ingestion (policy, schema evolution,
 persistence and catalog invalidation) reads and Effect Schema cannot decode without its checks; the
