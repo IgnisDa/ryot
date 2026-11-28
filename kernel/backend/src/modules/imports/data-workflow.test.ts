@@ -24,7 +24,6 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
-import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { Changes } from "#modules/changes/changes";
@@ -178,7 +177,6 @@ const fixture = Effect.fnUntraced(function* (
 		Layer.mock(LifecycleExecution)({}),
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntityImportWorkflowOperations)({}),
-		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 		Layer.mock(ChangeSets)({
 			commitOnce: (input, _lifecycle, receipt, options) =>
 				Effect.gen(function* () {
@@ -409,7 +407,7 @@ it.effect(
 );
 
 it.effect(
-	"commits an event naming managed assets in a commit of its own",
+	"commits an event naming managed assets with the rest of its run",
 	() =>
 		Effect.gen(function* () {
 			const image = { type: "s3", key: "permanent/user-1_image.png" };
@@ -423,12 +421,12 @@ it.effect(
 				test.submitted.map((changes) =>
 					(changes.events?.changes ?? []).map(({ itemIdentity }) => itemIdentity),
 				),
-			).toEqual(
-				[["written", "independent"], ["attached"]].map((keys) =>
-					keys.map((key) => ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`)),
+			).toEqual([
+				["written", "attached", "independent"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
 				),
-			);
-			expect(test.submitted[1]?.events?.changes[0]).toMatchObject({ properties: { image } });
+			]);
+			expect(test.submitted[0]?.events?.changes[1]).toMatchObject({ properties: { image } });
 			expect(test.projections[0]?.summary).toEqual([
 				{
 					unit: "events",
@@ -544,8 +542,7 @@ it.effect(
 				Layer.mock(EntityImportWorkflowOperations)({}),
 				Layer.mock(JobQueue)({}),
 				Layer.mock(TransientValues)({}),
-				Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-				Layer.mock(ChangeSets)({
+						Layer.mock(ChangeSets)({
 					commitOnce: (input, _lifecycle, receipt) =>
 						Effect.suspend(() => {
 							submitted.push(input);

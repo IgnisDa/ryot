@@ -546,35 +546,25 @@ layer(
 	);
 
 	test.effect(
-		"writes nothing of an item whose event conflicts with its commit",
+		"fails only the event of a standalone item naming another user's managed asset",
 		() =>
 			Effect.gen(function* () {
 				const foreign = yield* insertManagedAsset(UserId.make("generic-import-asset-owner"));
 				const fixture = yield* noteFixture({ image: foreign });
 				yield* fixture.apply;
-				expect(yield* fixture.committed).toEqual([]);
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual([
+					"created",
+					"unchanged",
+					"created",
+				]);
 				expect(
 					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
 						operationId,
 						result,
 						reason,
 					]),
-				).toEqual(
-					["note", "created", "found", "link"].map((operationId) => [
-						operationId,
-						"unsuccessful",
-						{ key: null, code: "database-commit-failed" },
-					]),
-				);
+				).toEqual([["note", "unsuccessful", { key: null, code: "database-commit-failed" }]]);
 				const database = yield* DatabaseSession;
-				expect(
-					(yield* database.run((db) =>
-						db
-							.select({ name: tables.entity.name })
-							.from(tables.entity)
-							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
-					)).map(({ name }) => name),
-				).toEqual(["Subject"]);
 				expect(
 					yield* database.run((db) =>
 						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),

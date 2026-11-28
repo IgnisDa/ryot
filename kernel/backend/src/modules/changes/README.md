@@ -206,13 +206,14 @@ Ledgers that are preconditions:
 all-or-nothing. The result's `outcomes` list every create by position, and `toCreateEventsResponse`
 (`outcomes.ts`) builds the HTTP `CreateEventsResponse` from them:
 
-- a preparation failure fails only its item;
+- a preparation failure fails only its item, including a create naming a managed asset its user may
+  not reference;
 - a policy rejection is `skipped_by_policy`, and a policy item error fails the item
   (`session-entity-not-found` or `invalid-properties`);
 - a policy execution failure writes nothing, keeps preparation failures, and fails every other item
   with `policy-execution-failed`;
 - a commit conflict writes nothing, keeps preparation and policy outcomes, and fails every other item
-  with `mutation-conflict` or `asset-forbidden`.
+  with `mutation-conflict`, or `asset-forbidden` when an asset changed after preparation.
 
 A result that wrote nothing because of such a failure is recorded through the receipt in its own
 transaction. `events.verbatimIdentities` keeps each create's `itemIdentity` as its write identity
