@@ -2,11 +2,10 @@ import { expect } from "bun:test";
 
 import { CHANGE_SET_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { englishRenderer } from "@ryot-app/plugin-backend-sdk/testing";
+import { englishRenderer, signalAutomationInput } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { automationContext } from "../../tests/backend/automations/automation-test-utils";
 import { englishCatalog } from "../../tests/english-catalog";
 import definition, { manifest } from "./notification.sandbox";
 
@@ -136,16 +135,13 @@ it("projects every property the formatted signals read", () => {
 
 const render = englishRenderer(englishCatalog);
 
-const notify = (signalSchemaSlug: string, properties: object) =>
+const notify = (signalSchemaSlug: string, properties: Readonly<Record<string, unknown>>) =>
 	Effect.gen(function* () {
 		const result = yield* definition.run(
-			yield* automationContext({
+			yield* signalAutomationInput({
 				properties,
 				signalSchemaSlug,
-				operation: "emit",
-				category: "signal",
-				resource: "signal",
-				actorUserId: "user-1",
+				hookSlug: "media.test",
 				signalSchemaPluginId: "media-plugin",
 			}),
 		);

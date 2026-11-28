@@ -2,8 +2,10 @@ import { expect } from "bun:test";
 
 import { KERNEL_NAMESPACE, type LocalMessage, stampTrustedNamespace } from "@ryot-app/i18n/message";
 import { testKernelText } from "@ryot-app/kernel-messages/testing";
-import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import type { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { signalAutomationInput } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Exit } from "effect";
@@ -27,41 +29,20 @@ const providerName = {
 };
 
 const inputFor = (executionUserId: null | string, reminder = false) =>
-	Schema.decodeEffect(automationInputSchema)({
-		automation: {
-			runId: "run-1",
-			executionUserId,
-			triggerId: "trigger-1",
-			hookSlug: "automation.notification",
-			occurredAt: "2026-09-15T00:00:00.000Z",
-			causation: {
-				depth: 0,
-				parentRunId: null,
-				lane: "background",
-				source: "integration",
-				parentTriggerId: null,
-				executionId: "execution-1",
-				rootExecutionId: "execution-1",
-				initiator: { id: "actor", kind: "user" },
-			},
-			payload: {
-				operation: "emit",
-				category: "signal",
-				resource: "signal",
-				actorUserId: "actor",
-				signalSchemaPluginId: null,
-				signalSchemaSlug: reminder ? "reminder.due" : "integration.disabled",
-				properties: reminder
-					? {
-							entityId: "target-id",
-							timezone: "Asia/Kolkata",
-							message: "Read the notes_*",
-							dueAt: "2026-09-15T08:30:00.000Z",
-						}
-					: { providerName, integrationId: "integration-1" },
-			},
-		},
-	}).pipe(Effect.orDie);
+	signalAutomationInput({
+		executionUserId,
+		actorUserId: "actor",
+		hookSlug: "automation.notification",
+		signalSchemaSlug: reminder ? "reminder.due" : "integration.disabled",
+		properties: reminder
+			? {
+					entityId: "target-id",
+					timezone: "Asia/Kolkata",
+					message: "Read the notes_*",
+					dueAt: "2026-09-15T08:30:00.000Z",
+				}
+			: { providerName, integrationId: "integration-1" },
+	});
 
 it.effect(
 	"builds a kernel message for the trusted execution recipient",

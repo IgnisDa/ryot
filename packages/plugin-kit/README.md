@@ -1090,7 +1090,9 @@ installation re-checks their limits before the kernel serves them.
 
 Plugin tests compile the package's own English catalog with `compilePluginCatalog(packageRoot)`
 from `@ryot-app/plugin-kit/testing`. Backend tests render messages with `englishRenderer(catalog)`
-from `@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
+from `@ryot-app/plugin-backend-sdk/testing`, where `signalAutomationInput({ signalSchemaSlug,
+properties, ... })` builds the input a signal emission hands a notification automation; client tests
+use `testPluginText` from the client SDK.
 
 ## Languages
 

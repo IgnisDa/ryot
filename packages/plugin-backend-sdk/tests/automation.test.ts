@@ -11,6 +11,7 @@ import {
 	SignalNotificationError,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { signalAutomationInput } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -198,34 +199,11 @@ describe("automation definitions", () => {
 });
 
 const signal = (properties: Readonly<Record<string, unknown>>) =>
-	Schema.decodeUnknownEffect(automationInputSchema)({
-		automation: {
-			runId: "run-1",
-			triggerId: "trigger-1",
-			executionUserId: "user-1",
-			hookSlug: "test-notification",
-			occurredAt: "2026-09-15T00:00:00.000Z",
-			payload: {
-				properties,
-				operation: "emit",
-				category: "signal",
-				resource: "signal",
-				actorUserId: "user-1",
-				signalSchemaPluginId: null,
-				signalSchemaSlug: "count.changed",
-			},
-			causation: {
-				depth: 0,
-				source: "api",
-				parentRunId: null,
-				lane: "background",
-				parentTriggerId: null,
-				executionId: "execution-1",
-				rootExecutionId: "execution-1",
-				initiator: { kind: "user", id: "user-1" },
-			},
-		},
-	}).pipe(Effect.orDie);
+	signalAutomationInput({
+		properties,
+		hookSlug: "test-notification",
+		signalSchemaSlug: "count.changed",
+	});
 
 describe("signal notifications", () => {
 	const notification = defineAutomation({
