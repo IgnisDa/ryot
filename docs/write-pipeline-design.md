@@ -80,10 +80,12 @@ population, after hooks, and Ryo tool calls.
 2. **Validate.** The kernel prepares the changes (schemas, references, properties), then calls each
    matching policy once with all of its items. Policies keep today's batch contract. No automation
    trigger, run, attempt, or job rows are written for a policy.
-3. **Commit.** One transaction locks references, rechecks baselines, writes source changes, derives
-   folds (phase 4), checks event groups, plans after-hook jobs, and records the idempotency receipt.
-4. **Derive.** Inside that transaction, each affected subject's fold gets its previous state and the
-   changed events. Outputs are written as a patch.
+3. **Commit.** One transaction locks references, rechecks baselines, writes source changes, queues
+   the affected subjects' folds, checks event groups, plans after-hook jobs, and records the
+   idempotency receipt.
+4. **Derive.** After the commit, each affected subject's fold gets its previous state and the changed
+   events, runs with no transaction open, and writes its outputs as a patch. An interactive request
+   folds through the fold-job path and waits for it; a background one leaves the fold to its job.
 5. **Respond.** `{ result, committed }`.
 6. **Afterwards.** After hooks, notifications, pushes, and signals run as jobs queued by the commit.
 
@@ -117,8 +119,8 @@ ambient authority state. Preparation takes no authority locks.
 
 ### Consistency
 
-Phases 3 and 4 share one transaction, as inline folds do today. Locks are held only while fold code
-runs. Operations and policies read outside it; the commit rechecks their baselines (`expected`
+Phase 3 is one transaction; phase 4 runs after it, and its fold code runs with no transaction or lock
+held. Operations and policies read outside the commit; the commit rechecks their baselines (`expected`
 snapshots and `event_scope` revisions), which already exist.
 
 ## Folds
@@ -233,7 +235,7 @@ lifecycle). The HTTP `entities.create`, `relationships.create` and user-data rou
   other write when anything was written. It replaces the event commit guard and serves population
   and the reminder and signal ledgers.
 - **Fold lane.** Background-lane commits, and commits passing `queueFolds`, queue their folds;
-  interactive commits fold inline.
+  interactive commits fold their subjects after commit, in the same request.
 - **Stale retry.** An update whose field `expected` still matches retries up to twice on `EventStale`.
 
 ### Rollout
@@ -317,7 +319,7 @@ and its named tests, then its e2e files.
    `scriptChangesFailure`, maps a rejected script change set for every caller, and every boundary
    names a commit conflict `changes-conflict`.
 5. **One fold run per fold** (done). `FoldInput` lists up to 25 subjects and `FoldOutput` returns one
-   result per subject; `foldEachSubject` in the plugin SDK keeps Media and Fitness per-subject. A fold
+   result per subject; `foldSubjects` in the plugin SDK keeps Media and Fitness per-subject. A fold
    step groups its subjects by user and fold script, locks and reads them set-based, and packs their
    inputs first-fit by decreasing size into the fewest runs within the 1 MiB input bound, so a 7-exercise
    workout makes one fold run instead of seven. On the clone the 34-set workout save went from 382 ms to
@@ -333,10 +335,8 @@ and its named tests, then its e2e files.
    `derived_change`, marks the subject row `pending` and bumps its `revision`; a fold job builds the
    same change list a commit would, runs the fold with no transaction open, and writes in a short
    transaction that rechecks the revision, rerunning a changed subject at most twice before folding it
-   under its lock. Interactive commits keep folding inline: on the clone the lock on the subject's
-   entity row is held 112 ms for the largest show and 107 ms for the 34-set workout (p50), of which the
-   fold script is 91 ms and 44 ms, but folding after commit would let a save succeed without its
-   derived state, and keeping the guarantee would repeat the source writes in a second transaction.
+   under its lock. Interactive commits now fold after commit too, in the same request, and respond once the fold has
+   written.
    For background jobs the lock hold fell from 616 ms to 20 ms (p50) while importing 981 events into
    50 existing subjects (36.6 s to 34.9 s wall, SQL time 19.2 s to 8.0 s), and seeding 3,817 events
    went from 353 s to 118 s because imports no longer wait on fold jobs' locks. The Fitness workout
