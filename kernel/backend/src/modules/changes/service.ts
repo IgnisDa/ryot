@@ -35,7 +35,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Context, DateTime, Effect, Function, Layer, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Function, Layer, Ref, Result, Schema } from "effect";
 import { zip } from "effect/Array";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
@@ -475,16 +475,6 @@ const savedDrafts = (saves: ReadonlyArray<EntitySave>, accept?: EntityPolicyAcce
 		),
 		(entries) => new Map(entries.flat()),
 	);
-
-/** An independent commit's bad request fails every event create but those `kept` holds. */
-const rejectCreates =
-	(options: CommitOptions<unknown>, kept: ReadonlyArray<EventCreateItemOutcome>) =>
-	(error: EventBadRequest) =>
-		Effect.fail(
-			options.events?.independent === true
-				? new EventCreateRejected({ kept, reason: commitRejection(error) })
-				: error,
-		);
 
 const expectedFields = (input: Changes, eventId: EventId) => {
 	for (const change of input.events?.changes ?? []) {
@@ -1468,104 +1458,101 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				};
 			});
 			/**
-			 * Writes the prepared changes with their validated policies: the settings patch, source writes,
-			 * ensures, entity deletes, then the rest of each clear and merge. An independent commit's bad
-			 * request fails every create but those whose outcome stands.
+			 * Writes the prepared changes with their validated policies and event batches: the settings
+			 * patch, source writes, ensures, entity deletes, then the rest of each clear and merge.
 			 */
 			const writePrepared = Effect.fnUntraced(function* (
 				prepared: PreparedChanges,
 				transaction: WriteTransaction,
 				validated: ValidatedPolicies,
+				batches: Effect.Success<ReturnType<typeof eventBatches>>,
 			) {
 				const { input, command, options, pluginRevision } = prepared;
-				const batches = yield* eventBatches(prepared, validated);
 				const accept = acceptRelationshipPolicies(validated.relationships);
-				return yield* Effect.gen(function* () {
-					if (input.settings !== undefined && pluginRevision !== null && input.userId !== null) {
-						yield* settingsWriter.patchWithin(
-							{
-								userId: input.userId,
-								values: input.settings,
-								accountUserId: input.userId,
-								pluginId: pluginRevision.id,
-								pluginRevisionId: pluginRevision.revisionId,
-							},
-							transaction,
-						);
-					}
-					const sources = yield* sourceWrites(
-						prepared,
+				if (input.settings !== undefined && pluginRevision !== null && input.userId !== null) {
+					yield* settingsWriter.patchWithin(
+						{
+							userId: input.userId,
+							values: input.settings,
+							accountUserId: input.userId,
+							pluginId: pluginRevision.id,
+							pluginRevisionId: pluginRevision.revisionId,
+						},
 						transaction,
-						batches,
-						accept,
+					);
+				}
+				const sources = yield* sourceWrites(
+					prepared,
+					transaction,
+					batches,
+					accept,
+					validated.entities,
+				);
+				const dispatch = [...sources.dispatch];
+				if (prepared.ensures) {
+					for (const ensured of yield* entities.persistPreparedEnsures(
+						transaction,
+						prepared.ensures,
+						validated.entities,
+					)) {
+						dispatch.push(...ensured.dispatch);
+					}
+				}
+				const deleted: EntityId[] = [];
+				for (const deletes of prepared.deletes) {
+					const work = yield* entities.persistPreparedDeletes(
+						transaction,
+						deletes,
 						validated.entities,
 					);
-					const dispatch = [...sources.dispatch];
-					if (prepared.ensures) {
-						for (const ensured of yield* entities.persistPreparedEnsures(
-							transaction,
-							prepared.ensures,
-							validated.entities,
-						)) {
-							dispatch.push(...ensured.dispatch);
-						}
-					}
-					const deleted: EntityId[] = [];
-					for (const deletes of prepared.deletes) {
-						const work = yield* entities.persistPreparedDeletes(
-							transaction,
-							deletes,
-							validated.entities,
-						);
-						deleted.push(...work.deleted);
-						dispatch.push(...work.dispatch);
-					}
-					const cleared = [];
-					for (const clear of prepared.clears) {
-						const work = yield* clear.write(transaction, accept);
-						cleared.push(work.result);
-						dispatch.push(...work.dispatch);
-					}
-					const merged = [];
-					for (const merge of prepared.merges) {
-						const work = yield* merge.write(transaction, accept);
-						merged.push(work.result);
-						dispatch.push(...work.dispatch);
-					}
-					if (sources.entities.length > 0) {
-						dispatch.push(...(yield* entities.planEntityBatch(transaction, entityBatch(command))));
-					}
-					const outcomes =
-						options.events?.independent === true
-							? sortedOutcomes([
-									...batches.kept,
-									...sources.committed.events.flatMap(({ eventId, itemIdentity }) =>
-										prepared.creates.has(itemIdentity)
-											? [
-													{
-														eventId,
-														status: "written" as const,
-														index: createIndex(prepared, itemIdentity),
-													},
-												]
-											: [],
-									),
-								])
-							: [];
-					return {
-						dispatch,
-						result: {
-							merged,
-							cleared,
-							deleted,
-							outcomes,
-							signals: [],
-							entities: sources.entities,
-							committed: sources.committed,
-							relationships: sources.relationships,
-						} satisfies CommitResult,
-					};
-				}).pipe(Effect.catchTag("EventBadRequest", rejectCreates(options, batches.kept)));
+					deleted.push(...work.deleted);
+					dispatch.push(...work.dispatch);
+				}
+				const cleared = [];
+				for (const clear of prepared.clears) {
+					const work = yield* clear.write(transaction, accept);
+					cleared.push(work.result);
+					dispatch.push(...work.dispatch);
+				}
+				const merged = [];
+				for (const merge of prepared.merges) {
+					const work = yield* merge.write(transaction, accept);
+					merged.push(work.result);
+					dispatch.push(...work.dispatch);
+				}
+				if (sources.entities.length > 0) {
+					dispatch.push(...(yield* entities.planEntityBatch(transaction, entityBatch(command))));
+				}
+				const outcomes =
+					options.events?.independent === true
+						? sortedOutcomes([
+								...batches.kept,
+								...sources.committed.events.flatMap(({ eventId, itemIdentity }) =>
+									prepared.creates.has(itemIdentity)
+										? [
+												{
+													eventId,
+													status: "written" as const,
+													index: createIndex(prepared, itemIdentity),
+												},
+											]
+										: [],
+								),
+							])
+						: [];
+				return {
+					dispatch,
+					result: {
+						merged,
+						cleared,
+						deleted,
+						outcomes,
+						signals: [],
+						entities: sources.entities,
+						committed: sources.committed,
+						relationships: sources.relationships,
+					} satisfies CommitResult,
+				};
 			});
 			const apply = Effect.fnUntraced(function* <A, Refusal = never>(
 				input: Changes,
@@ -1610,6 +1597,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					pluginRevision,
 					options,
 				);
+				// Event group constraints are checked as the write transaction commits, after `writeAll`
+				// returns, so a failed check reaches the outcomes the write kept through this reference.
+				const writeKept = yield* Ref.make<ReadonlyArray<EventCreateItemOutcome>>([]);
 				const scope =
 					input.userId === null
 						? ({ scope: "global" } as const)
@@ -1717,7 +1707,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					transaction: WriteTransaction,
 					validated: ValidatedPolicies,
 				) {
-					const written = yield* writePrepared(prepared, transaction, validated);
+					const batches = yield* eventBatches(prepared, validated);
+					yield* Ref.set(writeKept, batches.kept);
+					const written = yield* writePrepared(prepared, transaction, validated, batches);
 					const dispatch = [...written.dispatch];
 					const global = yield* globalWrites(transaction);
 					dispatch.push(...global.dispatch);
@@ -1869,6 +1861,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				});
 				const committed = yield* commitInTransactions.pipe(
+					Effect.catchTag("EventBadRequest", (error) =>
+						Effect.flatMap(Ref.get(writeKept), (kept) =>
+							Effect.fail(
+								options.events?.independent === true
+									? new EventCreateRejected({ kept, reason: commitRejection(error) })
+									: error,
+							),
+						),
+					),
 					Effect.catchTag("EventCreateRejected", (rejection) =>
 						inTransaction(
 							Effect.gen(function* () {
