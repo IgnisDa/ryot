@@ -215,8 +215,8 @@ it("refreshes library summaries of the population root when links are created, i
 		]).pipe(
 			Effect.map((results) => {
 				expect(results.map(({ folds }) => folds)).toEqual([
-					{ mode: "refresh", scope: "all-users", entityIds: [EntityId.make("show-1")] },
-					{ mode: "refresh", scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
 					undefined,
 				]);
 			}),
@@ -252,11 +252,7 @@ it.effect(
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
 			Effect.map(({ folds, signals }) => {
-				expect(folds).toEqual({
-					mode: "refresh",
-					scope: "all-users",
-					entityIds: [EntityId.make("show-1")],
-				});
+				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
 				expect(signals).toEqual([]);
 			}),
 		),

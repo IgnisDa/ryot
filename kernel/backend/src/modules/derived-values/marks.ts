@@ -4,7 +4,6 @@ import {
 	FOLD_LIMITS,
 	type FoldEventImage,
 	type FoldRefresh,
-	type FoldRequest,
 } from "@ryot-app/contract/modules/events/folds";
 import type { PluginEntityFold } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EventId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
@@ -433,14 +432,13 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			});
 
 			/**
-			 * Queues the plugin's folds of the entities for one user, or for every user who has folded
-			 * them: a `replay` of their whole history, or a `refresh` with no change.
+			 * Queues the plugin's folds of the entities with no change, for one user or for every user who
+			 * has folded them.
 			 */
 			const request = Effect.fn("FoldMarks.request")(function* (
 				input: {
 					readonly pluginId: PluginId;
 					readonly userId: null | UserId;
-					readonly mode: FoldRequest["mode"];
 					readonly entityIds: ReadonlyArray<EntityId>;
 				},
 				transaction: WriteTransaction,
@@ -465,9 +463,6 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					},
 					transaction,
 				)).filter(({ declaration }) => declaration.pluginId === input.pluginId);
-				if (input.mode === "replay") {
-					return yield* queueResolved(resolved);
-				}
 				yield* pend(resolved.map((entry) => ({ ...entry, replay: false, changes: new Map() })));
 				return yield* enqueue(resolved);
 			});

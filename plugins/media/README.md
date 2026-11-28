@@ -796,7 +796,7 @@ supports. Otherwise the occurrence lapses unless the title completes anew. Relat
 creating history. A change to one of the declared properties of a title, such as a new status,
 replays it for every user, and one of an episode replays the titles of the users with events on it;
 other content changes, such as a new overview or images, fold nothing. Other users' summaries follow
-episode changes through all-users `refresh` fold requests, which refold without replaying history:
+episode changes through all-users fold requests, which refold without replaying history:
 `media-entity-updated` returns one for an episode's title when the episode's `airingAt`,
 `publishDate` or `episodeNumber` changes, and `media-relationship-sync` one for the titles whose
 container links are created or deleted, since an inventory change alone completes nothing. One

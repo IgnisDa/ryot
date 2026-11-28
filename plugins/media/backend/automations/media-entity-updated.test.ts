@@ -272,7 +272,6 @@ it("refreshes library summaries of an episode's title when a property they read 
 			Effect.map((results) => {
 				expect(results.map(({ folds }) => folds)).toEqual(
 					Array.from({ length: 4 }, () => ({
-						mode: "refresh",
 						scope: "all-users",
 						entityIds: [EntityId.make("show-1")],
 					})),
@@ -315,11 +314,7 @@ it.effect(
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
 			Effect.map(({ folds, signals }) => {
-				expect(folds).toEqual({
-					mode: "refresh",
-					scope: "all-users",
-					entityIds: [EntityId.make("show-1")],
-				});
+				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
 				expect(signals).toEqual([]);
 			}),
 		),

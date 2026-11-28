@@ -99,8 +99,6 @@ export const libraryTitleFolds = Effect.fn(function* (
 ) {
 	const titles = [...(yield* libraryTitleIds(host, entityIds))].map((id) => EntityId.make(id));
 	const changes: ChangeSet =
-		titles.length === 0
-			? {}
-			: { folds: { mode: "refresh", entityIds: titles, scope: "all-users" } };
+		titles.length === 0 ? {} : { folds: { entityIds: titles, scope: "all-users" } };
 	return changes;
 });

@@ -58,8 +58,8 @@ An entity create, relationship write and relationship event that `CollectionsSer
 - `population` (kernel writers only): related-population bookkeeping on existing provider entities
   at the command's time, `claims` starting related populations under a generation and
   `relatedPopulated` stamping them complete.
-- `folds`: fold requests for the writer's user (`scope: "user"`) or every user with events on the
-  entities (`scope: "all-users"`), limited to the writing plugin's folds.
+- `folds`: requests to fold entities again with no change, for the writer's user (`scope: "user"`) or
+  every user with events on the entities (`scope: "all-users"`), limited to the writing plugin's folds.
 
 Entity parts write in the change set user's scope. A kernel writer may send `userId: null` to write
 global entity `creates`, `updates` and `deletes`; the root `entity`, `events`, `relationships`, and

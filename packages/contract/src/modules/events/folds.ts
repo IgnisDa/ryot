@@ -94,12 +94,8 @@ export type FoldSubjectOutput = typeof FoldSubjectOutput.Type;
 export const FoldOutput = strictStruct({ subjects: Schema.Array(FoldSubjectOutput) });
 export type FoldOutput = typeof FoldOutput.Type;
 
-/**
- * Folds entities again: `replay` folds their whole history, and `refresh` folds them with no change,
- * as for a change only to data outside their events.
- */
+/** Folds entities again with no change, as for a change only to data outside their events. */
 export const FoldRequest = strictStruct({
-	mode: Schema.Literals(["replay", "refresh"]),
 	entityIds: Schema.Array(EntityId).check(
 		Schema.isMinLength(1),
 		Schema.isMaxLength(FOLD_LIMITS.requestEntities),

@@ -1394,34 +1394,22 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"refreshes the entities of a fold request with no change, and replays them on request, for every user who folded them",
+		"refreshes the entities of a fold request with no change for every user who folded them",
 		() =>
 			Effect.gen(function* () {
 				const { first, recorded, installed } = yield* setup();
 				yield* createEvents(installed.pluginId, [{ value: "one", entityId: first }]);
 				const session = yield* DatabaseSession;
 				const marks = yield* FoldMarks;
-				const request = (mode: "replay" | "refresh") =>
-					session.transaction(
-						marks.request(
-							{
-								mode,
-								userId: null,
-								entityIds: [first],
-								pluginId: PluginId.make(installed.pluginId),
-							},
-							new WriteTransaction(),
-						),
-					);
 				recorded.length = 0;
-				yield* request("refresh");
+				yield* session.transaction(
+					marks.request(
+						{ userId: null, entityIds: [first], pluginId: PluginId.make(installed.pluginId) },
+						new WriteTransaction(),
+					),
+				);
 				yield* runFoldJob([first]);
-				yield* request("replay");
-				yield* runFoldJob([first]);
-				expect(recorded).toEqual([
-					{ changes: [], subjectEntityId: first },
-					{ changes: null, subjectEntityId: first },
-				]);
+				expect(recorded).toEqual([{ changes: [], subjectEntityId: first }]);
 			}),
 		testTimeout,
 	);

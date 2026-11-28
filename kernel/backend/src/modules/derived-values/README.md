@@ -73,9 +73,9 @@ Queuing stores each subject's change list in `derived_change`, one row per event
 the first change, marks the subject row `pending`, bumps its `revision`, and queues a `fold` job. A
 later write to the same subject keeps an event's stored image and bumps the row's `version`, so the
 list coalesces. A subject without a row, or marked whole (a change to an entity property its fold
-declares in `entityProperties`, a merge or a `replay` fold request), sets the row's `replay` flag
-instead of storing changes; a change to the name or any other property folds nothing. A relationship write, a `refresh` fold
-request and a passed refresh time mark the subject with no change, which refreshes link outputs. A fold job holds up to 25 subjects of one fold; a
+declares in `entityProperties` or a merge), sets the row's `replay` flag
+instead of storing changes; a change to the name or any other property folds nothing. A relationship write, a fold request
+and a passed refresh time mark the subject with no change, which refreshes link outputs. A fold job holds up to 25 subjects of one fold; a
 queued job with the same subjects absorbs a new one, and jobs run four at a time.
 
 **Interactive commits** then fold their subjects in the same request, through the function fold jobs
@@ -110,8 +110,8 @@ A job of several subjects that fails queues each subject as its own job, which l
 one second apart, and its last failed attempt marks the subject `failed` and `replay`. A job that
 wrote derived state publishes the user-scoped derived-data-updated hint (see
 [entity interest](../../../../client/src/modules/entity-watches/README.md)). A rebuild queues full
-replays. A fold request queues a full replay in `replay` mode and a fold with no change in `refresh` mode,
-for the requesting user or, with `all-users` scope, every user with a subject row for the entity.
+replays. A fold request queues a fold with no change, for the requesting user or, with `all-users`
+scope, every user with a subject row for the entity.
 
 ### Refreshes
 
