@@ -1,9 +1,15 @@
-import { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
-import { LocalMessage, Message } from "@ryot-app/i18n/message";
+import { LocalMessage } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
+
+import {
+	PluginOperationBridgeErrorReason,
+	pluginOperationFailures,
+	PluginOperationPlainFailureReason,
+	type RyotClientErrorReason,
+} from "./capabilities";
 
 export const BACKGROUND_SUBMISSION_LIMITS = {
 	entries: 20,
@@ -40,14 +46,6 @@ export type PluginBridgeBackgroundOperationRequest = Schema.Schema.Type<
 	typeof PluginBridgeBackgroundOperationRequest
 >;
 
-const PluginBackgroundOperationBridgeErrorReason = Schema.Literals([
-	"transport",
-	"operation-failed",
-	"entitlement-required",
-	"page-write-access-required",
-	"malformed-result",
-]);
-
 const backgroundAcceptedSuccessFields = {
 	submissionId: Schema.String,
 	outcome: Schema.Literal("success"),
@@ -55,7 +53,7 @@ const backgroundAcceptedSuccessFields = {
 
 const backgroundAcceptedFailureFields = {
 	outcome: Schema.Literal("failure"),
-	reason: PluginBackgroundOperationBridgeErrorReason,
+	reason: PluginOperationPlainFailureReason,
 };
 
 const pluginBridgeBackgroundAcceptedFields = {
@@ -82,13 +80,7 @@ export type PluginBridgeBackgroundOperationAccepted = Schema.Schema.Type<
 >;
 
 export const BackgroundSubmissionFailureClass = Schema.Literals([
-	"transport",
-	"operation-failed",
-	"entitlement-required",
-	"page-write-access-required",
-	"operation-rejected",
-	"changes-conflict",
-	"malformed-result",
+	...PluginOperationBridgeErrorReason.literals,
 	"app-updated",
 ]);
 
@@ -98,27 +90,10 @@ export type BackgroundSubmissionFailureClass = Schema.Schema.Type<
 
 export const BackgroundSubmissionOutcome = Schema.Union([
 	strictStruct({ status: Schema.Literal("succeeded") }),
-	strictStruct({
-		status: Schema.Literal("failed"),
-		reason: Schema.Literals([
-			"transport",
-			"operation-failed",
-			"entitlement-required",
-			"page-write-access-required",
-			"malformed-result",
-			"app-updated",
-		]),
-	}),
-	strictStruct({
-		message: Message,
-		status: Schema.Literal("failed"),
-		reason: Schema.Literal("operation-rejected"),
-	}),
-	strictStruct({
-		conflict: CommitConflictCode,
-		status: Schema.Literal("failed"),
-		reason: Schema.Literal("changes-conflict"),
-	}),
+	...pluginOperationFailures(
+		{ status: Schema.Literal("failed") },
+		Schema.Literals([...PluginOperationPlainFailureReason.literals, "app-updated"]),
+	),
 ]);
 
 export type BackgroundSubmissionOutcome = Schema.Schema.Type<typeof BackgroundSubmissionOutcome>;
@@ -132,3 +107,14 @@ export const PluginBridgeBackgroundOperationSettled = strictStruct({
 export type PluginBridgeBackgroundOperationSettled = Schema.Schema.Type<
 	typeof PluginBridgeBackgroundOperationSettled
 >;
+
+const unsettledReasons: ReadonlySet<string> = new Set([
+	"protocol",
+	"disposed",
+	"transport",
+	"malformed-result",
+] satisfies ReadonlyArray<RyotClientErrorReason>);
+
+/** Whether a request that failed for `reason` may still have been applied, so only a retry settles it. */
+export const mayHaveApplied = (reason: RyotClientErrorReason | BackgroundSubmissionFailureClass) =>
+	unsettledReasons.has(reason);

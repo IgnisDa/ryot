@@ -1,4 +1,9 @@
-import { type RyotClient, RyotClientError, type RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import {
+	isChangesConflict,
+	type RyotClient,
+	RyotClientError,
+	type RyotSchedule,
+} from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type PluginNavigationTarget,
@@ -95,10 +100,7 @@ const createEditorSession = (
 								? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
 								: Effect.succeed({ kind: "saved", entityId: committed.entityId }),
 					),
-					Effect.catchIf(
-						(error) => error.reason === "changes-conflict",
-						() => Effect.succeed({ kind: "conflict" } as const),
-					),
+					Effect.catchIf(isChangesConflict, () => Effect.succeed({ kind: "conflict" } as const)),
 					Effect.tap((result) =>
 						Effect.sync(() => {
 							if (result.kind === "saved") {

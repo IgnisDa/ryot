@@ -1,9 +1,8 @@
-import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isChangesConflict, type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
-	formatConflict,
 	formatError,
 	type RyotSubmission,
 	useRyotQuery,
@@ -173,7 +172,7 @@ function TimeForm(props: {
 			conflictToken: conflictToken.success,
 		});
 	};
-	const conflict = formatConflict(save.error, {}, text("client.adjust.conflict"));
+	const conflict = isChangesConflict(save.error) ? text("client.adjust.conflict") : undefined;
 	const conflicted = conflict !== undefined;
 	let submitLabel = text("client.adjust.save");
 	if (save.status === "retained") {

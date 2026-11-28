@@ -1,4 +1,8 @@
-import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import {
+	isEntitlementRequired,
+	isOperationRejected,
+	RyotClientError,
+} from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
@@ -542,9 +546,7 @@ export const createWorkoutEditorController = (
 					yield* flush();
 					const result = yield* ports.save(submission).pipe(
 						Effect.tapError((error) => {
-							const refused =
-								isEntitlementRequired(error) ||
-								(error instanceof RyotClientError && error.reason === "operation-rejected");
+							const refused = isEntitlementRequired(error) || isOperationRejected(error);
 							if (!refused || !isReady(snapshot)) {
 								return Effect.void;
 							}

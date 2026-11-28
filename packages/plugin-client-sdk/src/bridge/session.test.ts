@@ -23,7 +23,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
-import { RyotClientError } from "../client/errors";
+import { ChangesConflict, OperationRejected, RyotClientError } from "../client/errors";
 import { createPluginNavigationStore } from "../navigation/store";
 import { testBridgeLocale, waitForMessagePortMacrotask } from "../testing";
 import { createPluginRuntime } from "./session";
@@ -1372,7 +1372,7 @@ describe("plugin Effect request engine", () => {
 					reason: "operation-rejected",
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
-					failure: new RyotClientError({ rejection, reason: "operation-rejected" }),
+					failure: new OperationRejected({ rejection }),
 				});
 			}),
 		testTimeout,
@@ -1436,7 +1436,7 @@ describe("plugin Effect request engine", () => {
 					conflict: "state-conflict",
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
-					failure: new RyotClientError({ reason: "changes-conflict", conflict: "state-conflict" }),
+					failure: new ChangesConflict({ conflict: "state-conflict" }),
 				});
 			}),
 		testTimeout,

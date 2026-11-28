@@ -1,4 +1,4 @@
-import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isEntitlementRequired, isOperationRejected } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -68,9 +68,6 @@ export type SavedEntityId = Extract<
 type Editor = ReturnType<typeof useWorkoutEditor>;
 
 const saveLimitBytes = 64 * 1024;
-
-const isOperationRejected = (error: unknown): error is RyotClientError =>
-	error instanceof RyotClientError && error.reason === "operation-rejected";
 
 const checkIssueMessages = {
 	"invalid-rpe": "client.actions.check-issue.invalid-rpe",

@@ -1,9 +1,8 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isChangesConflict, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
-	formatConflict,
 	formatError,
 	type RyotSubmission,
 	usePluginIdentity,
@@ -65,17 +64,17 @@ const submissionErrorFallback = (text: MediaText, error: Error, retained: boolea
 			? text("user-data.error-transport")
 			: text("user-data.error-retry");
 	}
-	return (
-		formatConflict(
-			error,
-			{
-				"state-conflict": text("user-data.error-state-conflict"),
-				"entity-not-found": text("user-data.error-entity-not-found"),
-				"child-mapping-conflict": text("user-data.error-child-mapping-conflict"),
-			},
-			text("user-data.error-failed"),
-		) ?? text("user-data.error-failed")
-	);
+	const conflict = isChangesConflict(error) ? error.conflict : undefined;
+	if (conflict === "state-conflict") {
+		return text("user-data.error-state-conflict");
+	}
+	if (conflict === "entity-not-found") {
+		return text("user-data.error-entity-not-found");
+	}
+	if (conflict === "child-mapping-conflict") {
+		return text("user-data.error-child-mapping-conflict");
+	}
+	return text("user-data.error-failed");
 };
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {

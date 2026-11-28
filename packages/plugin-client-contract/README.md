@@ -59,14 +59,21 @@ visible IDs, and the kernel sends entity ID plus `populated` or `translated`. Th
 request IDs, acknowledgements, tickets, credentials, user identity, or server fields. The shared
 declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
-The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
-`asset-failed`, `collection-failed`, `entity-save-failed`, `query-failed`, `invalid-input`,
-`operation-failed`, `operation-rejected`, `changes-conflict`, `malformed-result`,
-`unsupported-capability`, `invalid-request`, and `quota`.
+The complete public `RyotClientErrorReason` set is `RyotClientPlainErrorReason` (`transport`,
+`operation-failed`, `entitlement-required`, `page-write-access-required`, `malformed-result`,
+`link-open-failed`, `activation-required`, `disposed`, `protocol`, `asset-failed`,
+`collection-failed`, `collection-stale`, `entity-save-failed`, `query-failed`, `invalid-input`,
+`unsupported-capability`, `invalid-request`, and `quota`) plus `operation-rejected` and
+`changes-conflict`, the two that carry detail; host screen results fail only with plain reasons.
+`mayHaveApplied(reason)` answers whether a request that failed for that client or background
+submission reason may still have been applied (`transport`, `protocol`, `disposed`,
+`malformed-result`), so only a retry settles it.
 
 A successful `operation-result` carries the operation's `value` and `committed`, the kernel's
 `CommittedChanges` for the changes the operation returned (empty `events` when nothing was
-committed). `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
+committed). `pluginOperationFailures(fields, plainReason)` defines the failure variants that
+`operation-result`, `PluginOperationOutcome` and `background-operation-settled` share. Their plain
+reasons are `PluginOperationPlainFailureReason`. `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
 with its `CommitConflictCode` as `conflict` (the kernel's commit of the operation's changes found a
 stale baseline or refused changed user data), or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform

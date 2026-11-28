@@ -9,6 +9,7 @@ import {
 	BACKGROUND_SUBMISSION_LIMITS,
 	type BackgroundSubmissionFailureClass,
 	type BackgroundSubmissionOutcome,
+	mayHaveApplied,
 	type PluginBackgroundOperationRequest,
 	type PluginOperationRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -76,11 +77,8 @@ type SubmissionRecord = {
 	readonly settle: BackgroundSubmissionBinding["settle"];
 };
 
-const retryableReasons: ReadonlySet<BackgroundSubmissionFailureClass> =
-	new Set<BackgroundSubmissionFailureClass>(["transport", "malformed-result"]);
-
 export const isRetryable = (state: BackgroundSubmissionState) =>
-	state.status === "failed" && retryableReasons.has(state.reason);
+	state.status === "failed" && mayHaveApplied(state.reason);
 
 export const resolveBackgroundSubmissionTarget = (
 	identity: Pick<PreparedClientPage["identity"], "contributors" | "operationTargets">,

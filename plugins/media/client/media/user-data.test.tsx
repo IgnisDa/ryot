@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { ChangesConflict, OperationRejected, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -239,8 +239,7 @@ it.live.each([
 	testTimeout,
 );
 
-const conflictError = (conflict: NonNullable<RyotClientError["conflict"]>) =>
-	new RyotClientError({ conflict, reason: "changes-conflict" });
+const conflictError = (conflict: ChangesConflict["conflict"]) => new ChangesConflict({ conflict });
 
 for (const [failure, error, message] of [
 	[
@@ -261,8 +260,7 @@ for (const [failure, error, message] of [
 	["an entity-stale conflict", conflictError("entity-stale"), "Couldn't finish this change."],
 	[
 		"a refusal with its reason",
-		new RyotClientError({
-			reason: "operation-rejected",
+		new OperationRejected({
 			rejection: { namespace: "kernel", key: "error.entity-user-data.identity-mismatch" },
 		}),
 		"These items do not match. Choose a destination with the same identity.",
@@ -351,8 +349,7 @@ it.live(
 				{
 					invokeOperation: () =>
 						Effect.fail(
-							new RyotClientError({
-								reason: "operation-rejected",
+							new OperationRejected({
 								rejection: { namespace: "kernel", key: "client.demo-protection.unavailable" },
 							}),
 						),
