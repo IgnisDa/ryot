@@ -3,9 +3,9 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run dev.ts",
+		"test": "bun ./test.ts",
 		"build": "bun run tooling/build.ts",
 		"assemble": "bun run tooling/assemble.ts",
-		"test": "bun ./test.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix",
 		"run-migration": "bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts"
 	},
