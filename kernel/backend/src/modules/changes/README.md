@@ -159,10 +159,12 @@ after commit; a failure in any part rolls back every part. Durable callers run t
 Each commit attempt creates one `WritePreparation`, handed to every preparation step, and each commit
 transaction is an events transaction whose `WriteTransaction` names that preparation and is handed to
 every repository write, `EventMutations`, the policies and the planner; features keep their state for
-either scope through `writeState`. A
-background-lane commit, or one passing `queueFolds` (provider population), stores its change lists and
-queues fold jobs, which fold outside any transaction; an interactive commit folds inline, so a
-successful save includes its derived state (see [folds](../derived-values/README.md#when-a-fold-runs-and-in-which-mode)).
+either scope through `writeState`. Every
+commit transaction stores its change lists and queues fold jobs. An interactive commit then folds its
+subjects outside any transaction before it returns, so a successful save normally includes its derived
+state; a background-lane commit, or one passing `queueFolds` (provider population), leaves them to
+their jobs (see [folds](../derived-values/README.md#when-a-fold-runs)). A fold that fails never rolls
+back the commit.
 
 ### Preconditions
 

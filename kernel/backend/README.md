@@ -43,8 +43,8 @@ its replacement. Multiple backend processes require additional engineering.
 Feature Layers compose dependencies; boot composes features. Upward effects use generic durable
 queue hooks or transaction-scoped ports rather than reverse module dependencies. A write's
 transaction admits its pinned [after-hook runs](src/modules/automations/README.md) and queues its
-background [fold jobs](src/modules/derived-values/README.md); runs dispatch after commit, and the
-frequent cron recovers admitted runs.
+[fold jobs](src/modules/derived-values/README.md); runs dispatch after commit, and the frequent cron
+recovers admitted runs.
 `LifecyclePlanner` persists source-write planning, immutable triggers, recipients, and pinned runs in
 the caller's transaction. It executes neither sandbox code nor workflows; execution starts after
 commit. Provider population composes the import workflow, and external event creation runs

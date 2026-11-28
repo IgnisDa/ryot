@@ -127,8 +127,8 @@ Deleting a referenced event locks its referrers' entity rows with its own before
 removes its index rows after the event row, so a concurrent referrer that locked the target is seen
 once it commits. The events transaction collects the released referrers
 and, after its work and after each applied fold change, removes those properties from referrers that
-still hold them: their revision advances, their scopes are touched and their subjects refold before
-the transaction settles. The clear runs no policies or hooks. This covers direct and batch deletes,
+still hold them: their revision advances, their scopes are touched and their subjects are queued for
+folding with the transaction's other changes. The clear runs no policies or hooks. This covers direct and batch deletes,
 events a fold deletes, entity cascades and user-data clears; a referrer deleted in the same
 transaction is simply gone. Merges move
 events by ID, so references to moved events stay valid; references to the transient evidence a merge

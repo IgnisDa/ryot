@@ -774,9 +774,8 @@ The library summary holds the lifecycle state, release date and latest activity,
 Podcast its next airing, its aired, upcoming, completed and in-progress regular-episode counts, and
 its next-up episode. Show and Podcast card presentations read the state and counts from it, and
 lifecycle lists read the next-up episode, only while the link's projection status is `ready`. A
-background-lane write leaves the summary `pending` with its last output until its fold job writes,
-and a failed job leaves it `failed`, so while the summary is pending, failed or missing they are
-computed live. An airing changes them without a fold, so once the summary's next airing passes, the
+write leaves the summary `pending` with its last output until its fold writes, and a failed fold
+leaves it `failed`, so while the summary is pending, failed or missing they are computed live. An airing changes them without a fold, so once the summary's next airing passes, the
 aired and upcoming counts and the next-up episode are computed live. The completed and in-progress
 counts change only when an episode the user has progress on airs, so they stay stored until the
 summary's next tracked airing passes. Each stores the earliest airtime and the earliest date of an
@@ -804,7 +803,7 @@ inventory, because `media-entity-updated` and `media-relationship-sync` return a
 request for the library titles they touch. One request holds at most 100 entities, so relationship
 sync batches are capped at 100 items.
 
-A full replay (a new subject, a revision whose fold changed, a fold job) reads the whole history.
+A full replay (a new subject, a revision whose fold changed, a fold request) reads the whole history.
 `backend/fold/incremental.ts` handles a change list without it:
 
 - An append, every changed event created after every existing consumption event, continues each
@@ -831,10 +830,10 @@ history work; links refresh on every run.
 
 Completion time follows the closing coverage event; consumption sources are the ordered union of the
 supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
-A fold's writes commit with the write that caused them. If it cannot finish inline, the write still
-commits and a `fold` job takes over; meanwhile the previous contributions and summaries stay visible and
-processing reads as pending. A subject that keeps failing reads as failed, and its next write folds it
-again.
+A fold runs right after the write that caused it, before the save returns, and commits its own writes.
+If it cannot finish, the write still stands and a `fold` job takes over; meanwhile the previous
+contributions and summaries stay visible and processing reads as pending. A subject that keeps failing
+reads as failed, and its next write folds it again.
 
 100% progress completes other flat media. Anime/Manga complete when a progress event's
 position reaches the total of its basis, in the same unit (episodes, chapters or volumes), or its

@@ -515,7 +515,7 @@ annotations. See
 ### Folds
 
 Set `fold: { scriptSlug, eventSchemaSlugs }` on an entity schema to derive values from its subjects'
-events in the transaction that writes them. An event of a listed slug belongs to its session entity when
+events after each write that changes them. An event of a listed slug belongs to its session entity when
 the session's schema folds that slug, and otherwise to its own entity. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
@@ -532,7 +532,8 @@ mapping the entity and event IDs it holds to their new ones; carry over whatever
 
 - `null` asks for a full replay: read the subject's history and return one `events` entry per subject
   event with a projection and one `relationships` entry per projected link from the subject. The kernel
-  replaces all of the subject's outputs with them. New subjects, rebuilds and fold jobs replay.
+  replaces all of the subject's outputs with them. New subjects, rebuilds, merges and fold requests
+  replay.
 - Otherwise it lists `{ before, after }` for each changed event: `before` is its image while it belonged
   to the subject (`null` for a create or an event that moved in) and `after` its image now (`null` once
   deleted or moved away). Combine `value` with the changes and return only outputs that changed; read
@@ -545,9 +546,11 @@ equal a full replay of the same history, so keep in `value` whatever an update n
 fall back to reading the history when it cannot be bounded.
 
 `changes` in a result are applied before the kernel runs the fold a second time, once for every subject
-they changed, with their images. A subject's second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
-also runs later as a job, for example after a background-lane write, so it must compute the same result
-however late it runs. A revision whose fold script and folded event schemas are unchanged keeps every
+they changed, with their images. A subject whose second run returns changes again is marked failed.
+Fold-owned events skip before-policies and after-hooks. A fold runs right after an interactive write,
+outside its transaction, or later as a job, for example after a background-lane write or when that
+first run fails, so it must compute the same result however late it runs. A failing fold never undoes
+the write; its subject reads as pending, or failed, until a fold succeeds. A revision whose fold script and folded event schemas are unchanged keeps every
 stored value; changing either replays every subject.
 See [folds](../../kernel/backend/src/modules/derived-values/README.md).
 

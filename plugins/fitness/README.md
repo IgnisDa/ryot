@@ -153,7 +153,7 @@ shared optional 0–100 `ReviewRating`, and the manifest's rating field is the s
 field. Create, update, and delete return one event change as their change set; updates patch only text/rating through the shared review patch helper. Input text is
 trimmed/bounded, while stored text remains unbounded for migrated notes. The exercise page shows and
 enters note ratings in the user's kernel rating scale with the UI SDK rating components. `workout-delete` removes the workout, events, and
-relationships, recalculates surviving exercise records in the same write, and leaves exercises/templates and
+relationships, recalculates surviving exercise records right after the write, and leaves exercises/templates and
 separately logged measurements intact. `workout-template-delete` removes the template and its
 relationships, leaving workouts started from it intact. Collection additions preserve existing
 membership properties.
@@ -386,8 +386,8 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
 - `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`.
   `backend/exercise-records.sandbox.ts` computes statistics and badges per recorded kind into separate
-  projection rows, without changing source events or replaying historical hooks. It runs in the write
-  that changes a set, including a workout time correction, which moves its sets. Sets order by
+  projection rows, without changing source events or replaying historical hooks. It runs right after
+  each write that changes a set, including a workout time correction, which moves its sets. Sets order by
   occurrence, workout start, workout, exercise order, set order and ID. The fold's value holds every
   personal best in that order, the running maximum of each kind and record type. A full replay reads
   every set. `backend/exercise-records.ts` updates from a change list instead: the bests before the
