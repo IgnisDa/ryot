@@ -31,7 +31,7 @@ import {
 	UserLifecycleJobOperationsLive,
 } from "./job";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 const userId = UserId.make("user-1");
 const payload = { operationId: "operation-1" };
@@ -75,8 +75,8 @@ layer(
 		Effect.succeed({
 			fail: () => record("fail"),
 			complete: () => record("complete"),
-			revokeAccess: () => record("revoke"),
 			cleanupObjects: () => record("objects"),
+			purgeApiKeyCaches: () => record("purge"),
 			finishResetUser: () => Effect.die("unused"),
 			deleteDatabaseUser: () => record("database"),
 			recreateResetUser: () => Effect.die("unused"),
@@ -86,12 +86,12 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"revokes access before it starts and deletes database ownership only after physical cleanup",
+		"purges API-key caches before it starts and deletes database ownership only after physical cleanup",
 		() =>
 			Effect.gen(function* () {
 				yield* runUserLifecycleJob(payload, { attempt: 1, id: "job-1" });
 				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
-					"revoke",
+					"purge",
 					"begin",
 					"objects",
 					"database",
@@ -108,8 +108,8 @@ layer(
 			const cleanupAttempts = yield* Ref.make(0);
 			return {
 				fail: () => record("fail"),
-				revokeAccess: () => Effect.void,
 				complete: () => record("complete"),
+				purgeApiKeyCaches: () => Effect.void,
 				finishResetUser: () => Effect.die("unused"),
 				deleteDatabaseUser: () => record("database"),
 				recreateResetUser: () => Effect.die("unused"),
@@ -145,7 +145,7 @@ layer(
 layer(
 	scriptedOperationsLayer(({ recordFailure }) =>
 		Effect.succeed({
-			revokeAccess: () => Effect.void,
+			purgeApiKeyCaches: () => Effect.void,
 			complete: () => Effect.die("unused"),
 			begin: () => Effect.fail(unexpected()),
 			cleanupObjects: () => Effect.die("unused"),
@@ -176,7 +176,7 @@ layer(
 layer(
 	scriptedOperationsLayer(({ record }) =>
 		Effect.gen(function* () {
-			const revocationAttempts = yield* Ref.make(0);
+			const purgeAttempts = yield* Ref.make(0);
 			return {
 				fail: () => record("fail"),
 				complete: () => record("complete"),
@@ -186,9 +186,9 @@ layer(
 				recreateResetUser: () => Effect.die("unused"),
 				bootstrapResetUser: () => Effect.die("unused"),
 				begin: () => record("begin").pipe(Effect.as("delete" as const)),
-				revokeAccess: () =>
-					Ref.updateAndGet(revocationAttempts, (count) => count + 1).pipe(
-						Effect.tap((attempt) => record(`revoke-${attempt}`)),
+				purgeApiKeyCaches: () =>
+					Ref.updateAndGet(purgeAttempts, (count) => count + 1).pipe(
+						Effect.tap((attempt) => record(`purge-${attempt}`)),
 						Effect.flatMap((attempt) => (attempt === 1 ? Effect.fail(unexpected()) : Effect.void)),
 					),
 			};
@@ -196,15 +196,15 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"starts nothing until an attempt revokes access",
+		"starts nothing until an attempt purges API-key caches",
 		() =>
 			Effect.gen(function* () {
 				const first = yield* Effect.exit(runUserLifecycleJob(payload, { attempt: 1, id: "job-1" }));
 				expect(first._tag).toBe("Failure");
 				yield* runUserLifecycleJob(payload, { attempt: 2, id: "job-1" });
 				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
-					"revoke-1",
-					"revoke-2",
+					"purge-1",
+					"purge-2",
 					"begin",
 					"objects",
 					"database",
@@ -220,8 +220,8 @@ const resetResult = { userId, resetUrl: null, email: "user@example.com" };
 layer(
 	scriptedOperationsLayer(({ record }) =>
 		Effect.succeed({
-			revokeAccess: () => Effect.void,
 			fail: () => Effect.die("unused"),
+			purgeApiKeyCaches: () => Effect.void,
 			cleanupObjects: () => record("objects"),
 			deleteDatabaseUser: () => record("database"),
 			begin: () => Effect.succeed("reset" as const),
@@ -267,7 +267,6 @@ const liveOperationsLayer = <R, E>(dependencies: {
 				Layer.mergeAll(
 					Layer.mock(WorkflowEngine)({}),
 					Layer.mock(UserBootstrap)({}),
-					Layer.mock(UserLifecycleService)({}),
 					Layer.mock(PluginBootstrapEntities)({}),
 					dependencies.overrides,
 				),
@@ -279,7 +278,6 @@ const liveOperationsLayer = <R, E>(dependencies: {
 
 const deleteOperation = {
 	databaseCleanupCompletedAt: null,
-	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	operation: {
 		userId,
 		failure: null,
@@ -292,7 +290,6 @@ const deleteOperation = {
 		startedAt: "2026-08-24T00:00:01.000Z",
 	},
 	metadata: {
-		apiKeys: [],
 		accounts: [],
 		usesLocalAuth: true,
 		recreatedAccountId: "account-1",
@@ -368,10 +365,8 @@ layer(
 });
 
 const resetOperation = {
-	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
 	metadata: {
-		apiKeys: [],
 		locators: [],
 		accounts: [],
 		usesLocalAuth: true,

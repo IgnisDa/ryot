@@ -4,7 +4,7 @@ import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
-import { and, asc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, like, type SQL, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -53,6 +53,10 @@ export type InternalOAuthClient = Pick<
 	| "tokenEndpointAuthMethod"
 	| "clientCredentialsScopes"
 >;
+
+type OAuthTokenTable = typeof schema.oauthAccessToken | typeof schema.oauthRefreshToken;
+
+export const PASSWORD_RESET_IDENTIFIER_PREFIX = "reset-password:";
 
 export class AuthRepository extends Context.Service<AuthRepository>()(
 	"@ryot-app/kernel-backend/modules/accounts/auth/repository/AuthRepository",
@@ -220,9 +224,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				);
 			});
 			const revokeOAuthTokens = Effect.fn("AuthRepository.revokeOAuthTokens")(function* (
-				field: "userId" | "sessionId",
-				id: string,
-				clientId?: string,
+				matches: (token: OAuthTokenTable) => SQL | undefined,
 			) {
 				const revoked = yield* DateTime.nowAsDate;
 				const tokens = [schema.oauthRefreshToken, schema.oauthAccessToken] as const;
@@ -232,13 +234,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 							db
 								.update(token)
 								.set({ revoked })
-								.where(
-									and(
-										eq(token[field], id),
-										isNull(token.revoked),
-										clientId === undefined ? undefined : eq(token.clientId, clientId),
-									),
-								),
+								.where(and(matches(token), isNull(token.revoked))),
 						),
 						{ discard: true },
 					),
@@ -248,8 +244,48 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 			const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
 				userId: UserId,
 			) {
-				yield* revokeOAuthTokens("userId", userId);
+				yield* revokeOAuthTokens((token) => eq(token.userId, userId));
 			});
+
+			const deleteUserSessions = Effect.fn("AuthRepository.deleteUserSessions")(function* (
+				userId: UserId,
+			) {
+				const impersonations = yield* database.run((db) =>
+					db
+						.select({ id: schema.session.id })
+						.from(schema.session)
+						.where(
+							and(
+								eq(schema.session.userId, userId),
+								isNotNull(schema.session.impersonationExpiresAt),
+							),
+						),
+				);
+				const impersonationSessionIds = impersonations.map(({ id }) => id);
+				// Deleting a session clears its tokens' session ID, so an impersonation's tokens are revoked first.
+				if (impersonationSessionIds.length > 0) {
+					yield* revokeOAuthTokens((token) => inArray(token.sessionId, impersonationSessionIds));
+				}
+				yield* database.run((db) =>
+					db.delete(schema.session).where(eq(schema.session.userId, userId)),
+				);
+				return impersonationSessionIds;
+			});
+
+			const revokeUserPasswordResetLinks = Effect.fn("AuthRepository.revokeUserPasswordResetLinks")(
+				function* (userId: UserId) {
+					yield* database.run((db) =>
+						db
+							.delete(schema.verification)
+							.where(
+								and(
+									eq(schema.verification.value, userId),
+									like(schema.verification.identifier, `${PASSWORD_RESET_IDENTIFIER_PREFIX}%`),
+								),
+							),
+					);
+				},
+			);
 
 			const revokeUserOAuthConsent = Effect.fn("AuthRepository.revokeUserOAuthConsent")(function* (
 				userId: UserId,
@@ -270,11 +306,24 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 									.returning({ clientId: schema.oauthConsent.clientId }),
 							);
 							if (consent) {
-								yield* revokeOAuthTokens("userId", userId, consent.clientId);
+								yield* revokeOAuthTokens((token) =>
+									and(eq(token.userId, userId), eq(token.clientId, consent.clientId)),
+								);
 							}
 						}),
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			});
+
+			const listUserApiKeys = Effect.fn("AuthRepository.listUserApiKeys")(function* (
+				userId: UserId,
+			) {
+				return yield* database.run((db) =>
+					db
+						.select({ id: schema.apikey.id, key: schema.apikey.key })
+						.from(schema.apikey)
+						.where(eq(schema.apikey.referenceId, userId)),
+				);
 			});
 
 			const deleteUserApiKeys = Effect.fn("AuthRepository.deleteUserApiKeys")(function* (
@@ -340,7 +389,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 
 			const revokeSessionOAuthTokens = Effect.fn("AuthRepository.revokeSessionOAuthTokens")(
 				function* (sessionId: string) {
-					yield* revokeOAuthTokens("sessionId", sessionId);
+					yield* revokeOAuthTokens((token) => eq(token.sessionId, sessionId));
 				},
 			);
 
@@ -403,8 +452,10 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 			return {
 				findSession,
 				findUserById,
+				listUserApiKeys,
 				deleteUserApiKey,
 				deleteUserApiKeys,
+				deleteUserSessions,
 				updateUserDisabled,
 				getUserPreferences,
 				getPortableProfile,
@@ -418,6 +469,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				initializeInterfaceLocale,
 				upsertInternalOAuthClient,
 				upsertInternalOAuthResource,
+				revokeUserPasswordResetLinks,
 				upsertInternalOAuthClientResource,
 				deleteInternalOAuthClientResources,
 			};

@@ -17,8 +17,6 @@ export const userLifecycleOperation = snakeCase.table(
 		startedAt: timestamptz(),
 		finishedAt: timestamptz(),
 		metadata: jsonb().notNull(),
-		accessRevokedAt: timestamptz(),
-		accessRevocationStartedAt: timestamptz(),
 		databaseCleanupCompletedAt: timestamptz(),
 		resetResult: jsonb().$type<UserResetResult>(),
 		createdAt: timestamptz().defaultNow().notNull(),

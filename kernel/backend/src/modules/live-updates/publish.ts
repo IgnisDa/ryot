@@ -59,6 +59,17 @@ export const publishDerivedDataUpdated = Effect.fn("publishDerivedDataUpdated")(
 		);
 });
 
+/** Closes the session's open streams. Joins the caller's transaction, if any. */
+export const publishImpersonationEnded = Effect.fn("publishImpersonationEnded")(function* (
+	sessionId: string,
+) {
+	const session = yield* DatabaseSession;
+	const message = yield* Schema.encodeEffect(ImpersonationEndedMessage)({ sessionId }).pipe(
+		Effect.orDie,
+	);
+	yield* session.run((db) => db.execute(broadcastStatement(impersonationEndedTopic, message)));
+});
+
 export const assistantUpdatedTopic = "assistant-updated";
 export const AssistantUpdatedMessage = Schema.fromJsonString(
 	Schema.Struct({

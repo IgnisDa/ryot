@@ -19749,32 +19749,6 @@
 		{
 			"schema": "public",
 			"table": "user_lifecycle_operation",
-			"name": "access_revoked_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "user_lifecycle_operation",
-			"name": "access_revocation_started_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "user_lifecycle_operation",
 			"name": "database_cleanup_completed_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,

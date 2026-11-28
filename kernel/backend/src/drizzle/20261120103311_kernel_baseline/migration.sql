@@ -1390,8 +1390,6 @@ CREATE TABLE "user_lifecycle_operation" (
 	"started_at" timestamp(3) with time zone,
 	"finished_at" timestamp(3) with time zone,
 	"metadata" jsonb NOT NULL,
-	"access_revoked_at" timestamp(3) with time zone,
-	"access_revocation_started_at" timestamp(3) with time zone,
 	"database_cleanup_completed_at" timestamp(3) with time zone,
 	"reset_result" jsonb,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,

@@ -58,7 +58,6 @@ const fakeAuthLayer = (errors: {
 				AuthService,
 				partialFake<AuthService["Service"]>({
 					currentUser: () => Effect.die("unused"),
-					purgeApiKeyCaches: () => Effect.die("unused"),
 					deleteUserSessions: () => Ref.set(sessionsDeleted, true),
 					auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 					createAuthUser: (user: Record<string, unknown>) =>

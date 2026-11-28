@@ -21,7 +21,6 @@ const UserLifecycleJobOperationsProvidedLive = UserLifecycleJobOperationsLive.pi
 			ObjectStorageServiceLive,
 			UserBootstrapLive,
 			IngestionExecutionLive,
-			UserLifecycleServiceLive,
 		),
 	),
 );

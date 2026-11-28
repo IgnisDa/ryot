@@ -50,7 +50,7 @@ it changes.
 
 Preference-only consumers capture `AuthRepository` at construction and call `getUserPreferences`, which returns decoded preferences or `null` for a missing user. Its Layer requires only `DatabaseSession`; it does not load the auth runtime. Consumers retain their own missing-user behavior. Reads that already need user columns decode preferences from that same row.
 
-Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches, and password reset deletes the user's API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
+Disable deletes the user's sessions. Reset and deletion also revoke its OAuth token records and password reset links and clear its API-key caches. Password reset ends its sessions, revokes its OAuth token records and remaining reset links, and deletes its API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
 
 ## Account Bootstrap
 
@@ -69,10 +69,11 @@ Reset and deletion lock the user row, mark it retiring, and delete the account's
 executions in the transaction that holds the lock. Account writes take a shared lock on the same row,
 so a write either commits before retirement starts or fails once it has begun; a job whose row is gone
 cannot commit work for the account. The transaction that creates or reactivates the operation also
-queues its lifecycle job, and the request then revokes access before it returns. The job revokes
-access first when it is still unrevoked, so an operation whose request failed or stopped after
-committing still revokes and runs. A request or job that finds another's revocation claim fresh waits
-until that revocation is recorded, or claims it once it is released or goes stale.
+revokes access and queues its lifecycle job: it disables the user, keeping an earlier disable time,
+deletes its sessions, and revokes its OAuth token records and password reset links, so access is
+revoked exactly when the operation exists. Requesting an operation that is already active returns it
+without revoking again. The job first clears the user's API-key caches, which a retry repeats
+harmlessly.
 
 ## Impersonation
 
@@ -84,7 +85,7 @@ The client replaces its previous login and shows an impersonation banner. Browse
 
 God-mode password reset capture reserves a random ID for each email, listens before initiating an internal Better Auth request, and carries that ID in the internal request header. The link arrives through a callback of that in-process request, so capture stays local. The reset callback delivers only if that request's ID still owns the reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 
-Reset links expire after 30 minutes. The server tracks the latest delivered link per user. Before publishing a link, delivery atomically records it only while the request's ID still owns the reservation and then revokes the link it replaced; failures abort delivery. Password reset and account reset or deletion revoke the tracked link.
+Reset links expire after 30 minutes. The server tracks the latest delivered link per user. Before publishing a link, delivery atomically records it only while the request's ID still owns the reservation and then revokes the link it replaced; failures abort delivery. Password reset and account reset or deletion revoke every reset link of the user.
 
 ## External OIDC
 

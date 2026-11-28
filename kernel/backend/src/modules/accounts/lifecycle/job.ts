@@ -22,12 +22,12 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { interruptExecutionAndWait } from "#platform/workflow/interruption";
 
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 type UserLifecycleJobOperationsValue = {
-	revokeAccess: (operationId: string) => Effect.Effect<void, InternalError>;
 	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
+	purgeApiKeyCaches: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
 	recreateResetUser: (operationId: string) => Effect.Effect<UserId, InternalError>;
 	finishResetUser: (operationId: string) => Effect.Effect<UserResetResult, InternalError>;
@@ -60,7 +60,6 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const bootstrap = yield* UserBootstrap;
 		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
-		const lifecycle = yield* UserLifecycleService;
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -70,10 +69,12 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 				),
 			);
 
-		const revokeAccess = (operationId: string) =>
+		const purgeApiKeyCaches = (operationId: string) =>
 			asUnexpected(
-				Effect.asVoid(lifecycle.revokeAccess(operationId)),
-				"User lifecycle access revocation failed",
+				Effect.flatMap(requireOperation(operationId), ({ operation }) =>
+					auth.purgeUserApiKeyCaches(operation.userId),
+				),
+				"User lifecycle API-key cache purge failed",
 			);
 
 		const begin = (operationId: string) =>
@@ -218,9 +219,9 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			fail,
 			begin,
 			complete,
-			revokeAccess,
 			cleanupObjects,
 			finishResetUser,
+			purgeApiKeyCaches,
 			recreateResetUser,
 			bootstrapResetUser,
 			deleteDatabaseUser,
@@ -251,11 +252,11 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 		return Option.none<A>();
 	});
 
-	const revoked = yield* step(
-		operations.revokeAccess(payload.operationId),
+	const purged = yield* step(
+		operations.purgeApiKeyCaches(payload.operationId),
 		"operation-start-failed",
 	);
-	if (Option.isNone(revoked)) {
+	if (Option.isNone(purged)) {
 		return;
 	}
 	const started = yield* step(operations.begin(payload.operationId), "operation-start-failed");
