@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { dueFrom } from "@ryot-app/contract/modules/analytics/calendar";
 import type { PluginSignalSchedule } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { castDate, column, field, jsonPath, table } from "@ryot-app/ryotql";
@@ -255,6 +256,19 @@ const schedule: PluginSignalSchedule = {
 	},
 };
 
+class HeldEntitlements extends Context.Service<HeldEntitlements, Ref.Ref<Entitlements>>()(
+	"@ryot-app/kernel-backend/modules/signal-schedules/worker.test/HeldEntitlements",
+) {}
+
+const heldEntitlements = Layer.effectContext(
+	Effect.gen(function* () {
+		const held = yield* Ref.make<Entitlements>([]);
+		return Context.make(EntitlementService, entitlementServiceFrom(Ref.get(held))).pipe(
+			Context.add(HeldEntitlements, held),
+		);
+	}),
+);
+
 class Fixture extends Context.Service<Fixture, { readonly pluginId: string }>()(
 	"@ryot-app/kernel-backend/modules/signal-schedules/worker.test/Fixture",
 ) {}
@@ -287,12 +301,7 @@ const fixture = Layer.effect(
 
 const services = SignalScheduleWorker.layer.pipe(
 	Layer.provideMerge(
-		Layer.mergeAll(
-			fixture,
-			recordedQueries,
-			SignalScheduleRepository.layer,
-			Layer.succeed(EntitlementService, entitlementServiceFrom(Effect.succeed([]))),
-		),
+		Layer.mergeAll(fixture, recordedQueries, SignalScheduleRepository.layer, heldEntitlements),
 	),
 	Layer.provideMerge(Layer.effect(ChangeSets, userDataChangeSets())),
 	Layer.provideMerge(
@@ -496,6 +505,35 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(services))))((test) => 
 			expect(yield* runAt(start + hours(25))).toEqual({ queries: 0, delivered: [] });
 			expect(yield* runAt(start + hours(49))).toEqual({ queries: 0, delivered: [] });
 		}),
+	);
+
+	test.effect("keeps no evaluation current once its schedule's entitlement is no longer held", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const held = yield* HeldEntitlements;
+			const evaluations = (yield* DatabaseSession).run((db) =>
+				db
+					.select({
+						slug: tables.signalScheduleEvaluation.scheduleSlug,
+						evaluatedAt: tables.signalScheduleEvaluation.evaluatedAt,
+					})
+					.from(tables.signalScheduleEvaluation)
+					.orderBy(tables.signalScheduleEvaluation.scheduleSlug),
+			);
+			yield* Ref.set(held, ["pro"]);
+			expect(yield* runAt(start)).toEqual({ queries: 2, delivered: [] });
+			yield* Ref.set(held, []);
+			expect(yield* runAt(start + hours(2))).toEqual({ queries: 0, delivered: [] });
+			expect(
+				(yield* evaluations).map(({ slug, evaluatedAt }) => ({
+					slug,
+					evaluatedAt: evaluatedAt.getTime(),
+				})),
+			).toEqual([
+				{ evaluatedAt: start, slug: "pro-schedule" },
+				{ slug: "schedule", evaluatedAt: start + hours(2) },
+			]);
+		}).pipe(Effect.ensuring(Effect.flatMap(HeldEntitlements, (held) => Ref.set(held, [])))),
 	);
 
 	test.effect("evaluates again once a write that was running during its evaluation commits", () =>

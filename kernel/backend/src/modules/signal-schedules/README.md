@@ -89,7 +89,9 @@ snapshot's `xmin` and the current one. This retention runs whatever the dispatch
 `scheduler.disableDispatchers` the run evaluates nothing after it. Otherwise the run takes its
 snapshot and moves to it every current target's evaluation taken over an hour earlier that has no
 unseen data change and no `next_due_at` by now, since evaluating it would find nothing new; that
-keeps an hour of data changes. A current target has an active user, an active subscription and a
-schedule in its plugin's active revision; evaluations of others age out. No evaluation the run saves
-can need a deleted row; runs are serial because the frequent cron job runs one at a time.
+keeps an hour of data changes. One subquery defines the current targets for this and for the target
+listing: each schedule in the active revision of a listed, effective plugin installation, for an
+active user with an active subscription to its signal, whose entitlement the deployment holds;
+evaluations of other targets age out. No evaluation the run saves can need a deleted row; runs are
+serial because the frequent cron job runs one at a time.
 Evaluations of a page are saved together. Occurrences come in pages of 100, five per target.

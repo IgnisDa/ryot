@@ -287,11 +287,13 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				if (config.scheduler.disableDispatchers) {
 					return;
 				}
+				const active = yield* entitlements.current;
 				const snapshot = yield* repository.currentSnapshot();
 				yield* repository
 					.advanceSnapshots({
 						now,
 						snapshot,
+						entitlements: active,
 						before: DateTime.toDate(DateTime.subtract(at, { hours: SNAPSHOT_HOURS })),
 					})
 					.pipe(
@@ -299,7 +301,6 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							Effect.logWarning("Signal schedule snapshot advance failed", cause),
 						),
 					);
-				const active = yield* entitlements.current;
 				let after = yield* Ref.get(resumeAfter);
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
 					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets({
