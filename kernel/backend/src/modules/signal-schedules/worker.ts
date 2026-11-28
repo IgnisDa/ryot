@@ -266,9 +266,6 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 			});
 
 			const run = Effect.fn("SignalScheduleWorker.run")(function* () {
-				if (config.scheduler.disableDispatchers) {
-					return;
-				}
 				const now = yield* DateTime.nowAsDate;
 				const at = DateTime.makeUnsafe(now);
 				yield* repository
@@ -287,6 +284,9 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							Effect.logWarning("Signal schedule evaluation pruning failed", cause),
 						),
 					);
+				if (config.scheduler.disableDispatchers) {
+					return;
+				}
 				const snapshot = yield* repository.currentSnapshot();
 				yield* repository
 					.advanceSnapshots({

@@ -36,6 +36,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
+import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { EntitlementService, entitlementServiceFrom } from "#platform/entitlements";
 import * as tables from "#schema/tables/combined";
@@ -519,6 +520,37 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(services))))((test) => 
 			yield* Fiber.join(writer);
 			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: ["late"] });
 			expect(yield* runAt(start + 180_000)).toEqual({ queries: 0, delivered: ["late"] });
+		}),
+	);
+
+	test.effect("prunes data changes but evaluates nothing while dispatchers are disabled", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const session = yield* DatabaseSession;
+			// Older than every running transaction, so retention always deletes it.
+			const pruned = { userId: owner, schemaSlug: null, transactionId: "3" };
+			const changes = session.run((db) =>
+				db
+					.select({ transactionId: sql<string>`${tables.dataChange.transactionId}::text` })
+					.from(tables.dataChange),
+			);
+			yield* session.run((db) => db.insert(tables.dataChange).values(pruned));
+			yield* insertEntity("due", start - hours(1));
+			expect(yield* changes).toContainEqual({ transactionId: "3" });
+			const config = yield* AppConfig;
+			const worker = yield* SignalScheduleWorker.make.pipe(
+				Effect.provideService(AppConfig, {
+					...config,
+					scheduler: { ...config.scheduler, disableDispatchers: true },
+				}),
+			);
+			expect(yield* runAt(start).pipe(Effect.provideService(SignalScheduleWorker, worker))).toEqual(
+				{ queries: 0, delivered: [] },
+			);
+			expect(yield* changes).not.toContainEqual({ transactionId: "3" });
+			expect(yield* session.run((db) => db.select().from(tables.signalScheduleEvaluation))).toEqual(
+				[],
+			);
 		}),
 	);
 

@@ -83,11 +83,13 @@ read the clock, a local-day boundary or a date-precision `dueAt` enters the wind
 `next_due_at`, a row's freshness only expires, and a new plugin revision or catalog change writes a
 plugin or installation row.
 
-`evaluated_at` is when the evaluation's snapshot was taken. Each run first deletes evaluations older
-than two days and the `data_change` rows below every remaining snapshot's `xmin` and the current one,
-then takes its snapshot and moves to it every current target's evaluation taken over an hour earlier
-that has no unseen data change and no `next_due_at` by now, since evaluating it would find nothing
-new; that keeps an hour of data changes. A current target has an active user, an active subscription
-and a schedule in its plugin's active revision; evaluations of others age out. No evaluation the
-run saves can need a deleted row; runs are serial because the frequent cron job runs one at a time.
+`evaluated_at` is when the evaluation's snapshot was taken. Each run first deletes deliveries older
+than 30 days, evaluations older than two days and the `data_change` rows below every remaining
+snapshot's `xmin` and the current one. This retention runs whatever the dispatcher configuration; with
+`scheduler.disableDispatchers` the run evaluates nothing after it. Otherwise the run takes its
+snapshot and moves to it every current target's evaluation taken over an hour earlier that has no
+unseen data change and no `next_due_at` by now, since evaluating it would find nothing new; that
+keeps an hour of data changes. A current target has an active user, an active subscription and a
+schedule in its plugin's active revision; evaluations of others age out. No evaluation the run saves
+can need a deleted row; runs are serial because the frequent cron job runs one at a time.
 Evaluations of a page are saved together. Occurrences come in pages of 100, five per target.
