@@ -2,7 +2,8 @@ import { Schema } from "effect";
 
 import { EntityId, EventId, RelationshipId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
-import { strictStruct } from "../../schema/utils";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
+import { CalendarDate } from "../analytics/reporting";
 import { EventChange } from "./mutations";
 
 export const FOLD_LIMITS = {
@@ -59,9 +60,20 @@ export const FoldInput = strictStruct({
 });
 export type FoldInput = typeof FoldInput.Type;
 
-/** What a fold derived for one subject. */
+/**
+ * When a subject's value next changes on its own, with no write: at the start of `date` in the
+ * user's reporting time zone, or at `instant`.
+ */
+export const FoldRefresh = Schema.Union([
+	strictStruct({ date: CalendarDate }),
+	strictStruct({ instant: IsoUtcString }),
+]);
+export type FoldRefresh = typeof FoldRefresh.Type;
+
+/** What a fold derived for one subject, and when to fold it again with no change. */
 export const FoldResult = strictStruct({
 	value: JsonValue,
+	refresh: Schema.optionalKey(FoldRefresh),
 	changes: Schema.Array(EventChange).check(Schema.isMaxLength(FOLD_LIMITS.changes)),
 	events: Schema.Array(
 		strictStruct({ eventId: EventId, properties: Schema.Record(Schema.String, JsonValue) }),
@@ -82,9 +94,15 @@ export type FoldSubjectOutput = typeof FoldSubjectOutput.Type;
 export const FoldOutput = strictStruct({ subjects: Schema.Array(FoldSubjectOutput) });
 export type FoldOutput = typeof FoldOutput.Type;
 
+/**
+ * Folds entities again: `replay` folds their whole history, and `refresh` folds them with no change,
+ * as for a change only to data outside their events.
+ */
 export const FoldRequest = strictStruct({
+	mode: Schema.Literals(["replay", "refresh"]),
 	entityIds: Schema.Array(EntityId).check(
 		Schema.isMinLength(1),
 		Schema.isMaxLength(FOLD_LIMITS.requestEntities),
 	),
 });
+export type FoldRequest = typeof FoldRequest.Type;

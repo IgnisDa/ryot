@@ -1547,6 +1547,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						yield* folds.request(
 							{
 								pluginId,
+								mode: input.folds.mode,
 								entityIds: input.folds.entityIds,
 								userId: input.folds.scope === "user" ? input.userId : null,
 							},

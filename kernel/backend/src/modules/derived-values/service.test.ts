@@ -5,6 +5,7 @@ import {
 	type FoldEventChange,
 	type FoldEventImage,
 	FoldInput,
+	type FoldRefresh,
 	type FoldSubjectInput,
 } from "@ryot-app/contract/modules/events/folds";
 import {
@@ -16,6 +17,7 @@ import {
 	type PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
@@ -32,6 +34,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 import type { SecureRandom } from "effect/crypto";
+import { TestClock } from "effect/testing";
 
 import { noLifecycleWorkLayer } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -167,6 +170,7 @@ type SubjectFold = (
 	subject: FoldSubjectInput,
 ) => Effect.Effect<{
 	readonly value: unknown;
+	readonly refresh?: FoldRefresh;
 	readonly events: ReadonlyArray<Projected>;
 	readonly changes?: ReadonlyArray<unknown>;
 }>;
@@ -501,6 +505,36 @@ const foldJobs = (entityIds: ReadonlyArray<EntityId>) =>
 				),
 		),
 	);
+
+const refreshOf = (entityId: EntityId) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db.execute<{ on: null | string; at: null | string }>(
+				`select refresh_on::text as on, to_char(refresh_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at
+				from derived_value where user_id = '${userId}' and kind = 'subject' and target_id = '${entityId}'`,
+				"objects",
+			),
+		),
+	);
+
+const setReportingTimeZone = (timeZone: string) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db.execute(
+				`update "user" set preferences = preferences || '{"reportingTimeZone": "${timeZone}"}' where id = '${userId}'`,
+			),
+		),
+	);
+
+/** Queued fold jobs in the order the job worker claims them. */
+const claimOrder = Effect.flatMap(DatabaseSession, (session) =>
+	session.run((db) =>
+		db.execute<{ key: string; priority: number }>(
+			`select key, priority from job where kind = 'fold' and status = 'queued' order by priority, run_at, id`,
+			"objects",
+		),
+	),
+);
 
 /** A change list as values and revisions, which do not depend on the subject it was recorded for. */
 const changeShape = (changes: null | undefined | ReadonlyArray<FoldEventChange>) =>
@@ -1255,6 +1289,131 @@ layer(testLayer)((test) => {
 					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
 				}),
 			),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"stores a fold's refresh time in the user's reporting time zone and resolves it again in a new one",
+		() =>
+			Effect.gen(function* () {
+				const refreshes = new Map<string, FoldRefresh>();
+				const { first, second, installed } = yield* setup((subject) =>
+					Effect.map(countingFold(subject), (output) => {
+						const refresh = refreshes.get(subject.subjectEntityId);
+						return refresh === undefined ? output : { ...output, refresh };
+					}),
+				);
+				refreshes.set(first, { date: "2026-12-01" });
+				refreshes.set(second, { instant: "2026-12-01T10:00:00.000Z" });
+				yield* setReportingTimeZone("Asia/Kolkata");
+				yield* createEvents(installed.pluginId, [
+					{ value: "one", entityId: first },
+					{ value: "two", entityId: second },
+				]);
+				expect(yield* refreshOf(first)).toEqual([
+					{ on: "2026-12-01", at: "2026-11-30T18:30:00.000Z" },
+				]);
+				expect(yield* refreshOf(second)).toEqual([{ on: null, at: "2026-12-01T10:00:00.000Z" }]);
+
+				const session = yield* DatabaseSession;
+				const marks = yield* FoldMarks;
+				yield* setReportingTimeZone("America/New_York");
+				yield* session.transaction(
+					marks.resolveRefreshes(userId, TimeZone.make("America/New_York")),
+				);
+				expect(yield* refreshOf(first)).toEqual([
+					{ on: "2026-12-01", at: "2026-12-01T05:00:00.000Z" },
+				]);
+				expect(yield* refreshOf(second)).toEqual([{ on: null, at: "2026-12-01T10:00:00.000Z" }]);
+
+				refreshes.delete(first);
+				yield* createEvents(installed.pluginId, [{ value: "three", entityId: first }]);
+				expect(yield* refreshOf(first)).toEqual([{ on: null, at: null }]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"queues the folds of subjects whose refresh time passed ahead of other fold jobs, with no change",
+		() =>
+			Effect.gen(function* () {
+				const refreshed = new Set<string>();
+				const { first, second, recorded, installed } = yield* setup((subject) =>
+					Effect.map(countingFold(subject), (output) =>
+						refreshed.has(subject.subjectEntityId) &&
+						(subject.changes === null || subject.changes.length > 0)
+							? { ...output, refresh: { instant: "1970-01-01T01:00:00.000Z" } }
+							: output,
+					),
+				);
+				refreshed.add(first);
+				yield* createEvents(installed.pluginId, [
+					{ value: "one", entityId: first },
+					{ value: "one", entityId: second },
+				]);
+				const session = yield* DatabaseSession;
+				const marks = yield* FoldMarks;
+				const queue = session.transaction(marks.queueRefreshes(10));
+				yield* TestClock.setTime(Date.parse("1970-01-01T00:59:59.999Z"));
+				expect(yield* queue).toBe(0);
+
+				yield* background((transaction) =>
+					createValues(transaction, installed.pluginId, second, ["two"]),
+				);
+				yield* TestClock.setTime(Date.parse("1970-01-01T01:00:00.000Z"));
+				expect(yield* queue).toBe(1);
+				expect(yield* queue).toBe(0);
+				expect(yield* refreshOf(first)).toEqual([{ on: null, at: null }]);
+				expect(yield* subjectState(first)).toEqual([{ replay: false, status: "pending" }]);
+				const [refresh, ...queued] = yield* claimOrder;
+				expect(refresh).toEqual({ priority: 0, key: `${userId}:${first}` });
+				expect(queued).toContainEqual({ priority: 1, key: `${userId}:${second}` });
+				expect(queued.map(({ priority }) => priority)).toEqual(queued.map(() => 1));
+
+				recorded.length = 0;
+				yield* runFoldJob([first]);
+				expect(recorded).toEqual([{ changes: [], subjectEntityId: first }]);
+				expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
+				expect(yield* refreshOf(first)).toEqual([{ on: null, at: null }]);
+				expect(yield* subjectValue(first)).toEqual({ runs: 2 });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"refreshes the entities of a fold request with no change, and replays them on request, for every user who folded them",
+		() =>
+			Effect.gen(function* () {
+				const { first, recorded, installed } = yield* setup();
+				yield* createEvents(installed.pluginId, [{ value: "one", entityId: first }]);
+				const session = yield* DatabaseSession;
+				const marks = yield* FoldMarks;
+				const request = (mode: "replay" | "refresh") =>
+					session.transaction(
+						marks.request(
+							{
+								mode,
+								userId: null,
+								entityIds: [first],
+								pluginId: PluginId.make(installed.pluginId),
+							},
+							new WriteTransaction(),
+						),
+					);
+				recorded.length = 0;
+				yield* request("refresh");
+				yield* runFoldJob([first]);
+				yield* request("replay");
+				yield* runFoldJob([first]);
+				expect(recorded).toEqual([
+					{ changes: [], subjectEntityId: first },
+					{ changes: null, subjectEntityId: first },
+				]);
+			}),
 		testTimeout,
 	);
 });

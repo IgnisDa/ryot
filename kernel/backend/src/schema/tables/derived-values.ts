@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
 	boolean,
 	check,
+	date,
 	index,
 	integer,
 	jsonb,
@@ -19,8 +20,10 @@ import { timestamptz } from "./timestamps";
 export const derivedValue = snakeCase.table(
 	"derived_value",
 	{
+		refreshAt: timestamptz(),
 		targetId: text().notNull(),
 		pluginRevisionId: text().notNull(),
+		refreshOn: date({ mode: "string" }),
 		revision: integer().notNull().default(0),
 		replay: boolean().notNull().default(false),
 		value: jsonb().$type<JsonValue>().notNull(),
@@ -41,6 +44,9 @@ export const derivedValue = snakeCase.table(
 	(table) => [
 		primaryKey({ columns: [table.userId, table.kind, table.targetId] }),
 		index("derived_value_subject_idx").on(table.subjectEntityId, table.userId),
+		index("derived_value_refresh_idx")
+			.on(table.refreshAt)
+			.where(sql`${table.refreshAt} is not null`),
 		check(
 			"derived_value_kind_check",
 			sql`${table.kind} in ('subject', 'event', 'relationship', 'absorbed')`,

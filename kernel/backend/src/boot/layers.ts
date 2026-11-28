@@ -42,6 +42,7 @@ import { ChangeSetsLive, ScriptChangesLive } from "#modules/changes/layer";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldJobsLive } from "#modules/derived-values/jobs";
+import { FoldMarks } from "#modules/derived-values/marks";
 import { Folds } from "#modules/derived-values/service";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -360,7 +361,9 @@ const RuntimeSchedulersLive = Layer.mergeAll(
 const RuntimeJobsLive = JobWorkerLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			FrequentCronJobLive.pipe(Layer.provide(EnrichmentRequests.layer)),
+			FrequentCronJobLive.pipe(
+				Layer.provide(Layer.merge(EnrichmentRequests.layer, FoldMarks.layer)),
+			),
 			NotificationDeliveryJobProvidedLive,
 			UserLifecycleJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			BackupJobsLive,

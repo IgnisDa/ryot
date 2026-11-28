@@ -44,7 +44,7 @@ when the window's end passes a known `dueAt` or when the data the query reads ch
 `signal_schedule_evaluation` keeps, per target, the PostgreSQL snapshot taken at the start of the
 run that evaluated it or last advanced it, the time zone and content language it used, and `next_due_at`: when the
 earliest fresh row due in the three days after that window's end enters the window
-(`signalScheduleDueFrom`), when the window reaches the end of those three days if there is none, or
+(`dueFrom` in the contract's calendar module, which also resolves fold refresh times), when the window reaches the end of those three days if there is none, or
 the evaluation time when the occurrence page limit cut it short. The closed look-ahead lets the
 queries start from an index on `dueAt` instead of reading every later row. A schedule with
 `instantAt` also looks for its earliest timed row in the three days after the instant window's end,

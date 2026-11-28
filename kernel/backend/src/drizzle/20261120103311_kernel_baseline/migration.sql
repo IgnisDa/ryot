@@ -494,6 +494,8 @@ CREATE TABLE "derived_value" (
 	"replay" boolean DEFAULT false NOT NULL,
 	"value" jsonb NOT NULL,
 	"value_version" integer DEFAULT 0 NOT NULL,
+	"refresh_at" timestamp(3) with time zone,
+	"refresh_on" date,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"kind" text,
 	"status" text DEFAULT 'ready' NOT NULL,
@@ -1482,6 +1484,7 @@ CREATE INDEX "definition_relationship_schema_slug_idx" ON "definition_relationsh
 CREATE INDEX "definition_saved_view_slug_idx" ON "definition_saved_view" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_signal_schema_slug_idx" ON "definition_signal_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "derived_value_subject_idx" ON "derived_value" ("subject_entity_id","user_id");--> statement-breakpoint
+CREATE INDEX "derived_value_refresh_idx" ON "derived_value" ("refresh_at") WHERE "refresh_at" is not null;--> statement-breakpoint
 CREATE INDEX "entity_user_schema_name_idx" ON "entity" ("user_id","entity_schema_slug","name");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-breakpoint

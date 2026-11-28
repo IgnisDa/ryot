@@ -1,6 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	addCalendarDays,
+	dueFrom,
 	localDateOf,
 	startOfLocalDay,
 } from "@ryot-app/contract/modules/analytics/calendar";
@@ -12,7 +13,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { selectRecipe } from "@ryot-app/ryotql";
 import {
 	type SignalScheduleCandidate,
@@ -95,23 +96,6 @@ export const signalScheduleBounds = (input: {
 	};
 };
 
-/** The first instant whose window holds a row due at `dueAt`. */
-export const signalScheduleDueFrom = (input: {
-	dueAt: string;
-	timeZone: TimeZone;
-	delayDays: null | number;
-	precision: "date" | "instant";
-}) => {
-	const shifted = DateTime.add(DateTime.makeUnsafe(input.dueAt), { days: input.delayDays ?? 0 });
-	return input.precision === "date"
-		? DateTime.toDate(
-				DateTime.makeUnsafe(
-					startOfLocalDay(localDateOf(DateTime.toDate(shifted), UTC), input.timeZone),
-				),
-			)
-		: DateTime.toDate(shifted);
-};
-
 type NextRow = { readonly horizon: string; readonly at: null | string };
 
 /**
@@ -127,11 +111,11 @@ export const signalScheduleNextDue = (input: {
 }) =>
 	Arr.min(
 		[
-			signalScheduleDueFrom({ ...input, dueAt: input.next.at ?? input.next.horizon }),
+			dueFrom({ ...input, dueAt: input.next.at ?? input.next.horizon }),
 			...(input.nextInstant === null
 				? []
 				: [
-						signalScheduleDueFrom({
+						dueFrom({
 							...input,
 							precision: "instant",
 							dueAt: input.nextInstant.at ?? input.nextInstant.horizon,

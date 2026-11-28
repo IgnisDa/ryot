@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { dueFrom } from "@ryot-app/contract/modules/analytics/calendar";
 import type { PluginSignalSchedule } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -41,12 +42,7 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { SignalScheduleRepository } from "./repository";
-import {
-	signalScheduleBounds,
-	signalScheduleDueFrom,
-	signalScheduleNextDue,
-	SignalScheduleWorker,
-} from "./worker";
+import { signalScheduleBounds, signalScheduleNextDue, SignalScheduleWorker } from "./worker";
 
 const now = new Date("2026-10-29T02:30:00.000Z");
 
@@ -125,7 +121,7 @@ describe("signal schedule due times", () => {
 	] as const)("starts at the first window that holds a $precision due time", (input) => {
 		const dueAt = new Date(input.dueAt);
 		const timeZone = TimeZone.make(input.timeZone);
-		const from = signalScheduleDueFrom({ ...input, timeZone });
+		const from = dueFrom({ ...input, timeZone });
 		const end = (at: Date) =>
 			new Date(
 				signalScheduleBounds({ ...input, now: at, timeZone, maxAgeHours: null }).end,

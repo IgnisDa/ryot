@@ -28,6 +28,8 @@ It returns `FoldOutput`, whose `subjects` holds exactly one result per input sub
 
 - `subjectEntityId`, the subject it answers.
 - `value`: its own state, at most 256 KiB.
+- `refresh`: when its outputs next change on their own, with no write: `{ date }`, at the start of that
+  day in the user's reporting time zone, or `{ instant }`. Omitted when they never do.
 - `events`: `{ eventId, properties }` for subject events whose schema declares a projection.
 - `relationships`: `{ relationshipId, properties }` for the user's projected links from the subject.
 - `changes`: at most 500 `EventChange` items, the schema of a change set's `events.changes`; a
@@ -68,9 +70,9 @@ their subjects, and queues each subject. No fold runs inside a transaction.
 Queuing stores each subject's change list in `derived_change`, one row per event with its image before
 the first change, marks the subject row `pending`, bumps its `revision`, and queues a `fold` job. A
 later write to the same subject keeps an event's stored image and bumps the row's `version`, so the
-list coalesces. A subject without a row, or marked whole (an entity content change, a merge or a fold
-request), sets the row's `replay` flag instead of storing changes. A relationship write marks its source
-subject with no change, which refreshes link outputs. A fold job holds up to 25 subjects of one fold; a
+list coalesces. A subject without a row, or marked whole (an entity content change, a merge or a `replay` fold
+request), sets the row's `replay` flag instead of storing changes. A relationship write, a `refresh` fold
+request and a passed refresh time mark the subject with no change, which refreshes link outputs. A fold job holds up to 25 subjects of one fold; a
 queued job with the same subjects absorbs a new one, and jobs run four at a time.
 
 **Interactive commits** then fold their subjects in the same request, through the function fold jobs
@@ -104,8 +106,21 @@ A job of several subjects that fails queues each subject as its own job, which l
 `pending`, so one subject's failure stays its own; a single-subject job retries up to eight times,
 one second apart, and its last failed attempt marks the subject `failed` and `replay`. A job that
 wrote derived state publishes the user-scoped derived-data-updated hint (see
-[entity interest](../../../../client/src/modules/entity-watches/README.md)). A rebuild and an explicit
-fold request queue full replays.
+[entity interest](../../../../client/src/modules/entity-watches/README.md)). A rebuild queues full
+replays. A fold request queues a full replay in `replay` mode and a fold with no change in `refresh` mode,
+for the requesting user or, with `all-users` scope, every user with a subject row for the entity.
+
+### Refreshes
+
+A value that depends on the current time comes with a `refresh`. Writing a subject stores it on the
+subject row, resolved the way a signal schedule's due time is (`dueFrom`): `refresh_at` is the instant,
+or the start of the date's day in the user's reporting time zone, and `refresh_on` keeps the date, which
+a change of that time zone resolves again in the transaction that changes it. The frequent cron takes up
+to 500 subjects whose `refresh_at` has passed, earliest first through a partial index, clears their
+refresh, marks them pending with no change and queues their fold jobs. Fold jobs claim in priority
+order, and a refresh's jobs come before those of writes and rebuilds. The fold then runs with an empty
+change list and returns the next refresh; a subject whose refresh fold fails keeps its value until a write
+folds it again.
 
 ## Revisions and replays
 
@@ -121,7 +136,7 @@ of up to 25 subjects.
 
 `derived_value` holds one row per target: the subject's own row (`kind = 'subject'`, holding `value`,
 `status`, a `revision` that marking the row pending and every rewrite of it bump, a `value_version`
-that only folds bump, and `replay` when its next fold must replay), one row per event or relationship
+that only folds bump, `replay` when its next fold must replay, and its refresh time), one row per event or relationship
 output, and transient `absorbed` rows. Each row records its subject and the plugin revision that wrote
 it. `derived_change` holds each subject's change list, with a `version` per row, until a fold consumes
 it.

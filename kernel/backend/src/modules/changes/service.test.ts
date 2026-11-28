@@ -1977,7 +1977,7 @@ layer(testLayer(false))((test) => {
 				const root = yield* commitUserCommand(input);
 				expect(
 					yield* commit(
-						{ folds: { scope: "user", entityIds: [root.entityId] } },
+						{ folds: { scope: "user", mode: "replay", entityIds: [root.entityId] } },
 						nextCommand(input),
 					),
 				).toEqual({ events: [] });
@@ -1993,7 +1993,7 @@ layer(testLayer(false))((test) => {
 				const root = yield* commitUserCommand(input);
 				const spans: Tracer.Span[] = [];
 				yield* commit(
-					{ ...input.input, folds: { scope: "user", entityIds: [root.entityId] } },
+					{ ...input.input, folds: { scope: "user", mode: "replay", entityIds: [root.entityId] } },
 					nextCommand(input),
 				).pipe(Effect.withTracer(makeRecordingTracer(spans)));
 				expect(
@@ -2156,7 +2156,7 @@ layer(testLayer(false))((test) => {
 					[{ events }, automationRun(input, { stage: "before" }), "changes"],
 					[{ events }, { ...user, subject: { type: "system" } }, "events"],
 					[
-						{ folds: { scope: "all-users", entityIds: [target] } },
+						{ folds: { mode: "replay", scope: "all-users", entityIds: [target] } },
 						{ ...user, subject: { type: "system" } },
 						"folds",
 					],

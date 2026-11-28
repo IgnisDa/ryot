@@ -11,6 +11,8 @@ import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { generateUserAvatar } from "#modules/accounts/auth/user-avatar";
+import { FoldMarks } from "#modules/derived-values/marks";
+import { DatabaseSession } from "#platform/db/session";
 
 export class UserSettingsService extends Context.Service<UserSettingsService>()(
 	"@ryot-app/kernel-backend/modules/accounts/preferences/service/UserSettingsService",
@@ -18,6 +20,8 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 		make: Effect.gen(function* () {
 			const random = yield* SecureRandom.SecureRandom;
 			const auth = yield* AuthService;
+			const session = yield* DatabaseSession;
+			const folds = yield* FoldMarks;
 
 			const updatePreferences = Effect.fn("UserSettingsService.updatePreferences")(function* (
 				user: CurrentUserValue,
@@ -34,12 +38,19 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				) {
 					return yield* badRequest(kernelMessage("error.accounts.unknown-content-language"));
 				}
-				return yield* Object.keys(patch).length === 0
-					? Effect.void
-					: auth.updateUserPreferences(user.id, {
-							...patch,
-							...(contentLanguage === undefined ? {} : { contentLanguage }),
-						});
+				const update = auth.updateUserPreferences(user.id, {
+					...patch,
+					...(contentLanguage === undefined ? {} : { contentLanguage }),
+				});
+				const { reportingTimeZone } = patch;
+				if (reportingTimeZone === undefined) {
+					return yield* Object.keys(patch).length === 0 ? Effect.void : update;
+				}
+				return yield* session
+					.transaction(
+						update.pipe(Effect.andThen(folds.resolveRefreshes(user.id, reportingTimeZone))),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			});
 			const initializeInterfaceLocale = (user: CurrentUserValue, locale: string) =>
 				auth.initializeInterfaceLocale(user.id, locale);

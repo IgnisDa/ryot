@@ -1999,6 +1999,21 @@
 		},
 		{
 			"statementType": "create_index",
+			"statementTarget": ["index", "public", "derived_value", "derived_value_refresh_idx"],
+			"writes": [
+				"s|idx|public.derived_value_refresh_idx",
+				"n|idx|public.derived_value_refresh_idx",
+				"e|idx|public.derived_value_refresh_idx",
+				"n|rel|public.derived_value_refresh_idx"
+			],
+			"reads": [
+				"n|tbl|public.derived_value",
+				"n|sch|public",
+				"n|col|public.derived_value.refresh_at"
+			]
+		},
+		{
+			"statementType": "create_index",
 			"statementTarget": ["index", "public", "entity", "entity_user_schema_name_idx"],
 			"writes": [
 				"s|idx|public.entity_user_schema_name_idx",
@@ -11736,6 +11751,32 @@
 		{
 			"schema": "public",
 			"table": "derived_value",
+			"name": "refresh_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "refresh_on",
+			"type": "date",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
 			"name": "updated_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
@@ -21079,6 +21120,27 @@
 			],
 			"isUnique": false,
 			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_refresh_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "refresh_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": "\"refresh_at\" is not null",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,

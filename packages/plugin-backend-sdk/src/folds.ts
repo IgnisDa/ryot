@@ -4,6 +4,7 @@ import {
 	FoldEventImage,
 	FoldInput,
 	FoldOutput,
+	FoldRefresh,
 	FoldResult,
 	FoldSubjectInput,
 } from "@ryot-app/contract/modules/events/folds";
@@ -15,6 +16,7 @@ export {
 	FoldInput,
 	FoldOutput,
 	FoldResult,
+	FoldRefresh,
 	FOLD_LIMITS,
 	FoldEventImage,
 	FoldEventChange,

@@ -27,7 +27,7 @@ const FoldJobLive = registerJobHandler(FoldJob, ({ userId, entityIds }, job) =>
 						session
 							.transaction(
 								Effect.flatMap(marks.route({ subjects, sources: [] }), (resolved) =>
-									marks.enqueue(resolved, 1),
+									marks.enqueue(resolved, { size: 1 }),
 								),
 							)
 							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),

@@ -532,18 +532,25 @@ mapping the entity and event IDs it holds to their new ones; carry over whatever
 
 - `null` asks for a full replay: read the subject's history and return one `events` entry per subject
   event with a projection and one `relationships` entry per projected link from the subject. The kernel
-  replaces all of the subject's outputs with them. New subjects, rebuilds, merges and fold requests
-  replay.
+  replaces all of the subject's outputs with them. New subjects, rebuilds, merges and `replay` fold
+  requests replay.
 - Otherwise it lists `{ before, after }` for each changed event: `before` is its image while it belonged
   to the subject (`null` for a create or an event that moved in) and `after` its image now (`null` once
   deleted or moved away). Combine `value` with the changes and return only outputs that changed; read
   only the bounded range of history the change can affect. The kernel deletes the outputs of events
-  without an `after` and keeps every output you do not return. An empty list means only the subject's
-  links changed.
+  without an `after` and keeps every output you do not return. An empty list means nothing in the
+  subject's history changed: its links changed, a `refresh` fold request asked for it, or its refresh
+  time passed.
 
 `foldChangeImages` splits a change list into retracted and added images. Incremental results must
 equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and
 fall back to reading the history when it cannot be bounded.
+
+A result whose outputs depend on the current time sets `refresh` to when they next change on their
+own: `{ date }`, a `YYYY-MM-DD` that arrives at the start of that day in the user's reporting time
+zone, or `{ instant }`, a UTC ISO time. Once it passes, the kernel folds the subject again with an
+empty change list, ahead of other queued folds; a result without `refresh` has none. Each run's result
+replaces the previous refresh.
 
 `changes` in a result are applied before the kernel runs the fold a second time, once for every subject
 they changed, with their images. A subject whose second run returns changes again is marked failed.
@@ -924,21 +931,21 @@ references, `entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)
 `EventDelete`, `EventChange`, `RelationshipUpsert`, `SignalChange` and `GlobalRelationship`. Every part names schemas of the writing plugin by slug, and every slug must be declared
 by its revision.
 
-| Part                  | Writes                                                                                                                   | Writer                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                               | User executions                                                            |
-| `entities.deletes`    | User entities, cascading their events                                                                                    | User executions                                                            |
-| `entities.clears`     | An entity's user data: its events and relationships                                                                      | User executions                                                            |
-| `entities.merges`     | One entity's user data into another of the same plugin schema                                                            | User executions                                                            |
-| `entities.ensures`    | One user entity per schema, created only when absent                                                                     | The plugin's user bootstrap script                                         |
-| `relationships`       | `upserts` (`merge` or `replace` properties, optionally `expected`) and `deletes` between root or existing entities       | User executions and user automation runs                                   |
-| `events`              | One `changes` list of `create`, `update` and `delete` items, with `expected` session events and `baselines`              | User executions and user automation runs                                   |
-| `settings`            | A patch of the plugin's settings for the execution user                                                                  | User executions, except integrations, imports and bootstraps               |
-| `signals`             | Signal emissions with a discriminator and optional subject entity                                                        | Automation runs; system ones need a system plugin automation               |
-| `notifications`       | Messages from the plugin catalog for the run's account                                                                   | User automation runs                                                       |
-| `globalEntities`      | Provider-owned global entities by external ID                                                                            | System executions of a system plugin's provider                            |
-| `globalRelationships` | Groups with a `self` selector (one entity schema's self relationships) or `anchored` one; existing or upserted endpoints | System executions of a system plugin                                       |
-| `folds`               | Fold requests for the execution user (`user`) or every user with events (`all-users`)                                    | User executions; `all-users` from a system execution needs a system plugin |
+| Part                  | Writes                                                                                                                               | Writer                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                                           | User executions                                                            |
+| `entities.deletes`    | User entities, cascading their events                                                                                                | User executions                                                            |
+| `entities.clears`     | An entity's user data: its events and relationships                                                                                  | User executions                                                            |
+| `entities.merges`     | One entity's user data into another of the same plugin schema                                                                        | User executions                                                            |
+| `entities.ensures`    | One user entity per schema, created only when absent                                                                                 | The plugin's user bootstrap script                                         |
+| `relationships`       | `upserts` (`merge` or `replace` properties, optionally `expected`) and `deletes` between root or existing entities                   | User executions and user automation runs                                   |
+| `events`              | One `changes` list of `create`, `update` and `delete` items, with `expected` session events and `baselines`                          | User executions and user automation runs                                   |
+| `settings`            | A patch of the plugin's settings for the execution user                                                                              | User executions, except integrations, imports and bootstraps               |
+| `signals`             | Signal emissions with a discriminator and optional subject entity                                                                    | Automation runs; system ones need a system plugin automation               |
+| `notifications`       | Messages from the plugin catalog for the run's account                                                                               | User automation runs                                                       |
+| `globalEntities`      | Provider-owned global entities by external ID                                                                                        | System executions of a system plugin's provider                            |
+| `globalRelationships` | Groups with a `self` selector (one entity schema's self relationships) or `anchored` one; existing or upserted endpoints             | System executions of a system plugin                                       |
+| `folds`               | Fold requests, a `replay` or a `refresh` with no change, for the execution user (`user`) or every user who folded them (`all-users`) | User executions; `all-users` from a system execution needs a system plugin |
 
 A `{ kind: "root" }` reference requires `entity`. User entities never carry provenance, global scope,
 ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after

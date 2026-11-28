@@ -13,6 +13,7 @@ import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brand
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
@@ -39,6 +40,7 @@ import {
 	foldSubjectOf,
 	foldValuesSql,
 	readFoldEvents,
+	refreshTime,
 	type ResolvedFold,
 	sourceEntities,
 } from "./marks";
@@ -464,12 +466,25 @@ export class Folds extends Context.Service<Folds>()(
 				return runs.flat();
 			});
 
+			const reportingTimeZone = Effect.fnUntraced(function* (userId: UserId) {
+				const [row] = yield* session.run((db) =>
+					db.execute<{ timeZone: unknown }>(
+						sql`select preferences ->> 'reportingTimeZone' as "timeZone" from "user" where id = ${userId}`,
+						"objects",
+					),
+				);
+				return yield* Schema.decodeUnknownEffect(TimeZone)(row?.timeZone).pipe(
+					Effect.mapError(() => failure("The user's reporting time zone is invalid")),
+				);
+			});
+
 			/**
 			 * Writes a run's outputs: replayed subjects replace theirs, incremental ones patch them. Each
 			 * subject consumes exactly what it read: its absorbed values and each stored change still at the
 			 * version it read. A subject becomes ready only while no write marked it since the run read it;
-			 * otherwise its script may have read part of that write, so its next fold replays. Returns each
-			 * subject's revision after the write.
+			 * otherwise its script may have read part of that write, so its next fold replays. Its refresh
+			 * time is resolved in the user's reporting time zone. Returns each subject's revision after the
+			 * write.
 			 */
 			const write = Effect.fnUntraced(function* (
 				userId: UserId,
@@ -479,6 +494,7 @@ export class Folds extends Context.Service<Folds>()(
 					readonly value: JsonValue;
 					readonly prepared: Prepared;
 					readonly rows: ReadonlyArray<OutputRow>;
+					readonly refresh: FoldSubjectOutput["refresh"];
 				}>,
 			) {
 				const rows = subjects.flatMap((subject) => subject.rows);
@@ -562,20 +578,29 @@ export class Folds extends Context.Service<Folds>()(
 						`),
 					);
 				}
+				const timeZone = subjects.some(({ refresh }) => refresh !== undefined)
+					? yield* reportingTimeZone(userId)
+					: null;
 				const written = yield* session.run((db) =>
 					db.execute<{ targetId: string; revision: number }>(
 						sql`update derived_value v set value = coalesce(s.value, 'null'::jsonb),
 							status = case when v.revision = s.revision then 'ready' else v.status end,
 							replay = v.revision <> s.revision,
 							revision = v.revision + 1, value_version = v.value_version + 1,
+							refresh_on = s."refreshOn", refresh_at = s."refreshAt",
 							plugin_revision_id = ${revision}, updated_at = now()
 						from jsonb_to_recordset(${JSON.stringify(
-							subjects.map((subject) => ({
-								value: subject.value,
-								entityId: entityIdOf(subject),
-								revision: subject.prepared.revision,
-							})),
-						)}::jsonb) as s("entityId" text, value jsonb, revision integer)
+							subjects.map((subject) => {
+								const refresh = timeZone === null ? null : refreshTime(subject.refresh, timeZone);
+								return {
+									value: subject.value,
+									entityId: entityIdOf(subject),
+									refreshAt: refresh?.at ?? null,
+									refreshOn: refresh?.on ?? null,
+									revision: subject.prepared.revision,
+								};
+							}),
+						)}::jsonb) as s("entityId" text, value jsonb, revision integer, "refreshOn" date, "refreshAt" timestamptz)
 						where v.user_id = ${userId} and v.kind = 'subject' and v.target_id = s."entityId"
 						returning v.target_id as "targetId", v.revision`,
 						"objects",
@@ -684,7 +709,7 @@ export class Folds extends Context.Service<Folds>()(
 								: Effect.fail(failure("Fold event creates name existing entities")),
 						),
 					);
-					writes.push({ rows, prepared, value: item.value });
+					writes.push({ rows, prepared, value: item.value, refresh: item.refresh });
 					if (changes.length > 0) {
 						changed.push({
 							subject,

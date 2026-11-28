@@ -1,8 +1,15 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
-import { FOLD_LIMITS, type FoldEventImage } from "@ryot-app/contract/modules/events/folds";
+import { dueFrom } from "@ryot-app/contract/modules/analytics/calendar";
+import {
+	FOLD_LIMITS,
+	type FoldEventImage,
+	type FoldRefresh,
+	type FoldRequest,
+} from "@ryot-app/contract/modules/events/folds";
 import type { PluginEntityFold } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EventId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { type SQL, sql } from "drizzle-orm";
 import { Array as Arr, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
 
@@ -97,6 +104,31 @@ export const FoldJob = makeJobKind("fold", {
 
 /** How long the fold job of a write waits when its writer folds the subjects itself right after the commit. */
 const EAGER_FOLD_GRACE = Duration.seconds(10);
+
+/** Fold jobs claim in priority order, so refreshes that came due run ahead of what writes and rebuilds queue. */
+const FOLD_PRIORITY = { queued: 1, refresh: 0 };
+
+/**
+ * When a subject refolds on its own: `at`, and the date it was resolved from, kept so that a change of
+ * time zone resolves it again. A date refreshes at the start of its day in the user's reporting time
+ * zone, as a signal schedule's date comes due.
+ */
+export const refreshTime = (refresh: undefined | FoldRefresh, timeZone: TimeZone) => {
+	if (refresh === undefined) {
+		return { on: null, at: null };
+	}
+	return "date" in refresh
+		? {
+				on: refresh.date,
+				at: dueFrom({
+					timeZone,
+					delayDays: null,
+					precision: "date",
+					dueAt: refresh.date,
+				}).toISOString(),
+			}
+		: { on: null, at: refresh.instant };
+};
 
 export const FoldRebuildJob = makeJobKind("fold-rebuild", {
 	maxAttempts: 3,
@@ -345,24 +377,27 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			/** Queues fold jobs of up to `size` subjects of one fold, to run no earlier than `runAt`. */
+			/**
+			 * Queues fold jobs of up to `size` subjects of one fold, to run no earlier than `runAt`; a
+			 * `refresh` runs ahead of the others.
+			 */
 			const enqueue = Effect.fn("FoldMarks.enqueue")(function* (
 				resolved: ReadonlyArray<ResolvedFold>,
-				size: number = FOLD_LIMITS.runSubjects,
-				runAt?: Date,
+				options: { readonly runAt?: Date; readonly size?: number; readonly refresh?: true } = {},
 			) {
 				let queued = 0;
 				for (const payload of Object.values(Arr.groupBy(resolved, foldRunKey)).flatMap((entries) =>
 					Arr.chunksOf(
 						entries.map(({ subject }) => subject.entityId),
-						size,
+						options.size ?? FOLD_LIMITS.runSubjects,
 					).map((entityIds) => ({ entityIds, userId: entries[0].subject.userId })),
 				)) {
 					const inserted = yield* jobs
 						.enqueue(FoldJob, payload, {
 							userId: payload.userId,
 							key: `${payload.userId}:${payload.entityIds.join(",")}`,
-							...(runAt === undefined ? {} : { runAt }),
+							priority: options.refresh ? FOLD_PRIORITY.refresh : FOLD_PRIORITY.queued,
+							...(options.runAt === undefined ? {} : { runAt: options.runAt }),
 						})
 						.pipe(Effect.mapError((error) => new DbError({ message: unknownToMessage(error) })));
 					queued += inserted ? payload.entityIds.length : 0;
@@ -378,11 +413,15 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				return yield* enqueue(resolved);
 			});
 
-			/** Queues the plugin's folds of the entities for one user, or for every user with their events. */
+			/**
+			 * Queues the plugin's folds of the entities for one user, or for every user who has folded
+			 * them: a `replay` of their whole history, or a `refresh` with no change.
+			 */
 			const request = Effect.fn("FoldMarks.request")(function* (
 				input: {
 					readonly pluginId: PluginId;
 					readonly userId: null | UserId;
+					readonly mode: FoldRequest["mode"];
 					readonly entityIds: ReadonlyArray<EntityId>;
 				},
 				transaction: WriteTransaction,
@@ -392,14 +431,13 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					input.userId === null
 						? (yield* session.run((db) =>
 								db.execute<{ userId: string }>(
-									sql`select distinct user_id as "userId" from event
-									where entity_id in (${foldValuesSql(input.entityIds)})
-										or session_entity_id in (${foldValuesSql(input.entityIds)})`,
+									sql`select distinct user_id as "userId" from derived_value
+									where subject_entity_id in (${foldValuesSql(input.entityIds)}) and kind = 'subject'`,
 									"objects",
 								),
 							)).map((row) => UserId.make(row.userId))
 						: [input.userId];
-				const resolved = yield* route(
+				const resolved = (yield* route(
 					{
 						sources: [],
 						subjects: users.flatMap((userId) =>
@@ -407,9 +445,70 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						),
 					},
 					transaction,
+				)).filter(({ declaration }) => declaration.pluginId === input.pluginId);
+				if (input.mode === "replay") {
+					return yield* queueResolved(resolved);
+				}
+				yield* pend(resolved.map((entry) => ({ ...entry, replay: false, changes: new Map() })));
+				return yield* enqueue(resolved);
+			});
+
+			/**
+			 * Queues a fold with no change of each subject whose refresh time has passed, earliest first and
+			 * at most `limit`, ahead of other fold jobs. Queuing a refresh clears it, and the fold sets the
+			 * next one; a subject whose fold then fails keeps its value until a write folds it again.
+			 */
+			const queueRefreshes = Effect.fn("FoldMarks.queueRefreshes")(function* (limit: number) {
+				yield* requireTransaction;
+				const now = DateTime.formatIso(yield* DateTime.now);
+				const due = yield* session.run((db) =>
+					db.execute<{ userId: string; entityId: string }>(
+						sql`with due as (
+							select user_id, kind, target_id from derived_value
+							where refresh_at <= ${now}::timestamptz
+							order by refresh_at limit ${limit}
+							for update skip locked
+						)
+						update derived_value v set refresh_at = null, refresh_on = null
+						from due where v.user_id = due.user_id and v.kind = due.kind and v.target_id = due.target_id
+						returning v.user_id as "userId", v.target_id as "entityId"`,
+						"objects",
+					),
 				);
-				return yield* queueResolved(
-					resolved.filter(({ declaration }) => declaration.pluginId === input.pluginId),
+				const resolved = yield* route({
+					sources: [],
+					subjects: due.map((row) => ({
+						userId: UserId.make(row.userId),
+						entityId: EntityId.make(row.entityId),
+					})),
+				});
+				yield* pend(resolved.map((entry) => ({ ...entry, replay: false, changes: new Map() })));
+				yield* enqueue(resolved, { refresh: true });
+				return resolved.length;
+			});
+
+			/** Resolves the user's date refreshes again in `timeZone`, the reporting time zone they moved to. */
+			const resolveRefreshes = Effect.fn("FoldMarks.resolveRefreshes")(function* (
+				userId: UserId,
+				timeZone: TimeZone,
+			) {
+				yield* requireTransaction;
+				const dates = yield* session.run((db) =>
+					db.execute<{ date: string }>(
+						sql`select distinct refresh_on::text as date from derived_value
+						where user_id = ${userId} and refresh_on is not null`,
+						"objects",
+					),
+				);
+				if (dates.length === 0) {
+					return;
+				}
+				yield* session.run((db) =>
+					db.execute(sql`update derived_value v set refresh_at = r.at
+						from jsonb_to_recordset(${JSON.stringify(
+							dates.map(({ date }) => ({ date, at: refreshTime({ date }, timeZone).at })),
+						)}::jsonb) as r(date date, at timestamptz)
+						where v.user_id = ${userId} and v.refresh_on = r.date`),
 				);
 			});
 
@@ -496,10 +595,11 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				yield* pend(queued);
 				yield* enqueue(
 					queued,
-					FOLD_LIMITS.runSubjects,
 					eager
-						? DateTime.toDate(DateTime.addDuration(yield* DateTime.now, EAGER_FOLD_GRACE))
-						: undefined,
+						? {
+								runAt: DateTime.toDate(DateTime.addDuration(yield* DateTime.now, EAGER_FOLD_GRACE)),
+							}
+						: {},
 				);
 				return queued.map(({ subject }): FoldSubject => subject);
 			});
@@ -629,6 +729,8 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				queuePending,
 				entityChanged,
 				queueResolved,
+				queueRefreshes,
+				resolveRefreshes,
 				mark: markEvents,
 				queueUserRebuilds,
 				queueRevisionReplay,

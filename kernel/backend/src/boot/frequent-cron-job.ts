@@ -10,6 +10,8 @@ import type { AutomationReconciliation } from "#modules/automations/reconciliati
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
+import { foldRefreshFrequentTask } from "#modules/derived-values/frequent-task";
+import type { FoldMarks } from "#modules/derived-values/marks";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import type { EntityGraphCollector } from "#modules/entities/retention/collector";
 import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
@@ -39,6 +41,7 @@ const frequentCronTasks: ReadonlyArray<
 	CronTask<
 		never,
 		| JobQueue
+		| FoldMarks
 		| BackupsService
 		| WorkflowEngine
 		| ImportsService
@@ -122,6 +125,7 @@ const frequentCronTasks: ReadonlyArray<
 				Effect.catchCause((cause) => Effect.logWarning("Reminder scan failed", cause)),
 			),
 	},
+	foldRefreshFrequentTask,
 	{
 		name: "signal-schedules",
 		run: () =>
