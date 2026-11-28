@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
+import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -12,7 +13,7 @@ import {
 	sandboxCompilationFailure,
 } from "./compiler-diagnostics";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
+import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const decodeSandboxExecutionMetadata = Schema.decodeUnknownResult(SandboxExecutionMetadata);
 
@@ -60,9 +61,7 @@ export const finalizeCompiledManifest = (
 		);
 	}
 	const manifest = { ...authored, ...decoded.success };
-	if (
-		(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) > SANDBOX_COMPILER_LIMITS.manifestBytes
-	) {
+	if (exceedsJsonBytes(manifest, SANDBOX_COMPILER_LIMITS.manifestBytes)) {
 		return Result.fail(
 			pluginBackendCompilerDiagnostic(
 				"RYOT_MANIFEST_SIZE",

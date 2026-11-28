@@ -13,7 +13,7 @@ import {
 import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import type { ProviderDetailsChildEntity } from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Ref } from "effect";
+import { Effect, Schema } from "effect";
 
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes } from "#modules/changes/changes";
@@ -22,7 +22,6 @@ import { ChangeSets } from "#modules/changes/service";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { retryOnDeadlock } from "#platform/db/errors";
 import type { DatabaseSessionStateError } from "#platform/db/session";
 
 /** The population request attempt whose writes a commit must still own. */
@@ -38,26 +37,33 @@ export const populationCommand = (
 	writeContext: command.writeContext,
 });
 
-/**
- * Commits population changes while the request attempt still owns its writes and, for related
- * writes, `generation` is still the entity's related population. A released request fails; a
- * superseded generation writes nothing and returns null.
- */
-export const commitPopulation = Effect.fn("commitPopulation")(function* (input: {
+type PopulationCommit = {
 	readonly changes: Changes;
 	readonly owner: PopulationOwner;
 	readonly command: DomainLifecycleCommand;
 	readonly written?: Effect.Effect<void, DbError | DatabaseSessionStateError>;
-	readonly generation?: { readonly entityId: EntityId; readonly generation: string };
-}) {
+};
+
+class PopulationReleased extends Schema.TaggedError<
+	PopulationReleased,
+	{ readonly brand: unique symbol }
+>()("PopulationReleased", {}) {}
+
+class PopulationSuperseded extends Schema.TaggedError<
+	PopulationSuperseded,
+	{ readonly brand: unique symbol }
+>()("PopulationSuperseded", {}) {}
+
+const commitOwned = Effect.fnUntraced(function* (
+	input: PopulationCommit,
+	generation?: { readonly entityId: EntityId; readonly generation: string },
+) {
 	const changeSets = yield* ChangeSets;
 	const requests = yield* EnrichmentRequests;
 	const repository = yield* EntitiesRepository;
-	const refused = yield* Ref.make<null | "released" | "superseded">(null);
-	const { owner, generation } = input;
 	const check = Effect.gen(function* () {
-		if (!(yield* requests.ownsPopulation(owner.requestId, owner.requestAttempt))) {
-			return yield* Ref.set(refused, "released").pipe(Effect.as(false));
+		if (!(yield* requests.ownsPopulation(input.owner.requestId, input.owner.requestAttempt))) {
+			return yield* new PopulationReleased();
 		}
 		if (
 			generation &&
@@ -66,12 +72,12 @@ export const commitPopulation = Effect.fn("commitPopulation")(function* (input: 
 				generation.generation,
 			))
 		) {
-			return yield* Ref.set(refused, "superseded").pipe(Effect.as(false));
+			return yield* new PopulationSuperseded();
 		}
-		return yield* Ref.set(refused, null).pipe(Effect.as(true));
+		return true;
 	}).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-	const result = yield* retryOnDeadlock(
-		changeSets.commit(input.changes, input.command, {
+	return yield* changeSets
+		.commit(input.changes, input.command, {
 			queueFolds: true,
 			entities: { verbatimIdentities: true },
 			precondition: {
@@ -81,16 +87,37 @@ export const commitPopulation = Effect.fn("commitPopulation")(function* (input: 
 						Effect.catchTag("DatabaseSessionStateError", Effect.die),
 					),
 			},
-		}),
-	).pipe(mapDbErrorToSandbox);
-	const reason = yield* Ref.get(refused);
-	if (reason === "released") {
-		return yield* new SandboxRunError({
-			kind: "invalid-input",
-			message: "Provider population no longer owns its writes",
-		});
-	}
-	return reason === "superseded" ? null : result;
+		})
+		.pipe(
+			Effect.catchTag(
+				"PopulationReleased",
+				() =>
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider population no longer owns its writes",
+					}),
+			),
+		);
+});
+
+/** Commits population changes while the request attempt still owns its writes; a released request fails. */
+export const commitPopulation = Effect.fn("commitPopulation")(function* (input: PopulationCommit) {
+	return yield* commitOwned(input).pipe(mapDbErrorToSandbox);
+});
+
+/**
+ * Commits related population changes while the request attempt owns its writes and `generation` is
+ * still the entity's related population; a superseded generation writes nothing and returns null.
+ */
+export const commitRelatedPopulation = Effect.fn("commitRelatedPopulation")(function* (
+	input: PopulationCommit & {
+		readonly generation: { readonly entityId: EntityId; readonly generation: string };
+	},
+) {
+	return yield* commitOwned(input, input.generation).pipe(
+		Effect.catchTag("PopulationSuperseded", () => Effect.succeed(null)),
+		mapDbErrorToSandbox,
+	);
 });
 
 /** The entity a population commit upserted under `itemIdentity`. */
@@ -212,9 +239,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			],
 		},
 	});
-	if (result === null) {
-		return yield* Effect.die("A child entity set has no related generation to lose");
-	}
 	return yield* Effect.forEach(input.childEntities, (child): Effect.Effect<ListedEntity> =>
 		upsertedEntity(result, childIdentity(child)),
 	);

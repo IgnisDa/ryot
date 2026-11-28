@@ -13,8 +13,8 @@ commits as one change set; neither journals an entity result.
 
 `EntitiesService` prepares and persists entity writes; every caller commits them through
 `ChangeSets` (see [change sets](../changes/README.md)). Each prepared token lists its policy items
-(`entityPolicyItems`); `matchEntityPolicies` and `applyEntityPolicies` run a change set's entity
-policies in batches, and `acceptEntityPolicies` turns their decisions into the acceptance each
+(`entityPolicyItems`); `matchEntityPolicies` matches a change set's entity policies in batches,
+`ChangeSets` runs them, and `acceptEntityPolicies` turns their decisions into the acceptance each
 persist step applies before it validates the final draft again under the catalog lock. Preparation
 steps take the commit's `WritePreparation` and persist steps its `WriteTransaction`: a writer's pin is
 read once per preparation and reused by the commit while it stays current, and the user's installed

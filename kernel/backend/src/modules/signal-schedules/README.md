@@ -27,13 +27,13 @@ than the window are skipped, not sent late. A null `confirmedAt` has no freshnes
 older value defers the row until the owner refreshes the data.
 
 The worker queries as the recipient, so the query's own visibility rules decide the audience. Each
-new occurrence commits the signal through `ChangeSets` with a deterministic execution ID. The
-commit's precondition admits the account and takes the occurrence's delivery lock, writing nothing
-when the occurrence is already recorded; its `written` step records
-`(user, plugin, schedule, occurrence)` in `signal_schedule_delivery` with the signal's trigger in the
-same transaction. Dispatch starts after commit. A recorded occurrence is never
-planned again, even if its date later moves, until retention deletes the row after 30 days. A failing
-target is logged and saves no evaluation, so a later run tries it again.
+new occurrence commits the signal through `KernelSignals` (see
+[automations](../automations/README.md)) with a deterministic execution ID. Its ledger's check admits
+the account and takes the occurrence's delivery lock, writing nothing when the occurrence is already
+recorded; its record step stores `(user, plugin, schedule, occurrence)` in `signal_schedule_delivery`
+with the signal's trigger in the same transaction. Dispatch starts after commit. A recorded
+occurrence is never planned again, even if its date later moves, until retention deletes the row
+after 30 days. A failing target is logged and saves no evaluation, so a later run tries it again.
 
 ## Evaluation
 
@@ -83,11 +83,15 @@ read the clock, a local-day boundary or a date-precision `dueAt` enters the wind
 `next_due_at`, a row's freshness only expires, and a new plugin revision or catalog change writes a
 plugin or installation row.
 
-`evaluated_at` is when the evaluation's snapshot was taken. Each run first deletes evaluations older
-than two days and the `data_change` rows below every remaining snapshot's `xmin` and the current one,
-then takes its snapshot and moves to it every current target's evaluation taken over an hour earlier
-that has no unseen data change and no `next_due_at` by now, since evaluating it would find nothing
-new; that keeps an hour of data changes. A current target has an active user, an active subscription
-and a schedule in its plugin's active revision; evaluations of others age out. No evaluation the
-run saves can need a deleted row; runs are serial because the frequent cron job runs one at a time.
+`evaluated_at` is when the evaluation's snapshot was taken. Each run first deletes deliveries older
+than 30 days, evaluations older than two days and the `data_change` rows below every remaining
+snapshot's `xmin` and the current one. This retention runs whatever the dispatcher configuration; with
+`scheduler.disableDispatchers` the run evaluates nothing after it. Otherwise the run takes its
+snapshot and moves to it every current target's evaluation taken over an hour earlier that has no
+unseen data change and no `next_due_at` by now, since evaluating it would find nothing new; that
+keeps an hour of data changes. One subquery defines the current targets for this and for the target
+listing: each schedule in the active revision of a listed, effective plugin installation, for an
+active user with an active subscription to its signal, whose entitlement the deployment holds;
+evaluations of other targets age out. No evaluation the run saves can need a deleted row; runs are
+serial because the frequent cron job runs one at a time.
 Evaluations of a page are saved together. Occurrences come in pages of 100, five per target.

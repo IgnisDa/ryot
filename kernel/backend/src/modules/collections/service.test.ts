@@ -43,7 +43,7 @@ import { Context, Effect, Layer, Ref, Result } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes, RelationshipEvent } from "#modules/changes/changes";
-import type { CommitResult } from "#modules/changes/receipts";
+import { type CommitResult, emptyCommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -165,17 +165,6 @@ const committedDeletion: RelationshipWriteResult = {
 		properties: { rank: 3, note: "kept" },
 	},
 };
-const emptyCommit: CommitResult = {
-	merged: [],
-	signals: [],
-	cleared: [],
-	deleted: [],
-	entities: [],
-	outcomes: [],
-	relationships: [],
-	committed: { events: [] },
-};
-
 const mockCollections = Layer.mock(CollectionsRepository);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
@@ -267,7 +256,7 @@ const makeServiceLayer = (
 					]).pipe(
 						Effect.andThen(created ? entities.create(write) : entities.update(write)),
 						Effect.map((entity): CommitResult => ({
-							...emptyCommit,
+							...emptyCommitResult,
 							entities: [{ entity, itemIdentity: lifecycle.itemIdentity }],
 						})),
 					);
@@ -278,7 +267,7 @@ const makeServiceLayer = (
 					[deletes, lifecycle],
 				]).pipe(
 					Effect.andThen(entities.deleteByIds()),
-					Effect.map((deleted): CommitResult => ({ ...emptyCommit, deleted })),
+					Effect.map((deleted): CommitResult => ({ ...emptyCommitResult, deleted })),
 				);
 			};
 			const relationships = {
@@ -316,7 +305,7 @@ const makeServiceLayer = (
 				yield* recordCommand(write ? "relationships.write" : "relationships.deleteById", lifecycle);
 				yield* Ref.update(eventCreates, (all) => [...all, ...recorded]);
 				return {
-					...emptyCommit,
+					...emptyCommitResult,
 					relationships: [{ ...result, itemIdentity: lifecycle.itemIdentity }],
 				} satisfies CommitResult;
 			});

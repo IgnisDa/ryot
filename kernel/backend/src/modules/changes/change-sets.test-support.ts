@@ -28,9 +28,28 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { JobQueue } from "#platform/jobs/queue";
 
-import { type EventChange, eventChanges, eventCreateChanges } from "./changes";
+import { type Changes, type EventChange, eventChanges, eventCreateChanges } from "./changes";
 import { toCreateEventsResponse } from "./outcomes";
+import { type CommitResult, emptyCommitResult } from "./receipts";
 import { ChangeSets } from "./service";
+
+/** A commit a recording `ChangeSets` received. */
+export type RecordedCommit = {
+	readonly changes: Changes;
+	readonly command: DomainLifecycleCommand;
+};
+
+/**
+ * `ChangeSets` whose `commit` hands each commit to `record` and answers the result it returns, the
+ * empty result when it returns none.
+ */
+export const recordingChangeSets = (
+	record: (commit: RecordedCommit) => Effect.Effect<undefined | CommitResult>,
+) =>
+	Layer.mock(ChangeSets)({
+		commit: (changes, command) =>
+			Effect.map(record({ changes, command }), (result) => result ?? emptyCommitResult),
+	});
 
 /** `ChangeSets` over the caller's database layer; the source policy admits or refuses every notification. */
 export const changeSetsLayerWithNotificationSources = (authorized: boolean) =>

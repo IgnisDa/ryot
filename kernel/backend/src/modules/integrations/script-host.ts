@@ -1,10 +1,10 @@
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	sandboxHostEffect,
 	sandboxHostFailure,
 	toSandboxJsonValue,
 } from "@ryot-app/sandbox/host/invocation";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect } from "effect";
 
 import {
@@ -48,7 +48,7 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 							afterId: options.cursor,
 							provider: options.provider,
 							isDisabled: options.isDisabled,
-							limit: SANDBOX_LIMITS.integrations.pageSize,
+							limit: INTEGRATION_LIMITS.pageSize,
 							userId: UserId.make(userSandboxRunUserId(input)),
 						})
 						.pipe(

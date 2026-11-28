@@ -81,15 +81,14 @@ per-user sidecars and crash quarantine use the same isolation identity.
 
 ## Limits
 
-Runtime and compiler limits are set by their owners, not environment settings.
+Runtime and compiler limits are set by their owners, not environment settings. The sandbox owns the limits below; a run may declare its own context bound in `SandboxRunInput.contextBytes`, within the runner request limit. Host capabilities that return owner data take their result bounds from the owner's limit in `@ryot-app/contract`: plugin configuration (`modules/plugins/plugin-config`), plugin user settings (`modules/plugins/user-settings`), OAuth token responses (`modules/oauth-connections/schemas`), and integration settings and pages (`modules/integrations/schemas`).
 
 | Boundary                                                            |                                      Limit |
 | ------------------------------------------------------------------- | -----------------------------------------: |
 | Source / manifest / compiled JavaScript                             |                   256 KiB / 16 KiB / 1 MiB |
 | Compiler concurrency / CPU time / sampled Linux process-tree memory |                    2 / 5 seconds / 768 MiB |
 | Compiler diagnostics                                                |                      100 entries / 256 KiB |
-| Local replay timeout / context / final result                       |                30 seconds / 64 KiB / 4 MiB |
-| Projection-subject context                                          |                                      1 MiB |
+| Local replay timeout / default context / final result               |                30 seconds / 64 KiB / 4 MiB |
 | Runner request                                                      |                                      2 MiB |
 | Admission waiters                                                   |                                         64 |
 | Host calls / HTTP subset / in-flight calls                          |                             1,000 / 50 / 4 |
@@ -102,12 +101,8 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Scratch quota / write                                               |                            5 MiB / 256 KiB |
 | Isolate heap / external memory / CPU                                |               64 MiB / 16 MiB / 30 seconds |
 | Sandbox `executeRyotql` result                                      |                                      1 MiB |
-| `getUserSettings` result                                            |                                     64 KiB |
-| `getPluginConfig` result (stored plugin configuration)              |                                     64 KiB |
-| `getOAuthAccessToken` result (OAuth token response)                 |                                     64 KiB |
-| Integration name, provider and settings / `listIntegrations` page   |                        16 KiB / 20 records |
 
-Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Every host capability declares its result bound, and the backend enforces it where the value is produced: user settings, plugin configuration, and integration settings are rejected over their caps when saved or restored; user settings and plugin configuration reads also fail when the document they resolve, with schema defaults applied, exceeds the same cap; and OAuth token responses are capped when read from the provider. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
+Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Every host capability declares its result bound, and the backend enforces an owner's limit where the value is produced. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 
 ## Daemon
 

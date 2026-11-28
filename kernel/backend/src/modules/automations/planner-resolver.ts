@@ -1,5 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationRequestPayload,
+	AutomationTrigger,
+	AutomationTriggerPayload,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	PluginHook,
 	PluginHookTarget,
@@ -24,6 +28,7 @@ import { writeState, type WriteTransaction } from "#platform/db/write-transactio
 import * as tables from "#schema/tables/combined";
 
 import type { BatchHookPin } from "./batch-hook-pin";
+import type { PolicyRequest } from "./lifecycle/policies";
 
 const plannedScriptFields = {
 	id: tables.sandboxScript.id,
@@ -54,11 +59,9 @@ type PlannerPlugin = {
 const scriptKey = (pluginRevisionId: string, slug: string) =>
 	JSON.stringify([pluginRevisionId, slug]);
 
-type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
-
 type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
-type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
-type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
+type ItemPayload = Exclude<MatchedPayload, { operation: "batch" }>;
+type MatchedPayload = AutomationRequestPayload | AutomationTriggerPayload;
 
 const targetSnapshot = (payload: ItemPayload) => {
 	if (payload.category === "request") {
@@ -129,18 +132,39 @@ const matchesItem = (
 	}
 };
 
+/** Whether a hook target matches a request, a change, or any item of a batch change. */
 export const matchesTarget = (
 	owner: DefinitionOwner,
 	target: PluginHookTarget,
-	trigger: AutomationTrigger,
-): boolean => {
-	const payload = trigger.payload;
-	if (!payload) {
-		return false;
-	}
-	return payload.operation === "batch"
+	payload: MatchedPayload,
+): boolean =>
+	payload.operation === "batch"
 		? payload.items.some((item) => matchesItem(owner, target, item))
 		: matchesItem(owner, target, payload);
+
+/** A hook that an owner-qualified target makes a kernel collection observer must be a user after hook. */
+const checkObserverAuthority = (plugin: PlannerPlugin, hook: PluginHook) =>
+	hook.targets.some((target) => "owner" in target) &&
+	(hook.stage === "before" || hook.executionScope === "global")
+		? Effect.fail(
+				new DbError({
+					message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
+				}),
+			)
+		: Effect.void;
+
+const checkHookScript = (plugin: PlannerPlugin, hook: PluginHook) => {
+	const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
+	return declaration?.kind !== "automation" ||
+		declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
+		(hook.stage === "before" &&
+			declaration.capabilities.some(
+				(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+			))
+		? Effect.fail(
+				new DbError({ message: `Invalid automation hook script ${plugin.id}/${hook.slug}` }),
+			)
+		: Effect.void;
 };
 
 export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
@@ -379,34 +403,21 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					return result;
 				}
 				const isBatch = trigger.kind.operation === "batch";
+				const { payload } = trigger;
 				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
+						yield* checkObserverAuthority(plugin, hook);
 						if (
-							hook.targets.some((target) => "owner" in target) &&
-							(hook.stage === "before" || hook.executionScope === "global")
-						) {
-							return yield* new DbError({
-								message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
-							});
-						}
-						if (
-							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
-							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
-						) {
-							continue;
-						}
-						if (
-							hook.stage === "after" &&
-							(((hook.frequency ?? "item") === "batch") !== isBatch ||
-								(hook.executionScope === "user" && executionUserId === null) ||
-								(hook.executionScope === "global" && executionUserId !== null))
-						) {
-							continue;
-						}
-						if (
+							hook.stage !== "after" ||
+							payload === null ||
+							(hook.causationSources &&
+								!hook.causationSources.includes(trigger.causation.source)) ||
+							((hook.frequency ?? "item") === "batch") !== isBatch ||
+							(hook.executionScope === "user" && executionUserId === null) ||
+							(hook.executionScope === "global" && executionUserId !== null) ||
 							!hook.targets.some((target) =>
-								matchesTarget(definitionOwner(plugin.id), target, trigger),
+								matchesTarget(definitionOwner(plugin.id), target, payload),
 							)
 						) {
 							continue;
@@ -426,20 +437,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						) {
 							continue;
 						}
-						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
-						if (
-							declaration?.kind !== "automation" ||
-							declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
-							(hook.stage === "before" &&
-								declaration.capabilities.some(
-									(capability) =>
-										!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
-								))
-						) {
-							return yield* new DbError({
-								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
-							});
-						}
+						yield* checkHookScript(plugin, hook);
 						selected.push({ hook, plugin });
 					}
 				}
@@ -492,6 +490,34 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 				return result;
 			});
+			/** The before hooks of the request's scope whose targets match any of its items. */
+			const resolvePolicies = Effect.fn(function* (
+				request: PolicyRequest,
+				transaction: WriteTransaction,
+			) {
+				const available = yield* catalog(request.scopeUserId, transaction);
+				const selected: SelectedHook[] = [];
+				for (const plugin of available) {
+					for (const hook of plugin.hooks) {
+						yield* checkObserverAuthority(plugin, hook);
+						if (
+							hook.stage !== "before" ||
+							(hook.causationSources &&
+								!hook.causationSources.includes(request.causation.source)) ||
+							!hook.targets.some((target) =>
+								request.items.some((item) =>
+									matchesTarget(definitionOwner(plugin.id), target, item.request),
+								),
+							)
+						) {
+							continue;
+						}
+						yield* checkHookScript(plugin, hook);
+						selected.push({ hook, plugin });
+					}
+				}
+				return yield* materialize(selected, transaction);
+			});
 			const resolveBatchCandidates = Effect.fn(function* (input: {
 				userId: null | UserId;
 				transaction: WriteTransaction;
@@ -534,7 +560,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					}),
 				);
 			});
-			return { resolve, lockCatalog, resolveBatchCandidates };
+			return { resolve, lockCatalog, resolvePolicies, resolveBatchCandidates };
 		}),
 	},
 ) {

@@ -274,25 +274,21 @@ layer(testLayer)((test) => {
 							Effect.provideService(
 								LifecyclePolicies,
 								decidingPolicies(
-									(trigger) =>
-										Effect.succeed(
-											trigger.kind.category === "request"
-												? [
-														policyFixture(
-															0,
-															[
-																{
-																	resource: "event",
-																	operation: "create",
-																	eventSchemaSlug: progress,
-																	entitySchemaSlug: "subject",
-																},
-															],
-															fixture.key.userId,
-														),
-													]
-												: [],
-										),
+									() =>
+										Effect.succeed([
+											policyFixture(
+												0,
+												[
+													{
+														resource: "event",
+														operation: "create",
+														eventSchemaSlug: progress,
+														entitySchemaSlug: "subject",
+													},
+												],
+												fixture.key.userId,
+											),
+										]),
 									() =>
 										Effect.sync(() => {
 											policyRuns += 1;

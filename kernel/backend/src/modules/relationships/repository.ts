@@ -57,10 +57,6 @@ export type CreateRelationshipInput = RelationshipIdentityInput & {
 	properties: Record<string, unknown>;
 };
 
-export type UpdateRelationshipInput = RelationshipIdentityInput & {
-	properties: Record<string, unknown>;
-};
-
 export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 	JSON.stringify([
 		"relationship",
@@ -186,13 +182,6 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 			: eq(schema.relationship.key, input.key),
 	);
 
-const preparedRelationshipWhere = (before: ReturnType<typeof toRelationship>) =>
-	and(
-		eq(schema.relationship.id, before.id),
-		eq(schema.relationship.targetEntityId, before.targetEntityId),
-		sql`${schema.relationship.properties} = ${JSON.stringify(before.properties)}::jsonb`,
-	);
-
 const relationshipReconciliationWhere = (input: RelationshipReconciliationListInput) =>
 	and(
 		input.scope === "user"
@@ -276,22 +265,22 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 				return new Map(rows.flat().map((row) => [storedRelationshipKey(row), toRelationship(row)]));
 			});
-			const findUserRelationshipById = Effect.fn(
-				"RelationshipsRepository.findUserRelationshipById",
-			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select(relationshipSnapshotWithProvenanceSelection)
-						.from(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.id, relationshipId),
-								eq(schema.relationship.userId, userId),
+			const findUserRelationshipsById = Effect.fn(
+				"RelationshipsRepository.findUserRelationshipsById",
+			)(function* (userId: UserId, relationshipIds: ReadonlyArray<RelationshipId>) {
+				const rows = yield* Effect.forEach(chunksOf(relationshipIds, STATEMENT_CHUNK_SIZE), (ids) =>
+					session.run((db) =>
+						db
+							.select(relationshipSnapshotWithProvenanceSelection)
+							.from(schema.relationship)
+							.where(
+								and(eq(schema.relationship.userId, userId), inArray(schema.relationship.id, ids)),
 							),
-						)
-						.limit(1),
+					),
 				);
-				return row ? toRelationship(row) : null;
+				return new Map(
+					rows.flat().map((row) => [RelationshipId.make(row.id), toRelationship(row)] as const),
+				);
 			});
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
@@ -414,13 +403,21 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 			const updateRelationshipsById = Effect.fn("RelationshipsRepository.updateRelationshipsById")(
 				function* (
-					updates: ReadonlyArray<{ id: RelationshipId; properties: Record<string, unknown> }>,
+					updates: ReadonlyArray<{
+						id: RelationshipId;
+						targetEntityId: EntityId;
+						properties: Record<string, unknown>;
+					}>,
 				) {
 					const rows = yield* Effect.forEach(chunksOf(updates, STATEMENT_CHUNK_SIZE), (chunk) =>
 						session.run((db) =>
 							db
 								.update(schema.relationship)
 								.set({
+									targetEntityId: sql`(case ${schema.relationship.id} ${sql.join(
+										chunk.map(({ id, targetEntityId }) => sql`when ${id} then ${targetEntityId}`),
+										sql` `,
+									)} end)`,
 									properties: preserveCollectionRank(
 										sql`(case ${schema.relationship.id} ${sql.join(
 											chunk.map(
@@ -466,38 +463,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					);
 				},
 			);
-
-			const updatePreparedRelationship = Effect.fn(
-				"RelationshipsRepository.updatePreparedRelationship",
-			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
-				const [row] = yield* session.run((db) =>
-					db
-						.update(schema.relationship)
-						.set({
-							targetEntityId: input.targetEntityId,
-							properties: preserveCollectionRank(sql`${JSON.stringify(input.properties)}::jsonb`),
-						})
-						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
-			});
-
-			const deletePreparedRelationship = Effect.fn(
-				"RelationshipsRepository.deletePreparedRelationship",
-			)(function* (
-				input: RelationshipIdentityInput & { before: ReturnType<typeof toRelationship> },
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.relationship)
-						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
-						.returning(relationshipSnapshotSelection),
-				);
-
-				return row ? toRelationship(row) : null;
-			});
 
 			const deleteUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipById",
@@ -679,10 +644,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				updateRelationshipsById,
 				deleteRelationshipsById,
 				listGlobalRelationships,
-				findUserRelationshipById,
+				findUserRelationshipsById,
 				lockRelationshipMutations,
-				updatePreparedRelationship,
-				deletePreparedRelationship,
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,

@@ -21,11 +21,7 @@ import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
-import {
-	SANDBOX_LIMITS,
-	sandboxContextBytes,
-	sandboxContextError,
-} from "@ryot-app/sandbox/protocol/limits";
+import { SANDBOX_LIMITS, sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -46,8 +42,10 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { type ScriptCall, ScriptCalls } from "#modules/scripts/executions/calls";
+import type { ScriptCall } from "#modules/scripts/executions/calls";
+import { scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { DatabaseSession } from "#platform/db/session";
 import { WriteTransaction } from "#platform/db/write-transaction";
 import { JobQueue } from "#platform/jobs/queue";
@@ -119,27 +117,27 @@ const foldedPackage = (packageId: PluginPackageId, version: string, scriptHash =
 
 const FoldCount = Schema.Struct({ runs: Schema.Int });
 
+type FoldRun = (call: ScriptCall) => Effect.Effect<SandboxExecutionResult>;
+
 type Recorded = {
 	readonly subjectEntityId: string;
 	readonly changes: null | ReadonlyArray<FoldEventChange>;
 };
 
 /** The fold the current test installed; every script call runs it. */
-class InstalledFold extends Context.Service<
-	InstalledFold,
-	Ref.Ref<ScriptCalls["Service"]["run"]>
->()("@ryot-app/kernel-backend/modules/derived-values/service.test/InstalledFold") {}
+class InstalledFold extends Context.Service<InstalledFold, Ref.Ref<FoldRun>>()(
+	"@ryot-app/kernel-backend/modules/derived-values/service.test/InstalledFold",
+) {}
 
-const installedFoldCalls = Layer.effect(
-	ScriptCalls,
-	Effect.map(InstalledFold, (installed) => ({
-		run: (call: ScriptCall) => Effect.flatMap(Ref.get(installed), (run) => run(call)),
-	})),
+const installedFoldCalls = Layer.unwrap(
+	Effect.map(InstalledFold, (installed) =>
+		scriptCallsLayer((call) => Effect.flatMap(Ref.get(installed), (run) => run(call))),
+	),
 ).pipe(
 	Layer.provideMerge(
 		Layer.effect(
 			InstalledFold,
-			Ref.make<ScriptCalls["Service"]["run"]>(() => Effect.die("No fold is installed")),
+			Ref.make<FoldRun>(() => Effect.die("No fold is installed")),
 		),
 	),
 );
@@ -196,7 +194,7 @@ const runsOf = (subject: FoldSubjectInput) =>
 
 /**
  * Installs a fold over `count` new subjects, recording every run's subjects after checking that its
- * input fits the sandbox's bound for its principal.
+ * input fits the context bound the run declares.
  */
 const setup = Effect.fn(function* (fold: SubjectFold = countingFold, count?: number) {
 	const packageId = testPluginPackageId();
@@ -205,9 +203,7 @@ const setup = Effect.fn(function* (fold: SubjectFold = countingFold, count?: num
 	const recorded: Array<Recorded> = [];
 	yield* Ref.set(yield* InstalledFold, (call) =>
 		Effect.gen(function* () {
-			expect(
-				sandboxContextError(call.input, sandboxContextBytes(call.principal.subject)),
-			).toBeNull();
+			expect(sandboxContextError(call.input, call.contextBytes)).toBeNull();
 			const input = yield* Schema.decodeUnknownEffect(FoldInput)(call.input).pipe(Effect.orDie);
 			const subjects = input.subjects.map(({ changes, subjectEntityId }) => ({
 				changes,
@@ -622,7 +618,9 @@ layer(testLayer)((test) => {
 					expect(yield* derived(first)).toEqual([
 						{ kind: "subject", targetId: first, value: { runs: 3 } },
 					]);
-					yield* write((transaction) => events.deleteEvent(transaction, { userId, eventId: kept }));
+					yield* write((transaction) =>
+						events.deletePreparedEvent(transaction, { userId, eventId: kept, expectedRevision: 0 }),
+					);
 					expect(recorded.at(-1)?.changes).toMatchObject([
 						{ after: null, before: { id: kept, properties: { value: "kept" } } },
 					]);

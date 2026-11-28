@@ -18,6 +18,7 @@ import { Effect } from "effect";
 
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { ChangeSets } from "#modules/changes/service";
 import {
 	countStatementClasses,
 	StatementLog,
@@ -27,7 +28,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -37,6 +38,7 @@ import {
 	installPolicyFixture,
 	ownedEndpoints,
 	persistPrepared,
+	prepareUserChange,
 	propertiesSchema,
 	relationshipChangeSetsLayer,
 	RelationshipFixture,
@@ -253,12 +255,11 @@ describe("Prepared relationship mutations", () => {
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(reconciled));
 
-					const creation = yield* service.prepareUserWrite(
-						new WritePreparation(),
-						{ ...baseInput, targetEntityId: preparedCreate },
-						command("deleted-prepared-create"),
-						"upsert",
-					);
+					const creation = yield* prepareUserChange({
+						mode: "upsert",
+						command: command("deleted-prepared-create"),
+						input: { ...baseInput, targetEntityId: preparedCreate },
+					});
 					yield* deleteEntity(session, preparedCreate);
 					expect(yield* persistPrepared(creation).pipe(Effect.flip)).toEqual(
 						entityNotFound(preparedCreate),
@@ -268,11 +269,11 @@ describe("Prepared relationship mutations", () => {
 						...baseInput,
 						targetEntityId: preparedDelete,
 					});
-					const deletion = yield* service.prepareUserDelete(
-						new WritePreparation(),
-						{ ...baseInput, targetEntityId: preparedDelete },
-						command("deleted-prepared-delete"),
-					);
+					const deletion = yield* prepareUserChange({
+						mode: "delete",
+						command: command("deleted-prepared-delete"),
+						input: { ...baseInput, targetEntityId: preparedDelete },
+					});
 					yield* deleteEntity(session, preparedDelete);
 					expect(yield* persistPrepared(deletion).pipe(Effect.flip)).toEqual(
 						entityNotFound(preparedDelete),
@@ -320,19 +321,18 @@ describe("Prepared relationship mutations", () => {
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(
-						yield* service
-							.prepareUserWrite(
-								new WritePreparation(),
-								foreignInput,
-								command("foreign-create"),
-								"upsert",
-							)
-							.pipe(Effect.flip),
+						yield* prepareUserChange({
+							mode: "upsert",
+							input: foreignInput,
+							command: command("foreign-create"),
+						}).pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(
-						yield* service
-							.prepareUserDelete(new WritePreparation(), foreignInput, command("foreign-delete"))
-							.pipe(Effect.flip),
+						yield* prepareUserChange({
+							mode: "delete",
+							input: foreignInput,
+							command: command("foreign-delete"),
+						}).pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 				}),
@@ -345,7 +345,6 @@ describe("Prepared relationship mutations", () => {
 			"keeps a missing relationship schema typed in prepared mutations",
 			() =>
 				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
 					const missing = {
 						...baseInput,
 						relationshipSchema: {
@@ -357,19 +356,18 @@ describe("Prepared relationship mutations", () => {
 						reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
 					});
 					expect(
-						yield* service
-							.prepareUserDelete(new WritePreparation(), missing, command("missing-delete"))
-							.pipe(Effect.flip),
+						yield* prepareUserChange({
+							mode: "delete",
+							input: missing,
+							command: command("missing-delete"),
+						}).pipe(Effect.flip),
 					).toEqual(notFound);
 					expect(
-						yield* service
-							.prepareUserWrite(
-								new WritePreparation(),
-								missing,
-								command("missing-create"),
-								"upsert",
-							)
-							.pipe(Effect.flip),
+						yield* prepareUserChange({
+							mode: "upsert",
+							input: missing,
+							command: command("missing-create"),
+						}).pipe(Effect.flip),
 					).toEqual(notFound);
 				}),
 			testTimeout,
@@ -385,13 +383,11 @@ describe("Prepared relationship mutations", () => {
 					Effect.gen(function* () {
 						const catalog = yield* RelationshipFixture;
 						const session = yield* DatabaseSession;
-						const service = yield* RelationshipsService;
-						const prepared = yield* service.prepareUserWrite(
-							new WritePreparation(),
-							baseInput,
-							command("schema-change"),
-							"upsert",
-						);
+						const prepared = yield* prepareUserChange({
+							mode: "upsert",
+							input: baseInput,
+							command: command("schema-change"),
+						});
 						yield* catalog.updateRelationshipSchema;
 						expect(yield* persistPrepared(prepared).pipe(Effect.flip)).toEqual(concurrentChange);
 						expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
@@ -407,22 +403,20 @@ describe("Prepared relationship mutations", () => {
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
-					const service = yield* RelationshipsService;
 					const original = revisionPackage("revised-writer", "v1", "revised-entity");
 					const installed = yield* installRevisionPackage(original, userId);
 					const slug = RelationshipSchemaSlug.make("revised-writer-link");
-					const prepared = yield* service.prepareUserWrite(
-						new WritePreparation(),
-						{
+					const prepared = yield* prepareUserChange({
+						mode: "upsert",
+						command: command("revised-writer"),
+						input: {
 							userId,
 							scope: "user",
 							properties: {},
 							...(yield* ownedEndpoints(installed, "revised-entity", "user")),
 							relationshipSchema: { slug, owner: definitionOwner(installed.pluginId) },
 						},
-						command("revised-writer"),
-						"upsert",
-					);
+					});
 					const revised = revisionPackage(
 						"revised-writer",
 						"v2",
@@ -475,6 +469,40 @@ describe("Prepared relationship mutations", () => {
 						).pipe(Effect.flip),
 					).toMatchObject({ reason: { paths: [["rank"]], code: "invalid-properties" } });
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
+		test.effect(
+			"stands an ensure of the relationship an earlier write of its change set creates",
+			() =>
+				Effect.gen(function* () {
+					const write = {
+						properties: { rank: 1 },
+						relationshipSchema: baseInput.relationshipSchema,
+						source: { kind: "existing" as const, entityId: baseInput.sourceEntityId },
+						target: { kind: "existing" as const, entityId: baseInput.targetEntityId },
+					};
+					const committed = yield* (yield* ChangeSets).commit(
+						{
+							userId,
+							relationships: {
+								ensures: [{ ...write, itemIdentity: "ensure" }],
+								upserts: [{ ...write, itemIdentity: "upsert", propertiesMode: "replace" }],
+							},
+						},
+						command("upsert-then-ensure"),
+					);
+					const [created, ensured] = committed.relationships;
+					assert(created?.relationship);
+					expect(created).toMatchObject({ operation: "create", itemIdentity: "upsert" });
+					expect(ensured).toMatchObject({
+						operation: "noop",
+						itemIdentity: "ensure",
+						relationship: { wasInserted: false, id: created.relationship.id },
+					});
 				}),
 			testTimeout,
 		);

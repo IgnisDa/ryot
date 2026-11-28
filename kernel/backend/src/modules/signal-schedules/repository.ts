@@ -5,7 +5,7 @@ import {
 	and,
 	asc,
 	eq,
-	exists,
+	getColumns,
 	gt,
 	inArray,
 	isNull,
@@ -13,9 +13,11 @@ import {
 	lte,
 	not,
 	or,
+	type SQL,
 	sql,
 	type SQLWrapper,
 } from "drizzle-orm";
+import { QueryBuilder } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -60,7 +62,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 			 * Whether the evaluation's snapshot does not see a data change of the target's user, a global
 			 * change to a schema the schedule reads, or a global change without a schema.
 			 */
-			const changed = (userId: SQLWrapper) => sql`(
+			const changed = (userId: SQLWrapper, readSchemaSlugs: SQLWrapper) => sql`(
 				exists (
 					select 1 from ${change}
 					where ${change.userId} = ${userId} and ${change.schemaSlug} is null and ${unseen}
@@ -68,22 +70,81 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				or exists (
 					select 1 from ${change}
 					where ${change.userId} is null
-						and (${change.schemaSlug} is null or ${schedule.readSchemaSlugs} is null
-							or ${change.schemaSlug} = any(${schedule.readSchemaSlugs}))
+						and (${change.schemaSlug} is null or ${readSchemaSlugs} is null
+							or ${change.schemaSlug} = any(${readSchemaSlugs}))
 						and ${unseen}
 				)
 			)`;
 
-			const sameSettings = and(
-				sql`${evaluation.timeZone} is not distinct from ${schema.user.preferences}->>'reportingTimeZone'`,
-				sql`${evaluation.contentLanguage} is not distinct from ${schema.user.preferences}->>'contentLanguage'`,
-			);
+			const sameSettings = (preferences: SQLWrapper) =>
+				and(
+					sql`${evaluation.timeZone} is not distinct from ${preferences}->>'reportingTimeZone'`,
+					sql`${evaluation.contentLanguage} is not distinct from ${preferences}->>'contentLanguage'`,
+				);
 
 			/**
-			 * Lists the targets of schedules the deployment's `entitlements` allow that need evaluating:
-			 * those whose next known occurrence is due by `now`, and those without a current evaluation,
-			 * which is none, one in another time zone or content language, or one whose snapshot does not
-			 * see a data change it may read.
+			 * The current targets of the installations `installations` selects: each schedule in the
+			 * active revision of a listed, effective plugin, for an active user with an active subscription
+			 * to its signal, whose entitlement the deployment's `entitlements` hold.
+			 */
+			const currentTargets = Effect.fn("SignalScheduleRepository.currentTargets")(function* (
+				installations: SQL,
+				entitlements: Entitlements,
+			) {
+				const plugin = userPluginQuery(
+					(yield* catalogs.listUserPlugins(installations)).filter(
+						({ isListed, isDefinitionEffective }) => isListed && isDefinitionEffective,
+					),
+				).as("user_plugin");
+				return new QueryBuilder()
+					.select({
+						slug: schedule.slug,
+						dueAt: schedule.dueAt,
+						query: schedule.query,
+						userId: plugin.userId,
+						signal: schedule.signal,
+						subject: schedule.subject,
+						pluginId: plugin.pluginId,
+						instantAt: schedule.instantAt,
+						delayDays: schedule.delayDays,
+						freshness: schedule.freshness,
+						precision: schedule.precision,
+						occurrence: schedule.occurrence,
+						properties: schedule.properties,
+						entitlement: schedule.entitlement,
+						preferences: schema.user.preferences,
+						readSchemaSlugs: schedule.readSchemaSlugs,
+					})
+					.from(plugin)
+					.innerJoin(schedule, eq(schedule.pluginRevisionId, plugin.activeRevisionId))
+					.innerJoin(
+						schema.user,
+						and(eq(schema.user.id, plugin.userId), isNull(schema.user.disabledAt)),
+					)
+					.innerJoin(
+						schema.notificationSubscription,
+						and(
+							eq(schema.notificationSubscription.isActive, true),
+							eq(schema.notificationSubscription.userId, plugin.userId),
+							eq(schema.notificationSubscription.signalSchemaSlug, schedule.signal),
+							eq(schema.notificationSubscription.signalSchemaPluginId, plugin.pluginId),
+						),
+					)
+					.where(
+						or(
+							isNull(schedule.entitlement),
+							entitlements.length === 0
+								? undefined
+								: inArray(schedule.entitlement, [...entitlements]),
+						),
+					)
+					.as("target");
+			});
+
+			/**
+			 * Lists the current targets that need evaluating: those whose next known occurrence is due by
+			 * `now`, and those without a current evaluation, which is none, one in another time zone or
+			 * content language, or one whose snapshot does not see a data change it may read.
 			 */
 			const listTargets = Effect.fn("SignalScheduleRepository.listTargets")(function* (input: {
 				readonly now: Date;
@@ -92,77 +153,44 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				readonly after: null | SignalScheduleCursor;
 			}) {
 				const { after, limit } = input;
-				const plugin = userPluginQuery(
-					(yield* catalogs.listUserPlugins(
-						after === null ? sql`true` : sql`i.user_id >= ${after.userId}`,
-					)).filter(({ isListed, isDefinitionEffective }) => isListed && isDefinitionEffective),
-				).as("user_plugin");
-				const stale = or(isNull(evaluation.userId), not(sameSettings), changed(plugin.userId));
+				const target = yield* currentTargets(
+					after === null ? sql`true` : sql`i.user_id >= ${after.userId}`,
+					input.entitlements,
+				);
+				const stale = or(
+					isNull(evaluation.userId),
+					not(sameSettings(target.preferences)),
+					changed(target.userId, target.readSchemaSlugs),
+				);
 				return yield* session.run((db) =>
 					db
-						.select({
-							slug: schedule.slug,
-							dueAt: schedule.dueAt,
-							query: schedule.query,
-							userId: plugin.userId,
-							signal: schedule.signal,
-							subject: schedule.subject,
-							pluginId: plugin.pluginId,
-							instantAt: schedule.instantAt,
-							delayDays: schedule.delayDays,
-							freshness: schedule.freshness,
-							precision: schedule.precision,
-							occurrence: schedule.occurrence,
-							properties: schedule.properties,
-							entitlement: schedule.entitlement,
-							preferences: schema.user.preferences,
-						})
-						.from(plugin)
-						.innerJoin(schedule, eq(schedule.pluginRevisionId, plugin.activeRevisionId))
-						.innerJoin(
-							schema.user,
-							and(eq(schema.user.id, plugin.userId), isNull(schema.user.disabledAt)),
-						)
-						.innerJoin(
-							schema.notificationSubscription,
-							and(
-								eq(schema.notificationSubscription.isActive, true),
-								eq(schema.notificationSubscription.userId, plugin.userId),
-								eq(schema.notificationSubscription.signalSchemaSlug, schedule.signal),
-								eq(schema.notificationSubscription.signalSchemaPluginId, plugin.pluginId),
-							),
-						)
+						.select(getColumns(target))
+						.from(target)
 						.leftJoin(
 							evaluation,
 							and(
-								eq(evaluation.userId, plugin.userId),
-								eq(evaluation.pluginId, plugin.pluginId),
-								eq(evaluation.scheduleSlug, schedule.slug),
+								eq(evaluation.userId, target.userId),
+								eq(evaluation.pluginId, target.pluginId),
+								eq(evaluation.scheduleSlug, target.slug),
 							),
 						)
 						.where(
 							and(
-								or(
-									isNull(schedule.entitlement),
-									input.entitlements.length === 0
-										? undefined
-										: inArray(schedule.entitlement, [...input.entitlements]),
-								),
 								or(stale, lte(evaluation.nextDueAt, input.now)),
 								after === null
 									? undefined
 									: or(
-											gt(plugin.userId, after.userId),
-											and(eq(plugin.userId, after.userId), gt(plugin.pluginId, after.pluginId)),
+											gt(target.userId, after.userId),
+											and(eq(target.userId, after.userId), gt(target.pluginId, after.pluginId)),
 											and(
-												eq(plugin.userId, after.userId),
-												eq(plugin.pluginId, after.pluginId),
-												gt(schedule.slug, after.slug),
+												eq(target.userId, after.userId),
+												eq(target.pluginId, after.pluginId),
+												gt(target.slug, after.slug),
 											),
 										),
 							),
 						)
-						.orderBy(asc(plugin.userId), asc(plugin.pluginId), asc(schedule.slug))
+						.orderBy(asc(target.userId), asc(target.pluginId), asc(target.slug))
 						.limit(limit),
 				);
 			});
@@ -238,51 +266,35 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 			});
 
 			/**
-			 * Moves the snapshot of each current evaluation taken before `before` to `snapshot`, taken at
-			 * `now`, when it has no unseen data change and no known occurrence due by `now`: evaluating it
-			 * again would find nothing new.
+			 * Moves the snapshot of each current target's evaluation taken before `before` to `snapshot`,
+			 * taken at `now`, when it has no unseen data change and no known occurrence due by `now`:
+			 * evaluating it again would find nothing new.
 			 */
 			const advanceSnapshots = Effect.fn("SignalScheduleRepository.advanceSnapshots")(
 				function* (input: {
 					readonly now: Date;
 					readonly before: Date;
 					readonly snapshot: string;
+					readonly entitlements: Entitlements;
 				}) {
+					const target = yield* currentTargets(
+						sql`i.user_id in (select ${evaluation.userId} from ${evaluation} where ${lt(evaluation.evaluatedAt, input.before)})`,
+						input.entitlements,
+					);
 					yield* session.run((db) =>
 						db
 							.update(evaluation)
 							.set({ evaluatedAt: input.now, snapshot: input.snapshot })
-							.from(schedule)
-							.innerJoin(
-								schema.plugin,
-								eq(schema.plugin.activeRevisionId, schedule.pluginRevisionId),
-							)
-							.innerJoin(schema.user, isNull(schema.user.disabledAt))
+							.from(target)
 							.where(
 								and(
-									sameSettings,
-									eq(schema.user.id, evaluation.userId),
-									eq(schema.plugin.id, evaluation.pluginId),
-									eq(schedule.slug, evaluation.scheduleSlug),
+									eq(target.userId, evaluation.userId),
+									eq(target.pluginId, evaluation.pluginId),
+									eq(target.slug, evaluation.scheduleSlug),
+									sameSettings(target.preferences),
 									lt(evaluation.evaluatedAt, input.before),
 									gt(evaluation.nextDueAt, input.now),
-									exists(
-										db
-											.select({ id: schema.notificationSubscription.id })
-											.from(schema.notificationSubscription)
-											.where(
-												and(
-													eq(schema.notificationSubscription.isActive, true),
-													eq(schema.notificationSubscription.userId, evaluation.userId),
-													eq(schema.notificationSubscription.signalSchemaSlug, schedule.signal),
-													eq(
-														schema.notificationSubscription.signalSchemaPluginId,
-														evaluation.pluginId,
-													),
-												),
-											),
-									),
-									not(changed(evaluation.userId)),
+									not(changed(evaluation.userId, target.readSchemaSlugs)),
 								),
 							),
 					);

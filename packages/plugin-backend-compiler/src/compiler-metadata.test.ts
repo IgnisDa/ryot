@@ -1,11 +1,12 @@
 import { expect } from "bun:test";
 
 import { assert } from "@ryot-app/testing/assert";
+import { jsonByteLength } from "@ryot-app/ts-utils/json";
 import { it } from "@voila.dev/effect-bun-test";
 import { Result } from "effect";
 
 import { finalizeCompiledManifest } from "./compiler-metadata";
-import { jsonByteLength, SANDBOX_COMPILER_LIMITS } from "./limits";
+import { SANDBOX_COMPILER_LIMITS } from "./limits";
 
 const sourceMetadata = {
 	capabilities: [],

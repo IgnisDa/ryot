@@ -440,7 +440,11 @@ layer(orderingLayer())((test) => {
 				const initialRank = rankOf(firstCreated.properties);
 				const updatedRevision = yield* orderRevision(fixture.collectionId);
 				const updatedRows = yield* relationships.updateRelationshipsById([
-					{ id: firstCreated.id, properties: { rank: 9_999_999, note: "metadata-updated" } },
+					{
+						id: firstCreated.id,
+						targetEntityId: firstCreated.targetEntityId,
+						properties: { rank: 9_999_999, note: "metadata-updated" },
+					},
 				]);
 				const updated = updatedRows.get(firstCreated.id);
 				assert(updated);

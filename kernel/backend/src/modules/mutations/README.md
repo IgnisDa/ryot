@@ -32,6 +32,11 @@ Keyed requests carry `submittedAt`. A submission whose `submittedAt` is more tha
 server clock, in either direction, fails with `SubmissionExpired` (410); the client must retry with a
 new key. A replay is therefore only possible within 14 days of the original write.
 
+A commit holds its result in a key through `keyedReceipt`, a `CommitReceipt` whose `load` reads the
+key under its lock in the commit transaction and whose `record` writes it there; `unrecorded` keeps
+no state. A replay whose fingerprint differs is a defect, since keyed commits derive their key from
+the request.
+
 Import runs also record each committed item's result in this table, keyed by run and item identity,
 so reconciliation can project committed items.
 

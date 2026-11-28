@@ -1,5 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
@@ -103,9 +103,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				checkpoint,
 			) =>
 				Effect.gen(function* () {
-					const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
-						Effect.orDie,
-					);
+					const input = yield* Schema.decodeUnknownEffect(JsonValue)(context).pipe(Effect.orDie);
 					const results = yield* Effect.forEach(
 						requests,
 						(
@@ -140,9 +138,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								if (value === null) {
 									return { value, settled: false };
 								}
-								const json = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
-									Effect.orDie,
-								);
+								const json = yield* Schema.decodeUnknownEffect(JsonValue)(value).pipe(Effect.orDie);
 								yield* checkpoint({ request, value: json, _tag: "Completed" });
 								return { value, settled: true };
 							}),

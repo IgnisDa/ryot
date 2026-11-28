@@ -27,7 +27,6 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
-	type LifecyclePlan,
 	type LifecyclePlanner,
 	type LifecyclePlanningResult,
 	LifecycleWork,
@@ -37,7 +36,7 @@ import {
 	AutomationPolicyExecutionError,
 	LifecyclePolicies,
 	type LifecyclePolicy,
-	type LifecyclePolicyItem,
+	type PolicyRequest,
 } from "#modules/automations/lifecycle/policies";
 import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { DatabaseSession } from "#platform/db/session";
@@ -177,7 +176,6 @@ export const policyFixture = (
 	position: index,
 	executionUserId,
 	pluginId: PluginId.make("policy-plugin"),
-	runId: AutomationRunId.make(`policy-${index}`),
 	hook: { targets, name: "Policy", stage: "before", scriptSlug: "policy", slug: `policy-${index}` },
 	script: { slug: "policy", contentHash: "policy-hash", id: SandboxScriptId.make("policy-script") },
 	plugin: {
@@ -190,14 +188,14 @@ export const policyFixture = (
 export const decidingPolicies = <E>(
 	match: LifecyclePolicies["Service"]["match"],
 	decide: (
-		item: LifecyclePolicyItem,
+		item: PolicyRequest["items"][number],
 		policy: LifecyclePolicy,
 	) => Effect.Effect<AutomationPolicyOutput, E>,
 ): LifecyclePolicies["Service"] =>
 	LifecyclePolicies.of({
 		match,
-		run: ({ items, policy }) =>
-			Effect.forEach(items, (item) =>
+		run: ({ policy, request }) =>
+			Effect.forEach(request.items, (item) =>
 				Effect.map(decide(item, policy), (decision) => ({
 					decision,
 					itemIdentity: item.itemIdentity,
@@ -205,12 +203,7 @@ export const decidingPolicies = <E>(
 			).pipe(
 				Effect.mapBoth({
 					onSuccess: (decided) => ({ items: decided }),
-					onFailure: () =>
-						new AutomationPolicyExecutionError({
-							runId: policy.runId,
-							kind: "script-failure",
-							code: "policy-execution-failed",
-						}),
+					onFailure: () => new AutomationPolicyExecutionError({ kind: "script-failure" }),
 				}),
 			),
 	});
@@ -241,11 +234,15 @@ export const decidedPoliciesLayer = (
 		),
 	);
 
-export const planFixture = (id: string): LifecyclePlan => ({
-	runs: [],
-	wasCreated: true,
-	trigger: triggerFixture(id),
-});
+/** A policy request for `items`, made with the fixture trigger's causation and time. */
+export const policyRequestFixture = (
+	resource: PolicyRequest["resource"],
+	items: PolicyRequest["items"],
+	scopeUserId: null | UserId = UserId.make("owner"),
+): PolicyRequest => {
+	const { causation, occurredAt } = triggerFixture();
+	return { items, resource, causation, occurredAt, scopeUserId, references: {} };
+};
 
 export const queuedRunFixture = (id: string) =>
 	AutomationRun.make({

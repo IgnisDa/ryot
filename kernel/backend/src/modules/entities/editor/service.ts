@@ -1,4 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
+import { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import {
 	type EntityEditorDeleteSubmission,
@@ -37,12 +39,13 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes } from "#modules/changes/changes";
-import type { CommitReceipt, CommitResult } from "#modules/changes/receipts";
+import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
+	type CommitReceipt,
 	type IdempotencyIdentity,
 	idempotencyIdentity,
 	IdempotencyKeys,
@@ -110,7 +113,10 @@ const editorReceipt = <A>(
 	response: Schema.Codec<A, unknown>,
 	written: (result: CommitResult) => A | null,
 	unwritten: Unrecorded["kind"],
-): CommitReceipt<Unrecorded | { readonly response: A; readonly kind: "recorded" }> => ({
+): CommitReceipt<
+	CommitResult,
+	Unrecorded | { readonly response: A; readonly kind: "recorded" }
+> => ({
 	record: (result) => {
 		const value = written(result);
 		return value === null
@@ -130,6 +136,7 @@ const editorReceipt = <A>(
 const isEditorFailure = Schema.is(
 	Schema.Union([
 		DbError,
+		PolicyFailure,
 		EntityBadRequest,
 		EntityNotFound,
 		EntityEditorRefused,
@@ -599,12 +606,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale }),
-						AutomationPolicyExecutionError: (error) =>
-							Effect.fail(
-								new EntityBadRequest({
-									reason: { runId: error.runId, code: "policy-execution-failed" },
-								}),
-							),
+						PolicyRejected: (error: PolicyRejected) =>
+							error.reason.code === "invalid-properties"
+								? Effect.succeed({
+										output: invalid(kernelMessage("error.entity-editor.invalid-properties")),
+									})
+								: Effect.fail(error),
 						RelationshipNotFound: (error: RelationshipNotFound) =>
 							error.reason.code === "entity-not-found"
 								? Effect.succeed({

@@ -1,5 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import { AutomationEntityDraft } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationEntityDraft } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type CreateEventItem,
 	EventCreateItemError,
@@ -17,9 +17,10 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { DateTime, Effect, Option, Schema } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { automationEntityDraft } from "#modules/entities/automation-drafts";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	type DomainLifecycleCommand,
@@ -291,30 +292,19 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		return {
 			resolve: (item: CreateEventItem, command: DomainLifecycleCommand) =>
 				resolveScopes(item, reads(command)),
-			references: yield* Schema.decodeUnknownEffect(Schema.Record(EntityId, AutomationEntityDraft))(
-				Object.fromEntries(
+			references: Object.fromEntries(
+				yield* Effect.forEach(
 					[...new Set(entityIds)].flatMap((id) => {
 						const entity = referenceOf(id);
-						return entity
-							? [
-									[
-										id,
-										{
-											name: entity.name,
-											properties: entity.properties,
-											providerId: entity.providerId,
-											externalId: entity.externalId,
-											populatedAt: entity.populatedAt,
-											entitySchemaSlug: entity.entitySchemaSlug,
-											entitySchemaPluginId: entity.entitySchemaPluginId,
-										},
-									],
-								]
-							: [];
+						return entity ? [[id, entity] as const] : [];
 					}),
+					([id, entity]) =>
+						Effect.map(automationEntityDraft(entity), (draft) => [id, draft] as const),
+				).pipe(
+					Effect.mapError(
+						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+					),
 				),
-			).pipe(
-				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
 			),
 		};
 	},

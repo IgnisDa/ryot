@@ -21,10 +21,10 @@ cannot restore authority. Authored content and public history are removed separa
 
 The frequent cron scans overdue work with 50-row keyset pages and a ten-page limit per state.
 Failures defer only the affected row for 60 seconds. A due reminder commits its immutable
-`reminder.due` kernel signal through `ChangeSets`, with the reminder's lock as the precondition's
-check; its `written` step records the trigger, the planned formatter run and its dispatch on the
-reminder, or settles it Not sent when no formatter is planned, so the signal and the reminder row
-commit together. Dispatch starts after commit. The worker
+`reminder.due` kernel signal through `KernelSignals` (see [automations](../automations/README.md)),
+with the reminder's lock as its ledger's check; the ledger records the trigger, the planned formatter
+run and its dispatch on the reminder, or settles it Not sent when no formatter is planned, so the
+signal and the reminder row commit together. Dispatch starts after commit. The worker
 settles from the notification ledger, not formatter success. Missing/disabled subscriptions settle as
 Not sent. Missing, failed or expired formatter evidence settles explicitly and revokes later admission.
 

@@ -1,6 +1,6 @@
-import { DbError } from "@ryot-app/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
@@ -10,7 +10,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 
-import { ScriptExecutionPrincipal, type ScriptPluginRevision } from "../authorization/principal";
+import type { ScriptExecutionPrincipal, ScriptPluginRevision } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
 
 export class FoldScripts extends Context.Service<
@@ -50,18 +50,16 @@ export const FoldScriptsLive = Layer.effect(
 					return null;
 				}
 				const accountUserId = yield* admission.currentAccount(input.userId);
-				const subject = { userId: input.userId, type: "projection" as const };
-				const pin = yield* scripts
-					.getScriptPin(script.id, undefined, subject)
+				const principal = yield* scripts
+					.pinnedPrincipal(script.id, { type: "projection", userId: input.userId })
 					.pipe(Effect.catchTag("SandboxRunError", () => Effect.succeed(null)));
-				if (!pin?.pluginRevision || pin.pluginRevision.id !== PluginId.make(input.pluginId)) {
+				if (
+					!principal?.pluginRevision ||
+					principal.pluginRevision.id !== PluginId.make(input.pluginId)
+				) {
 					return null;
 				}
-				const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
-					...pin,
-					subject,
-				}).pipe(Effect.mapError(() => new DbError({ message: "Invalid fold authority" })));
-				return { principal, accountUserId, pluginPin: pin.pluginRevision };
+				return { principal, accountUserId, pluginPin: principal.pluginRevision };
 			}),
 		});
 	}),

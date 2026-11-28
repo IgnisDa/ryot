@@ -1,16 +1,15 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
-import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonByteLength, stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 
 import {
 	SANDBOX_LIMITS,
 	SANDBOX_LOG_TRUNCATION_MARKER,
-	sandboxContextBytes,
 	sandboxContextError,
 } from "../protocol/limits";
 import {
@@ -103,10 +102,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							? existingLease.value
 							: yield* supervisor.reserve(input.principal, input.lane);
 						const context = input.context ?? {};
-						const contextError = sandboxContextError(
-							context,
-							sandboxContextBytes(input.principal.subject),
-						);
+						const contextError = sandboxContextError(context, input.contextBytes);
 						if (contextError !== null) {
 							return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
 						}

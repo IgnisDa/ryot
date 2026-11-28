@@ -1,4 +1,3 @@
-import { DbError } from "@ryot-app/contract/errors";
 import {
 	addCalendarDays,
 	dueFrom,
@@ -33,8 +32,8 @@ import {
 	Schema,
 } from "effect";
 
+import { KernelSignals } from "#modules/automations/kernel-signals";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { ChangeSets } from "#modules/changes/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
@@ -133,7 +132,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 			const entitlements = yield* EntitlementService;
 			const ryotql = yield* RyotQLService;
 			const admission = yield* AccountAdmission.make;
-			const changeSets = yield* ChangeSets;
+			const kernelSignals = yield* KernelSignals.make;
 			const repository = yield* SignalScheduleRepository;
 			const resumeAfter = yield* Ref.make<null | SignalScheduleCursor>(null);
 
@@ -148,53 +147,37 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						identityTupleKey(target.userId, target.pluginId, target.slug, candidate.occurrence),
 					)}`,
 				);
-				const command = rootLifecycleCommand({
-					executionId,
-					lane: "background",
-					source: "scheduler",
-					accountUserId: userId,
-					itemIdentity: executionId,
-					occurredAt: now.toISOString(),
-					initiator: { id: userId, kind: "user" },
-				});
 				const ledger = { userId, scheduleSlug: target.slug, pluginId: target.pluginId };
-				yield* changeSets.commit(
-					{
-						userId,
-						signals: [
-							{
-								itemIdentity: "occurrence",
-								properties: candidate.properties,
-								principal: { userId, kind: "user" },
-								subjectEntityId: EntityId.make(candidate.subjectId),
-								reference: {
-									slug: SignalSchemaSlug.make(target.signal),
-									owner: { kind: "plugin", pluginId: PluginId.make(target.pluginId) },
-								},
-							},
-						],
+				yield* kernelSignals.commit({
+					userId,
+					properties: candidate.properties,
+					subjectEntityId: EntityId.make(candidate.subjectId),
+					reference: {
+						slug: SignalSchemaSlug.make(target.signal),
+						owner: { kind: "plugin", pluginId: PluginId.make(target.pluginId) },
 					},
-					{ ...command, writeContext: null },
-					{
-						precondition: {
-							check: Effect.fnUntraced(function* (transaction) {
-								yield* admission.admitAccount(userId, transaction);
-								return yield* repository.lockUndelivered(ledger, candidate.occurrence);
+					command: rootLifecycleCommand({
+						executionId,
+						lane: "background",
+						source: "scheduler",
+						accountUserId: userId,
+						itemIdentity: executionId,
+						occurredAt: now.toISOString(),
+						initiator: { id: userId, kind: "user" },
+					}),
+					ledger: {
+						record: (plan) =>
+							repository.record({
+								...ledger,
+								triggerId: plan.trigger.id,
+								occurrenceKey: candidate.occurrence,
 							}),
-							written: Effect.fnUntraced(function* (result) {
-								const [signal] = result.signals;
-								if (signal?.plan.trigger.blockedReason !== null) {
-									return yield* new DbError({ message: "Scheduled signal was blocked" });
-								}
-								return yield* repository.record({
-									...ledger,
-									triggerId: signal.plan.trigger.id,
-									occurrenceKey: candidate.occurrence,
-								});
-							}),
-						},
+						check: Effect.fnUntraced(function* (transaction) {
+							yield* admission.admitAccount(userId, transaction);
+							return yield* repository.lockUndelivered(ledger, candidate.occurrence);
+						}),
 					},
-				);
+				});
 			});
 
 			/** Delivers the target's new due occurrences and returns when its next known one is due. */
@@ -283,9 +266,6 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 			});
 
 			const run = Effect.fn("SignalScheduleWorker.run")(function* () {
-				if (config.scheduler.disableDispatchers) {
-					return;
-				}
 				const now = yield* DateTime.nowAsDate;
 				const at = DateTime.makeUnsafe(now);
 				yield* repository
@@ -304,11 +284,16 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							Effect.logWarning("Signal schedule evaluation pruning failed", cause),
 						),
 					);
+				if (config.scheduler.disableDispatchers) {
+					return;
+				}
+				const active = yield* entitlements.current;
 				const snapshot = yield* repository.currentSnapshot();
 				yield* repository
 					.advanceSnapshots({
 						now,
 						snapshot,
+						entitlements: active,
 						before: DateTime.toDate(DateTime.subtract(at, { hours: SNAPSHOT_HOURS })),
 					})
 					.pipe(
@@ -316,7 +301,6 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							Effect.logWarning("Signal schedule snapshot advance failed", cause),
 						),
 					);
-				const active = yield* entitlements.current;
 				let after = yield* Ref.get(resumeAfter);
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
 					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets({

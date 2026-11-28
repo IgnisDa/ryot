@@ -1,14 +1,9 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
-import {
-	hostFailure,
-	hostSuccess,
-	jsonValueSchema,
-	type SandboxHostError,
-} from "@ryot-app/plugin-backend-sdk/wire";
+import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowDurableCallRequest,
 	WorkflowDurableResult,
@@ -46,11 +41,11 @@ type HostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }
 
 const decodeHostResult = Schema.decodeUnknownEffect(
 	Schema.Union([
-		Schema.Struct({ data: jsonValueSchema, success: Schema.Literal(true) }),
+		Schema.Struct({ data: JsonValue, success: Schema.Literal(true) }),
 		Schema.Struct({
 			error: Schema.String,
 			success: Schema.Literal(false),
-			data: Schema.optional(jsonValueSchema),
+			data: Schema.optional(JsonValue),
 		}),
 	]),
 );
@@ -109,7 +104,6 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		principal,
 		compiledCode: "",
 		workflowExecutionId: executionId,
-		hostCallDiscriminator: request.index,
 		compiledFormat: SANDBOX_COMPILED_FORMAT,
 		executionId: `${executionId}-host-${request.index}`,
 	};

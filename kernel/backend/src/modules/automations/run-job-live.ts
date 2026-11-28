@@ -26,14 +26,11 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { automationRunLane, automationRunSubject } from "#modules/automations/lifecycle/command";
+import { automationRunSubject } from "#modules/automations/lifecycle/command";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
-import type {
-	SandboxExecutionResult,
-	StampedSandboxExecutionError,
-} from "#modules/scripts/executions/result";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { type ScriptCallResult, ScriptCalls } from "#modules/scripts/executions/calls";
+import type { StampedSandboxExecutionError } from "#modules/scripts/executions/result";
 import {
 	ScriptChanges,
 	scriptChangesFailure,
@@ -122,11 +119,7 @@ export const prepareAutomationInvocation = (
 				message: "Pinned automation script or hook declaration is unavailable",
 			});
 		}
-		if (
-			run.id !== payload.runId ||
-			run.triggerId !== trigger.id ||
-			trigger.payload.category === "request"
-		) {
+		if (run.id !== payload.runId || run.triggerId !== trigger.id) {
 			return yield* inputMismatch();
 		}
 		if (script.automationType !== "automation") {
@@ -172,16 +165,10 @@ export const prepareAutomationInvocation = (
 		};
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
+			lane: "background",
 			scriptId: run.sandboxScriptId,
-			lane: automationRunLane({ stage: "after", causation: trigger.causation }),
 			subject: automationRunSubject(
-				{
-					trigger,
-					accountUserId,
-					runId: run.id,
-					stage: "after",
-					executionUserId: run.executionUserId,
-				},
+				{ trigger, accountUserId, runId: run.id, executionUserId: run.executionUserId },
 				{
 					pluginId: run.pluginId,
 					pluginRevisionId: run.pluginRevisionId,
@@ -201,7 +188,7 @@ export class AutomationRunOperations extends Context.Service<
 		) => Effect.Effect<typeof ClaimedAutomationAttempt.Type, DbError>;
 		runSandbox: (
 			input: { executionId: string } & PreparedAutomationAttempt,
-		) => Effect.Effect<SandboxExecutionResult>;
+		) => Effect.Effect<ScriptCallResult<ChangesOutput>>;
 		prepare: (
 			payload: AutomationRunPayload,
 		) => Effect.Effect<PreparedAutomationAttempt, DbError | AutomationPreparationError>;
@@ -231,7 +218,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 		const changes = yield* ScriptChanges;
 		return AutomationRunOperations.of({
 			runSandbox: ({ lane, input, principal, executionId }) =>
-				calls.run({ lane, input, principal, executionId }),
+				calls.run({ lane, input, principal, executionId }, ChangesOutput),
 			claim: (payload) =>
 				Effect.gen(function* () {
 					const { attempt, claimed } = yield* attempts.claimNextAttempt({
@@ -292,15 +279,28 @@ export const AutomationRunOperationsLive = Layer.effect(
 									message: "Retained automation trigger payload is unavailable",
 								});
 							}
+							const subject = automationRunSubject(
+								{ trigger, accountUserId, runId: run.id, executionUserId: run.executionUserId },
+								run.pluginId === null
+									? { pluginId: null, pluginRevisionId: null, pluginConfigRevisionId: null }
+									: {
+											pluginId: run.pluginId,
+											pluginRevisionId: run.pluginRevisionId,
+											pluginConfigRevisionId: run.pluginConfigRevisionId,
+										},
+							);
 							const pin = yield* scripts
-								.getScriptPin(
+								.pinnedPrincipal(
 									run.sandboxScriptId,
+									subject,
 									run.pluginId === null
-										? undefined
+										? {}
 										: {
-												id: run.pluginId,
-												revisionId: run.pluginRevisionId,
-												configRevisionId: run.pluginConfigRevisionId,
+												expectedRevision: {
+													id: run.pluginId,
+													revisionId: run.pluginRevisionId,
+													configRevisionId: run.pluginConfigRevisionId,
+												},
 											},
 								)
 								.pipe(
@@ -369,13 +369,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 								hookMetadata,
 								hookTargets,
 							);
-							const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
-								...pin,
-								subject: prepared.subject,
-							}).pipe(
-								Effect.mapError(() => projectionError(run, "does not produce a valid principal")),
-							);
-							return { ...prepared, principal };
+							return { ...prepared, principal: pin };
 						}),
 					)
 					.pipe(
@@ -419,7 +413,9 @@ const rejectedChangesOutcome = (
 const attemptOutcome = Effect.fnUntraced(function* (
 	payload: AutomationRunPayload,
 	prepared: PreparedAutomationAttempt | AutomationPreparationError,
-	runSandbox: (prepared: PreparedAutomationAttempt) => Effect.Effect<SandboxExecutionResult>,
+	runSandbox: (
+		prepared: PreparedAutomationAttempt,
+	) => Effect.Effect<ScriptCallResult<ChangesOutput>>,
 ) {
 	if (prepared instanceof AutomationPreparationError) {
 		return {
@@ -436,41 +432,34 @@ const attemptOutcome = Effect.fnUntraced(function* (
 		};
 	}
 	const result = yield* runSandbox(prepared);
-	let failureKind = result.error ? classifyAutomationSandboxError(result.error) : null;
-	const value = yield* Schema.decodeUnknownEffect(JsonValue)(result.value).pipe(
-		Effect.orElseSucceed(() => null),
-	);
-	if (!failureKind && !Schema.is(JsonValue)(result.value)) {
-		failureKind = "invalid-output";
-	}
-	let changes: undefined | ChangeSet;
-	if (!failureKind) {
-		const decoded = yield* Schema.decodeUnknownEffect(ChangesOutput)(value).pipe(
-			Effect.orElseSucceed(() => null),
-		);
-		if (decoded) {
-			changes = decoded.changes;
-		} else {
-			failureKind = "invalid-output";
-		}
-	}
-	const outcome: FinalizeAutomationAttempt = {
-		returnedValue: value,
+	const common = {
 		runId: payload.runId,
 		timing: result.timing ?? null,
 		attemptNumber: payload.attemptNumber,
+		returnedValue: Schema.is(JsonValue)(result.value) ? result.value : null,
 		logs: result.logs.map((message) => ({ message, level: "info" as const })),
-		error: failureKind
-			? {
-					code: result.error?.data?.code ?? failureKind,
-					message: result.error?.message ?? "Invalid automation output",
-				}
-			: null,
-		...(failureKind
-			? { failureKind, status: "failed" }
-			: { failureKind: null, status: "succeeded" }),
 	};
-	return { outcome, changes };
+	if (result.error) {
+		const failureKind = classifyAutomationSandboxError(result.error);
+		return {
+			changes: undefined,
+			outcome: {
+				...common,
+				failureKind,
+				status: "failed",
+				error: { message: result.error.message, code: result.error.data?.code ?? failureKind },
+			} satisfies FinalizeAutomationAttempt,
+		};
+	}
+	return {
+		changes: result.output.changes,
+		outcome: {
+			...common,
+			error: null,
+			failureKind: null,
+			status: "succeeded",
+		} satisfies FinalizeAutomationAttempt,
+	};
 });
 
 /**

@@ -1,10 +1,11 @@
 import { expect } from "bun:test";
 
-import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { jsonByteLength } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 

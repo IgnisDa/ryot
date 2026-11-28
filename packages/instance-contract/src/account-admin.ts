@@ -23,7 +23,6 @@ const InstanceAdminNotFoundReason = Schema.Struct({
 });
 const InstanceAdminInternalFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("persistence-failed") }),
-	Schema.Struct({ code: Schema.Literal("access-revocation-failed") }),
 	Schema.Struct({ code: Schema.Literal("lifecycle-dispatch-failed") }),
 	Schema.Struct({ code: Schema.Literal("lifecycle-state-conflict") }),
 	Schema.Struct({ code: Schema.Literal("password-reset-failed") }),

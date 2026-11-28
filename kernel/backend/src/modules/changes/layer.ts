@@ -3,7 +3,7 @@ import { Layer } from "effect";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EntitiesServiceRuntimeLive } from "#modules/entities/service-layer";
+import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventMutationsLive } from "#modules/events/layer";
@@ -20,9 +20,9 @@ import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
 
 export const ChangeSetsLive = ChangeSets.layer.pipe(
+	Layer.provide(EntitiesService.layer),
 	Layer.provide(
 		Layer.mergeAll(
-			EntitiesServiceRuntimeLive,
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
 			EntityUserDataServiceLive,

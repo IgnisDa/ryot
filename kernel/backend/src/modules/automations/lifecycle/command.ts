@@ -19,6 +19,9 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+
 import { lifecycleTriggerId } from "./planning";
 
 export const childLifecycleCommand = (
@@ -54,7 +57,10 @@ export const lifecycleActor = (
 	};
 };
 
-type AutomationRunSubject = Extract<SandboxExecutionSubject, { type: "automation-run" }>;
+type AutomationRunSubject = Extract<
+	SandboxExecutionSubject,
+	{ stage: "after"; type: "automation-run" }
+>;
 
 /** The sandbox subject of one automation run triggered by `trigger`, for its principal to decode. */
 export const automationRunSubject = <
@@ -65,7 +71,6 @@ export const automationRunSubject = <
 >(
 	run: {
 		readonly runId: AutomationRunSubject["runId"];
-		readonly stage: AutomationRunSubject["stage"];
 		readonly accountUserId: AutomationRunSubject["accountUserId"];
 		readonly trigger: Pick<AutomationTrigger, "id" | "causation">;
 		readonly executionUserId: AutomationRunSubject["executionUserId"];
@@ -74,7 +79,7 @@ export const automationRunSubject = <
 ) => ({
 	...plugin,
 	runId: run.runId,
-	stage: run.stage,
+	stage: "after" as const,
 	triggerId: run.trigger.id,
 	type: "automation-run" as const,
 	accountUserId: run.accountUserId,
@@ -82,20 +87,16 @@ export const automationRunSubject = <
 	executionUserId: run.executionUserId,
 });
 
-export const automationRunLane = (run: {
-	readonly stage: AutomationRunSubject["stage"];
-	readonly causation: Pick<AutomationRunSubject["causation"], "lane">;
-}): ExecutionLane => (run.stage === "after" ? "background" : run.causation.lane);
-
+/** An after hook's writes descend from its trigger; after hooks run in the background lane. */
 export const automationLifecycleCausation = (
-	parent: Pick<AutomationRunSubject, "runId" | "stage" | "causation" | "triggerId">,
+	parent: Pick<AutomationRunSubject, "runId" | "causation" | "triggerId">,
 	executionId: AutomationExecutionId,
 ): AutomationCausation => ({
 	...parent.causation,
 	executionId,
+	lane: "background",
 	source: "automation",
 	parentRunId: parent.runId,
-	lane: automationRunLane(parent),
 	parentTriggerId: parent.triggerId,
 	depth: parent.causation.depth + 1,
 });
@@ -133,6 +134,54 @@ export const rootLifecycleCommand = (
 	accountUserId: input.accountUserId,
 	causation: rootLifecycleCausation(input),
 });
+
+/**
+ * The command a principal's writes commit under. An automation run's writes descend from its
+ * trigger, keeping its root budget; any other principal starts a root causation from `source`, or
+ * from its integration when it runs for one. Every ID the commit derives comes from `executionId`.
+ */
+export const principalLifecycleCommand = (input: {
+	readonly lane: ExecutionLane;
+	readonly itemIdentity: string;
+	readonly importRunId?: ImportRunId;
+	readonly integrationId?: IntegrationId;
+	readonly executionId: AutomationExecutionId;
+	readonly principal: ScriptExecutionPrincipal;
+	readonly population?: AutomationPopulationContext;
+	readonly occurredAt: LifecycleCommand["occurredAt"];
+	readonly source: Exclude<AutomationSource, "automation">;
+}): DomainLifecycleCommand & { readonly writeContext: ScriptExecutionPrincipal } => {
+	const { subject } = input.principal;
+	const population = input.population === undefined ? {} : { population: input.population };
+	if (subject.type === "automation-run" && subject.stage === "after") {
+		return {
+			...population,
+			occurredAt: input.occurredAt,
+			writeContext: input.principal,
+			itemIdentity: input.itemIdentity,
+			accountUserId: subject.accountUserId,
+			causation: automationLifecycleCausation(subject, input.executionId),
+		};
+	}
+	const user = subject.type === "user" ? subject : null;
+	const integrationId = user?.integrationId ?? input.integrationId;
+	const source = user?.integrationId === undefined ? input.source : "integration";
+	return {
+		...population,
+		...rootLifecycleCommand({
+			...lifecycleActor(user),
+			source,
+			lane: input.lane,
+			occurredAt: input.occurredAt,
+			executionId: input.executionId,
+			itemIdentity: input.itemIdentity,
+			...(integrationId === undefined ? {} : { integrationId }),
+			...(input.importRunId === undefined ? {} : { importRunId: input.importRunId }),
+			...(source === "provider-refresh" ? { providerExecutionId: input.executionId } : {}),
+		}),
+		writeContext: input.principal,
+	};
+};
 
 const decodeTriggerKind = Schema.decodeUnknownEffect(AutomationTriggerKind);
 

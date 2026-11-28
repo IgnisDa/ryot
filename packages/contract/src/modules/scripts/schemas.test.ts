@@ -9,7 +9,7 @@ import { SandboxExecutionSubject } from "./schemas";
 const subject = {
 	runId: "run-1",
 	pluginId: null,
-	stage: "before",
+	stage: "after",
 	accountUserId: null,
 	executionUserId: null,
 	type: "automation-run",
@@ -36,7 +36,6 @@ it.effect(
 			expect(yield* decode(subject)).toEqual<unknown>(subject);
 			const plugin = {
 				...subject,
-				stage: "after",
 				pluginId: "plugin-1",
 				accountUserId: "user-1",
 				executionUserId: "user-1",
@@ -48,6 +47,10 @@ it.effect(
 				yield* Effect.flip(decode({ ...plugin, [key]: null }));
 			}
 			yield* Effect.flip(decode({ ...plugin, accountUserId: "user-2" }));
+			const { runId: _runId, triggerId: _triggerId, ...policy } = { ...plugin, stage: "before" };
+			expect(yield* decode(policy)).toEqual<unknown>(policy);
+			yield* Effect.flip(decode({ ...policy, runId: "run-1", triggerId: "trigger-1" }));
+			yield* Effect.flip(decode({ ...subject, stage: "before" }));
 		}),
 	testTimeout,
 );

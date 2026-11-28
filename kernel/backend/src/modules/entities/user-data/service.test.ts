@@ -95,7 +95,7 @@ const command = {
 
 type PersistedRelationship = Effect.Success<
 	ReturnType<RelationshipsService["Service"]["persistPrepared"]>
->["result"];
+>["results"][number];
 
 const persistedRelationship = partialFake<PersistedRelationship>({});
 const preparedRelationshipCreate = partialFake<PreparedUserRelationship>({ request: null });
@@ -612,14 +612,14 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 				),
 		}),
 		relationshipsService: makeRelationshipsService({
-			prepareUserDelete: () =>
-				call("prepare:relationship").pipe(Effect.as(preparedRelationshipDelete)),
-			persistPrepared: () =>
+			prepareUserChanges: (_preparation, changes) =>
+				call("prepare:relationship").pipe(Effect.as(changes.map(() => preparedRelationshipDelete))),
+			persistPrepared: (_transaction, prepared) =>
 				Effect.gen(function* () {
 					expect(yield* session.isTransactionActive).toBe(true);
 					yield* call("persist:relationship");
 					return {
-						result: persistedRelationship,
+						results: prepared.map(() => persistedRelationship),
 						dispatch: [toLifecycleDispatchPlan(yield* relationshipPlan)],
 					};
 				}),
@@ -699,20 +699,6 @@ layer(clearPhases.layer)((test) => {
 const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 	entitiesRepository: makeEntitiesRepository({ getEntityScopeForUser: recordEntityScope }),
 	eventsRepository: makeEventsRepository({ listUserDataEventReferences: () => Effect.succeed([]) }),
-	relationshipsService: makeRelationshipsService({
-		persistPrepared: () =>
-			record("persist").pipe(Effect.as({ dispatch: [], result: persistedRelationship })),
-		prepareUserDelete: (_preparation, input) =>
-			record(`prepare:${input.targetEntityId}`).pipe(
-				Effect.andThen(
-					input.targetEntityId === "target-relationship-1"
-						? Effect.succeed(preparedRelationshipDelete)
-						: Effect.fail(
-								new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
-							),
-				),
-			),
-	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () =>
 			Effect.succeed(
@@ -726,6 +712,23 @@ const failedPreparation = recordingServiceLayer<string>(({ record }) => ({
 					targetEntityId: EntityId.make(`target-${id}`),
 					relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 				})),
+			),
+	}),
+	relationshipsService: makeRelationshipsService({
+		persistPrepared: () => record("persist").pipe(Effect.as({ results: [], dispatch: [] })),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ input }) =>
+				record(`prepare:${input.targetEntityId}`).pipe(
+					Effect.andThen(
+						input.targetEntityId === "target-relationship-1"
+							? Effect.succeed(preparedRelationshipDelete)
+							: Effect.fail(
+									new RelationshipBadRequest({
+										reason: { code: "concurrent-relationship-change" },
+									}),
+								),
+					),
+				),
 			),
 	}),
 }));
@@ -984,20 +987,21 @@ const mergeMoves = recordingServiceLayer<string>(({ record }) => ({
 			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1"), EventId.make("event-2")])),
 	}),
 	relationshipsService: makeRelationshipsService({
-		prepareUserWrite: (_preparation, input, item) =>
-			record(
-				`prepare:${input.sourceEntityId}->${input.targetEntityId}:create:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedRelationshipCreate)),
-		prepareUserDelete: (_preparation, input, item) =>
-			record(
-				`prepare:${input.sourceEntityId}->${input.targetEntityId}:delete:${item.itemIdentity}`,
-			).pipe(Effect.as(preparedRelationshipDelete)),
 		persistPrepared: (_transaction, prepared) =>
-			record(
-				prepared === preparedRelationshipCreate
-					? "persist:relationship:create"
-					: "persist:relationship:delete",
-			).pipe(Effect.as({ dispatch: [], result: persistedRelationship })),
+			Effect.forEach(prepared, (token) =>
+				record(
+					token === preparedRelationshipCreate
+						? "persist:relationship:create"
+						: "persist:relationship:delete",
+				),
+			).pipe(Effect.as({ dispatch: [], results: prepared.map(() => persistedRelationship) })),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ mode, input, command: item }) => {
+				const created = mode !== "delete";
+				return record(
+					`prepare:${input.sourceEntityId}->${input.targetEntityId}:${created ? "create" : "delete"}:${item.itemIdentity}`,
+				).pipe(Effect.as(created ? preparedRelationshipCreate : preparedRelationshipDelete));
+			}),
 	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () =>
@@ -1091,7 +1095,7 @@ layer(
 			getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(makeMergeScope({ entityId })),
 		}),
 		relationshipsService: makeRelationshipsService({
-			prepareUserWrite: () =>
+			prepareUserChanges: () =>
 				new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -1161,11 +1165,14 @@ const commandRecordings = recordingServiceLayer<DomainLifecycleCommand>(({ recor
 			Effect.succeed(eventReferencesFor(input, [EventId.make("event-1")])),
 	}),
 	relationshipsService: makeRelationshipsService({
-		persistPrepared: () => Effect.succeed({ dispatch: [], result: persistedRelationship }),
-		prepareUserWrite: (_preparation, _input, item) =>
-			record(item).pipe(Effect.as(preparedRelationshipCreate)),
-		prepareUserDelete: (_preparation, _input, item) =>
-			record(item).pipe(Effect.as(preparedRelationshipDelete)),
+		persistPrepared: (_transaction, prepared) =>
+			Effect.succeed({ dispatch: [], results: prepared.map(() => persistedRelationship) }),
+		prepareUserChanges: (_preparation, changes) =>
+			Effect.forEach(changes, ({ mode, command: item }) =>
+				record(item).pipe(
+					Effect.as(mode === "delete" ? preparedRelationshipDelete : preparedRelationshipCreate),
+				),
+			),
 	}),
 	relationshipsRepository: makeRelationshipsRepository({
 		listUserRelationshipsForEntitiesWithProvenance: () =>

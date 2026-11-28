@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
@@ -33,7 +34,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -44,6 +45,7 @@ import {
 	installPolicyFixture,
 	ownedEndpoints,
 	persistPrepared,
+	prepareUserChange,
 	propertiesSchema,
 	relationshipChangeSetsLayer,
 	RelationshipFixture,
@@ -684,7 +686,13 @@ describe("Relationships lifecycle owner", () => {
 								yield* changeSetsWith({
 									policies: decidingPolicies((yield* LifecyclePolicies).match, () =>
 										repository
-											.updateRelationshipsById([{ id: created.id, properties: { rank: 9 } }])
+											.updateRelationshipsById([
+												{
+													id: created.id,
+													properties: { rank: 9 },
+													targetEntityId: created.targetEntityId,
+												},
+											])
 											.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
 									),
 								}),
@@ -740,7 +748,7 @@ describe("Relationships lifecycle owner", () => {
 								case "reject":
 									assertExitFails(
 										exit,
-										new RelationshipBadRequest({
+										new PolicyRejected({
 											reason: {
 												code: "policy-rejected",
 												message: {
@@ -754,7 +762,7 @@ describe("Relationships lifecycle owner", () => {
 								case "invalid":
 									assertExitFails(
 										exit,
-										new RelationshipBadRequest({
+										new PolicyRejected({
 											reason: { paths: [["rank"]], code: "invalid-properties" },
 										}),
 									);
@@ -825,16 +833,10 @@ describe("Relationships lifecycle owner", () => {
 						expect(reconciled.result).toEqual([
 							{ created: 1, updated: 0, deleted: 0, upserted: 1 },
 						]);
-						const [relationships, triggers] = yield* session.run((db) =>
-							Effect.all([
-								db.select({ properties: tables.relationship.properties }).from(tables.relationship),
-								db
-									.select({ category: tables.automationTrigger.category })
-									.from(tables.automationTrigger),
-							]),
+						const relationships = yield* session.run((db) =>
+							db.select({ properties: tables.relationship.properties }).from(tables.relationship),
 						);
 						expect(relationships).toEqual([{ properties: { rank: 1 } }]);
-						expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
 					}),
 				testTimeout,
 			);
@@ -1230,13 +1232,13 @@ describe("Relationships lifecycle owner", () => {
 						const repository = yield* RelationshipsRepository;
 
 						const created = yield* repository.createRelationship(new WriteTransaction(), baseInput);
-						const stale = yield* service.prepareUserDelete(
-							new WritePreparation(),
-							baseInput,
-							command("prepared-stale"),
-						);
+						const stale = yield* prepareUserChange({
+							mode: "delete",
+							input: baseInput,
+							command: command("prepared-stale"),
+						});
 						yield* repository.updateRelationshipsById([
-							{ id: created.id, properties: { rank: 9 } },
+							{ id: created.id, properties: { rank: 9 }, targetEntityId: created.targetEntityId },
 						]);
 						expect(yield* persistPrepared(stale).pipe(Effect.flip)).toMatchObject({
 							reason: { code: "concurrent-relationship-change" },
@@ -1249,27 +1251,32 @@ describe("Relationships lifecycle owner", () => {
 							targetEntityId: sourceEntityId,
 						};
 						yield* repository.createRelationship(new WriteTransaction(), deletionInput);
-						const deletion = yield* service.prepareUserDelete(
-							new WritePreparation(),
-							deletionInput,
-							command("prepared-delete"),
-						);
-						const creation = yield* service.prepareUserWrite(
-							new WritePreparation(),
-							createInput,
-							command("prepared-create"),
-							"upsert",
-						);
+						const deletion = yield* prepareUserChange({
+							mode: "delete",
+							input: deletionInput,
+							command: command("prepared-delete"),
+						});
+						const creation = yield* prepareUserChange({
+							mode: "upsert",
+							input: createInput,
+							command: command("prepared-create"),
+						});
+						const batch = { identity: ["relationships"], command: creation.mutation.command };
 						expect(
-							yield* service.persistPrepared(new WriteTransaction(), creation).pipe(Effect.flip),
+							yield* service
+								.persistPrepared(new WriteTransaction(), [creation], batch)
+								.pipe(Effect.flip),
 						).toMatchObject({ code: "active-transaction-required" });
 						expect(
 							yield* session
 								.transaction(
 									session.run((tx) =>
 										Effect.gen(function* () {
-											yield* service.persistPrepared(new WriteTransaction(), deletion);
-											yield* service.persistPrepared(new WriteTransaction(), creation);
+											yield* service.persistPrepared(
+												new WriteTransaction(),
+												[deletion, creation],
+												batch,
+											);
 											const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
 												({ category }) => category === "change",
 											);
@@ -1288,8 +1295,7 @@ describe("Relationships lifecycle owner", () => {
 							),
 						).toEqual([]);
 
-						const [work] = yield* persistPrepared(creation);
-						expect(work?.dispatch).toEqual([]);
+						expect((yield* persistPrepared(creation)).dispatch).toEqual([]);
 
 						const rejectedInput = yield* installPolicyFixture();
 						yield* repository.createRelationship(new WriteTransaction(), rejectedInput);
@@ -1557,7 +1563,7 @@ describe("Relationships lifecycle owner", () => {
 							LifecyclePolicies.of({
 								...decided,
 								run: (input) => {
-									calls.push(input.items.map(({ itemIdentity }) => itemIdentity));
+									calls.push(input.request.items.map(({ itemIdentity }) => itemIdentity));
 									return decided.run(input);
 								},
 							});

@@ -20,6 +20,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import type { RecordedCommit } from "#modules/changes/change-sets.test-support";
 import { EnrichmentRequestsRepository } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
@@ -46,7 +47,7 @@ import {
 	runEntityPopulationJob,
 	runPopulationAttempt,
 } from "./population-job";
-import { type PopulationCommit, populationCommitsLayer } from "./population.test-support";
+import { populationCommitsLayer } from "./population.test-support";
 
 const now = IsoUtcString.make("2026-09-17T00:00:00.000Z");
 const userId = UserId.make("population-user");
@@ -138,7 +139,7 @@ class FakePopulationWrites extends Context.Service<
 ) {}
 
 /** The writes of a population commit, labelled by what they write. */
-const commitLabels = ({ changes }: PopulationCommit, rootExternalId: string) => [
+const commitLabels = ({ changes }: RecordedCommit, rootExternalId: string) => [
 	...(changes.globalEntities ?? []).map((item) => {
 		if (item.externalId !== rootExternalId) {
 			return "child-entity";

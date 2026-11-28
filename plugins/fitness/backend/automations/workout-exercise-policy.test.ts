@@ -26,9 +26,7 @@ const input = (operation: "create" | "update", changes: Record<string, unknown> 
 	};
 	return Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
-			runId: "run",
 			occurredAt: now,
-			triggerId: "trigger",
 			executionUserId: "user",
 			hookSlug: "fitness.workout-exercise",
 			causation: {

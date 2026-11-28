@@ -14,8 +14,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonByteLength, stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
 import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
@@ -629,20 +628,22 @@ export class Folds extends Context.Service<Folds>()(
 
 			/** Runs the fold once over subjects that fit one run and pairs each with its result. */
 			const execute = Effect.fnUntraced(function* (run: Run, lane: ExecutionLane) {
-				const result = yield* calls.run({
-					lane,
-					principal: run.binding.principal,
-					executionId: `fold-${yield* random.uuidV4()}`,
-					input: { subjects: run.subjects.map(({ input }) => input) },
-				});
+				const result = yield* calls.run(
+					{
+						lane,
+						principal: run.binding.principal,
+						contextBytes: FOLD_LIMITS.inputBytes,
+						executionId: `fold-${yield* random.uuidV4()}`,
+						input: { subjects: run.subjects.map(({ input }) => input) },
+					},
+					FoldOutput,
+				);
 				if (result.error) {
 					return yield* failure(
 						`Fold failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
 					);
 				}
-				const output = yield* Schema.decodeUnknownEffect(FoldOutput)(result.value).pipe(
-					Effect.mapError((error) => failure(`Fold output is invalid: ${unknownToMessage(error)}`)),
-				);
+				const { output } = result;
 				if (output.subjects.length !== run.subjects.length) {
 					return yield* failure("Fold must return one result per subject");
 				}

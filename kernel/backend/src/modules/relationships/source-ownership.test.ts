@@ -12,13 +12,14 @@ import { Effect } from "effect";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
+import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,
 	command,
 	persistPrepared,
+	prepareUserChange,
 	relationshipChangeSetsLayer,
 	sourceEntityId,
 	targetEntityId,
@@ -105,7 +106,6 @@ layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) =
 							relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
 						}),
 				);
-				const service = yield* RelationshipsService;
 				assertExitFails(
 					yield* Effect.exit(
 						writeRelationship(
@@ -122,11 +122,11 @@ layer(relationshipChangeSetsLayer({ userWritePolicy: "source-owner" }))((test) =
 				);
 				assertExitFails(
 					yield* Effect.exit(
-						service.prepareUserDelete(
-							new WritePreparation(),
-							baseInput,
-							command("denied-prepared-delete"),
-						),
+						prepareUserChange({
+							mode: "delete",
+							input: baseInput,
+							command: command("denied-prepared-delete"),
+						}),
 					),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
@@ -188,13 +188,11 @@ layer(relationshipChangeSetsLayer())((test) => {
 		"rechecks source ownership at the prepared commit after schema policy changes",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
-				const prepared = yield* service.prepareUserWrite(
-					new WritePreparation(),
-					baseInput,
-					command("prepared-before-policy"),
-					"upsert",
-				);
+				const prepared = yield* prepareUserChange({
+					mode: "upsert",
+					input: baseInput,
+					command: command("prepared-before-policy"),
+				});
 				const definitions = yield* DefinitionRepository;
 				const source = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
 				yield* definitions.replaceKernelDefinitions({

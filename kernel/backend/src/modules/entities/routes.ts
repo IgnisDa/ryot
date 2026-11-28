@@ -1,18 +1,16 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError, dieOnDbError } from "@ryot-app/contract/errors";
+import { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EntityBadRequest,
 	EntityNotFound,
 	EntityStale,
 } from "@ryot-app/contract/modules/entities/schemas";
-import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { generateId } from "better-auth";
-import { DateTime, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
 import { rejectKernelOwnedSchemas } from "#modules/changes/authority";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
@@ -23,7 +21,7 @@ import { EntityPopulation } from "./populate";
 import { EntityEnrichmentService } from "./providers/enrichment";
 
 const isRouteFailure = Schema.is(
-	Schema.Union([DbError, EntityBadRequest, EntityNotFound, EntityStale]),
+	Schema.Union([DbError, PolicyFailure, EntityBadRequest, EntityNotFound, EntityStale]),
 );
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
@@ -49,28 +47,12 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
 					});
 				}
-				const command = {
-					...rootLifecycleCommand({
-						source: "api",
-						lane: "interactive",
-						itemIdentity: "entity",
-						accountUserId: user.id,
-						initiator: { id: user.id, kind: "user" },
-						executionId: AutomationExecutionId.make(generateId()),
-						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-					}),
-					writeContext: null,
-				};
-				const result = yield* (yield* ChangeSets).commit(changes, command);
+				const result = yield* (yield* ChangeSets).commit(
+					changes,
+					yield* apiLifecycleCommand(user, "entity"),
+				);
 				return { entity: yield* savedEntity(result) };
 			}).pipe(
-				Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-					Effect.fail(
-						new EntityBadRequest({
-							reason: { runId: error.runId, code: "policy-execution-failed" },
-						}),
-					),
-				),
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
 				dieOnDbError,
 			),

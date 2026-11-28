@@ -11,6 +11,7 @@ import {
 	PluginRevisionId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import {
@@ -19,7 +20,6 @@ import {
 	providerDetailsResultSchema,
 	providerRelatedResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Duration, Effect, Result, Schema } from "effect";
@@ -39,6 +39,7 @@ import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	commitPopulation,
+	commitRelatedPopulation,
 	populationCommand,
 	upsertedEntity,
 	writeChildEntitySet,
@@ -73,7 +74,7 @@ type ValidatedEntityDetails = {
 	readonly relatedEntityGroups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>;
 };
 
-const SandboxJsonObjectSchema = Schema.Record(Schema.String, jsonValueSchema);
+const SandboxJsonObjectSchema = Schema.Record(Schema.String, JsonValue);
 const decodeProviderDetailsResult = Schema.decodeUnknownEffect(providerDetailsResultSchema);
 
 type ChildEntitySetScope = {
@@ -265,9 +266,6 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 			],
 		},
 	});
-	if (result === null) {
-		return yield* Effect.die("A root upsert has no related generation to lose");
-	}
 	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
@@ -358,9 +356,6 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 			...(options.level === "full" ? { population: { claims: [root] } } : {}),
 		},
 	});
-	if (result === null) {
-		return yield* Effect.die("A root stamp has no related generation to lose");
-	}
 	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
@@ -437,7 +432,7 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 	entityId: EntityId,
 	generation: string,
 ) {
-	const stamped = yield* commitPopulation({
+	const stamped = yield* commitRelatedPopulation({
 		owner: payload,
 		command: payload.command,
 		generation: { entityId, generation },

@@ -9,7 +9,6 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
 	AutomationExecutionId,
-	AutomationRunId,
 	EntitySchemaSlug,
 	EventId,
 	IntegrationId,
@@ -24,6 +23,7 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -73,6 +73,7 @@ const snapshot = buildDefinitionSnapshot({
 					name: { key: "test.recorded" },
 					propertiesSchema: {
 						fields: {
+							image: managedAssetProperty,
 							related: {
 								type: "object",
 								label: "Related",
@@ -113,14 +114,18 @@ const emptyCommit: CommitResult = {
 	relationships: [],
 	committed: { events: [] },
 };
-const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
+const event = (
+	key: string,
+	entityKey = "subject",
+	properties: Readonly<Record<string, unknown>> = {},
+): DataGraphRecord => ({
 	kind: "event",
 	record: {
 		key,
 		entityKey,
 		eventSchemaSlug: "recorded",
 		occurredAt: ingestionTestNow,
-		properties: { related: { entity: "related" } },
+		properties: { ...properties, related: { entity: "related" } },
 	},
 });
 const defaultRecords = [
@@ -188,11 +193,7 @@ const fixture = Effect.fnUntraced(function* (
 					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
 					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
 						if (throws) {
-							return {
-								index,
-								status: "failed",
-								reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run") },
-							};
+							return { index, status: "failed", reason: { code: "policy-execution-failed" } };
 						}
 						if (itemIdentity.includes("skipped")) {
 							return {
@@ -349,7 +350,7 @@ it.effect(
 );
 
 it.effect(
-	"writes each event of a run its commit rejected as a whole alone",
+	"fails every event of a run its commit rejected as a whole, writing none of them again",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* fixture(false, [event("written"), event("skipped"), event("throws")]);
@@ -362,20 +363,17 @@ it.effect(
 				["written", "skipped", "throws"].map((key) =>
 					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
 				),
-				...["written", "skipped", "throws"].map((key) => [
-					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
-				]),
 			]);
-			expect(test.outcomes.get("data:event:skipped")?.result).toBe("skipped");
-			expect(test.outcomes.get("data:event:throws")).toMatchObject({
-				result: "unsuccessful",
-				reason: { code: "event-policy-failed" },
-			});
+			expect(
+				["written", "skipped", "throws"].map(
+					(key) => test.outcomes.get(`data:event:${key}`)?.reason,
+				),
+			).toEqual(Array.from({ length: 3 }, () => ({ key: null, code: "event-policy-failed" })));
 			expect(test.projections[0]?.summary).toEqual([
 				{
 					unit: "events",
 					recordKind: "event",
-					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 3 },
 				},
 			]);
 		}),
@@ -383,7 +381,7 @@ it.effect(
 );
 
 it.effect(
-	"records a run's skipped events in its commit, so a failed recording rewrites no committed event",
+	"fails every event of a run whose commit fails, since the commit records its skipped events",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* fixture(
@@ -392,18 +390,50 @@ it.effect(
 				1,
 			);
 			yield* test.execute;
-			expect(test.committedEvents).toEqual(
-				["written", "independent"].map((key) =>
-					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+			expect(test.committedEvents).toEqual([]);
+			expect(test.submitted).toHaveLength(1);
+			expect(
+				["written", "skipped", "independent"].map(
+					(key) => test.outcomes.get(`data:event:${key}`)?.reason,
 				),
-			);
-			expect(test.submitted).toHaveLength(4);
-			expect(test.outcomes.get("data:event:skipped")?.result).toBe("skipped");
+			).toEqual(Array.from({ length: 3 }, () => ({ key: null, code: "database-commit-failed" })));
 			expect(test.projections[0]?.summary).toEqual([
 				{
 					unit: "events",
 					recordKind: "event",
-					counts: { created: 2, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 0 },
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 3 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"commits an event naming managed assets in a commit of its own",
+	() =>
+		Effect.gen(function* () {
+			const image = { type: "s3", key: "permanent/user-1_image.png" };
+			const test = yield* fixture(false, [
+				event("written"),
+				event("attached", "subject", { image }),
+				event("independent"),
+			]);
+			yield* test.execute;
+			expect(
+				test.submitted.map((changes) =>
+					(changes.events?.changes ?? []).map(({ itemIdentity }) => itemIdentity),
+				),
+			).toEqual(
+				[["written", "independent"], ["attached"]].map((keys) =>
+					keys.map((key) => ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`)),
+				),
+			);
+			expect(test.submitted[1]?.events?.changes[0]).toMatchObject({ properties: { image } });
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 3, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
 				},
 			]);
 		}),

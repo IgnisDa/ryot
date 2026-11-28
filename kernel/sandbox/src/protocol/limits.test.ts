@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	limitSandboxCompilationDiagnostics,
 	pluginBackendCompilerDiagnostic,
@@ -15,7 +14,6 @@ import {
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
 	sandboxCacheValueError,
-	sandboxContextBytes,
 	sandboxContextError,
 	sandboxHttpRequestBodyError,
 	sandboxWorkflowJournalByteError,
@@ -59,14 +57,10 @@ describe("sandbox limits", () => {
 		expect(sandboxContextError("🙂".repeat(SANDBOX_LIMITS.execution.contextBytes / 4))).toBe(
 			"Sandbox definition context is 65538 UTF-8 bytes and exceeds 65536 UTF-8 bytes",
 		);
-		const userId = UserId.make("user-1");
-		const projectionBytes = sandboxContextBytes({ userId, type: "projection" });
-		expect(sandboxContextBytes({ userId, type: "user" })).toBe(
-			SANDBOX_LIMITS.execution.contextBytes,
-		);
-		expect(sandboxContextError("a".repeat(projectionBytes - 2), projectionBytes)).toBeNull();
-		expect(sandboxContextError("a".repeat(projectionBytes - 1), projectionBytes)).toContain(
-			`exceeds ${projectionBytes} UTF-8 bytes`,
+		const runBytes = 2 * SANDBOX_LIMITS.execution.contextBytes;
+		expect(sandboxContextError("a".repeat(runBytes - 2), runBytes)).toBeNull();
+		expect(sandboxContextError("a".repeat(runBytes - 1), runBytes)).toContain(
+			`exceeds ${runBytes} UTF-8 bytes`,
 		);
 	});
 

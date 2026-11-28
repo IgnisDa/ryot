@@ -3,13 +3,15 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { resolvePluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
+import {
+	PLUGIN_USER_SETTINGS_MAX_BYTES,
+	resolvePluginUserSettings,
+} from "@ryot-app/contract/modules/plugins/user-settings";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -122,7 +124,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 									PluginUserSettingsTooLarge: () =>
 										badRequest(
 											kernelMessage("error.plugins.user-settings-too-large", {
-												maxBytes: SANDBOX_LIMITS.userSettingsBytes,
+												maxBytes: PLUGIN_USER_SETTINGS_MAX_BYTES,
 											}),
 										),
 								}),

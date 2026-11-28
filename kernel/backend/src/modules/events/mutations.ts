@@ -6,6 +6,7 @@ import {
 	AutomationEventSnapshot,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import { EventDelete, EventUpdate } from "@ryot-app/contract/modules/events/mutations";
 import {
 	CreateEventItem,
@@ -33,10 +34,12 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
-	matchPolicyChunks,
-	type PolicyBatchResult,
-	subjectChunks,
-	unchangedPolicyBatch,
+	acceptedPolicyRequests,
+	matchPolicies,
+	type PolicyDecisions,
+	policyFailureReason,
+	type PolicyItem,
+	unchangedPolicies,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import {
@@ -143,7 +146,7 @@ export type PreparedEventChanges = typeof PreparedEventChanges.Type;
 const preparedMutationReferences = (input: {
 	readonly userId: UserId;
 	readonly batches: ReadonlyArray<{
-		readonly validated: PolicyBatchResult;
+		readonly validated: PolicyDecisions;
 		readonly prepared: PreparedEventChanges;
 	}>;
 }) => ({
@@ -178,115 +181,99 @@ const createdEventIds = (batches: ReadonlyArray<{ readonly prepared: PreparedEve
 		prepared.items.flatMap((row) => (row.change.kind === "create" ? [preparedEventId(row)] : [])),
 	);
 
-export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedEventChanges) {
-	return yield* Effect.forEach(prepared.items, (item) =>
-		Effect.gen(function* () {
-			const common = {
-				itemIdentity: item.change.itemIdentity,
-				schemaKey: item.schemaFingerprint.digest,
-			};
-			if (item.change.kind === "create") {
-				return {
-					...common,
-					request: {
-						draft: item.draft,
-						resource: "event" as const,
-						category: "request" as const,
-						operation: "create" as const,
-					},
-				};
-			}
-			if (!item.source) {
-				return yield* new DbError({ message: "Prepared event snapshot is unavailable" });
-			}
-			if (item.change.kind === "delete") {
-				return {
-					...common,
-					request: {
-						resource: "event" as const,
-						draft: item.source.snapshot,
-						category: "request" as const,
-						operation: "delete" as const,
-					},
-				};
-			}
-			return {
+/** The request each prepared change asks its policies to decide, its entity as the subject. */
+export const eventPolicyItems = (prepared: PreparedEventChanges) =>
+	Effect.forEach(prepared.items, (item): Effect.Effect<PolicyItem> => {
+		const common = {
+			subject: item.draft.entityId,
+			itemIdentity: item.change.itemIdentity,
+			propertiesSchema: prepared.propertiesSchemas[item.schemaFingerprint.digest] ?? null,
+		};
+		if (item.change.kind === "create") {
+			return Effect.succeed({
 				...common,
-				request: {
-					draft: item.draft,
-					resource: "event" as const,
-					before: item.source.snapshot,
-					category: "request" as const,
-					operation: "update" as const,
-				},
-			};
-		}),
-	);
-});
+				request: { draft: item.draft, resource: "event", category: "request", operation: "create" },
+			});
+		}
+		if (!item.source) {
+			return Effect.die("A prepared event change has no captured snapshot");
+		}
+		return Effect.succeed({
+			...common,
+			request:
+				item.change.kind === "delete"
+					? {
+							resource: "event",
+							category: "request",
+							operation: "delete",
+							draft: item.source.snapshot,
+						}
+					: {
+							draft: item.draft,
+							resource: "event",
+							category: "request",
+							operation: "update",
+							before: item.source.snapshot,
+						},
+		});
+	});
 
-/** Matches each subject chunk's event policies, in the transaction that prepared the changes. */
-export const matchEventPolicies = (input: {
+/** Matches the policies of each subject chunk, in the transaction that prepared the changes. */
+export const matchEventPolicies = Effect.fnUntraced(function* (input: {
 	readonly userId: UserId;
 	readonly transaction: WriteTransaction;
 	readonly prepared: PreparedEventChanges;
 	readonly command: DomainLifecycleCommand;
-}) =>
-	matchPolicyChunks(
+}) {
+	const items = Arr.zip(input.prepared.items, yield* eventPolicyItems(input.prepared));
+	const chunks = yield* matchPolicies(
+		{
+			items,
+			resource: "event",
+			userId: input.userId,
+			command: input.command,
+			references: input.prepared.references,
+			policyItem: ([, policyItem]: (typeof items)[number]) => policyItem,
+		},
 		input.transaction,
-		subjectChunks(input.prepared.items, (item) => item.draft.entityId),
-		(items, index) =>
-			Effect.map(eventPolicyItems({ ...input.prepared, items }), (policyItems) => ({
-				items: policyItems,
-				userId: input.userId,
-				resource: "event" as const,
-				references: input.prepared.references,
-				propertiesSchemas: input.prepared.propertiesSchemas,
-				command: commandFor(input.command, `policies:${index}`),
-			})),
 	);
+	return chunks.map(({ request, policies, decisions, items: matched }) => ({
+		request,
+		policies,
+		decisions,
+		items: matched.map(([change]) => change),
+	}));
+});
 
-/** Each chunk's items as one persistable batch; a rejected or invalid item fails them all. */
+/** Each chunk's items as one persistable batch; an item its policies refused fails them all. */
 export const acceptedEventBatches = Effect.fnUntraced(function* (input: {
 	readonly prepared: PreparedEventChanges;
 	readonly command: DomainLifecycleCommand;
 	readonly chunks: ReadonlyArray<{
-		readonly validated: PolicyBatchResult;
+		readonly decisions: PolicyDecisions;
 		readonly items: ReadonlyArray<typeof PreparedEventChange.Type>;
 	}>;
 }) {
+	const accepted = acceptedPolicyRequests(input.chunks);
 	const batches: Array<{
-		validated: PolicyBatchResult;
+		validated: PolicyDecisions;
 		prepared: PreparedEventChanges;
 		command: DomainLifecycleCommand;
 	}> = [];
 	for (const chunk of input.chunks) {
-		const rejection = chunk.validated.items.find((item) => item.rejected !== null)?.rejected;
-		if (rejection) {
-			return yield* new EventBadRequest({
-				reason: { message: rejection, code: "policy-rejected" },
-			});
-		}
-		const invalid = chunk.validated.items.find((item) => item.error !== null);
-		if (invalid?.error) {
-			return yield* new EventBadRequest({
-				reason: {
-					code:
-						invalid.error.code === "reference-not-found"
-							? "invalid-policy-transform"
-							: invalid.error.code,
-				},
-			});
+		for (const item of chunk.decisions.items) {
+			yield* accepted(item.itemIdentity);
 		}
 		batches.push({
 			command: input.command,
-			validated: chunk.validated,
+			validated: chunk.decisions,
 			prepared: { ...input.prepared, items: chunk.items },
 		});
 	}
 	return batches;
 });
 
-const bad = (code: "mutation-conflict" | "invalid-properties" | "invalid-policy-transform") =>
+const bad = (code: "mutation-conflict" | "invalid-properties") =>
 	new EventBadRequest({ reason: { code } });
 const conflict = (cause: string) => rejectWithLoggedCause(bad("mutation-conflict"), cause);
 const commandFor = (
@@ -345,7 +332,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					readonly userId: UserId;
 					readonly entityIds?: ReadonlyArray<EntityId>;
 					readonly batches: ReadonlyArray<{
-						readonly validated: PolicyBatchResult;
+						readonly validated: PolicyDecisions;
 						readonly prepared: PreparedEventChanges;
 					}>;
 				},
@@ -654,8 +641,8 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					derived?: boolean;
 					sealBatch?: boolean;
 					batchIndexOffset?: number;
+					validated: PolicyDecisions;
 					batch?: LifecycleBatchInput;
-					validated: PolicyBatchResult;
 					prepared: PreparedEventChanges;
 					command: DomainLifecycleCommand;
 				},
@@ -790,7 +777,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					command: DomainLifecycleCommand;
 					schema: NonNullable<ReturnType<typeof schemasByScope.get>>;
 					draft: Extract<
-						PolicyBatchResult["items"][number]["request"],
+						PolicyDecisions["items"][number]["request"],
 						{ resource: "event" }
 					>["draft"];
 				}> = [];
@@ -798,20 +785,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					const accepted = input.validated.items.find(
 						(item) => item.itemIdentity === row.change.itemIdentity,
 					);
-					if (accepted?.error) {
-						return yield* bad(
-							accepted.error.code === "reference-not-found"
-								? "invalid-policy-transform"
-								: accepted.error.code,
-						);
+					const refused = accepted ? policyFailureReason(accepted) : null;
+					if (refused !== null) {
+						return yield* new PolicyRejected({ reason: refused });
 					}
 					if (accepted?.request.resource !== "event") {
 						return yield* conflict("Event policy approval is unavailable");
-					}
-					if (accepted.rejected !== null) {
-						return yield* new EventBadRequest({
-							reason: { code: "policy-rejected", message: accepted.rejected },
-						});
 					}
 					const draft = accepted.request.draft;
 					if (row.order) {
@@ -978,7 +957,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					batchIndexOffset?: number;
 					batch: LifecycleBatchInput;
 					batches: ReadonlyArray<{
-						validated: PolicyBatchResult;
+						validated: PolicyDecisions;
 						prepared: PreparedEventChanges;
 						command: DomainLifecycleCommand;
 					}>;
@@ -1008,14 +987,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
 			const applyFoldChanges: ApplyFoldChanges = Effect.fnUntraced(function* (transaction, input) {
 				const prepared = yield* prepare(transaction, input);
-				const validated = unchangedPolicyBatch({
-					resource: "event",
-					userId: input.userId,
-					command: input.command,
-					references: prepared.references,
-					items: yield* eventPolicyItems(prepared),
-					propertiesSchemas: prepared.propertiesSchemas,
-				});
+				const validated = unchangedPolicies(yield* eventPolicyItems(prepared), prepared.references);
 				yield* persist(transaction, { ...input, prepared, validated, derived: true }).pipe(
 					Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
 				);

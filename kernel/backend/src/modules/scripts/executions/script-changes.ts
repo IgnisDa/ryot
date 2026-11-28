@@ -11,17 +11,8 @@ import {
 import { Message } from "@ryot-app/i18n/message";
 import { Context, type Effect, Schema } from "effect";
 
+import type { CommitReceipt } from "#modules/mutations/idempotency";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-
-/**
- * Durable state that records a script's result in its changes' commit transaction. `load` runs
- * first and returns the result a previous commit recorded, which ends the commit without writing;
- * `record` runs after every write.
- */
-export type ChangeSetReceipt<A> = {
-	readonly load: Effect.Effect<A | null, DbError>;
-	readonly record: (committed: CommittedChanges) => Effect.Effect<A, DbError>;
-};
 
 export type ScriptChangesInput = {
 	readonly occurredAt: string;
@@ -62,7 +53,7 @@ export class ScriptChangesRejected extends Schema.TaggedError<
 >()("ScriptChangesRejected", {
 	reason: Schema.Union([
 		Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("conflict") }),
-		Schema.Struct({ message: Schema.String, code: Schema.Literal("policy-unavailable") }),
+		Schema.Struct({ code: Schema.Literal("policy-unavailable") }),
 		Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
 		Schema.Struct({ message: Message, code: Schema.Literal("refused") }),
 		Schema.Struct({ message: Schema.String, code: Schema.Literal("invalid") }),
@@ -82,11 +73,7 @@ export const scriptChangesFailure = ({ reason }: ScriptChangesRejected): ScriptC
 		};
 	}
 	if (reason.code === "policy-unavailable") {
-		return {
-			code: reason.code,
-			kind: "resource-unavailable",
-			message: `A policy could not run (${reason.message})`,
-		};
+		return { code: reason.code, kind: "resource-unavailable", message: "A policy could not run" };
 	}
 	if (reason.code === "policy-rejected") {
 		return {
@@ -124,7 +111,7 @@ export class ScriptChanges extends Context.Service<
 		) => Effect.Effect<CommittedChanges, DbError | ScriptChangesRejected>;
 		/** Commits once against the caller's durable state, which `receipt` reads and writes. */
 		readonly commit: <A>(
-			input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> },
+			input: ScriptChangesInput & { readonly receipt: CommitReceipt<CommittedChanges, A> },
 		) => Effect.Effect<A, DbError | ScriptChangesRejected>;
 	}
 >()("@ryot-app/kernel-backend/modules/scripts/executions/script-changes/ScriptChanges") {}

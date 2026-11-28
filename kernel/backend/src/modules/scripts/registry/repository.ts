@@ -18,10 +18,10 @@ import { alias } from "drizzle-orm/pg-core";
 import { Cache, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
-import type {
+import {
 	ScriptExecutionPrincipal,
-	ScriptInstallationInitialization,
-	ScriptPluginRevision,
+	type ScriptInstallationInitialization,
+	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -391,7 +391,49 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 				},
 			);
 
-			return { getScript, getScriptPin, getSchemaScope, isPluginScript, resolveWorkflowCallScript };
+			/**
+			 * The principal a pinned script runs under for `subject`, or null when the subject has no
+			 * executable pin; a pin the subject may not run under fails as `invalid-input`.
+			 */
+			const pinnedPrincipal = Effect.fn("SandboxRepository.pinnedPrincipal")(function* (
+				scriptId: SandboxScriptId,
+				subject: SandboxExecutionSubject,
+				pinned: {
+					readonly initialization?: ScriptInstallationInitialization;
+					readonly expectedRevision?: Pick<
+						ScriptPluginRevision,
+						"id" | "revisionId" | "configRevisionId"
+					>;
+				} = {},
+			) {
+				const pin = yield* getScriptPin(
+					scriptId,
+					pinned.expectedRevision,
+					subject,
+					pinned.initialization,
+				);
+				if (pin === null) {
+					return null;
+				}
+				return yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject }).pipe(
+					Effect.mapError(
+						() =>
+							new SandboxRunError({
+								kind: "invalid-input",
+								message: `Script ${pin.scriptSlug} cannot run for this execution`,
+							}),
+					),
+				);
+			});
+
+			return {
+				getScript,
+				getScriptPin,
+				getSchemaScope,
+				isPluginScript,
+				pinnedPrincipal,
+				resolveWorkflowCallScript,
+			};
 		}),
 	},
 ) {

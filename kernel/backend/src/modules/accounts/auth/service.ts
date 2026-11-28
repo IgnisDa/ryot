@@ -51,8 +51,7 @@ import { SecureRandom } from "effect/crypto";
 import { HttpServerRequest, type HttpServerResponse } from "effect/http";
 import type { HttpApiEndpoint } from "effect/http-api";
 
-import { ImpersonationEndedMessage, impersonationEndedTopic } from "#modules/live-updates/publish";
-import { broadcastStatement } from "#platform/broadcast";
+import { publishImpersonationEnded } from "#modules/live-updates/publish";
 import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { logHttpResponse } from "#platform/http/response-logger";
@@ -72,7 +71,7 @@ import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { mcpOAuthPlugin } from "./mcp-oauth-plugin";
 import { oauthPolicy, oauthProviderOptions } from "./oauth-policy";
 import { allowFrontendHttpRedirectUri } from "./oauth-provisioning";
-import { AuthRepository } from "./repository";
+import { AuthRepository, PASSWORD_RESET_IDENTIFIER_PREFIX } from "./repository";
 import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
 import { SessionCreationGate } from "./session-gate";
 import { userInitializationPlugin } from "./user-initialization-plugin";
@@ -384,6 +383,24 @@ const makeAuthInstance = (args: {
 					before: (session, context) =>
 						database.runInCurrentContext(context, args.sessionGate.gate(session.userId)),
 				},
+				delete: {
+					after: (session) =>
+						Effect.runPromiseWith(args.runtime)(
+							Reflect.get(session, "impersonationExpiresAt")
+								? publishImpersonationEnded(session.id)
+								: Effect.void,
+						),
+					before: (session, context) =>
+						database.runInCurrentContext(
+							context,
+							Effect.gen(function* () {
+								if (!Reflect.get(session, "impersonationExpiresAt")) {
+									return;
+								}
+								yield* args.repository.revokeSessionOAuthTokens(session.id);
+							}),
+						),
+				},
 				update: {
 					before: (update, context) => {
 						const current = context?.context.session?.session;
@@ -399,32 +416,6 @@ const makeAuthInstance = (args: {
 							data: { ...update, expiresAt: new Date(Math.min(requested, deadline.getTime())) },
 						});
 					},
-				},
-				delete: {
-					before: (session, context) =>
-						database.runInCurrentContext(
-							context,
-							Effect.gen(function* () {
-								if (!Reflect.get(session, "impersonationExpiresAt")) {
-									return;
-								}
-								yield* args.repository.revokeSessionOAuthTokens(session.id);
-							}),
-						),
-					after: (session) =>
-						Effect.runPromiseWith(args.runtime)(
-							Effect.gen(function* () {
-								if (!Reflect.get(session, "impersonationExpiresAt")) {
-									return;
-								}
-								const message = yield* Schema.encodeEffect(ImpersonationEndedMessage)({
-									sessionId: session.id,
-								});
-								yield* args.session.run((db) =>
-									db.execute(broadcastStatement(impersonationEndedTopic, message)),
-								);
-							}),
-						),
 				},
 			},
 		},
@@ -913,26 +904,26 @@ export class AuthService extends Context.Service<AuthService>()(
 				);
 			const revokeResetToken = (token: string) =>
 				withInternalAdapter(({ internalAdapter }) =>
-					internalAdapter.deleteVerificationByIdentifier(`reset-password:${token}`),
+					internalAdapter.deleteVerificationByIdentifier(
+						`${PASSWORD_RESET_IDENTIFIER_PREFIX}${token}`,
+					),
 				);
-			const revokePasswordResetLinks = Effect.fn("AuthService.revokePasswordResetLinks")(function* (
-				userId: UserId,
-			) {
-				const key = passwordResetTokenKey(userId);
-				const token = yield* values.get(key);
-				if (token === null) {
-					return;
-				}
-				yield* revokeResetToken(token);
-				yield* values.removeIfEquals(key, token);
-			});
 			const revokePasswordResetAccess = Effect.fn("AuthService.revokePasswordResetAccess")(
 				function* (userId: UserId) {
 					yield* repository.revokeUserOAuthTokens(userId);
 					yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKeys(userId));
-					yield* revokePasswordResetLinks(userId);
+					yield* repository.revokeUserPasswordResetLinks(userId);
 				},
 			);
+			const deleteUserSessions = Effect.fn("AuthService.deleteUserSessions")(function* (
+				userId: UserId,
+			) {
+				for (const sessionId of yield* repository.deleteUserSessions(userId)) {
+					yield* publishImpersonationEnded(sessionId).pipe(
+						Effect.provideService(DatabaseSession, session),
+					);
+				}
+			});
 			const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
 				email: string,
 			) {
@@ -983,24 +974,19 @@ export class AuthService extends Context.Service<AuthService>()(
 				browserUser,
 				revokeUserApiKey,
 				createUserApiKey,
-				purgeApiKeyCaches,
+				deleteUserSessions,
 				revokeUserConnectedApp,
 				requestPasswordResetLink,
-				revokePasswordResetLinks,
 				resolveRequestCredential,
 				startUserImpersonation: handoffs.create,
 				updateAuthUserDisabled: repository.updateUserDisabled,
+				revokeUserOAuthTokens: repository.revokeUserOAuthTokens,
 				initializeInterfaceLocale: repository.initializeInterfaceLocale,
+				revokePasswordResetLinks: repository.revokeUserPasswordResetLinks,
 				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
-				revokeUserOAuthTokens: (userId: UserId) =>
-					repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 				updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>
 					repository.patchUserPreferences(userId, patch).pipe(Effect.asVoid),
-				deleteUserSessions: (userId: UserId) =>
-					withInternalAdapter(({ internalAdapter }) =>
-						internalAdapter.deleteUserSessions(userId),
-					).pipe(Effect.orDie),
 				updateUserName: (userId: UserId, name: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { name }),
@@ -1020,6 +1006,11 @@ export class AuthService extends Context.Service<AuthService>()(
 					isBrowserSessionRequest(request)
 						? Effect.runPromiseWith(runtime)(browser.handle(request, resolveBrowserAccount))
 						: auth.handler(request),
+				purgeUserApiKeyCaches: (userId: UserId) =>
+					repository.listUserApiKeys(userId).pipe(
+						Effect.flatMap((apiKeys) => purgeApiKeyCaches(userId, apiKeys)),
+						Effect.asVoid,
+					),
 				linkAuthAccount: (account: {
 					id: string;
 					userId: string;

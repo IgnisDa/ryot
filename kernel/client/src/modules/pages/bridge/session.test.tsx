@@ -2251,7 +2251,7 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const calls: PluginCollectionRequest[] = [];
 				let count = 0;
-				const redactedFailure = { cause: "secret", reason: "private", outcome: "failure" };
+				const invalidFailure = { reason: "private", outcome: "failure" };
 				const { init, received, failures, pluginPort } = yield* connect({
 					onCollection: (request) => {
 						calls.push(request);
@@ -2259,8 +2259,8 @@ describe("plugin bridge", () => {
 						return Effect.succeed(
 							count === 1
 								? { outcome: "success", response: membership }
-								: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-									(redactedFailure as unknown as PluginCollectionOutcome),
+								: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+									(invalidFailure as unknown as PluginCollectionOutcome),
 						);
 					},
 				});
@@ -3006,16 +3006,11 @@ describe("plugin bridge", () => {
 		"malformed-result",
 	] satisfies PluginOperationBridgeErrorReason[]) {
 		it.live(
-			`round-trips a ${reason} operation bridge error without extra details`,
+			`round-trips a ${reason} operation bridge error`,
 			() =>
 				Effect.gen(function* () {
 					const { init, received, failures, pluginPort } = yield* connect({
-						onOperation: () =>
-							Effect.succeed({
-								reason,
-								outcome: "failure",
-								cause: new Error("private"),
-							} as PluginOperationOutcome),
+						onOperation: () => Effect.succeed({ reason, outcome: "failure" }),
 					});
 					pluginPort.postMessage(readyFor(init));
 					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));

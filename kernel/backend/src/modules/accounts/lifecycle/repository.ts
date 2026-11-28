@@ -7,7 +7,7 @@ import type {
 	UserResetResult,
 } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, notExists, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, notExists, or } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImportsRepository } from "#modules/imports/repository";
@@ -26,7 +26,6 @@ const LifecycleMetadata = Schema.Struct({
 	usesLocalAuth: Schema.Boolean,
 	recreatedAccountId: Schema.String,
 	locators: Schema.Array(ManagedAssetLocator),
-	apiKeys: Schema.Array(Schema.Struct({ id: Schema.String, key: Schema.String })),
 	accounts: Schema.Array(Schema.Struct({ accountId: Schema.String, providerId: Schema.String })),
 	user: Schema.Struct({
 		id: UserId,
@@ -63,7 +62,6 @@ const toInternal = (row: OperationRow) =>
 	Effect.map(decodeMetadata(row.metadata), (metadata) => ({
 		metadata,
 		operation: toOperation(row),
-		accessRevokedAt: row.accessRevokedAt,
 		databaseCleanupCompletedAt: row.databaseCleanupCompletedAt,
 	}));
 
@@ -286,7 +284,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					return null;
 				}
 
-				const [accounts, apiKeys, assets, backupArtifacts] = yield* Effect.all([
+				const [accounts, assets, backupArtifacts] = yield* Effect.all([
 					database.run((db) =>
 						db
 							.select({
@@ -295,12 +293,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							})
 							.from(authSchema.account)
 							.where(eq(authSchema.account.userId, userId)),
-					),
-					database.run((db) =>
-						db
-							.select({ id: authSchema.apikey.id, key: authSchema.apikey.key })
-							.from(authSchema.apikey)
-							.where(eq(authSchema.apikey.referenceId, userId)),
 					),
 					database.run((db) =>
 						db
@@ -351,7 +343,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					active: null,
 					retryable: null,
 					metadata: {
-						apiKeys,
 						accounts,
 						locators: [...locators.values()],
 						user: {
@@ -400,71 +391,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 								eq(lifecycleSchema.userLifecycleOperation.status, "failed"),
 							),
 						)
-						.returning(),
-				);
-				return row ? yield* toInternal(row) : null;
-			});
-
-			const claimAccessRevocation = Effect.fn("UserLifecycleRepository.claimAccessRevocation")(
-				function* (operationId: string, staleBefore: Date) {
-					const now = yield* DateTime.nowAsDate;
-					const [row] = yield* database.run((db) =>
-						db
-							.update(lifecycleSchema.userLifecycleOperation)
-							.set({ accessRevocationStartedAt: now })
-							.where(
-								and(
-									eq(lifecycleSchema.userLifecycleOperation.id, operationId),
-									eq(lifecycleSchema.userLifecycleOperation.status, "pending"),
-									isNull(lifecycleSchema.userLifecycleOperation.accessRevokedAt),
-									or(
-										isNull(lifecycleSchema.userLifecycleOperation.accessRevocationStartedAt),
-										lt(
-											lifecycleSchema.userLifecycleOperation.accessRevocationStartedAt,
-											staleBefore,
-										),
-									),
-								),
-							)
-							.returning(),
-					);
-					return row ? yield* toInternal(row) : null;
-				},
-			);
-
-			const releaseAccessRevocation = Effect.fn("UserLifecycleRepository.releaseAccessRevocation")(
-				function* (operationId: string) {
-					yield* database.run((db) =>
-						db
-							.update(lifecycleSchema.userLifecycleOperation)
-							.set({ accessRevocationStartedAt: null })
-							.where(
-								and(
-									eq(lifecycleSchema.userLifecycleOperation.id, operationId),
-									isNull(lifecycleSchema.userLifecycleOperation.accessRevokedAt),
-								),
-							),
-					);
-				},
-			);
-
-			const markAccessRevoked = Effect.fn("UserLifecycleRepository.markAccessRevoked")(function* (
-				operationId: string,
-			) {
-				const operation = yield* getInternalById(operationId);
-				if (operation?.accessRevokedAt !== null) {
-					return operation;
-				}
-				const now = yield* DateTime.nowAsDate;
-				const [row] = yield* database.run((db) =>
-					db
-						.update(lifecycleSchema.userLifecycleOperation)
-						.set({
-							accessRevokedAt: now,
-							accessRevocationStartedAt: null,
-							metadata: { ...operation.metadata, apiKeys: [] },
-						})
-						.where(eq(lifecycleSchema.userLifecycleOperation.id, operationId))
 						.returning(),
 				);
 				return row ? yield* toInternal(row) : null;
@@ -560,19 +486,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				);
 			});
 
-			const userExists = Effect.fn("UserLifecycleRepository.userExists")(function* (
-				userId: UserId,
-			) {
-				const [row] = yield* database.run((db) =>
-					db
-						.select({ id: authSchema.user.id })
-						.from(authSchema.user)
-						.where(eq(authSchema.user.id, userId))
-						.limit(1),
-				);
-				return row !== undefined;
-			});
-
 			const loadRecreatedIdentity = Effect.fn("UserLifecycleRepository.loadRecreatedIdentity")(
 				function* (userId: UserId) {
 					const [user] = yield* database.run((db) =>
@@ -600,17 +513,13 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			return {
 				create,
-				userExists,
 				markFailed,
 				markRunning,
 				markCompleted,
 				deleteUserData,
 				getInternalById,
 				reactivateFailed,
-				markAccessRevoked,
-				claimAccessRevocation,
 				loadRecreatedIdentity,
-				releaseAccessRevocation,
 				loadPreparationForUpdate,
 				markDatabaseCleanupCompleted,
 			};

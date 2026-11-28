@@ -3,17 +3,16 @@ import { expect } from "bun:test";
 import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationPluginAfterRun,
-	type AutomationRequestPayload,
 	type AutomationRun,
 	AutomationRunAttempt,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import { type ChangeSet, ChangesOutput } from "@ryot-app/contract/modules/changes/change-set";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	AutomationHookSlug,
 	AutomationRunId,
-	EntitySchemaSlug,
+	AutomationTriggerId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
@@ -26,7 +25,11 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { sandboxExecutionFailure } from "#modules/scripts/executions/result";
+import { decodeScriptCall } from "#modules/scripts/executions/calls";
+import {
+	sandboxExecutionFailure,
+	type SandboxExecutionResult,
+} from "#modules/scripts/executions/result";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
@@ -110,21 +113,6 @@ const initialAttempt = AutomationRunAttempt.make({
 	startedAt: trigger.createdAt,
 	attemptNumber: payload.attemptNumber,
 });
-const request: AutomationRequestPayload = {
-	resource: "entity",
-	category: "request",
-	operation: "create",
-	draft: {
-		properties: {},
-		name: "Original",
-		externalId: null,
-		providerId: null,
-		populatedAt: null,
-		entitySchemaPluginId: null,
-		entitySchemaSlug: EntitySchemaSlug.make("record"),
-	},
-};
-
 it.effect(
 	"replays captured kernel collection observer targets without changing plugin write ownership",
 	() =>
@@ -241,19 +229,18 @@ it.effect(
 		}),
 	testTimeout,
 );
-const requestTrigger = AutomationTrigger.make({
-	...trigger,
-	payload: request,
-	kind: { resource: "entity", category: "request", operation: "create" },
-});
+const otherTrigger = AutomationTrigger.make({ ...trigger, id: AutomationTriggerId.make("other") });
 
 type Operations = AutomationRunOperations["Service"];
+type SandboxRun = (
+	input: Parameters<Operations["runSandbox"]>[0],
+) => Effect.Effect<SandboxExecutionResult>;
 
 type HarnessOptions = {
 	readonly run?: AutomationRun;
 	readonly trigger?: AutomationTrigger;
 	readonly failFirstFinalize?: boolean;
-	readonly overrides?: Partial<Pick<Operations, "claim" | "prepare" | "runSandbox">>;
+	readonly overrides?: Partial<{ runSandbox: SandboxRun } & Pick<Operations, "claim" | "prepare">>;
 };
 
 type HarnessState = {
@@ -330,7 +317,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							status: "completed" as const,
 							value: { changes: hookChanges },
 						};
-					}),
+					}).pipe(Effect.flatMap((result) => decodeScriptCall(result, ChangesOutput))),
 				finalize: (input, written) =>
 					Effect.gen(function* () {
 						const { options, finalizeCalls } = yield* Ref.updateAndGet(state, (snapshot) => ({
@@ -499,7 +486,7 @@ it.effect(
 		Effect.gen(function* () {
 			const mismatch = yield* prepareAutomationInvocation(
 				run,
-				requestTrigger,
+				otherTrigger,
 				payload,
 				afterScript,
 				accountUserId,

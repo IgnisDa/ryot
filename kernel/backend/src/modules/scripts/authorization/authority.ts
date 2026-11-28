@@ -35,7 +35,7 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 						Effect.mapError(invalidPin),
 					);
 		};
-		const resolveStored = Effect.fn("SandboxExecutionAuthority.resolve")(function* (
+		const resolve = Effect.fn("SandboxExecutionAuthority.resolve")(function* (
 			principal: SandboxPrincipal,
 		) {
 			const validated = yield* decode(principal);
@@ -86,6 +86,6 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 			}
 			return yield* invalidPin();
 		});
-		return { resolve: resolveStored };
+		return { resolve };
 	}),
 );

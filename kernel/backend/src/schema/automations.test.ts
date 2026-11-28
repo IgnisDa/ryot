@@ -74,7 +74,7 @@ describe("automation database constraints", () => {
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
 							const invalid: Array<typeof tables.automationTrigger.$inferInsert> = [
-								{ ...trigger, category: "request" },
+								{ ...trigger, category: "change" },
 								{ ...trigger, operation: "create" },
 								{ ...trigger, payloadPrunedAt: null },
 								{ ...trigger, depth: 1, source: "automation", parentTriggerId: "parent" },

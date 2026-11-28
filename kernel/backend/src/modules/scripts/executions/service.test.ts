@@ -10,9 +10,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { jsonByteLength } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";

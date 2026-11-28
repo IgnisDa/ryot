@@ -309,17 +309,16 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 						? {}
 						: { idempotencyKey: invocation.idempotencyKey }),
 				};
-				const { output, committed } = yield* invocation.headers === undefined
+				const result = yield* invocation.headers === undefined
 					? operations.invokeTrusted({ ...operationInput, userId: user.id })
 					: operations.invoke({
 							...operationInput,
 							headers: invocation.headers,
 							credentialTarget: { resource: invocation.resource },
 						});
-				return yield* Schema.encodeEffect(Schema.toCodecJson(PluginInvokeResult))({
-					committed,
-					result: output,
-				}).pipe(Effect.orDie);
+				return yield* Schema.encodeEffect(Schema.toCodecJson(PluginInvokeResult))(result).pipe(
+					Effect.orDie,
+				);
 			});
 			return { list, invoke, resolve };
 		}),

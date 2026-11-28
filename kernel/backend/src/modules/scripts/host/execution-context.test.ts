@@ -11,7 +11,7 @@ import { sandboxRunIntegrationId, sandboxRunUserId } from "./execution-context";
 
 describe("script execution context", () => {
 	it("uses execution user and trusted causation integration without subscription context", () => {
-		const base = automationRunSubject("after", UserId.make("user_1"));
+		const base = automationRunSubject(UserId.make("user_1"));
 		const subject = {
 			...base,
 			causation: { ...base.causation, integrationId: IntegrationId.make("integration_1") },
@@ -21,6 +21,6 @@ describe("script execution context", () => {
 		);
 		expect(sandboxRunUserId(input)).toBe<unknown>("user_1");
 		expect(sandboxRunIntegrationId(input)).toBe<unknown>("integration_1");
-		expect(sandboxRunUserId(makeSubjectRunInput(automationRunSubject("after", null)))).toBeNull();
+		expect(sandboxRunUserId(makeSubjectRunInput(automationRunSubject(null)))).toBeNull();
 	});
 });

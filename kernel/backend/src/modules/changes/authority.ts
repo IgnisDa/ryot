@@ -1,9 +1,8 @@
 import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
-import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
-import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	LocalMessage,
 	type Message,
@@ -21,7 +20,13 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 
-import type { Changes } from "./changes";
+import {
+	type Changes,
+	type ChangeSetWriter,
+	changesParts,
+	nonEmpty,
+	scriptChangeSetParts,
+} from "./changes";
 
 /** What a change set may write, resolved once from its writer's principal. */
 export type ChangeSetAuthority = {
@@ -56,7 +61,13 @@ const isSystemWriter = (subject: Subject) =>
 	subject.type === "system" ||
 	(subject.type === "automation-run" && subject.executionUserId === null);
 
-const has = (value: undefined | ReadonlyArray<unknown>) => value !== undefined && value.length > 0;
+/** The parts the change set names that only writers of `kinds` may write, in check order. */
+const namedParts = (changes: ChangeSet, kinds: ReadonlyArray<ChangeSetWriter>) =>
+	scriptChangeSetParts.flatMap(({ part, writer, present }) =>
+		writer !== undefined && kinds.includes(writer.kind) && (writer.named ?? present)(changes)
+			? [part]
+			: [],
+	);
 
 const forbidden = (part: string, message: string) =>
 	Result.fail(new ChangeSetRejected({ part, message }));
@@ -108,31 +119,15 @@ export const authorizeChangeSet = (
 	const userId = userWriter(subject);
 	const system = isSystemWriter(subject);
 	const entities = changes.entities;
-	const userParts: ReadonlyArray<readonly [string, boolean]> = [
-		["events", changes.events !== undefined],
-		["relationships", changes.relationships !== undefined],
-		["folds", changes.folds?.scope === "user"],
-	];
-	const directUserParts: ReadonlyArray<readonly [string, boolean]> = [
-		["entity", changes.entity !== undefined],
-		["settings", changes.settings !== undefined],
-		["entities.deletes", has(entities?.deletes)],
-		["entities.clears", has(entities?.clears)],
-		["entities.merges", has(entities?.merges)],
-		["entities.updates", has(entities?.updates)],
-		["entities.ensures", has(entities?.ensures)],
-	];
-	for (const [part, present] of [...userParts, ...directUserParts]) {
-		if (present && (userId === null || pluginRevision === null)) {
-			return forbidden(part, `${part} requires a pinned plugin user execution`);
-		}
+	const [userPart] = namedParts(changes, ["user", "direct-user"]);
+	if (userPart !== undefined && (userId === null || pluginRevision === null)) {
+		return forbidden(userPart, `${userPart} requires a pinned plugin user execution`);
 	}
-	for (const [part, present] of directUserParts) {
-		if (present && subject.type !== "user") {
-			return forbidden(part, `${part} is available only to user executions`);
-		}
+	const [directUserPart] = namedParts(changes, ["direct-user"]);
+	if (directUserPart !== undefined && subject.type !== "user") {
+		return forbidden(directUserPart, `${directUserPart} is available only to user executions`);
 	}
-	if (has(entities?.ensures) && !isUserBootstrapPrincipal(principal)) {
+	if (nonEmpty(entities?.ensures) && !isUserBootstrapPrincipal(principal)) {
 		return forbidden(
 			"entities.ensures",
 			"Ensures are available only to pinned user bootstrap scripts",
@@ -160,22 +155,17 @@ export const authorizeChangeSet = (
 			return forbidden("folds", "System fold requests require a pinned system plugin script");
 		}
 	}
-	const globalParts: ReadonlyArray<readonly [string, boolean]> = [
-		["globalEntities", has(changes.globalEntities)],
-		["globalRelationships", has(changes.globalRelationships)],
-	];
-	for (const [part, present] of globalParts) {
-		if (present && (!system || pluginRevision?.scope !== "system")) {
-			return forbidden(part, `${part} requires a pinned system plugin execution`);
-		}
+	const [systemPart] = namedParts(changes, ["system"]);
+	if (systemPart !== undefined && (!system || pluginRevision?.scope !== "system")) {
+		return forbidden(systemPart, `${systemPart} requires a pinned system plugin execution`);
 	}
-	if (has(changes.globalEntities) && principal.providerId === null) {
+	if (nonEmpty(changes.globalEntities) && principal.providerId === null) {
 		return forbidden(
 			"globalEntities",
 			"Global entity upserts require a provider-associated script",
 		);
 	}
-	if (has(changes.signals)) {
+	if (nonEmpty(changes.signals)) {
 		if (subject.type !== "automation-run" && subject.type !== "system") {
 			return forbidden(
 				"signals",
@@ -190,7 +180,7 @@ export const authorizeChangeSet = (
 		}
 	}
 	const notifications: ChangeSetNotification[] = [];
-	if (has(changes.notifications)) {
+	if (nonEmpty(changes.notifications)) {
 		if (
 			subject.type !== "automation-run" ||
 			subject.accountUserId === null ||
@@ -214,102 +204,48 @@ export const authorizeChangeSet = (
 	return Result.succeed({ userId, notifications, pluginRevision });
 };
 
+const schemaKinds = ["entity", "relationship", "event", "signal"] as const;
+
 /** The first schema a change set names that its plugin revision does not declare. */
 export const undeclaredSchema = (changes: ChangeSet, scope: PluginSchemaScope) => {
-	const entitySlugs = [
-		...(changes.entity ? [changes.entity.entitySchemaSlug] : []),
-		...(changes.entities?.deletes ?? []).map((item) => item.entitySchemaSlug),
-		...(changes.entities?.clears ?? []).map((item) => item.entitySchemaSlug),
-		...(changes.entities?.merges ?? []).map((item) => item.entitySchemaSlug),
-		...(changes.entities?.updates ?? []).map((item) => item.entitySchemaSlug),
-		...(changes.entities?.ensures ?? []).map((item) => item.entitySchemaSlug),
-		...(changes.globalEntities ?? []).map((item) => item.entitySchemaSlug),
-	];
-	const relationshipSlugs = [
-		...(changes.relationships?.upserts ?? []),
-		...(changes.relationships?.deletes ?? []),
-		...(changes.globalRelationships ?? []),
-	].map((item) => item.relationshipSchemaSlug);
-	const eventSlugs = (changes.events?.changes ?? []).flatMap((change) =>
-		change.kind === "create" ? [change.eventSchemaSlug] : [],
-	);
-	const signalSlugs = (changes.signals ?? []).map((item) => item.schemaSlug);
-	return (
-		entitySlugs.find((slug) => !scope.entitySchemaSlugs.includes(slug)) ??
-		relationshipSlugs.find((slug) => !scope.relationshipSchemaSlugs.includes(slug)) ??
-		eventSlugs.find(
-			(slug) => !scope.eventSchemas.some((event) => event.eventSchemaSlug === slug),
-		) ??
-		signalSlugs.find((slug) => !scope.signalSchemaSlugs.includes(slug))
-	);
+	const declared = {
+		entity: (slug: string) => scope.entitySchemaSlugs.includes(slug),
+		signal: (slug: string) => scope.signalSchemaSlugs.includes(slug),
+		relationship: (slug: string) => scope.relationshipSchemaSlugs.includes(slug),
+		event: (slug: string) => scope.eventSchemas.some((event) => event.eventSchemaSlug === slug),
+	};
+	const named = scriptChangeSetParts.map(({ schemas }) => schemas?.(changes) ?? {});
+	for (const kind of schemaKinds) {
+		const undeclared = named
+			.flatMap((schemas) => schemas[kind] ?? [])
+			.find((slug) => !declared[kind](slug));
+		if (undeclared !== undefined) {
+			return undeclared;
+		}
+	}
+	return undefined;
 };
-
-type NamedReference<Id> = readonly [part: string, id: Id];
-type NamedEntityReference = readonly [part: string, id: EntityId, entitySchemaSlug?: string];
-
-const existing = (part: string, references: ReadonlyArray<undefined | ChangeSetEntityReference>) =>
-	references.flatMap((reference): ReadonlyArray<NamedReference<EntityId>> =>
-		reference?.kind === "existing" ? [[part, reference.entityId]] : [],
-	);
 
 /**
  * Every existing entity and event a change set names, with the part that names it and, for an
  * entity the part writes, the schema it names that entity under.
  */
 export const changeSetReferences = (changes: ChangeSet) => {
-	const { entities } = changes;
-	const eventChanges = changes.events?.changes ?? [];
-	const creates = eventChanges.flatMap((change) => (change.kind === "create" ? [change] : []));
-	const updates = eventChanges.flatMap((change) => (change.kind === "update" ? [change.item] : []));
-	const relationships = [
-		...(changes.relationships?.upserts ?? []),
-		...(changes.relationships?.deletes ?? []),
-	];
-	const entityReferences: ReadonlyArray<NamedEntityReference> = [
-		...(changes.entity?.target.kind === "update"
-			? [["entity", changes.entity.target.entityId, changes.entity.entitySchemaSlug] as const]
-			: []),
-		...(entities?.updates ?? []).map(
-			({ target, entitySchemaSlug }) =>
-				["entities.updates", target.entityId, entitySchemaSlug] as const,
+	const named = scriptChangeSetParts.flatMap(({ part, references }) =>
+		references === undefined ? [] : [[part, references(changes)] as const],
+	);
+	return {
+		events: named.flatMap(([part, { events = [] }]) =>
+			events.map((eventId) => [part, eventId] as const),
 		),
-		...(entities?.deletes ?? []).map(
-			({ entityId, entitySchemaSlug }) => ["entities.deletes", entityId, entitySchemaSlug] as const,
-		),
-		...(entities?.clears ?? []).map(
-			({ entityId, entitySchemaSlug }) => ["entities.clears", entityId, entitySchemaSlug] as const,
-		),
-		...(entities?.merges ?? []).flatMap(({ mergeFrom, mergeInto, entitySchemaSlug }) => [
-			["entities.merges", mergeFrom, entitySchemaSlug] as const,
-			["entities.merges", mergeInto, entitySchemaSlug] as const,
-		]),
-		...existing(
-			"relationships",
-			relationships.flatMap(({ source, target }) => [source, target]),
-		),
-		...existing(
-			"events",
-			creates.flatMap(({ entity, session }) => [entity, session]),
-		),
-		...updates.flatMap(({ patch }) =>
-			[patch.entityId, patch.sessionEntityId].flatMap((entityId) =>
-				entityId ? [["events", entityId] as const] : [],
+		entities: named.flatMap(([part, { entities = [] }]) =>
+			entities.map(([entityId, entitySchemaSlug]) =>
+				entitySchemaSlug === undefined
+					? ([part, entityId] as const)
+					: ([part, entityId, entitySchemaSlug] as const),
 			),
 		),
-		...(changes.events?.baselines ?? []).map(({ entityId }) => ["events", entityId] as const),
-	];
-	const eventReferences: ReadonlyArray<NamedReference<EventId>> = [
-		...eventChanges.flatMap((change) => {
-			if (change.kind === "create") {
-				return [];
-			}
-			return [["events", change.kind === "update" ? change.item.eventId : change.eventId] as const];
-		}),
-		...[...creates, ...updates.map(({ patch }) => patch)].flatMap(({ orderAfter }) =>
-			orderAfter ? [["events", orderAfter.eventId] as const] : [],
-		),
-	];
-	return { events: eventReferences, entities: entityReferences };
+	};
 };
 
 const kernelOwned = (reference: { readonly owner: DefinitionOwner }) =>
@@ -322,24 +258,13 @@ const kernelOwned = (reference: { readonly owner: DefinitionOwner }) =>
 export const rejectKernelOwnedSchemas = (
 	changes: Changes,
 ): Effect.Effect<void, EntityBadRequest | RelationshipBadRequest> => {
-	const { entity, entities, relationships } = changes;
-	const entitySchemas = [
-		...(entity ? [entity] : []),
-		...(entities?.creates ?? []),
-		...(entities?.updates ?? []),
-		...(entities?.deletes ?? []),
-		...(entities?.ensures ?? []),
-	].map(({ entitySchema }) => entitySchema);
-	if (entitySchemas.some(kernelOwned)) {
+	const named = changesParts.flatMap(({ present, schemas }) =>
+		schemas !== undefined && present(changes) ? [schemas(changes)] : [],
+	);
+	if (named.some(({ entity = [] }) => entity.some(kernelOwned))) {
 		return Effect.fail(new EntityBadRequest({ reason: { code: "kernel-owned-schema" } }));
 	}
-	const relationshipSchemas = [
-		...(relationships?.upserts ?? []),
-		...(relationships?.updates ?? []),
-		...(relationships?.ensures ?? []),
-		...(relationships?.deletes ?? []),
-	].map(({ relationshipSchema }) => relationshipSchema);
-	return relationshipSchemas.some(kernelOwned)
+	return named.some(({ relationship = [] }) => relationship.some(kernelOwned))
 		? Effect.fail(new RelationshipBadRequest({ reason: { code: "kernel-owned-schema" } }))
 		: Effect.void;
 };

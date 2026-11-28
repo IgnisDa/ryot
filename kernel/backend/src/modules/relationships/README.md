@@ -9,7 +9,8 @@ A user write has a mode: `upsert` replaces the properties, `merge` overlays the 
 and preserves omitted values (arrays merge without duplicates), `update` requires the relationship to
 exist (`relationship-not-found` otherwise), `ensure` writes only when the relationship is absent and
 leaves an existing one, including one written since preparation, unchanged, and `delete` removes it
-by its endpoints or, through `prepareUserDeleteById`, by the user's relationship ID.
+by its endpoints, or by the user's relationship ID once `findUserRelationshipInputs` reads the
+endpoints of the IDs the user has.
 
 A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped creates, updates,
 and deletes then require the source entity to belong to the writing user; a visible global target
@@ -20,23 +21,25 @@ creation token until persistence can read the stored entity. Authorized global w
 their existing plugin and execution authority; this rule neither grants global authority nor runs
 a sandbox policy during provider reconciliation.
 
-`prepared-mutations.ts` prepares each user write in its own short transaction, returning its
-request, or a null request when it would write nothing (an unchanged upsert or merge, an existing
-ensure, a missing delete). Policies run once per batch, not per item: the owning commit matches every
-prepared request in one relationship policy batch (`matchRelationshipPolicies`, chunks of at most 50
-grouped by source entity) in its prepare transaction, calls the matched policies outside it
-(`applyRelationshipPolicies`), and applies each item's decision before persisting it
-(`acceptRelationshipPolicies`). A rejection fails the commit with `policy-rejected`, an invalid
-transform with `invalid-properties` or `invalid-policy-transform`, and a policy execution failure with
-`policy-execution-failed`. Persistence joins the caller's active transaction, uses conditional source
-writes, records the import item, and returns the item result and dispatch references; a null request
+`prepared-mutations.ts` prepares a commit's user changes as one set (`prepareUserChanges`): their
+schemas in one read per user, then one short transaction that locks them, reads their endpoints and
+looks up their relationships once, returning each change's request, or a null request when it would
+write nothing (an unchanged upsert or merge, an existing ensure, a missing delete). Policies run once per batch, not per item: the owning commit matches every
+prepared request in one relationship policy batch (`matchRelationshipPolicies`, chunked by source
+entity) in its prepare transaction, calls the matched policies outside it, and applies each item's
+decision, by item identity, before persisting it (`acceptRelationshipPolicies`). A rejection, an
+invalid transform and a policy execution failure fail the commit with `PolicyRejected`
+(`policy-rejected`, `invalid-properties` or `invalid-policy-transform`, and `policy-execution-failed`). `persistPrepared` persists the set in the caller's active transaction with
+the batch primitives: one locked write check per writer, one lock, lookup and endpoint read, and one
+statement per operation, failing a write whose relationship changed since preparation; it records
+each item's import item and returns each item's result and the dispatch references. A null request
 rechecks that the source is unchanged and returns a no-op. The owner seals the resource batch and
 dispatches after commit. A policy-transformed update still writes even when its final properties
 match the source.
 
 `planned-reconciliation.ts` reconciles a change set's global relationships in its `ChangeSets` commit transaction. Provider reconciliation is not a policy-subject request, so it plans no before-policies. It seals each group and records replay-stable group results.
 
-Every writing transaction runs locked domain write checks, given its `WriteTransaction`, for each distinct writer, kernel-collection flag, definition owner, and scope (reading each piece of authority once per transaction), then locks entity references (`FOR KEY SHARE`, sorted ids), then relationship identities (one sorted `hashtextextended(key, 0)` advisory-lock statement over the repository's deterministic lock keys), then the schema catalog. Only then does each item validate once, against the verified pin of its write check; that result feeds the request, the policy-transform reparse, and the stable-source check. Planned reconciliation takes the catalog lock before the identity locks; both are shared with the write checks' ingestion lock. Entity and relationship reads, and source inserts, updates, and deletes are one statement per phase. A later item whose identity an earlier item of the same batch wrote fails with `concurrent-relationship-change`. Reconciliation computes population counts from its prepared requests before change planning; the first changed item is the leader. Replayed dispatch references retain their original order.
+Every writing transaction runs locked domain write checks, given its `WriteTransaction`, for each distinct writer, kernel-collection flag, definition owner, and scope (reading each piece of authority once per transaction), then locks entity references (`FOR KEY SHARE`, sorted ids), then relationship identities (one sorted `hashtextextended(key, 0)` advisory-lock statement over the repository's deterministic lock keys), then the schema catalog. Only then does each item validate once, against the verified pin of its write check; that result feeds the request, the policy-transform reparse, and the stable-source check. Planned reconciliation takes the catalog lock before the identity locks; both are shared with the write checks' ingestion lock. Entity and relationship reads, and source inserts, updates, and deletes are one statement per phase. A later item whose identity an earlier item of the same batch wrote fails with `concurrent-relationship-change`, unless it ensures a relationship that write left. Reconciliation computes population counts from its prepared requests before change planning; the first changed item is the leader. Replayed dispatch references retain their original order.
 
 Relationship declarations with `keyed: true` use a bounded `key` unique within the user, source
 entity, and qualified schema; every write of one names its key, and a key on another declaration

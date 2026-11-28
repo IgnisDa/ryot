@@ -588,8 +588,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		const failure = "outcome" in outcome && outcome.outcome === "failure";
 		const resultType =
 			type === "background-operation" ? "background-operation-accepted" : `${type}-result`;
-		const details = Object.fromEntries(Object.entries(outcome).filter(([key]) => key !== "cause"));
-		let decoded = decodeHostMessage({ ...details, requestId, type: resultType });
+		let decoded = decodeHostMessage({ ...outcome, requestId, type: resultType });
 		if (Result.isFailure(decoded)) {
 			reportDiagnostic(type, requestId, decoded.failure);
 			let reason: string;

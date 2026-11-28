@@ -10,6 +10,12 @@ import { Effect, Schema } from "effect";
 import { triggerFixture } from "./lifecycle.test-support";
 import { matchesTarget } from "./planner-resolver";
 
+const matches = (
+	owner: Parameters<typeof matchesTarget>[0],
+	target: Parameters<typeof matchesTarget>[1],
+	trigger: AutomationTrigger,
+) => trigger.payload !== null && matchesTarget(owner, target, trigger.payload);
+
 const first = PluginId.make("owner-a");
 const second = PluginId.make("owner-b");
 const eventChange = (pluginId: null | PluginId, entitySchemaSlug = "bottle") => ({
@@ -58,7 +64,7 @@ describe("owner-qualified hook matching", () => {
 						after: { ...payload.after, eventSchemaSlug: target.eventSchemaSlug },
 					},
 				});
-				expect(matchesTarget(definitionOwner(first), target, kernel)).toBe(true);
+				expect(matches(definitionOwner(first), target, kernel)).toBe(true);
 				const plugin = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
 					...kernel,
 					payload: {
@@ -71,11 +77,11 @@ describe("owner-qualified hook matching", () => {
 						},
 					},
 				});
-				expect(matchesTarget(definitionOwner(first), target, plugin)).toBe(false);
+				expect(matches(definitionOwner(first), target, plugin)).toBe(false);
 				const { owner: _owner, ...local } = target;
-				expect(matchesTarget(definitionOwner(first), local, plugin)).toBe(true);
-				expect(matchesTarget(definitionOwner(second), local, plugin)).toBe(false);
-				expect(matchesTarget(definitionOwner(first), local, kernel)).toBe(false);
+				expect(matches(definitionOwner(first), local, plugin)).toBe(true);
+				expect(matches(definitionOwner(second), local, plugin)).toBe(false);
+				expect(matches(definitionOwner(first), local, kernel)).toBe(false);
 			}),
 		testTimeout,
 	);
@@ -85,15 +91,9 @@ describe("owner-qualified hook matching", () => {
 			resource: "signal",
 			signalSchemaSlug: "fixture.signal",
 		} as const;
-		expect(matchesTarget(definitionOwner(first), target, triggerFixture("signal", first))).toBe(
-			true,
-		);
-		expect(matchesTarget(definitionOwner(second), target, triggerFixture("signal", first))).toBe(
-			false,
-		);
-		expect(matchesTarget(definitionOwner(null), target, triggerFixture("signal", first))).toBe(
-			false,
-		);
+		expect(matches(definitionOwner(first), target, triggerFixture("signal", first))).toBe(true);
+		expect(matches(definitionOwner(second), target, triggerFixture("signal", first))).toBe(false);
+		expect(matches(definitionOwner(null), target, triggerFixture("signal", first))).toBe(false);
 	});
 	it.effect(
 		"requires the stored event owner and parent entity schema",
@@ -104,10 +104,10 @@ describe("owner-qualified hook matching", () => {
 					payload: eventChange(first),
 					kind: { resource: "event", category: "change", operation: "create" },
 				});
-				expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
-				expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
+				expect(matches(definitionOwner(first), eventTarget, trigger)).toBe(true);
+				expect(matches(definitionOwner(second), eventTarget, trigger)).toBe(false);
 				expect(
-					matchesTarget(
+					matches(
 						definitionOwner(first),
 						{ ...eventTarget, entitySchemaSlug: "distillery" },
 						trigger,
@@ -130,8 +130,8 @@ describe("owner-qualified hook matching", () => {
 						items: [eventChange(first), eventChange(second, "distillery")],
 					},
 				});
-				expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
-				expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
+				expect(matches(definitionOwner(first), eventTarget, trigger)).toBe(true);
+				expect(matches(definitionOwner(second), eventTarget, trigger)).toBe(false);
 			}),
 		testTimeout,
 	);

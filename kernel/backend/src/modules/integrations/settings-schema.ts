@@ -1,6 +1,6 @@
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
+import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 
 export const resolveIntegrationSettingsSchema = <Lot, Schema>(
 	integration: { readonly lot: Lot; readonly provider: string; readonly packageKey: null | string },
@@ -18,8 +18,11 @@ export const isIntegrationSettingsTooLarge = (integration: {
 	readonly name: null | string;
 	readonly providerSpecifics: Readonly<Record<string, unknown>>;
 }) =>
-	(jsonByteLength({
-		name: integration.name,
-		provider: integration.provider,
-		providerSpecifics: integration.providerSpecifics,
-	}) ?? Infinity) > SANDBOX_LIMITS.integrations.settingsBytes;
+	exceedsJsonBytes(
+		{
+			name: integration.name,
+			provider: integration.provider,
+			providerSpecifics: integration.providerSpecifics,
+		},
+		INTEGRATION_LIMITS.settingsBytes,
+	);

@@ -19749,32 +19749,6 @@
 		{
 			"schema": "public",
 			"table": "user_lifecycle_operation",
-			"name": "access_revoked_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "user_lifecycle_operation",
-			"name": "access_revocation_started_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "user_lifecycle_operation",
 			"name": "database_cleanup_completed_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
@@ -27286,7 +27260,7 @@
 			"schema": "public",
 			"table": "automation_trigger",
 			"name": "automation_trigger_kind_check",
-			"value": "(\"category\" in ('request', 'change') and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete', 'batch')) or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
+			"value": "(\"category\" = 'change' and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete', 'batch')) or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
 			"entityType": "checks"
 		},
 		{

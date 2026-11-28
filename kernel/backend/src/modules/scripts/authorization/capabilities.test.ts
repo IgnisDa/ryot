@@ -11,7 +11,10 @@ import {
 	PluginRevisionId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
+import {
+	automationRunSubject,
+	policyRunSubject,
+} from "@ryot-app/sandbox/host/run-input.test-support";
 import { Effect } from "effect";
 
 import { isSandboxCapabilityAllowed, requireSandboxCapabilityInput } from "./capabilities";
@@ -64,7 +67,7 @@ describe("requireSandboxCapabilityInput", () => {
 	});
 
 	it("limits before runs to declared policy-safe capabilities", () => {
-		const input = makeSubjectRunInput(automationRunSubject("before", UserId.make("user_1")));
+		const input = makeSubjectRunInput(policyRunSubject(UserId.make("user_1")));
 		for (const capability of SANDBOX_HOST_CAPABILITIES) {
 			expect(isSandboxCapabilityAllowed(input, capability)).toBe(
 				POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
@@ -75,7 +78,7 @@ describe("requireSandboxCapabilityInput", () => {
 	it("applies system restrictions to system automation runs", () => {
 		const input = makeSubjectRunInput(
 			{
-				...automationRunSubject("after", null),
+				...automationRunSubject(null),
 				pluginId: pluginRevision().id,
 				pluginRevisionId: pluginRevision().revisionId,
 				pluginConfigRevisionId: pluginRevision().configRevisionId,
@@ -101,8 +104,8 @@ describe("requireSandboxCapabilityInput", () => {
 	it("limits Pro availability and managed asset verification to user-owned runs", () => {
 		const userId = UserId.make("user_1");
 		const user = makeSubjectRunInput({ userId, type: "user" });
-		const automation = makeSubjectRunInput(automationRunSubject("after", userId));
-		const before = makeSubjectRunInput(automationRunSubject("before", userId));
+		const automation = makeSubjectRunInput(automationRunSubject(userId));
+		const before = makeSubjectRunInput(policyRunSubject(userId));
 		const system = makeSubjectRunInput({ type: "system" });
 
 		for (const capability of ["getEntitlements", "verifyManagedAssets"] as const) {
@@ -117,7 +120,7 @@ describe("requireSandboxCapabilityInput", () => {
 		const failure = Effect.runSync(
 			Effect.flip(
 				requireSandboxCapabilityInput(
-					makeSubjectRunInput(automationRunSubject("after", UserId.make("user_1"))),
+					makeSubjectRunInput(automationRunSubject(UserId.make("user_1"))),
 					"getOAuthAccessToken",
 				),
 			),

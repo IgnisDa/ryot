@@ -1,37 +1,21 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
+import type { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EventBadRequest,
 	type EventNotFound,
 	EventsInternalError,
 	type EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
-import { AutomationExecutionId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { generateId } from "better-auth";
-import { DateTime, Effect } from "effect";
+import { EventId } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
 import { type EventChange, eventChanges, eventCreateChanges } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
 import { ChangeSets } from "#modules/changes/service";
-
-const apiCommand = Effect.fnUntraced(function* (userId: UserId) {
-	return {
-		...rootLifecycleCommand({
-			source: "api",
-			lane: "interactive",
-			accountUserId: userId,
-			itemIdentity: "events",
-			initiator: { id: userId, kind: "user" },
-			executionId: AutomationExecutionId.make(generateId()),
-			occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-		}),
-		writeContext: null,
-	};
-});
 
 const commitEventChange = Effect.fnUntraced(
 	function* (change: EventChange) {
@@ -39,18 +23,23 @@ const commitEventChange = Effect.fnUntraced(
 		const changes = yield* ChangeSets;
 		const result = yield* changes.commit(
 			eventChanges(user.id, [change]),
-			yield* apiCommand(user.id),
+			yield* apiLifecycleCommand(user, "events"),
 		);
 		return { eventId: result.committed.events[0]?.eventId ?? null };
 	},
 	Effect.catch(
 		(
 			error,
-		): Effect.Effect<never, EventStale | EventNotFound | EventBadRequest | EventsInternalError> => {
+		): Effect.Effect<
+			never,
+			EventStale | EventNotFound | PolicyFailure | EventBadRequest | EventsInternalError
+		> => {
 			if (
 				error._tag === "EventStale" ||
 				error._tag === "EventNotFound" ||
-				error._tag === "EventBadRequest"
+				error._tag === "EventBadRequest" ||
+				error._tag === "PolicyRejected" ||
+				error._tag === "PolicyUnavailable"
 			) {
 				return Effect.fail(error);
 			}
@@ -62,9 +51,6 @@ const commitEventChange = Effect.fnUntraced(
 					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 					`Event reference is not writable: ${error.reason.code}`,
 				);
-			}
-			if (error._tag === "AutomationPolicyExecutionError") {
-				return Effect.fail(new EventBadRequest({ reason: { code: "policy-execution-failed" } }));
 			}
 			return Effect.logError("event change failed", error).pipe(
 				Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
@@ -80,9 +66,11 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const user = yield* CurrentUser;
 				const changes = yield* ChangeSets;
 				return yield* changes
-					.commit(eventCreateChanges(user.id, payload), yield* apiCommand(user.id), {
-						events: { independent: true },
-					})
+					.commit(
+						eventCreateChanges(user.id, payload),
+						yield* apiLifecycleCommand(user, "events"),
+						{ events: { independent: true } },
+					)
 					.pipe(
 						Effect.map((result) => toCreateEventsResponse(result.outcomes)),
 						Effect.catch((error) =>

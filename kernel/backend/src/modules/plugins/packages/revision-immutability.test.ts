@@ -9,10 +9,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
-import { collectionOrderStatements } from "#platform/db/collection-order";
-import { dataChangeStatements } from "#platform/db/data-changes";
-import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
-import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
+import { postMigrationStatements } from "#platform/db/post-migration";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -135,16 +132,7 @@ describe("immutable plugin revisions", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(revisionPackage("reinstall"), owner);
-					for (const statement of [
-						...immutableRevisionStatements,
-						...collectionOrderStatements,
-						...entityOccursAtStatements,
-						...dataChangeStatements,
-						...immutableRevisionStatements,
-						...collectionOrderStatements,
-						...entityOccursAtStatements,
-						...dataChangeStatements,
-					]) {
+					for (const statement of [...postMigrationStatements, ...postMigrationStatements]) {
 						yield* session.run((db) => db.execute(sql.raw(statement)));
 					}
 					const triggers = yield* session.run((db) =>

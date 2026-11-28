@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	type AutomationEventDraft,
 	type AutomationEventSnapshot,
 	type AutomationPolicyOutput,
 	type AutomationRequestPayload,
@@ -17,7 +18,6 @@ import {
 } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
-	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
@@ -123,13 +123,12 @@ const updateItem = (id: string, patch: UpdateEventItem["patch"]): UpdateEventIte
 	patch,
 	eventId: EventId.make(id),
 });
-const updateEventProperties = (
+const updateEvent = (
 	repository: EventsRepository["Service"],
 	session: DatabaseSession["Service"],
 	eventId: EventId,
-	update: (
-		properties: AutomationEventSnapshot["properties"],
-	) => AutomationEventSnapshot["properties"],
+	update: (snapshot: AutomationEventSnapshot) => Partial<AutomationEventDraft>,
+	updatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-16T00:00:00.000Z")),
 ) =>
 	Effect.gen(function* () {
 		const input = { userId, eventId };
@@ -139,18 +138,19 @@ const updateEventProperties = (
 		const updated = yield* session.transaction(
 			repository.updatePreparedEvent(new WriteTransaction(), {
 				...input,
+				updatedAt,
 				expectedRevision,
 				propertiesSchema: { fields: {} },
-				updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-16T00:00:00.000Z")),
 				draft: {
 					entityId: snapshot.entityId,
 					occurredAt: snapshot.occurredAt,
-					properties: update(snapshot.properties),
+					properties: snapshot.properties,
 					eventSchemaSlug: snapshot.eventSchemaSlug,
 					sessionEntityId: snapshot.sessionEntityId,
 					entitySchemaSlug: snapshot.entitySchemaSlug,
 					eventSchemaPluginId: snapshot.eventSchemaPluginId,
 					entitySchemaPluginId: snapshot.entitySchemaPluginId,
+					...update(snapshot),
 				},
 			}),
 		);
@@ -205,7 +205,7 @@ const deleteTargets = [
 	},
 ];
 
-type PolicyCall = { readonly runId: AutomationRunId; readonly request: AutomationRequestPayload };
+type PolicyCall = { readonly request: AutomationRequestPayload };
 
 const recordTransaction = Effect.fnUntraced(function* (
 	session: DatabaseSession["Service"],
@@ -412,17 +412,12 @@ const lifecycleDatabaseLayer = (
 					const repository = yield* EventsRepository;
 					const session = yield* DatabaseSession;
 					return decidingPolicies(
-						(trigger) =>
+						(policyRequest) =>
 							Effect.gen(function* () {
 								yield* recordTransaction(session, planTransactions);
-								const { kind, payload } = trigger;
-								return kind.category === "request" &&
-									(kind.operation === "update" ||
-										(payload !== null &&
-											"items" in payload &&
-											payload.items.some((item) => item.operation === "update")))
-									? Array.from({ length: options.policyCount ?? 0 }, (_, index) => ({
-											...policyFixture(index, [
+								return policyRequest.items.some(({ request }) => request.operation === "update")
+									? Array.from({ length: options.policyCount ?? 0 }, (_, index) =>
+											policyFixture(index, [
 												{
 													eventSchemaSlug,
 													resource: "event",
@@ -430,13 +425,12 @@ const lifecycleDatabaseLayer = (
 													entitySchemaSlug: "record",
 												},
 											]),
-											runId: AutomationRunId.make(`event-policy-${index}`),
-										}))
+										)
 									: [];
 							}),
-						({ request }, { runId }) =>
+						({ request }) =>
 							(options.decidePolicy ?? (() => Effect.die("Unexpected policy")))(
-								{ runId, request },
+								{ request },
 								{ session, repository },
 							).pipe(
 								Effect.tap(() =>
@@ -999,17 +993,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						decidingPolicies(
 							() => Effect.succeed([policyFixture(1, deleteTargets)]),
 							() =>
-								session
-									.transaction(
-										repository.updateEventEntityReferences(new WriteTransaction(), {
-											userId,
-											eventId,
-											mergeInto: movedId,
-											mergeFrom: entityId,
-											updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z")),
-										}),
-									)
-									.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
+								updateEvent(repository, session, eventId, () => ({ entityId: movedId })).pipe(
+									Effect.orDie,
+									Effect.as({ action: "allow" as const }),
+								),
 						);
 					const staleId = EventId.make("prepared-stale");
 					yield* seed(staleId);
@@ -1060,7 +1047,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						},
 					).pipe(Effect.flip);
 					expect(rejected).toMatchObject({
-						_tag: "EventBadRequest",
+						_tag: "PolicyRejected",
 						reason: {
 							code: "policy-rejected",
 							message: { key: "rejection.rejected", namespace: "policy-plugin" },
@@ -1101,17 +1088,9 @@ describe("Event lifecycle PostgreSQL", () => {
 						() =>
 							Effect.gen(function* () {
 								if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
-									yield* session
-										.transaction(
-											repository.updateEventEntityReferences(new WriteTransaction(), {
-												userId,
-												mergeInto: movedId,
-												mergeFrom: entityId,
-												eventId: EventId.make("batch-stale"),
-												updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
-											}),
-										)
-										.pipe(Effect.orDie);
+									yield* updateEvent(repository, session, EventId.make("batch-stale"), () => ({
+										entityId: movedId,
+									})).pipe(Effect.orDie);
 								}
 								return { action: "allow" as const };
 							}),
@@ -1342,14 +1321,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					);
 					const noop = yield* runChanges([eventMove(move)], command("no-hook-noop"));
 					expect(noop).toEqual([]);
-					yield* session.transaction(
-						repository.updateEventEntityReferences(new WriteTransaction(), {
-							...move,
-							mergeFrom: movedId,
-							mergeInto: entityId,
-							updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
-						}),
-					);
+					yield* updateEvent(repository, session, eventId, () => ({ entityId }));
 					expect((yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId).toBe(
 						entityId,
 					);
@@ -1661,17 +1633,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					const movingPolicies = decidingPolicies(
 						() => Effect.succeed([policyFixture(0, [])]),
 						() =>
-							session
-								.transaction(
-									repository.updateEventEntityReferences(new WriteTransaction(), {
-										userId,
-										eventId,
-										mergeInto: movedId,
-										mergeFrom: entityId,
-										updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.snapshot.updatedAt)),
-									}),
-								)
-								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
+							updateEvent(
+								repository,
+								session,
+								eventId,
+								() => ({ entityId: movedId }),
+								DateTime.toDateUtc(DateTime.makeUnsafe(before.snapshot.updatedAt)),
+							).pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
 					);
 					assertExitFails(
 						yield* Effect.exit(
@@ -1709,14 +1677,12 @@ describe("Event lifecycle PostgreSQL", () => {
 				Effect.gen(function* () {
 					retryPolicyInputs.push(input);
 					if (retryPolicyInputs.length === 1) {
-						yield* updateEventProperties(repository, session, retryEventId, (properties) => ({
-							...properties,
-							note: "policy-derived",
+						yield* updateEvent(repository, session, retryEventId, ({ properties }) => ({
+							properties: { ...properties, note: "policy-derived" },
 						}));
 					} else if (retryPolicyInputs.length === 3) {
-						yield* updateEventProperties(repository, session, protectedEventId, (properties) => ({
-							...properties,
-							rating: 99,
+						yield* updateEvent(repository, session, protectedEventId, ({ properties }) => ({
+							properties: { ...properties, rating: 99 },
 						}));
 					}
 					return { action: "allow" } as const;

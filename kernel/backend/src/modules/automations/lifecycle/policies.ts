@@ -1,14 +1,19 @@
-import { DbError, SandboxFailureKind } from "@ryot-app/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
+import { SandboxFailureKind } from "@ryot-app/contract/errors";
 import {
-	AutomationEntityDraft,
+	type AutomationCausation,
+	type AutomationEntityDraft,
 	type AutomationPolicyBatchOutput,
-	AutomationPolicyPatch,
+	type AutomationPolicyPatch,
 	AutomationRequestPayload,
-	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	type PolicyFailureReason,
+	PolicyRejected,
+	PolicyUnavailable,
+} from "@ryot-app/contract/modules/changes/policies";
 import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	AutomationRunId,
 	EntityId,
 	PluginConfigRevisionId,
 	PluginId,
@@ -16,41 +21,50 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import type { AppSchema, PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
-import { Message } from "@ryot-app/i18n/message";
+import type { Message } from "@ryot-app/i18n/message";
 import { Context, Effect, Schema } from "effect";
 
 import { definitionText } from "#modules/definitions/text";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { automationEntityDrafts } from "#modules/entities/automation-drafts";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { WriteTransaction } from "#platform/db/write-transaction";
 
-import { lifecycleTrigger } from "./command";
+import { lifecycleChunks } from "./batch";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
 
 /** A policy that did not decide its items, with the sandbox failure kind that stopped it. */
 export class AutomationPolicyExecutionError extends Schema.TaggedError<
 	AutomationPolicyExecutionError,
 	{ readonly brand: unique symbol }
->()("AutomationPolicyExecutionError", {
-	runId: AutomationRunId,
-	kind: SandboxFailureKind,
-	code: Schema.Literal("policy-execution-failed"),
-}) {}
+>()("AutomationPolicyExecutionError", { kind: SandboxFailureKind }) {}
 
 const isTransientKind = Schema.is(
 	Schema.Literals(["resource-unavailable", "timeout", "infrastructure"]),
 );
 
-/** Whether the policy failed for want of capacity or infrastructure, so a later attempt may succeed. */
-export const isTransientPolicyFailure = (error: AutomationPolicyExecutionError) =>
-	isTransientKind(error.kind);
+/**
+ * The writes one policy call decides, held in memory: a request stores no trigger, and its policies
+ * store no runs.
+ */
+export type PolicyRequest = {
+	readonly resource: PolicyResource;
+	readonly scopeUserId: null | UserId;
+	readonly causation: AutomationCausation;
+	readonly occurredAt: DomainLifecycleCommand["occurredAt"];
+	readonly references: Readonly<Record<string, AutomationEntityDraft>>;
+	readonly items: ReadonlyArray<{
+		readonly itemIdentity: string;
+		readonly request: AutomationRequestPayload;
+	}>;
+};
 
-/** A policy matched to one request trigger. `runId` is the deterministic identity of that call. */
+type PolicyResource = "event" | "entity" | "relationship";
+
+/** A policy matched to a request, in call order. */
 export const LifecyclePolicy = Schema.Struct({
 	pluginId: PluginId,
-	runId: AutomationRunId,
 	hook: PluginBeforeHook,
 	position: Schema.Finite,
 	executionUserId: Schema.NullOr(UserId),
@@ -59,9 +73,50 @@ export const LifecyclePolicy = Schema.Struct({
 });
 export type LifecyclePolicy = typeof LifecyclePolicy.Type;
 
-export type LifecyclePolicyItem = {
+/** A chunk's decisions, with the entity references its policies saw. */
+export type PolicyDecisions = {
+	readonly items: ReadonlyArray<PolicyDecision>;
+	readonly references: Readonly<Record<string, AutomationEntityDraft>>;
+};
+
+/** An item after its policies: the request they left, or why they refused it. */
+export type PolicyDecision = PolicyItem & {
+	readonly error: null | ItemError;
+	readonly rejected: null | Message;
+	readonly patches: ReadonlyArray<AutomationPolicyPatch>;
+};
+
+/**
+ * A prepared write as its policies see it. Items sharing a `subject` share a policy call, so a
+ * once-per-subject policy runs once for them; a delete carries no properties schema.
+ */
+export type PolicyItem = {
+	readonly subject: string;
 	readonly itemIdentity: string;
 	readonly request: AutomationRequestPayload;
+	readonly propertiesSchema: null | AppSchema;
+};
+
+/** One chunk of a batch with the policies its request matched; no policies leaves it unchanged. */
+export type MatchedPolicyChunk<T> = {
+	readonly request: PolicyRequest;
+	readonly items: ReadonlyArray<T>;
+	readonly decisions: PolicyDecisions;
+	readonly policies: ReadonlyArray<LifecyclePolicy>;
+};
+
+type ItemError =
+	| { readonly code: "invalid-policy-transform" }
+	| { readonly entityId: EntityId; readonly code: "reference-not-found" }
+	| { readonly code: "invalid-properties"; readonly paths: ReadonlyArray<ReadonlyArray<string>> };
+
+type PolicyBatch<T> = {
+	readonly userId: null | UserId;
+	readonly items: ReadonlyArray<T>;
+	readonly resource: PolicyResource;
+	readonly command: DomainLifecycleCommand;
+	readonly policyItem: (item: T) => PolicyItem;
+	readonly references?: Readonly<Record<string, AutomationEntityDraft>>;
 };
 
 export class LifecyclePolicies extends Context.Service<
@@ -69,277 +124,246 @@ export class LifecyclePolicies extends Context.Service<
 	{
 		/** The request's matching policies in call order, read on the caller's transaction. */
 		match: (
-			trigger: AutomationTrigger,
+			request: PolicyRequest,
 			transaction: WriteTransaction,
 		) => Effect.Effect<ReadonlyArray<LifecyclePolicy>, DbError>;
 		/** Calls the policy once with every item it targets; untargeted items get no decision. */
 		run: (input: {
+			readonly request: PolicyRequest;
 			readonly policy: LifecyclePolicy;
-			readonly trigger: AutomationTrigger;
-			readonly items: ReadonlyArray<LifecyclePolicyItem>;
-			readonly references: Readonly<Record<string, AutomationEntityDraft>>;
 		}) => Effect.Effect<AutomationPolicyBatchOutput, DbError | AutomationPolicyExecutionError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/policies/LifecyclePolicies") {}
 
-export const PolicyBatchItem = Schema.Struct({
-	schemaKey: Schema.String,
-	request: AutomationRequestPayload,
-	itemIdentity: Schema.NonEmptyString,
-});
-const State = Schema.Struct({
-	...PolicyBatchItem.fields,
-	rejected: Schema.NullOr(Message),
-	patches: Schema.Array(AutomationPolicyPatch),
-	error: Schema.NullOr(
-		Schema.Union([
-			Schema.Struct({
-				code: Schema.Literal("invalid-properties"),
-				paths: Schema.Array(Schema.Array(Schema.String)),
-			}),
-			Schema.Struct({ code: Schema.Literal("invalid-policy-transform") }),
-			Schema.Struct({ entityId: EntityId, code: Schema.Literal("reference-not-found") }),
-		]),
-	),
-});
-export const PolicyBatchResult = Schema.Struct({
-	items: Schema.Array(State),
-	references: Schema.Record(EntityId, AutomationEntityDraft),
-});
-export type PolicyBatchResult = typeof PolicyBatchResult.Type;
+const POLICY_CHUNK_ITEMS = 50;
 
-/** The bad-request reason of an item its policies left invalid. */
-export const invalidPolicyItemReason = (
-	error: NonNullable<PolicyBatchResult["items"][number]["error"]>,
-) =>
-	error.code === "invalid-properties"
-		? { code: error.code, paths: error.paths }
-		: { code: "invalid-policy-transform" as const };
-
-const PolicyBatchPayload = Schema.Struct({
-	userId: Schema.NullOr(UserId),
-	command: DomainLifecycleCommand,
-	items: Schema.Array(PolicyBatchItem),
-	references: Schema.Record(EntityId, AutomationEntityDraft),
-	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
-	resource: Schema.Literals(["entity", "event", "relationship"]),
+const unchanged = (item: PolicyItem): PolicyDecision => ({
+	...item,
+	error: null,
+	patches: [],
+	rejected: null,
 });
-type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
 
-type MatchedPolicyBatch = {
-	readonly trigger: AutomationTrigger;
-	readonly policies: ReadonlyArray<LifecyclePolicy>;
-};
+/** The batch's items decided by no policy. */
+export const unchangedPolicies = (
+	items: ReadonlyArray<PolicyItem>,
+	references: Readonly<Record<string, AutomationEntityDraft>>,
+): PolicyDecisions => ({ references, items: items.map(unchanged) });
 
-/** Matches a batch's policies on the caller's transaction; null means none matched. */
-export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
-	input: PolicyBatchPayload,
+/**
+ * Chunks a batch by count and bytes, a subject's items together, and matches each chunk's policies
+ * on the caller's transaction.
+ */
+export const matchPolicies = <T>(
+	batch: PolicyBatch<T>,
 	transaction: WriteTransaction,
-): Effect.fn.Return<null | MatchedPolicyBatch, DbError, LifecyclePolicies> {
-	if (input.items.length === 0) {
-		return null;
-	}
-	const trigger = yield* lifecycleTrigger(input.command, input.userId, {
-		operation: "batch",
-		category: "request",
-		resource: input.resource,
-		references: input.references,
-		items: input.items.map((item) => item.request),
-		itemIdentities: input.items.map((item) => item.itemIdentity),
+): Effect.Effect<ReadonlyArray<MatchedPolicyChunk<T>>, DbError, LifecyclePolicies> =>
+	Effect.gen(function* () {
+		const policies = yield* LifecyclePolicies;
+		const references = batch.references ?? {};
+		const chunks = lifecycleChunks(batch.items, {
+			baseBytes: 0,
+			maxItems: POLICY_CHUNK_ITEMS,
+			sizeOf: (item) => batch.policyItem(item).request,
+			subjectOf: (item) => batch.policyItem(item).subject,
+		});
+		return yield* Effect.forEach(chunks, (items) =>
+			Effect.gen(function* () {
+				const decided = items.map(batch.policyItem);
+				const request: PolicyRequest = {
+					references,
+					resource: batch.resource,
+					scopeUserId: batch.userId,
+					causation: batch.command.causation,
+					occurredAt: batch.command.occurredAt,
+					items: decided.map((item) => ({
+						request: item.request,
+						itemIdentity: item.itemIdentity,
+					})),
+				};
+				return {
+					items,
+					request,
+					decisions: unchangedPolicies(decided, references),
+					policies: decided.length === 0 ? [] : yield* policies.match(request, transaction),
+				};
+			}),
+		);
 	});
-	const policies = yield* (yield* LifecyclePolicies).match(trigger, transaction);
-	return policies.length === 0 ? null : { trigger, policies };
-});
+
+/** Whether no chunk matched a policy, so committing needs no policy call. */
+export const unmatchedPolicies = (chunks: ReadonlyArray<MatchedPolicyChunk<unknown>>) =>
+	chunks.every(({ policies }) => policies.length === 0);
 
 const invalidProperties = (error: PropertyValidationError) => ({
 	code: "invalid-properties" as const,
 	paths: error.issues.map(({ path }) => path),
 });
 
-const policyChunkSize = 50;
+const propertiesSchemaOf = (item: PolicyItem) =>
+	item.propertiesSchema === null
+		? Effect.die("A policy item that writes properties has no properties schema")
+		: Effect.succeed(item.propertiesSchema);
 
 /**
- * Items in chunks of at most 50, which one policy invocation fits in the sandbox context limit. A
- * subject's items share a chunk, so a once-per-subject policy runs once for it, and a subject with
- * more than 50 items gets a chunk of its own that size.
+ * Calls each matched policy of a chunk in order with the items earlier policies left active,
+ * stopping once none are. A transformed event's new session entity is read with every other in one
+ * statement per policy.
  */
-export const subjectChunks = <T>(items: ReadonlyArray<T>, subjectOf: (item: T) => string) => {
-	const chunks: Array<Array<T>> = [];
-	for (const subject of Map.groupBy(items, subjectOf).values()) {
-		const last = chunks.at(-1);
-		if (last && last.length + subject.length <= policyChunkSize) {
-			last.push(...subject);
-		} else {
-			chunks.push([...subject]);
-		}
-	}
-	return chunks;
-};
-
-/** Matches each chunk's policies on the caller's transaction. */
-export const matchPolicyChunks = <T, E, R>(
-	transaction: WriteTransaction,
-	chunks: ReadonlyArray<ReadonlyArray<T>>,
-	batch: (items: ReadonlyArray<T>, index: number) => Effect.Effect<PolicyBatchPayload, E, R>,
-) =>
-	Effect.forEach(chunks, (items, index) =>
-		Effect.gen(function* () {
-			const policyBatch = yield* batch(items, index);
-			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch, transaction) };
-		}),
-	);
-
-export type MatchedPolicyChunks<T> = ReadonlyArray<{
-	readonly items: ReadonlyArray<T>;
-	readonly policyBatch: PolicyBatchPayload;
-	readonly matched: null | MatchedPolicyBatch;
-}>;
-
-export const unchangedPolicyBatch = (input: PolicyBatchPayload): PolicyBatchResult => ({
-	references: input.references,
-	items: input.items.map((item) => ({ ...item, patches: [], error: null, rejected: null })),
-});
-
-/** Calls each matched policy in order with the items earlier policies left active, stopping once none are. */
-export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
-	input: PolicyBatchPayload,
-	matched: null | MatchedPolicyBatch,
-) {
-	const policies = yield* LifecyclePolicies;
-	const entities = yield* EntitiesRepository;
-	let result = unchangedPolicyBatch(input);
-	const propertiesSchemaOf = (item: typeof PolicyBatchItem.Type) => {
-		const schema = input.propertiesSchemas[item.schemaKey];
-		return schema === undefined
-			? Effect.fail(new DbError({ message: "Policy batch item schema is unavailable" }))
-			: Effect.succeed(schema);
-	};
-	const calls =
-		matched === null
-			? []
-			: matched.policies.map((policy) => ({ policy, trigger: matched.trigger }));
-	for (const { policy, trigger } of calls) {
-		const active = result.items.flatMap((item) =>
-			item.rejected === null && item.error === null
-				? [{ request: item.request, itemIdentity: item.itemIdentity }]
-				: [],
-		);
-		if (active.length === 0) {
-			break;
-		}
-		const output = yield* policies.run({
-			policy,
-			trigger,
-			items: active,
-			references: result.references,
-		});
-		const previous = result;
-		const references = { ...previous.references };
-		const items = yield* Effect.forEach(previous.items, (item) =>
-			Effect.gen(function* () {
-				const decision = output.items.find(
-					(candidate) => candidate.itemIdentity === item.itemIdentity,
-				)?.decision;
-				if (!decision || item.rejected !== null || item.error !== null) {
-					return item;
-				}
-				if (decision.action === "reject") {
-					return { ...item, rejected: definitionText(policy.pluginId, decision.reason) };
-				}
-				if (decision.action === "allow") {
-					return item;
-				}
-				const patched = applyLifecyclePolicyPatch(item.request, decision.patch);
-				if (!patched.ok || patched.request.operation === "delete") {
-					return { ...item, error: { code: "invalid-policy-transform" as const } };
-				}
-				const propertiesSchema = yield* propertiesSchemaOf(item);
-				const properties = yield* parseAppSchemaProperties({
-					kind: "Mutation",
-					propertiesSchema,
-					properties: patched.request.draft.properties,
-					allowedMissingRequiredPaths: Object.keys(propertiesSchema.fields).map((key) => [key]),
-				}).pipe(Effect.result);
-				if (properties._tag === "Failure") {
-					return { ...item, error: invalidProperties(properties.failure) };
-				}
-				const decodedRequest = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
-					...patched.request,
-					draft: {
-						...patched.request.draft,
-						properties: properties.success,
-						...(patched.request.resource === "event"
-							? {
-									sessionEntityId: patched.request.draft.sessionEntityId?.trim()
-										? EntityId.make(patched.request.draft.sessionEntityId.trim())
-										: null,
-								}
-							: {}),
-					},
-				}).pipe(Effect.result);
-				if (decodedRequest._tag === "Failure") {
-					return { ...item, error: { code: "invalid-policy-transform" as const } };
-				}
-				const request = decodedRequest.success;
-				if (
-					request.resource === "event" &&
-					request.draft.sessionEntityId !== null &&
-					!references[request.draft.sessionEntityId]
-				) {
-					const reference =
-						input.userId === null
-							? null
-							: yield* entities.getByIdForUser({
-									userId: input.userId,
-									entityId: request.draft.sessionEntityId,
-								});
-					if (!reference) {
-						return {
-							...item,
-							error: {
-								code: "reference-not-found" as const,
-								entityId: request.draft.sessionEntityId,
-							},
-						};
+const decideChunk = <T>(chunk: MatchedPolicyChunk<T>) =>
+	Effect.gen(function* () {
+		const policies = yield* LifecyclePolicies;
+		const references: Record<string, AutomationEntityDraft> = { ...chunk.decisions.references };
+		let { items } = chunk.decisions;
+		for (const policy of chunk.policies) {
+			const active = items.filter((item) => item.rejected === null && item.error === null);
+			if (active.length === 0) {
+				break;
+			}
+			const output = yield* policies.run({
+				policy,
+				request: {
+					...chunk.request,
+					references,
+					items: active.map(({ request, itemIdentity }) => ({ request, itemIdentity })),
+				},
+			});
+			const decisions = new Map(output.items.map((item) => [item.itemIdentity, item.decision]));
+			const patched = yield* Effect.forEach(items, (item) =>
+				Effect.gen(function* () {
+					const decision = decisions.get(item.itemIdentity);
+					if (!decision || item.rejected !== null || item.error !== null) {
+						return item;
 					}
-					references[request.draft.sessionEntityId] = yield* Schema.decodeUnknownEffect(
-						AutomationEntityDraft,
-					)({
-						name: reference.name,
-						properties: reference.properties,
-						providerId: reference.providerId,
-						externalId: reference.externalId,
-						populatedAt: reference.populatedAt,
-						entitySchemaSlug: reference.entitySchemaSlug,
-						entitySchemaPluginId: reference.entitySchemaPluginId ?? null,
-					}).pipe(Effect.mapError(() => new DbError({ message: "Invalid policy reference" })));
+					if (decision.action === "reject") {
+						return { ...item, rejected: definitionText(policy.pluginId, decision.reason) };
+					}
+					if (decision.action === "allow") {
+						return item;
+					}
+					const applied = applyLifecyclePolicyPatch(item.request, decision.patch);
+					if (!applied.ok || applied.request.operation === "delete") {
+						return { ...item, error: { code: "invalid-policy-transform" as const } };
+					}
+					const propertiesSchema = yield* propertiesSchemaOf(item);
+					const properties = yield* parseAppSchemaProperties({
+						kind: "Mutation",
+						propertiesSchema,
+						properties: applied.request.draft.properties,
+						allowedMissingRequiredPaths: Object.keys(propertiesSchema.fields).map((key) => [key]),
+					}).pipe(Effect.result);
+					if (properties._tag === "Failure") {
+						return { ...item, error: invalidProperties(properties.failure) };
+					}
+					const decoded = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
+						...applied.request,
+						draft: {
+							...applied.request.draft,
+							properties: properties.success,
+							...(applied.request.resource === "event"
+								? {
+										sessionEntityId: applied.request.draft.sessionEntityId?.trim()
+											? EntityId.make(applied.request.draft.sessionEntityId.trim())
+											: null,
+									}
+								: {}),
+						},
+					}).pipe(Effect.result);
+					if (decoded._tag === "Failure") {
+						return { ...item, error: { code: "invalid-policy-transform" as const } };
+					}
+					const request = decoded.success;
+					const patch = canonicalLifecyclePolicyPatch(item.request, request);
+					return { ...item, request, patches: patch ? [...item.patches, patch] : item.patches };
+				}),
+			);
+			const missingSession = (item: PolicyDecision) =>
+				item.error === null &&
+				item.request.resource === "event" &&
+				item.request.draft.sessionEntityId !== null &&
+				!references[item.request.draft.sessionEntityId]
+					? item.request.draft.sessionEntityId
+					: null;
+			const sessions = [...new Set(patched.flatMap((item) => missingSession(item) ?? []))];
+			if (sessions.length > 0 && chunk.request.scopeUserId !== null) {
+				const loaded = yield* automationEntityDrafts(chunk.request.scopeUserId, sessions);
+				Object.assign(references, Object.fromEntries(loaded));
+			}
+			const checked: Array<PolicyDecision> = [];
+			for (const item of patched) {
+				const entityId = missingSession(item);
+				checked.push(
+					entityId === null
+						? item
+						: { ...item, error: { entityId, code: "reference-not-found" as const } },
+				);
+			}
+			items = checked;
+		}
+		const validated = yield* Effect.forEach(items, (item) =>
+			Effect.gen(function* () {
+				if (item.rejected !== null || item.error !== null || item.request.operation === "delete") {
+					return item;
 				}
-				const patch = canonicalLifecyclePolicyPatch(item.request, request);
-				return { ...item, request, patches: patch ? [...item.patches, patch] : item.patches };
+				const parsed = yield* parseAppSchemaProperties({
+					kind: "Mutation",
+					properties: item.request.draft.properties,
+					propertiesSchema: yield* propertiesSchemaOf(item),
+				}).pipe(Effect.result);
+				return parsed._tag === "Failure"
+					? { ...item, error: invalidProperties(parsed.failure) }
+					: item;
 			}),
 		);
-		result = { items, references };
-	}
-	const items = yield* Effect.forEach(result.items, (item) =>
-		Effect.gen(function* () {
-			if (item.rejected !== null || item.error !== null || item.request.operation === "delete") {
-				return item;
-			}
-			const parsed = yield* parseAppSchemaProperties({
-				kind: "Mutation",
-				properties: item.request.draft.properties,
-				propertiesSchema: yield* propertiesSchemaOf(item),
-			}).pipe(Effect.result);
-			return parsed._tag === "Failure"
-				? { ...item, error: invalidProperties(parsed.failure) }
-				: item;
-		}),
-	);
-	return { ...result, items };
-});
+		return { references, items: validated } satisfies PolicyDecisions;
+	});
 
-/** Runs each chunk's matched policies, outside any transaction. */
-export const applyPolicyChunks = <T>(chunks: MatchedPolicyChunks<T>) =>
-	Effect.forEach(chunks, ({ items, matched, policyBatch }) =>
-		applyPolicyBatch(policyBatch, matched).pipe(Effect.map((validated) => ({ items, validated }))),
+/**
+ * Runs each chunk's matched policies, outside any transaction. A policy that could not run for
+ * want of capacity is `PolicyUnavailable`; one that failed otherwise refuses the batch.
+ */
+export const applyPolicies = <T>(chunks: ReadonlyArray<MatchedPolicyChunk<T>>) =>
+	Effect.forEach(chunks, (chunk) =>
+		Effect.map(decideChunk(chunk), (decisions) => ({ ...chunk, decisions })),
+	).pipe(
+		Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+			Effect.fail(
+				isTransientKind(error.kind)
+					? new PolicyUnavailable({ reason: { code: "policy-unavailable" } })
+					: new PolicyRejected({ reason: { code: "policy-execution-failed" } }),
+			),
+		),
 	);
+
+/** Why policies refused a decided item, or null when they accepted it. */
+export const policyFailureReason = (decision: PolicyDecision): null | PolicyFailureReason => {
+	if (decision.rejected !== null) {
+		return { code: "policy-rejected", message: decision.rejected };
+	}
+	if (decision.error === null) {
+		return null;
+	}
+	return decision.error.code === "invalid-properties"
+		? { code: decision.error.code, paths: decision.error.paths }
+		: { code: "invalid-policy-transform" };
+};
+
+/**
+ * Each item's accepted request by item identity; an item its policies refused fails as
+ * `PolicyRejected`, and an undecided item has none.
+ */
+export const acceptedPolicyRequests = (
+	chunks: ReadonlyArray<{ readonly decisions: PolicyDecisions }>,
+) => {
+	const decided = new Map(
+		chunks.flatMap(({ decisions }) => decisions.items.map((item) => [item.itemIdentity, item])),
+	);
+	return (itemIdentity: string): Effect.Effect<null | PolicyDecision, PolicyRejected> => {
+		const decision = decided.get(itemIdentity);
+		if (!decision) {
+			return Effect.succeed(null);
+		}
+		const reason = policyFailureReason(decision);
+		return reason === null ? Effect.succeed(decision) : Effect.fail(new PolicyRejected({ reason }));
+	};
+};

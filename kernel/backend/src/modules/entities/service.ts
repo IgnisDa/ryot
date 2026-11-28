@@ -3,6 +3,7 @@ import {
 	AutomationEntityDraft,
 	type AutomationEntityRequestPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EntityBadRequest,
 	EntityNotFound,
@@ -34,12 +35,9 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
-	applyPolicyChunks,
-	invalidPolicyItemReason,
-	isTransientPolicyFailure,
-	matchPolicyChunks,
-	type PolicyBatchResult,
-	subjectChunks,
+	acceptedPolicyRequests,
+	matchPolicies,
+	type PolicyDecisions,
 } from "#modules/automations/lifecycle/policies";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import type { EventMutation } from "#modules/events/mutations";
@@ -123,7 +121,7 @@ export const entityPolicyItems = (token: PolicyItems) => token[policyItems];
  */
 export type EntityPolicyAcceptance = (
 	mutation: PreparedMutation,
-) => Effect.Effect<PreparedMutation, DbError | EntityNotFound | EntityBadRequest>;
+) => Effect.Effect<PreparedMutation, DbError | EntityNotFound | PolicyRejected | EntityBadRequest>;
 export const acceptPrepared: EntityPolicyAcceptance = Effect.succeed;
 
 /**
@@ -239,9 +237,8 @@ export class EntityMatchAppeared extends Schema.TaggedError<
 	EntityMatchAppeared,
 	{ readonly brand: unique symbol }
 >()("EntityMatchAppeared", {}) {}
-const bad = (code: "enclosing-transaction" | "invalid-policy-transform") =>
-	new EntityBadRequest({ reason: { code } });
-const enclosingTransaction = () => bad("enclosing-transaction");
+const enclosingTransaction = () =>
+	new EntityBadRequest({ reason: { code: "enclosing-transaction" } });
 const writeFailure = (error: DbError | DomainWriteConflict) =>
 	error instanceof DomainWriteConflict
 		? Effect.fail(new EntityBadRequest({ reason: error.reason }))
@@ -331,13 +328,6 @@ const requestOf = (input: PreparedMutation): Effect.Effect<AutomationEntityReque
 const policyItem = (mutation: PreparedMutation, propertiesSchema: AppSchema) =>
 	Effect.map(requestOf(mutation), (request) => ({ request, mutation, propertiesSchema }));
 
-const schemaKeyOf = (mutation: PreparedMutation) =>
-	definitionKey(
-		"entity",
-		definitionOwner(mutation.entitySchemaPluginId),
-		mutation.draft.entitySchemaSlug,
-	);
-
 /** Matches the policies of every prepared entity write in one scope, in the caller's transaction. */
 export const matchEntityPolicies = (input: {
 	readonly userId: null | UserId;
@@ -345,77 +335,35 @@ export const matchEntityPolicies = (input: {
 	readonly command: DomainLifecycleCommand;
 	readonly items: ReadonlyArray<EntityPolicyItem>;
 }) =>
-	matchPolicyChunks(
-		input.transaction,
-		subjectChunks(input.items, (item) => item.mutation.entityId),
-		(items, index) =>
-			Effect.succeed({
-				references: {},
-				userId: input.userId,
-				resource: "entity" as const,
-				command: {
-					...input.command,
-					itemIdentity: `${input.command.itemIdentity}:entity-policies:${index}`,
-				},
-				propertiesSchemas: Object.fromEntries(
-					items.map(({ mutation, propertiesSchema }) => [schemaKeyOf(mutation), propertiesSchema]),
-				),
-				items: items.map(({ request, mutation }) => ({
-					request,
-					schemaKey: schemaKeyOf(mutation),
-					itemIdentity: mutation.lifecycle.itemIdentity,
-				})),
+	matchPolicies(
+		{
+			resource: "entity",
+			items: input.items,
+			userId: input.userId,
+			command: input.command,
+			policyItem: ({ request, mutation, propertiesSchema }) => ({
+				request,
+				propertiesSchema,
+				subject: mutation.entityId,
+				itemIdentity: mutation.lifecycle.itemIdentity,
 			}),
+		},
+		input.transaction,
 	);
 
-/** Runs the matched entity policies, outside any transaction. */
-export const applyEntityPolicies = (
-	chunks: Effect.Success<ReturnType<typeof matchEntityPolicies>>,
-) =>
-	applyPolicyChunks(chunks).pipe(
-		Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-			Effect.fail(
-				isTransientPolicyFailure(error)
-					? error
-					: new EntityBadRequest({
-							reason: { runId: error.runId, code: "policy-execution-failed" },
-						}),
-			),
-		),
-	);
-
-/**
- * Accepts each matched policy decision: a rejection or invalid result fails, and a transform
- * replaces the draft.
- */
+/** Accepts each policy decision: a refusal fails, and a transform replaces the draft. */
 export const acceptEntityPolicies = (
-	chunks: Effect.Success<ReturnType<typeof applyEntityPolicies>>,
+	chunks: ReadonlyArray<{ readonly decisions: PolicyDecisions }>,
 ): EntityPolicyAcceptance => {
-	const decided = new Map<string, PolicyBatchResult["items"][number]>();
-	for (const chunk of chunks) {
-		for (const item of chunk.validated.items) {
-			decided.set(item.itemIdentity, item);
-		}
-	}
+	const accepted = acceptedPolicyRequests(chunks);
 	return Effect.fnUntraced(function* (mutation: PreparedMutation) {
-		const decision = decided.get(mutation.lifecycle.itemIdentity);
-		if (!decision) {
-			return mutation;
-		}
-		if (decision.rejected !== null) {
-			return yield* new EntityBadRequest({
-				reason: { code: "policy-rejected", message: decision.rejected },
-			});
-		}
-		if (decision.error !== null) {
-			return yield* new EntityBadRequest({ reason: invalidPolicyItemReason(decision.error) });
-		}
-		if (decision.patches.length === 0) {
+		const decision = yield* accepted(mutation.lifecycle.itemIdentity);
+		if (decision === null || decision.patches.length === 0) {
 			return mutation;
 		}
 		const { request } = decision;
 		if (request.resource !== "entity" || request.operation === "delete") {
-			return yield* bad("invalid-policy-transform");
+			return yield* new PolicyRejected({ reason: { code: "invalid-policy-transform" } });
 		}
 		return { ...mutation, draft: request.draft };
 	});

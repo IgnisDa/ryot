@@ -171,7 +171,7 @@ export default defineOperation({
 });
 `;
 
-const decodeOperationResult = Schema.decodeUnknownEffect(Schema.Struct({ output: JsonValue }));
+const OperationResult = Schema.Struct({ output: JsonValue });
 
 const sharedPermitAgentLayer = AgentScriptService.layer.pipe(
 	Layer.provideMerge(AgentScriptRepository.layer),
@@ -192,27 +192,27 @@ layer(sharedPermitAgentLayer)((test) => {
 				// Mirrors OperationsService.dispatch: the capability call runs the operation through ScriptCalls.
 				const invoke: AgentCapabilityCall = (request, call) =>
 					calls
-						.run({
-							lane: "interactive",
-							input: request.input,
-							executionId: `agent-operation-${call.index}`,
-							principal: {
-								providerId: null,
-								scriptId: operation.scriptId,
-								contentHash: operation.contentHash,
-								metadata: operation.compiled.manifest,
-								pluginRevision: operation.pluginRevision,
-								scriptSlug: operation.compiled.manifest.slug,
-								subject: { type: "user", userId: realSandboxUserId },
+						.run(
+							{
+								lane: "interactive",
+								input: request.input,
+								executionId: `agent-operation-${call.index}`,
+								principal: {
+									providerId: null,
+									scriptId: operation.scriptId,
+									contentHash: operation.contentHash,
+									metadata: operation.compiled.manifest,
+									pluginRevision: operation.pluginRevision,
+									scriptSlug: operation.compiled.manifest.slug,
+									subject: { type: "user", userId: realSandboxUserId },
+								},
 							},
-						})
+							OperationResult,
+						)
 						.pipe(
 							Effect.flatMap((result) =>
 								result.error === null
-									? decodeOperationResult(result.value).pipe(
-											Effect.map(({ output }) => output),
-											Effect.orDie,
-										)
+									? Effect.succeed(result.output.output)
 									: Effect.fail({ message: result.error.message }),
 							),
 						);

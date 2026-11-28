@@ -1054,11 +1054,9 @@ describe("EntityEditorService", () => {
 						),
 				},
 				relationships: {
-					prepareUserWrite: (preparation, input, lifecycle, mode, created) =>
-						Ref.update(seen, (all) => [...all, lifecycle]).pipe(
-							Effect.andThen(
-								relationships.prepareUserWrite(preparation, input, lifecycle, mode, created),
-							),
+					prepareUserChanges: (preparation, changes, created) =>
+						Ref.update(seen, (all) => [...all, ...changes.map((change) => change.command)]).pipe(
+							Effect.andThen(relationships.prepareUserChanges(preparation, changes, created)),
 						),
 				},
 			});

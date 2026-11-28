@@ -1,7 +1,8 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
-import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
@@ -42,18 +43,21 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import type { CommitReceipt } from "#modules/changes/receipts";
 import { ScriptChangesLayer } from "#modules/changes/script-changes";
-import { type ChangeSetFailure, ChangeSets } from "#modules/changes/service";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import {
+	type ChangeSetFailure,
+	ChangeSets,
+	type ScriptLifecycleCommand,
+} from "#modules/changes/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import type { CommitReceipt } from "#modules/mutations/idempotency";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -385,11 +389,12 @@ const makeLayer = (input: {
 					SandboxRepository,
 					SandboxRepository.of({
 						getScript: () => Effect.die("Operation admission only reads verified pins"),
+						getScriptPin: () => Effect.die("Operation admission reads pinned principals"),
 						getSchemaScope: () => Effect.die("Operation admission does not read schema scope"),
 						isPluginScript: () => Effect.die("Operation admission requires an exact plugin target"),
 						resolveWorkflowCallScript: () =>
 							Effect.die("Operations do not resolve child scripts at admission"),
-						getScriptPin: (scriptId) =>
+						pinnedPrincipal: (scriptId, subject) =>
 							Effect.map(Ref.get(state.available), (available) => {
 								const match = available.find(
 									(candidate) => resolvedOperation(candidate).script.id === scriptId,
@@ -399,6 +404,7 @@ const makeLayer = (input: {
 								}
 								const { plugin, script } = resolvedOperation(match);
 								return {
+									subject,
 									scriptId,
 									providerId: null,
 									scriptSlug: script.slug,
@@ -420,13 +426,12 @@ const makeLayer = (input: {
 							}),
 					}),
 				),
-				Layer.mock(ScriptCalls)({
-					run: (runInput) =>
-						recordEvent("dispatch").pipe(
-							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
-							Effect.as(sandboxResult),
-						),
-				}),
+				scriptCallsLayer((runInput) =>
+					recordEvent("dispatch").pipe(
+						Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
+						Effect.as(sandboxResult),
+					),
+				),
 				ScriptChangesLayer.pipe(
 					Layer.provide(
 						Layer.effect(
@@ -438,8 +443,8 @@ const makeLayer = (input: {
 										.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 								const commitScript = <A>(
 									changes: undefined | ChangeSet,
-									command: DomainLifecycleCommand,
-									receipt: CommitReceipt<A>,
+									command: ScriptLifecycleCommand,
+									receipt: CommitReceipt<CommittedChanges, A>,
 								) =>
 									Effect.gen(function* () {
 										const stored = yield* inTransaction(receipt.load);
@@ -447,18 +452,7 @@ const makeLayer = (input: {
 											return stored;
 										}
 										if (changes === undefined) {
-											return yield* inTransaction(
-												receipt.record({
-													merged: [],
-													signals: [],
-													cleared: [],
-													deleted: [],
-													entities: [],
-													outcomes: [],
-													relationships: [],
-													committed: { events: [] },
-												}),
-											);
+											return yield* inTransaction(receipt.record({ events: [] }));
 										}
 										yield* recordEvent("commit");
 										yield* Ref.update(state.commits, (all) => [
@@ -466,7 +460,7 @@ const makeLayer = (input: {
 											{
 												changes,
 												causation: command.causation,
-												subject: command.writeContext?.subject,
+												subject: command.writeContext.subject,
 											},
 										]);
 										if (input.commitFailure) {
@@ -474,19 +468,10 @@ const makeLayer = (input: {
 										}
 										return yield* inTransaction(
 											receipt.record({
-												merged: [],
-												signals: [],
-												cleared: [],
-												deleted: [],
-												entities: [],
-												outcomes: [],
-												relationships: [],
-												committed: {
-													events: (changes.events?.changes ?? []).map((create) => ({
-														itemIdentity: create.itemIdentity,
-														eventId: EventId.make(`event-${create.itemIdentity}`),
-													})),
-												},
+												events: (changes.events?.changes ?? []).map((create) => ({
+													itemIdentity: create.itemIdentity,
+													eventId: EventId.make(`event-${create.itemIdentity}`),
+												})),
 											}),
 										);
 									});
@@ -566,7 +551,7 @@ const invoke = (input: {
 			...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
 			...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 		}),
-	).pipe(Effect.map(({ output }) => output));
+	).pipe(Effect.map(({ result }) => result));
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
 	test.effect(
@@ -1314,21 +1299,17 @@ layer(
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
 				assert(Exit.isFailure(exit));
-				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-					new PluginInvocationError({
-						reason: {
-							code: "runtime-failed",
-							diagnostics: [
-								{
-									phase: "output",
-									severity: "error",
-									code: "sandbox-runtime-error",
-									message: "Sandbox operation result is invalid",
-								},
-							],
-						},
-					}),
-				);
+				const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+				assert(error instanceof PluginInvocationError);
+				expect(error.reason.code).toBe("runtime-failed");
+				const [diagnostic, ...others] = error.reason.diagnostics;
+				expect(others).toEqual([]);
+				expect(diagnostic).toMatchObject({
+					phase: "output",
+					severity: "error",
+					code: "sandbox-runtime-error",
+				});
+				expect(diagnostic?.message).toStartWith("Script output is invalid");
 			}),
 		testTimeout,
 	);
@@ -1462,7 +1443,7 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 					operationSlug: OPERATION_SLUG,
 					idempotencyKey: "trusted-operation",
 				};
-				const receipt = { output: "ok", committed: { events: [] } };
+				const receipt = { result: "ok", committed: { events: [] } };
 				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
 				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
 				expect(yield* fake.captured).toHaveLength(1);
@@ -1525,7 +1506,7 @@ layer(
 					idempotencyKey: "direct-operation",
 				};
 				const receipt = {
-					output: "saved",
+					result: "saved",
 					committed: {
 						events: [{ itemIdentity: "review", eventId: EventId.make("event-review") }],
 					},
@@ -1558,7 +1539,7 @@ layer(
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
 		available: [systemUserOperation],
-		commitFailure: new EventBadRequest({
+		commitFailure: new PolicyRejected({
 			reason: { code: "policy-rejected", message: pluginRejection },
 		}),
 	}),

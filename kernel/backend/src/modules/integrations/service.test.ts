@@ -4,6 +4,7 @@ import { BunCrypto } from "@effect/platform-bun";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	INTEGRATION_LIMITS,
 	integrationCommonPropertyNames,
 	integrationCommonSchema,
 	IntegrationRequestError,
@@ -21,7 +22,6 @@ import {
 } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
@@ -488,14 +488,14 @@ describe("create", () => {
 					const error = yield* Effect.flip(
 						(yield* IntegrationsService).create(user, {
 							provider: { ...pushProvider.reference, slug: pushProvider.slug },
-							providerSpecifics: { token: "x".repeat(SANDBOX_LIMITS.integrations.settingsBytes) },
+							providerSpecifics: { token: "x".repeat(INTEGRATION_LIMITS.settingsBytes) },
 						}),
 					);
 					expect(error).toBeInstanceOf(IntegrationRequestError);
 					expect(error).toMatchObject({
 						reason: {
 							code: "integration-settings-too-large",
-							maxBytes: SANDBOX_LIMITS.integrations.settingsBytes,
+							maxBytes: INTEGRATION_LIMITS.settingsBytes,
 						},
 					});
 				}),

@@ -34,6 +34,7 @@ import { AccountAdmission } from "#modules/mutations/account-admission";
 import type {
 	acceptRelationshipPolicies,
 	PreparedUserRelationship,
+	UserRelationshipChange,
 } from "#modules/relationships/prepared-mutations";
 import {
 	relationshipMutationLockKey,
@@ -89,6 +90,70 @@ const relationshipKey = (
 		relationship.sourceEntityId,
 		relationship.key === undefined ? relationship.targetEntityId : ["key", relationship.key],
 	]);
+
+/** The user's relationship as the endpoints of a relationship change. */
+const relationshipInput = (userId: UserId, relationship: RelationshipRow) => ({
+	userId,
+	scope: "user" as const,
+	...(relationship.key === undefined ? {} : { key: relationship.key }),
+	sourceEntityId: relationship.sourceEntityId,
+	targetEntityId: relationship.targetEntityId,
+	relationshipSchema: {
+		slug: relationship.relationshipSchemaSlug,
+		owner: definitionOwner(relationship.relationshipSchemaPluginId),
+	},
+});
+
+/**
+ * The changes moving one relationship onto the merge's references: an upsert of its moved copy,
+ * unless it would point at itself, and a delete of it, unless a keyed target moves in place.
+ */
+const relationshipMove = (input: {
+	userId: UserId;
+	relationship: RelationshipRow;
+	command: DomainLifecycleCommand;
+	references: ReadonlyMap<EntityId, EntityId>;
+	destinationRelationships: ReadonlyMap<string, RelationshipRow>;
+}) => {
+	const { userId, command, references, relationship } = input;
+	const sourceEntityId = references.get(relationship.sourceEntityId) ?? relationship.sourceEntityId;
+	const targetEntityId = references.get(relationship.targetEntityId) ?? relationship.targetEntityId;
+	if (
+		sourceEntityId === relationship.sourceEntityId &&
+		targetEntityId === relationship.targetEntityId
+	) {
+		return { create: null, deletion: null, retarget: false };
+	}
+	const destination = input.destinationRelationships.get(
+		relationshipKey({ ...relationship, sourceEntityId, targetEntityId }),
+	);
+	const retarget =
+		relationship.key !== undefined &&
+		sourceEntityId === relationship.sourceEntityId &&
+		sourceEntityId !== targetEntityId;
+	const create: null | UserRelationshipChange =
+		sourceEntityId === targetEntityId
+			? null
+			: {
+					mode: "upsert",
+					command: itemCommand(command, `relationship:${relationship.id}:create`),
+					expected: retarget ? { targetEntityId: relationship.targetEntityId } : {},
+					input: {
+						...relationshipInput(userId, relationship),
+						sourceEntityId,
+						targetEntityId,
+						properties: { ...relationship.properties, ...destination?.properties },
+					},
+				};
+	const deletion: null | UserRelationshipChange = retarget
+		? null
+		: {
+				mode: "delete",
+				input: relationshipInput(userId, relationship),
+				command: itemCommand(command, `relationship:${relationship.id}:delete`),
+			};
+	return { create, deletion, retarget };
+};
 
 const stateConflict = () => new EntityUserDataBadRequest({ reason: { code: "state-conflict" } });
 
@@ -210,6 +275,53 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					].sort((left, right) => left.id.localeCompare(right.id)),
 				};
 			});
+			/** Prepares a clear's or merge's relationship changes as one set; none prepares nothing. */
+			const prepareRelationshipChanges = (
+				preparation: WritePreparation,
+				changes: ReadonlyArray<UserRelationshipChange>,
+				operation: "clear" | "merge",
+			) =>
+				changes.length === 0
+					? Effect.succeed([])
+					: relationships
+							.prepareUserChanges(preparation, changes)
+							.pipe(
+								Effect.catchTags({
+									RelationshipNotFound: relationshipFailure(operation),
+									RelationshipBadRequest: relationshipFailure(operation),
+								}),
+							);
+			/**
+			 * Persists a clear's or merge's prepared relationship changes with their accepted policy
+			 * decisions as one set in `batch`, answering their dispatch.
+			 */
+			const persistRelationshipChanges = (
+				transaction: WriteTransaction,
+				input: {
+					readonly accept: Accept;
+					readonly prepared: ReadonlyArray<PreparedUserRelationship>;
+					readonly batch: {
+						readonly identity: ReadonlyArray<string>;
+						readonly command: DomainLifecycleCommand;
+					};
+				},
+				operation: "clear" | "merge",
+			) =>
+				input.prepared.length === 0
+					? Effect.succeed([])
+					: Effect.forEach(input.prepared, input.accept).pipe(
+							Effect.flatMap((accepted) =>
+								relationships
+									.persistPrepared(transaction, accepted, input.batch)
+									.pipe(
+										Effect.catchTags({
+											RelationshipNotFound: relationshipFailure(operation),
+											RelationshipBadRequest: relationshipFailure(operation),
+										}),
+									),
+							),
+							Effect.map(({ dispatch }) => dispatch),
+						);
 			/**
 			 * A clear or merge planned against captured user state: its event changes commit with the change
 			 * set's events, its relationship changes take the change set's relationship policies, `lock` re-reads
@@ -270,89 +382,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					}),
 				});
 			};
-
-			const prepareRelationshipMove = Effect.fnUntraced(function* (input: {
-				userId: UserId;
-				preparation: WritePreparation;
-				relationship: RelationshipRow;
-				command: DomainLifecycleCommand;
-				references: ReadonlyMap<EntityId, EntityId>;
-				destinationRelationships: ReadonlyMap<string, RelationshipRow>;
-			}) {
-				const { userId, command, references, preparation, relationship } = input;
-				const sourceEntityId =
-					references.get(relationship.sourceEntityId) ?? relationship.sourceEntityId;
-				const targetEntityId =
-					references.get(relationship.targetEntityId) ?? relationship.targetEntityId;
-				if (
-					sourceEntityId === relationship.sourceEntityId &&
-					targetEntityId === relationship.targetEntityId
-				) {
-					return { create: null, deletion: null, retarget: false };
-				}
-				const destination = input.destinationRelationships.get(
-					relationshipKey({ ...relationship, sourceEntityId, targetEntityId }),
-				);
-				const retarget =
-					relationship.key !== undefined &&
-					sourceEntityId === relationship.sourceEntityId &&
-					sourceEntityId !== targetEntityId;
-				let create: null | PreparedUserRelationship = null;
-				if (sourceEntityId !== targetEntityId) {
-					create = yield* relationships
-						.prepareUserWrite(
-							preparation,
-							{
-								userId,
-								scope: "user",
-								...(relationship.key === undefined ? {} : { key: relationship.key }),
-								sourceEntityId,
-								targetEntityId,
-								properties: { ...relationship.properties, ...destination?.properties },
-								relationshipSchema: {
-									slug: relationship.relationshipSchemaSlug,
-									owner: definitionOwner(relationship.relationshipSchemaPluginId),
-								},
-							},
-							itemCommand(command, `relationship:${relationship.id}:create`),
-							"upsert",
-							[],
-							retarget ? { targetEntityId: relationship.targetEntityId } : {},
-						)
-						.pipe(
-							Effect.catchTags({
-								RelationshipNotFound: relationshipFailure("merge"),
-								RelationshipBadRequest: relationshipFailure("merge"),
-							}),
-						);
-				}
-
-				const deletion = retarget
-					? null
-					: yield* relationships
-							.prepareUserDelete(
-								preparation,
-								{
-									userId,
-									scope: "user",
-									...(relationship.key === undefined ? {} : { key: relationship.key }),
-									sourceEntityId: relationship.sourceEntityId,
-									targetEntityId: relationship.targetEntityId,
-									relationshipSchema: {
-										slug: relationship.relationshipSchemaSlug,
-										owner: definitionOwner(relationship.relationshipSchemaPluginId),
-									},
-								},
-								itemCommand(command, `relationship:${relationship.id}:delete`),
-							)
-							.pipe(
-								Effect.catchTags({
-									RelationshipNotFound: relationshipFailure("merge"),
-									RelationshipBadRequest: relationshipFailure("merge"),
-								}),
-							);
-				return { create, deletion, retarget };
-			});
 
 			/**
 			 * Plans clearing the user's state for an entity of `entitySchema`, any schema when it is null,
@@ -418,32 +447,15 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					kernelCollection: true,
 					itemIdentity: `event:${eventId}:delete`,
 				}));
-				const preparedRelationships: PreparedUserRelationship[] = [];
-				for (const relationship of captured.relationships) {
-					const prepared = yield* relationships
-						.prepareUserDelete(
-							preparation,
-							{
-								userId,
-								scope: "user",
-								...(relationship.key === undefined ? {} : { key: relationship.key }),
-								sourceEntityId: relationship.sourceEntityId,
-								targetEntityId: relationship.targetEntityId,
-								relationshipSchema: {
-									slug: relationship.relationshipSchemaSlug,
-									owner: definitionOwner(relationship.relationshipSchemaPluginId),
-								},
-							},
-							itemCommand(command, `relationship:${relationship.id}:delete`),
-						)
-						.pipe(
-							Effect.catchTags({
-								RelationshipNotFound: relationshipFailure("clear"),
-								RelationshipBadRequest: relationshipFailure("clear"),
-							}),
-						);
-					preparedRelationships.push(prepared);
-				}
+				const preparedRelationships = yield* prepareRelationshipChanges(
+					preparation,
+					captured.relationships.map((relationship) => ({
+						mode: "delete" as const,
+						input: relationshipInput(userId, relationship),
+						command: itemCommand(command, `relationship:${relationship.id}:delete`),
+					})),
+					"clear",
+				);
 
 				return planned({
 					events,
@@ -457,18 +469,11 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					write: (transaction, batch, accept) =>
 						Effect.gen(function* () {
 							yield* attachments.clear({ userId, ids: captured.attachments.map(({ id }) => id) });
-							const dispatch: LifecycleDispatchPlan[] = [];
-							for (const [index, prepared] of preparedRelationships.entries()) {
-								const work = yield* relationships
-									.persistPrepared(transaction, yield* accept(prepared), { ...batch, index })
-									.pipe(
-										Effect.catchTags({
-											RelationshipNotFound: relationshipFailure("clear"),
-											RelationshipBadRequest: relationshipFailure("clear"),
-										}),
-									);
-								dispatch.push(...work.dispatch);
-							}
+							const dispatch = yield* persistRelationshipChanges(
+								transaction,
+								{ batch, accept, prepared: preparedRelationships },
+								"clear",
+							);
 							const result: ClearEntityUserDataResponse = {
 								entityId,
 								deletedEventsCount: events.length,
@@ -697,32 +702,32 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				const destinationRelationships = new Map(
 					targetState.relationships.map((row) => [relationshipKey(row), row]),
 				);
-				const preparedRelationships: Array<{
-					retarget: boolean;
-					create: null | PreparedUserRelationship;
-					deletion: null | PreparedUserRelationship;
-				}> = [];
-				for (const relationship of relationshipRows) {
-					preparedRelationships.push(
-						yield* prepareRelationshipMove({
-							command,
-							preparation,
-							relationship,
-							userId: userId,
-							references: referenceMap,
-							destinationRelationships,
-						}),
-					);
-				}
+				const moved = relationshipRows.map((relationship) =>
+					relationshipMove({
+						userId,
+						command,
+						relationship,
+						references: referenceMap,
+						destinationRelationships,
+					}),
+				);
+				const preparedRelationships = yield* prepareRelationshipChanges(
+					preparation,
+					moved.flatMap(({ create, deletion }) =>
+						[create, deletion].filter((change) => change !== null),
+					),
+					"merge",
+				);
+				const movedRelationshipsCount = moved.filter(
+					({ create, deletion, retarget }) => deletion !== null || (create !== null && retarget),
+				).length;
 
 				return planned({
 					userId,
 					command,
 					events: [...resets, ...moves],
 					states: [sourceState, targetState],
-					relationships: preparedRelationships.flatMap(({ create, deletion }) =>
-						[create, deletion].filter((prepared) => prepared !== null),
-					),
+					relationships: preparedRelationships,
 					recheck: Effect.gen(function* () {
 						yield* assertState(
 							fromScope,
@@ -747,43 +752,11 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								references: referenceMap,
 								ids: sourceState.attachments.map(({ id }) => id),
 							});
-							const dispatch: LifecycleDispatchPlan[] = [];
-							let movedRelationshipsCount = 0;
-							let index = 0;
-							for (const prepared of preparedRelationships) {
-								if (prepared.create) {
-									const work = yield* relationships
-										.persistPrepared(transaction, yield* accept(prepared.create), {
-											...batch,
-											index: index++,
-										})
-										.pipe(
-											Effect.catchTags({
-												RelationshipNotFound: relationshipFailure("merge"),
-												RelationshipBadRequest: relationshipFailure("merge"),
-											}),
-										);
-									dispatch.push(...work.dispatch);
-									if (prepared.retarget) {
-										movedRelationshipsCount += 1;
-									}
-								}
-								if (prepared.deletion) {
-									const work = yield* relationships
-										.persistPrepared(transaction, yield* accept(prepared.deletion), {
-											...batch,
-											index: index++,
-										})
-										.pipe(
-											Effect.catchTags({
-												RelationshipNotFound: relationshipFailure("merge"),
-												RelationshipBadRequest: relationshipFailure("merge"),
-											}),
-										);
-									dispatch.push(...work.dispatch);
-									movedRelationshipsCount += 1;
-								}
-							}
+							const dispatch = yield* persistRelationshipChanges(
+								transaction,
+								{ batch, accept, prepared: preparedRelationships },
+								"merge",
+							);
 							const result: MergeEntityUserDataResponse = {
 								mergeFrom,
 								mergeInto,

@@ -1,3 +1,7 @@
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
+import { OAUTH_TOKEN_RESPONSE_MAX_BYTES } from "@ryot-app/contract/modules/oauth-connections/schemas";
+import { PLUGIN_CONFIG_MAX_BYTES } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { PLUGIN_USER_SETTINGS_MAX_BYTES } from "@ryot-app/contract/modules/plugins/user-settings";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import type { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -6,7 +10,7 @@ import { KiB, MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import type { SandboxPrincipal } from "./principal";
 
-const integrationRecordBytes = SANDBOX_LIMITS.integrations.settingsBytes + 2 * KiB;
+const integrationRecordBytes = INTEGRATION_LIMITS.settingsBytes + 2 * KiB;
 
 export const SANDBOX_HOST_EXECUTION_POLICY = {
 	invokeCapability: { resultBytes: MiB, dispatch: "service" },
@@ -18,25 +22,30 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },
 	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
+	getPluginConfig: {
+		dispatch: "activity",
+		wireBytes: PLUGIN_CONFIG_MAX_BYTES + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * PLUGIN_CONFIG_MAX_BYTES,
+	},
 	getCurrentIntegration: {
 		dispatch: "activity",
 		wireBytes: integrationRecordBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * integrationRecordBytes,
+	},
+	getUserSettings: {
+		dispatch: "activity",
+		wireBytes: PLUGIN_USER_SETTINGS_MAX_BYTES + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * PLUGIN_USER_SETTINGS_MAX_BYTES,
 	},
 	executeRyotql: {
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.ryotqlResultBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
 	},
-	getPluginConfig: {
+	getOAuthAccessToken: {
 		dispatch: "activity",
-		wireBytes: SANDBOX_LIMITS.pluginConfigBytes + KiB,
-		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.pluginConfigBytes,
-	},
-	getUserSettings: {
-		dispatch: "activity",
-		wireBytes: SANDBOX_LIMITS.userSettingsBytes + KiB,
-		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.userSettingsBytes,
+		wireBytes: OAUTH_TOKEN_RESPONSE_MAX_BYTES + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * OAUTH_TOKEN_RESPONSE_MAX_BYTES,
 	},
 	getPersistentValue: {
 		dispatch: "activity",
@@ -48,11 +57,6 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		wireBytes: SANDBOX_LIMITS.cache.valueBytes + 2 * KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
 	},
-	getOAuthAccessToken: {
-		dispatch: "activity",
-		wireBytes: SANDBOX_LIMITS.oauthTokenResponseBytes + KiB,
-		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.oauthTokenResponseBytes,
-	},
 	getCachedValue: {
 		permit: "small",
 		dispatch: "activity",
@@ -61,10 +65,9 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	},
 	listIntegrations: {
 		dispatch: "activity",
-		wireBytes: SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + 2 * KiB,
+		wireBytes: INTEGRATION_LIMITS.pageSize * integrationRecordBytes + 2 * KiB,
 		resultBytes:
-			SANDBOX_JSON_GRAPH_FACTOR *
-			(SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + KiB),
+			SANDBOX_JSON_GRAPH_FACTOR * (INTEGRATION_LIMITS.pageSize * integrationRecordBytes + KiB),
 	},
 } as const satisfies Record<
 	keyof typeof sandboxHostContracts,

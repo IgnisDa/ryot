@@ -10,6 +10,7 @@ import {
 	definitionOwner,
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { PLUGIN_USER_SETTINGS_MAX_BYTES } from "@ryot-app/contract/modules/plugins/user-settings";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import {
 	BackupRunId,
@@ -36,7 +37,6 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
@@ -184,7 +184,7 @@ it.effect(
 				fields: { note: { label: "Note", type: "string", description: "A note" } },
 			};
 			const oversized = yield* resolveRestoredPluginUserSettings(
-				{ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },
+				{ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES) },
 				settingsSchema,
 			).pipe(Effect.flip);
 			expect(oversized).toMatchObject({
@@ -193,10 +193,10 @@ it.effect(
 			});
 			expect(
 				yield* resolveRestoredPluginUserSettings(
-					{ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes - 64) },
+					{ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES - 64) },
 					settingsSchema,
 				),
-			).toEqual({ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes - 64) });
+			).toEqual({ note: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES - 64) });
 		}),
 	testTimeout,
 );

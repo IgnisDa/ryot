@@ -6,13 +6,13 @@ import type {
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import {
 	genericImportChunkSchema,
 	integrationConfirmationWorkflowInputSchema,
 	integrationConfirmationWorkflowResultSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Exit, Layer, Schema } from "effect";
@@ -170,7 +170,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 							inputFingerprint: batch.inputFingerprint,
 							confirmed: result.confirmed.slice(start, end),
 						},
-					}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)));
+					}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(JsonValue)));
 					const completed = yield* sandbox
 						.executeWorkflow({
 							input,

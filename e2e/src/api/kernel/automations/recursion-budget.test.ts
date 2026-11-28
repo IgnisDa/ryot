@@ -432,7 +432,6 @@ describe("automation recursion budgets", () => {
 
 			expect(childEventTriggers).toEqual([]);
 			expect(relationshipTriggers).toEqual([]);
-			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
 			expect(rootTrigger.causation).toMatchObject({
 				depth: 0,
 				source: "api",
@@ -646,7 +645,6 @@ describe("automation recursion budgets", () => {
 					trigger.payload.after.eventSchemaSlug === childEventSchemaSlug,
 			);
 			expect(childTriggers).toHaveLength(2);
-			expect(triggers.filter(({ kind }) => kind.category === "request")).toEqual([]);
 			for (const trigger of childTriggers) {
 				expect(trigger.causation).toMatchObject({
 					depth: 1,

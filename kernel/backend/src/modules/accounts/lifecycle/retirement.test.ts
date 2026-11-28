@@ -21,7 +21,6 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { UserLifecycleJobOperations, UserLifecycleJobOperationsLive } from "./job";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleService } from "./service";
 
 const ownerWorkflow = Workflow.make("InjectedOwnerWorkflow", {
 	error: Schema.Never,
@@ -30,14 +29,11 @@ const ownerWorkflow = Workflow.make("InjectedOwnerWorkflow", {
 	idempotencyKey: () => "owner",
 });
 
-const accessRevokedAt = new Date("2026-09-01T00:00:00Z");
-
 const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 	const repository = yield* UserLifecycleRepository.make;
 	const operation: NonNullable<
 		Effect.Success<ReturnType<UserLifecycleRepository["Service"]["getInternalById"]>>
 	> = {
-		accessRevokedAt,
 		databaseCleanupCompletedAt: null,
 		operation: {
 			failure: null,
@@ -51,7 +47,6 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			startedAt: "2026-09-01T00:00:00Z",
 		},
 		metadata: {
-			apiKeys: [],
 			accounts: [],
 			locators: [],
 			usesLocalAuth: false,
@@ -80,7 +75,6 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.mock(UserBootstrap)({}),
-					Layer.mock(UserLifecycleService)({}),
 					Layer.mock(PluginBootstrapEntities)({}),
 					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),

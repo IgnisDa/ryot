@@ -70,7 +70,7 @@ describe("selectSandboxHostFunctions", () => {
 	});
 
 	it("exposes only resource-free capabilities to non-workflow executions", () => {
-		const input = makeSubjectRunInput(automationRunSubject("after", UserId.make("user_1")));
+		const input = makeSubjectRunInput(automationRunSubject(UserId.make("user_1")));
 		const functions = Object.fromEntries(
 			SANDBOX_HOST_CAPABILITIES.map((capability) => [capability, () => Effect.void]),
 		);

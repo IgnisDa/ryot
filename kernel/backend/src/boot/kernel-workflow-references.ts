@@ -1,6 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	type ExecutionLane,
+import type {
+	ExecutionLane,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -18,25 +18,20 @@ import {
 	SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 
-import {
-	automationLifecycleCausation,
-	lifecycleActor,
-	rootLifecycleCommand,
-} from "#modules/automations/lifecycle/command";
+import { principalLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { awaitEntityPopulation } from "#modules/entities/providers/population-await";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
@@ -73,44 +68,24 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 	),
 });
 
-const wireLifecycleCommand = (
-	callerAuthority: ScriptExecutionPrincipal,
+const lifecycleCommand = (
+	principal: ScriptExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	itemIdentity: string,
 	occurredAt: LifecycleCommand["occurredAt"],
-	source: "api" | "import" | "integration" | "provider-refresh",
-	attribution: { importRunId?: ImportRunId; integrationId?: IntegrationId } = {},
-): LifecycleCommand => {
-	const subject = callerAuthority.subject;
-	if (subject.type === "automation-run") {
-		return LifecycleCommand.make({
-			occurredAt,
-			itemIdentity,
-			accountUserId: subject.accountUserId,
-			causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
-		});
-	}
-	const integrationId = subject.type === "user" ? subject.integrationId : undefined;
-	const attributedIntegrationId = integrationId ?? attribution.integrationId;
-	return rootLifecycleCommand({
-		...lifecycleActor(subject.type === "user" ? subject : null),
+	source: "api" | "import" | "provider-refresh",
+	importRunId?: ImportRunId,
+) =>
+	principalLifecycleCommand({
 		lane,
+		source,
+		principal,
 		occurredAt,
 		itemIdentity,
 		executionId: AutomationExecutionId.make(executionId),
-		source: integrationId === undefined ? source : "integration",
-		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
-		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
-		...(source === "provider-refresh"
-			? { providerExecutionId: AutomationExecutionId.make(executionId) }
-			: {}),
+		...(importRunId === undefined ? {} : { importRunId }),
 	});
-};
-
-const lifecycleCommand = (
-	...args: Parameters<typeof wireLifecycleCommand>
-): DomainLifecycleCommand => ({ ...wireLifecycleCommand(...args), writeContext: args[0] });
 
 const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: string) =>
 	lookup.pipe(
@@ -318,7 +293,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const results = yield* Effect.forEach(exits, (exit) =>
 							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
 						);
-						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(results).pipe(
+						return yield* Schema.decodeUnknownEffect(JsonValue)(results).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -334,14 +309,14 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");
-						const command = wireLifecycleCommand(
+						const { writeContext, ...command } = lifecycleCommand(
 							callerAuthority,
 							lane,
 							typeof rawRunId === "string" ? rawRunId : executionId,
 							KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 							occurredAt,
 							"import",
-							typeof rawRunId === "string" ? { importRunId: ImportRunId.make(rawRunId) } : {},
+							typeof rawRunId === "string" ? ImportRunId.make(rawRunId) : undefined,
 						);
 						if (!command.accountUserId || typeof rawRunId !== "string") {
 							return yield* new SandboxRunError({
@@ -380,7 +355,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							});
 						}
 						const wireCommand = { ...command, occurredAt: IsoUtcString.make(run.acceptedAt) };
-						const acceptedCommand = { ...wireCommand, writeContext: callerAuthority };
+						const acceptedCommand = { ...wireCommand, writeContext };
 						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)({
 							...rawInput,
 							command: wireCommand,
@@ -478,7 +453,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-							return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+							return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 								Effect.mapError(
 									(error) =>
 										new SandboxRunError({
@@ -522,7 +497,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -620,7 +595,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						Effect.provideContext(populationServices),
 						Effect.provideService(DatabaseSession, database),
 					);
-					return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
+					return yield* Schema.decodeUnknownEffect(JsonValue)(result).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),

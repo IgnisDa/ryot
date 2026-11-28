@@ -1,7 +1,8 @@
 import { expect } from "bun:test";
 
 import { badRequest, DbError, SandboxRunError, validationFailed } from "@ryot-app/contract/errors";
-import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import { PolicyRejected } from "@ryot-app/contract/modules/changes/policies";
+import { EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { unavailableMessage } from "@ryot-app/i18n/message";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
@@ -42,7 +43,7 @@ it.effect("renders model-facing failures in English and passes other failures th
 		).toBe('EntityNotFound: {"code":"entity-not-found","entityId":"entity-1"}');
 		expect(
 			yield* errorForModel(
-				new EntityBadRequest({
+				new PolicyRejected({
 					reason: {
 						code: "policy-rejected",
 						message: kernelMessage("error.sandbox.execution-limit"),
@@ -50,7 +51,7 @@ it.effect("renders model-facing failures in English and passes other failures th
 				}),
 			),
 		).toBe(
-			'EntityBadRequest: {"code":"policy-rejected","message":"The run exceeded its execution limits."}',
+			'PolicyRejected: {"code":"policy-rejected","message":"The run exceeded its execution limits."}',
 		);
 		expect(yield* errorForModel({ message: "script failed" })).toBe("script failed");
 	}),

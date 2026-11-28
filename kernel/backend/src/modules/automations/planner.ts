@@ -108,9 +108,6 @@ export const LifecyclePlannerLive = Layer.effect(
 				AutomationTrigger,
 				"Invalid lifecycle planning trigger",
 			);
-			if (trigger.kind.category === "request") {
-				return yield* new DbError({ message: "Request triggers run policies, not planned hooks" });
-			}
 			const signal = trigger.payload?.resource === "signal" ? trigger.payload : null;
 			let recipients = [
 				...new Set(
@@ -160,8 +157,14 @@ export const LifecyclePlannerLive = Layer.effect(
 						.filter(
 							(candidate) =>
 								candidate.references.scopeUserId === trigger.scopeUserId &&
-								candidate.payload.hook.targets.some((target) =>
-									matchesTarget(definitionOwner(candidate.references.pluginId), target, trigger),
+								candidate.payload.hook.targets.some(
+									(target) =>
+										trigger.payload !== null &&
+										matchesTarget(
+											definitionOwner(candidate.references.pluginId),
+											target,
+											trigger.payload,
+										),
 								),
 						)
 						.map(({ references, payload: pinned }) => ({
@@ -344,8 +347,10 @@ export const LifecyclePlannerLive = Layer.effect(
 				const matchesCommittedItem = changeTriggers.some(
 					({ trigger, scopeUserId }) =>
 						scopeUserId === references.scopeUserId &&
-						hook.targets.some((target) =>
-							matchesTarget(definitionOwner(references.pluginId), target, trigger),
+						hook.targets.some(
+							(target) =>
+								trigger.payload !== null &&
+								matchesTarget(definitionOwner(references.pluginId), target, trigger.payload),
 						),
 				);
 				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;

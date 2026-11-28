@@ -49,13 +49,6 @@ export type EventIdentityInput = {
 	readonly expected?: undefined | EventWritePrecondition;
 };
 
-export type UpdateEventEntityReferencesInput = EventIdentityInput & {
-	readonly mergeFrom: EntityId;
-	readonly mergeInto: EntityId;
-	readonly properties?: Readonly<Record<string, unknown>>;
-	readonly references?: ReadonlyArray<{ readonly from: EntityId; readonly into: EntityId }>;
-};
-
 type EventRow = { readonly eventSchemaName: Message } & Pick<
 	typeof schema.event.$inferSelect,
 	| "id"
@@ -455,17 +448,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				},
 			);
 
-			const hasUserEvents = Effect.fn("EventsRepository.hasUserEvents")(function* (userId: UserId) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({ id: schema.event.id })
-						.from(schema.event)
-						.where(eq(schema.event.userId, userId))
-						.limit(1),
-				);
-				return row !== undefined;
-			});
-
 			const createEvents = Effect.fn("EventsRepository.createEvents")(function* (
 				transaction: WriteTransaction,
 				inputs: ReadonlyArray<CreateEventInput>,
@@ -700,38 +682,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				].map((row) => ({ userId: UserId.make(row.userId), eventId: EventId.make(row.eventId) }));
 			});
 
-			const deleteEvent = Effect.fn("EventsRepository.deleteEvent")(function* (
-				transaction: WriteTransaction,
-				input: EventIdentityInput,
-			) {
-				yield* requireTransaction;
-				const current = yield* getEventForMutation(input);
-				if (!current) {
-					return null;
-				}
-				const streamKey = eventSourceOf(current);
-				yield* lockEventReferences(session, yield* sourcesForEvents([input.eventId], [streamKey]));
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.event)
-						.where(
-							and(
-								eq(schema.event.id, input.eventId),
-								eq(schema.event.userId, input.userId),
-								eq(schema.event.revision, current.revision),
-							),
-						)
-						.returning({ id: schema.event.id }),
-				);
-				if (row) {
-					yield* touchScopes([current]);
-					yield* touchEventMutation(transaction, { after: null, before: current });
-					yield* releaseReferences(transaction, row.id);
-				}
-
-				return row ? EventId.make(row.id) : null;
-			});
-
 			const deletePreparedEvent = Effect.fn("EventsRepository.deletePreparedEvent")(function* (
 				transaction: WriteTransaction,
 				input: EventIdentityInput & { expectedRevision: number },
@@ -763,72 +713,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 
 				return row ? EventId.make(row.id) : null;
 			});
-
-			const updateEventEntityReferences = Effect.fn("EventsRepository.updateEventEntityReferences")(
-				function* (
-					transaction: WriteTransaction,
-					input: { updatedAt: Date } & UpdateEventEntityReferencesInput,
-				) {
-					yield* requireTransaction;
-					const current = yield* getEventForMutation(input);
-					if (
-						!current ||
-						(current.entityId !== input.mergeFrom && current.sessionEntityId !== input.mergeFrom)
-					) {
-						return null;
-					}
-					const beforeKey = eventSourceOf(current);
-					const afterKey = eventSourceOf({
-						...current,
-						entityId: current.entityId === input.mergeFrom ? input.mergeInto : current.entityId,
-						sessionEntityId:
-							current.sessionEntityId === input.mergeFrom
-								? input.mergeInto
-								: current.sessionEntityId,
-					});
-					yield* lockEventReferences(session, [beforeKey, afterKey]);
-					const [row] = yield* session.run((db) =>
-						db.execute<{ id: string }>(
-							sql`
-					update "event"
-					set
-						"updated_at" = ${input.updatedAt},
-						"revision" = "revision" + 1,
-						"entity_id" = case
-							when "entity_id" = ${input.mergeFrom} then ${input.mergeInto}
-							else "entity_id"
-						end,
-						"session_entity_id" = case
-							when "session_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
-							else "session_entity_id"
-						end
-					where "id" = ${input.eventId}
-						and "user_id" = ${input.userId}
-						and "revision" = ${current.revision}
-						and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
-					returning "id"
-				`,
-							"objects",
-						),
-					);
-					if (row) {
-						yield* touchScopes([
-							current,
-							{
-								...current,
-								entityId: current.entityId === input.mergeFrom ? input.mergeInto : current.entityId,
-								sessionEntityId:
-									current.sessionEntityId === input.mergeFrom
-										? input.mergeInto
-										: current.sessionEntityId,
-							},
-						]);
-						yield* touchEventMutation(transaction, { after: afterKey, before: current });
-					}
-
-					return row ? EventId.make(row.id) : null;
-				},
-			);
 
 			const updatePreparedEvent = Effect.fn("EventsRepository.updatePreparedEvent")(function* (
 				transaction: WriteTransaction,
@@ -1007,10 +891,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				return new Map(rows.flat().map(({ id, ...owner }) => [id, owner]));
 			});
 			return {
-				deleteEvent,
 				createEvent,
 				createEvents,
-				hasUserEvents,
 				lockEventRows,
 				getEventOrder,
 				getEventOwners,
@@ -1024,7 +906,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				lockMutationReferences,
 				listUserEventsForBackup,
 				listUserDataEventReferences,
-				updateEventEntityReferences,
 				absorbFoldValues: folds.absorb,
 				listEventIdentitiesForEntities,
 			};

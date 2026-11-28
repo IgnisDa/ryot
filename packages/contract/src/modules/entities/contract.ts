@@ -4,6 +4,7 @@ import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { SubmissionExpired } from "../../errors";
 import { EntityId } from "../../schema/brands";
+import { PolicyRejected, PolicyUnavailable } from "../changes/policies";
 import { PopulateEntitiesBody } from "../live-updates/messages";
 import { RelationshipBadRequest, RelationshipNotFound } from "../relationships/schemas";
 import { EntityEditorRefused, EntityEditorSaveRequest, EntityEditorSaveResult } from "./editor";
@@ -36,6 +37,8 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 				EntityBadRequest.pipe(HttpApiSchema.status(400)),
 				EntityNotFound.pipe(HttpApiSchema.status(404)),
 				EntityStale.pipe(HttpApiSchema.status(409)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 			],
 		}).annotate(OpenApi.Description, "Create an entity."),
 	)
@@ -49,6 +52,8 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 				EntityNotFound.pipe(HttpApiSchema.status(404)),
 				RelationshipNotFound.pipe(HttpApiSchema.status(404)),
 				EntityEditorRefused.pipe(HttpApiSchema.status(409)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 				SubmissionExpired.pipe(HttpApiSchema.status(410)),
 			],
 		}).annotate(

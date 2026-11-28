@@ -67,8 +67,17 @@ entity `ensures`, `clears` and `merges` need a user and fail a global commit wit
 `ChangeSetRejected`. The entity and relationship HTTP routes refuse a change set naming a kernel-owned
 schema with `kernel-owned-schema` (`rejectKernelOwnedSchemas`) before committing it.
 
-`CHANGE_SET_LIMITS` holds every per-part bound. `isEmptyChangeSet` lets callers skip a commit that
-writes nothing.
+`CHANGE_SET_LIMITS` holds every per-part bound. Each part has one descriptor in `changes.ts`. A
+script `ChangeSet` part (`scriptChangeSetParts`) gives its `ChangeSetRejected` name, whether it writes
+anything, the writers that may write it once the change set names it, the schemas and existing
+references it names, and its translation into `Changes`; script authority, `undeclaredSchema`,
+`changeSetReferences`, `fromScriptChangeSet` and the empty-change-set check derive from them. A
+kernel `Changes` part (`changesParts`) gives whether it needs a user or a script writer and the
+schemas it names, from which the global and kernel commit checks and `rejectKernelOwnedSchemas`
+derive. The two shapes keep separate tables: only part names overlap, and the script table's facts
+are about the wire shape before translation. Rules that belong to one part (settings, all-user
+folds, signals, notifications, ensures, provider upserts, matched creates) stay explicit beside
+them.
 
 ## Authority
 
@@ -130,24 +139,25 @@ under one account admission, catalog lock and entity lock statement, rechecking 
 Every prepared entity write (saves, ensures and deletes) lists its policy items, which form one entity
 policy batch chunked by entity.
 
-Event changes are then prepared in one events transaction, with positions matching the change list,
-and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
-once-per-subject policy runs once per subject; a subject with more than 50 items gets a chunk of its
-own that size, and a chunk whose policy input exceeds the sandbox context limit fails with
-`policy-execution-failed`. The relationship writes of the `relationships` part and of every clear
-and merge form one relationship policy batch, chunked the same way by source entity.
+Event changes are then prepared in one events transaction, with positions matching the change list.
+`matchPolicies` (`#modules/automations/lifecycle/policies`) groups every policy batch into chunks of
+at most 50 items whose requests fit half the sandbox context limit, a subject's items together, so a
+once-per-subject policy runs once per subject; a subject over either bound gets a chunk of its own.
+Event batches are chunked by entity, and the relationship writes of the `relationships` part and of
+every clear and merge form one relationship policy batch, chunked by source entity.
 Event, relationship and entity policies are matched inside that transaction. When none matches, the commit
-continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
-per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is
-persisted), and a second events transaction commits. A relationship or entity policy rejection or
-invalid transform fails the whole change set, with the invalid property paths when properties fail
-validation; an accepted entity transform replaces the draft, and each entity write validates its
+continues in the same transaction. Otherwise the transaction ends, `applyPolicies` calls each matched
+policy once per chunk through `LifecyclePolicies` with every item it targets (a policy request is held
+in memory and nothing about the call is persisted), and a second events transaction commits. A
+relationship or entity policy rejection or invalid transform fails the whole change set with
+`PolicyRejected` (`@ryot-app/contract/modules/changes/policies`), with the invalid property paths when
+properties fail validation; an accepted entity transform replaces the draft, and each entity write validates its
 final draft once more under the catalog lock. Entity policies run before event policies, which see
 each saved entity as the entity policies left it. A policy batch stops calling policies once none of
 its items is still active.
 
-The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
-settings patch, source writes (event group capture, then each clear's and merge's account admission,
+The commit transaction applies, in order: the precondition's `lock`, the catalog lock, the receipt's
+`load`, the precondition's `check`, the settings patch, source writes (event group capture, then each clear's and merge's account admission,
 locks and state recheck, which a change set with only entity saves skips, then the root entity with
 entity creates and updates as one set, relationships, the events relationship changes record,
 events, baselines), ensures, entity deletes (which fail when an event still references a deleted
@@ -168,12 +178,16 @@ back the commit.
 
 ### Preconditions
 
-`CommitOptions.precondition` holds `{ check, written }` for writers whose durable state decides
-whether to write. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
-`check` also runs in the events transaction before policies are matched. False commits the check's
-own writes and records an empty result without running policies. When policies ran, `check`
-runs again in the commit transaction after the receipt's `load`, before any source write, so a write a
-concurrent writer superseded records an empty result instead. `written` receives the commit's result
+`CommitOptions.precondition` holds `{ check, written }`, and an optional `lock`, for writers whose
+durable state decides whether to write. `lock` runs first in each transaction that runs `check`,
+before the catalog lock, for a `check` that relies on the user's ingestion fence and user-write lock,
+which precede the catalog lock. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
+`check` also runs in the events transaction, after its catalog lock and the receipt's `load`, before
+policies are matched. False commits the check's own writes and records an empty result without
+running policies; a failure other than `DbError` refuses the commit, which writes nothing and fails
+with it (the error type is the precondition's own). When policies ran, `check` runs again in the
+commit transaction the same way, before any source write, so a write a concurrent writer superseded
+records an empty result or is refused instead. `written` receives the commit's result
 after every other write, when the commit wrote anything, so a writer records its own ledger from what
 was planned (a signal's trigger and runs) in the same transaction. Locks taken by `check` (account
 admission first) precede the commit's stream and entity reference locks.
@@ -196,7 +210,7 @@ all-or-nothing. The result's `outcomes` list every create by position, and `toCr
 - a policy rejection is `skipped_by_policy`, and a policy item error fails the item
   (`session-entity-not-found` or `invalid-properties`);
 - a policy execution failure writes nothing, keeps preparation failures, and fails every other item
-  with `policy-execution-failed` and the run ID;
+  with `policy-execution-failed`;
 - a commit conflict writes nothing, keeps preparation and policy outcomes, and fails every other item
   with `mutation-conflict` or `asset-forbidden`.
 
@@ -229,6 +243,8 @@ The entity editor commits through `commitOnce` with its idempotency key as the r
 entry's root command. Generic import items, data import records and runs of data import events commit
 through `commitImportItem`: `commitOnce` with the account's idempotency key under the item's command
 identity, holding its entity, relationship and event results (see [imports](../imports/README.md)).
+Its precondition's `lock` takes the run's outcome locks, so the run is still running or cancelling
+when the receipt records the item's outcomes.
 
 HTTP event creation commits independently without a receipt, and a collection membership commits its
 relationship change with the membership event it records, alone from the collection routes or within
@@ -248,24 +264,28 @@ trigger, entity and event ID the commit derives comes from it. Failures are norm
 `invalid`), and every caller reports one through `scriptChangesFailure`: a conflict is
 `resource-unavailable` with its conflict code, a policy that could not run is
 `resource-unavailable` with `policy-unavailable`, a policy rejection or a refusal a `script-failure`
-carrying its reason, and anything else `invalid-output`. A failure whose reason code is a
+carrying its reason, and anything else `invalid-output`. Policy failures are classified where they
+happen: `applyPolicies` turns a policy that could not run for want of capacity into
+`PolicyUnavailable` and any other policy failure into `PolicyRejected`. A failure whose reason code is a
 `CommitConflictCode` is a `conflict`: stale baselines, and the `EntityUserDataService` refusals a user
 causes by acting on changed data (`state-conflict` when the captured user data changed,
-`child-mapping-conflict` when merged child data has no unique match). A policy run that failed with
-`resource-unavailable`, `timeout` or `infrastructure` (`isTransientPolicyFailure`) is
-`policy-unavailable`, so after hooks and workflow steps retry it; a policy's script failure or
-invalid output stays `invalid`. The `EntityUserDataService` refusals of the entities a user chose
+`child-mapping-conflict` when merged child data has no unique match). `PolicyUnavailable` (a policy
+run that failed with `resource-unavailable`, `timeout` or `infrastructure`) is `policy-unavailable`, so
+after hooks and workflow steps retry it; a `PolicyRejected` rejection is `policy-rejected`, and its
+other reasons stay `invalid`. The `EntityUserDataService` refusals of the entities a user chose
 (same-entity merges, schema or identity property mismatches, missing fields, denied operations) are
 `refused` with a kernel message for each. A clear's or merge's event changes fail like any event
 change (`event-stale`, `policy-rejected`).
 
 `commitOnce` and `commitScript` make a commit exactly-once against the caller's durable state through
-a `CommitReceipt` (`receipts.ts`). `receipt.load` returns a result an earlier commit recorded: it is
-read once before preparation (so a replay runs no policies) and again first in the commit transaction,
-where a stored result ends the commit before any write. A receipt with `peek` is read before
-preparation without a transaction or lock instead. `receipt.record` runs after every write, so the
-result commits with the changes it describes. An absent or empty script change set only runs
-`load`/`record` in a transaction. Script receipts per caller:
+a `CommitReceipt` ([mutation admission](../mutations/README.md#idempotency-keys)): a kernel writer's
+receipt records the `CommitResult` (`receipts.ts`), a script's its `CommittedChanges`. `receipt.load`
+returns a result an earlier commit recorded: it is read once before preparation (so a replay runs no
+policies) and again first in the commit transaction, where a stored result ends the commit before any
+write. A receipt with `peek` is read before preparation without a transaction or lock instead.
+`receipt.record` runs after every write, so the result commits with the changes it describes. An
+absent or empty script change set only runs `load`/`record` in a transaction. Script receipts per
+caller:
 
 | Caller                        | Receipt                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -294,7 +314,7 @@ updates share one entity lifecycle batch, and a change set without relationships
 relationship batch.
 
 Each commit transaction first takes the catalog lock of the change set's user
-(`LifecyclePlanner.lockCatalog`, after the receipt's `load` and the precondition's `check`): the
+(`LifecyclePlanner.lockCatalog`, before the receipt's `load` and the precondition's `check`): the
 ingestion fence, every installed plugin's shared configuration lock, and shared row locks on those
 plugins and installations, held to the transaction's end. The user's installed plugins are then read
 once for the transaction (`DefinitionCatalog.userPlugins` under its `WriteTransaction`), and every

@@ -1,3 +1,10 @@
+import { Option } from "effect";
+
+const encoder = new TextEncoder();
+const stringifyJson = Option.liftThrowable((value: unknown): unknown =>
+	Reflect.apply(JSON.stringify, JSON, [value]),
+);
+
 /**
  * Deterministic JSON serialization: object keys are always sorted so that
  * semantically-equal values produce byte-identical strings (useful for hashing
@@ -48,3 +55,14 @@ export const jsonValueEquals = (left: unknown, right: unknown): boolean => {
 		)
 	);
 };
+
+export const jsonByteLength = (value: unknown) =>
+	Option.match(stringifyJson(value), {
+		onNone: () => null,
+		onSome: (serialized) =>
+			typeof serialized === "string" ? encoder.encode(serialized).byteLength : null,
+	});
+
+/** A value with no JSON text exceeds every limit. */
+export const exceedsJsonBytes = (value: unknown, limit: number) =>
+	(jsonByteLength(value) ?? Number.POSITIVE_INFINITY) > limit;

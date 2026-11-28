@@ -136,6 +136,7 @@ const chunkFixture = Effect.fnUntraced(function* (
 			read: () => Effect.succeed(Buffer.from(JSON.stringify({ failures: [], items: [item] }))),
 		}),
 		Layer.mock(ImportsRepository)({
+			lockOutcomes: () => Effect.void,
 			getBatch: () => Effect.succeed(null),
 			startBatch: () => Effect.succeed(true),
 			projectBatch: () => Effect.succeed(true),
@@ -559,10 +560,10 @@ layer(
 						reason,
 					]),
 				).toEqual(
-					["created", "found", "link", "note"].map((operationId) => [
+					["note", "created", "found", "link"].map((operationId) => [
 						operationId,
 						"unsuccessful",
-						{ key: null, code: "asset-forbidden" },
+						{ key: null, code: "database-commit-failed" },
 					]),
 				);
 				const database = yield* DatabaseSession;
@@ -579,6 +580,111 @@ layer(
 						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails only the event of a standalone item whose subject entity the user cannot see",
+		() =>
+			Effect.gen(function* () {
+				const unseen = yield* randomUuid;
+				const fixture = yield* chunkFixture(
+					noteSchemas,
+					(_fixture, occurredAt): GenericImportWriteItem => ({
+						itemIndex: 0,
+						recordId: "note",
+						relationships: [],
+						sourceLabel: "fixture",
+						sourceIdentifier: "note",
+						subjectEntityAlias: "created",
+						entities: [
+							{
+								properties: {},
+								alias: "created",
+								name: "Imported",
+								operationId: "created",
+								entitySchemaSlug: "subject",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+						],
+						events: [
+							{
+								occurredAt,
+								operationId: "note",
+								entityAlias: "created",
+								eventSchemaSlug: "note",
+								subjectEntityId: unseen,
+								properties: { text: "Noted" },
+								outcome: { unit: "notes", recordKind: "notes" },
+							},
+						],
+					}),
+					["created", "note"],
+				);
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual([["note", "unsuccessful", { key: null, code: "database-commit-failed" }]]);
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual(["created"]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails an item naming an entity schema its plugin does not declare and writes none of it",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* chunkFixture(
+					undefined,
+					(): GenericImportWriteItem => ({
+						events: [],
+						itemIndex: 0,
+						relationships: [],
+						recordId: "undeclared",
+						sourceLabel: "fixture",
+						subjectEntityAlias: "created",
+						sourceIdentifier: "undeclared",
+						entities: [
+							{
+								properties: {},
+								alias: "created",
+								name: "Imported",
+								operationId: "created",
+								entitySchemaSlug: "subject",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+							{
+								properties: {},
+								name: "Collection",
+								alias: "collection",
+								operationId: "collection",
+								entitySchemaSlug: "collection",
+								outcome: { unit: "subjects", recordKind: "subjects" },
+							},
+						],
+					}),
+					["created", "collection"],
+				);
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual(
+					["created", "collection"].map((operationId) => [
+						operationId,
+						"unsuccessful",
+						{ key: null, code: "database-commit-failed" },
+					]),
+				);
+				expect(yield* fixture.committed).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -697,7 +803,7 @@ layer(
 					eq(tables.pluginInstallation.userId, fixture.userId),
 				);
 				const commitRevoking = (revoke: Effect.Effect<unknown, DbError>, name: string) => {
-					let loads = 0;
+					let locks = 0;
 					return Effect.exit(
 						changeSets.commitOnce(
 							{
@@ -710,13 +816,14 @@ layer(
 								},
 							},
 							{ ...fixture.command, itemIdentity: name },
+							{ load: Effect.succeed(null), record: () => Effect.succeed("recorded") },
 							{
-								record: () => Effect.succeed("recorded"),
-								load: Effect.suspend(() =>
-									++loads === 2
-										? session.detached(revoke).pipe(Effect.as(null))
-										: Effect.succeed(null),
-								),
+								precondition: {
+									written: () => Effect.void,
+									check: () => Effect.succeed(true),
+									lock: () =>
+										++locks === 2 ? Effect.asVoid(session.detached(revoke)) : Effect.void,
+								},
 							},
 						),
 					);

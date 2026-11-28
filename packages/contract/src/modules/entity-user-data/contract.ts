@@ -3,11 +3,11 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { EntityId } from "../../schema/brands";
+import { PolicyRejected, PolicyUnavailable } from "../changes/policies";
 import {
 	ClearEntityUserDataResponse,
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
-	EntityUserDataUnavailable,
 	MergeEntityUserDataBody,
 	MergeEntityUserDataResponse,
 } from "./schemas";
@@ -24,7 +24,8 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
-					EntityUserDataUnavailable.pipe(HttpApiSchema.status(503)),
+					PolicyRejected.pipe(HttpApiSchema.status(400)),
+					PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 				],
 			},
 		).annotate(OpenApi.Description, "Clear the user's state for an entity."),
@@ -36,7 +37,8 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 			error: [
 				EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 				EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
-				EntityUserDataUnavailable.pipe(HttpApiSchema.status(503)),
+				PolicyRejected.pipe(HttpApiSchema.status(400)),
+				PolicyUnavailable.pipe(HttpApiSchema.status(503)),
 			],
 		}).annotate(OpenApi.Description, "Merge changes into the user's entity state."),
 	)

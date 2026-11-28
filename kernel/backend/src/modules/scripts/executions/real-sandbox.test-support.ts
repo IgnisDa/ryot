@@ -128,26 +128,29 @@ export const realSandboxLayer = (
 				Layer.provide(infrastructure),
 			);
 			const fileStore = ExecutionFileStore.layer.pipe(Layer.provide(infrastructure));
+			const pinOf = (scriptId: SandboxScriptId) =>
+				Ref.get(installed).pipe(
+					Effect.map((scripts) => {
+						const script = scripts.get(scriptId);
+						return script
+							? {
+									scriptId,
+									providerId: null,
+									metadata: script.compiled.manifest,
+									pluginRevision: script.pluginRevision,
+									scriptSlug: script.compiled.manifest.slug,
+									contentHash: sha256Hex(script.compiled.javascript),
+								}
+							: null;
+					}),
+				);
 			const repository = Layer.succeed(SandboxRepository, {
+				getScriptPin: pinOf,
 				isPluginScript: () => Effect.succeed(true),
 				resolveWorkflowCallScript: () => Effect.succeed(null),
 				getSchemaScope: () => Effect.succeed(emptySchemaScope),
-				getScriptPin: (scriptId) =>
-					Ref.get(installed).pipe(
-						Effect.map((scripts) => {
-							const script = scripts.get(scriptId);
-							return script
-								? {
-										scriptId,
-										providerId: null,
-										metadata: script.compiled.manifest,
-										pluginRevision: script.pluginRevision,
-										scriptSlug: script.compiled.manifest.slug,
-										contentHash: sha256Hex(script.compiled.javascript),
-									}
-								: null;
-						}),
-					),
+				pinnedPrincipal: (scriptId, subject) =>
+					Effect.map(pinOf(scriptId), (pin) => (pin === null ? null : { ...pin, subject })),
 				getScript: (scriptId) =>
 					Ref.get(installed).pipe(
 						Effect.map((scripts) => {

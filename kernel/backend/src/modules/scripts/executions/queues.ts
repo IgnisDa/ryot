@@ -4,7 +4,7 @@ import {
 	SandboxExecutionGrants,
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
@@ -42,7 +42,7 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 	executionId: Schema.String,
 	workflowExecutionId: Schema.String,
 	principal: ScriptExecutionPrincipal,
-	checkpoint: Schema.optional(jsonValueSchema),
+	checkpoint: Schema.optional(JsonValue),
 	activity: Schema.optional(Schema.Literal(true)),
 	grants: Schema.optional(SandboxExecutionGrants),
 	recoveryAttempt: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),

@@ -124,9 +124,9 @@ const servicesLayer = Layer.unwrap(
 			Ref.update(calls, (all) => [...all, value]).pipe(Effect.as(result));
 		return Layer.mergeAll(
 			Layer.mock(OperationsService)({
-				invoke: (input) => recordIn(input, { committed, output: { accepted: input.payload } }),
+				invoke: (input) => recordIn(input, { committed, result: { accepted: input.payload } }),
 				invokeTrusted: (input) =>
-					recordIn(input, { committed, output: { accepted: input.payload } }),
+					recordIn(input, { committed, result: { accepted: input.payload } }),
 			}),
 			Layer.mock(SavedViewsService)({}),
 			Layer.mock(PageAuthoringService)({

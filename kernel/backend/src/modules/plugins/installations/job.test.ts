@@ -84,6 +84,32 @@ const resolved = (
 	...overrides,
 });
 
+/** The pin of a declared bootstrap script while `bootstrap` is still installing its activation. */
+const bootstrapPin =
+	(lookups: Ref.Ref<ReadonlyArray<ScriptPinLookup>>, bootstrap: Ref.Ref<ResolvedBootstrap>) =>
+	(...[scriptId, expectedRevision, subject, binding]: ScriptPinLookupArguments) =>
+		Effect.gen(function* () {
+			yield* Ref.update(lookups, (all) => [
+				...all,
+				{ subject, scriptId, expectedRevision, initialization: binding },
+			]);
+			const current = yield* Ref.get(bootstrap);
+			return binding?.installationId === installationId &&
+				binding.activationId === current?.activationId &&
+				current.health === "installing" &&
+				pluginRevision.userBootstrapScriptSlugs.includes(scriptId.replace(/-id$/, ""))
+				? {
+						scriptId,
+						pluginRevision,
+						providerId: null,
+						initialization: binding,
+						contentHash: `${scriptId}-hash`,
+						scriptSlug: scriptId.replace(/-id$/, ""),
+						metadata: { ...emptySandboxExecutionMetadata, kind: "script" as const },
+					}
+				: null;
+		});
+
 const libraryEntity = { properties: {}, name: "Library", entitySchemaSlug: "library" };
 const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
 
@@ -193,28 +219,17 @@ const workflowLayer = (input: {
 						resolveInstallationBootstrap: () => Ref.get(bootstrap),
 					}),
 					Layer.mock(SandboxRepository)({
-						getScriptPin: (scriptId, expectedRevision, subject, binding) =>
-							Effect.gen(function* () {
-								yield* Ref.update(scriptPinLookups, (lookups) => [
-									...lookups,
-									{ subject, scriptId, expectedRevision, initialization: binding },
-								]);
-								const current = yield* Ref.get(bootstrap);
-								return binding?.installationId === installationId &&
-									binding.activationId === current?.activationId &&
-									current.health === "installing" &&
-									pluginRevision.userBootstrapScriptSlugs.includes(scriptId.replace(/-id$/, ""))
-									? {
-											scriptId,
-											pluginRevision,
-											providerId: null,
-											initialization: binding,
-											contentHash: `${scriptId}-hash`,
-											scriptSlug: scriptId.replace(/-id$/, ""),
-											metadata: { ...emptySandboxExecutionMetadata, kind: "script" },
-										}
-									: null;
-							}),
+						getScriptPin: bootstrapPin(scriptPinLookups, bootstrap),
+						pinnedPrincipal: (scriptId, subject, pinned = {}) =>
+							Effect.map(
+								bootstrapPin(scriptPinLookups, bootstrap)(
+									scriptId,
+									pinned.expectedRevision,
+									subject,
+									pinned.initialization,
+								),
+								(pin) => (pin === null ? null : { ...pin, subject }),
+							),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
 						release: () => Effect.void,

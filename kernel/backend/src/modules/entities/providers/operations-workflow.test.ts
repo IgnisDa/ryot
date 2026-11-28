@@ -18,8 +18,8 @@ import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { recordingChangeSets } from "#modules/changes/change-sets.test-support";
 import type { Changes } from "#modules/changes/changes";
-import { ChangeSets } from "#modules/changes/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -57,22 +57,7 @@ const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
 			Layer.mock(ScriptExecutionService)({}),
 			Layer.mock(PluginRuntimeResolver)({}),
 			Layer.mock(DomainWriteChecks)({}),
-			Layer.mock(ChangeSets)({
-				commit: (changes, command) =>
-					Effect.sync(() => {
-						commits.push({ changes, command });
-						return {
-							merged: [],
-							signals: [],
-							cleared: [],
-							deleted: [],
-							entities: [],
-							outcomes: [],
-							relationships: [],
-							committed: { events: [] },
-						};
-					}),
-			}),
+			recordingChangeSets((commit) => Effect.sync(() => void commits.push(commit))),
 		),
 	),
 );

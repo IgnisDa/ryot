@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
@@ -60,8 +60,8 @@ import {
 import type { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 
 const Child = Workflow.make("CheckpointRequestChild", {
+	success: JsonValue,
 	error: SandboxRunError,
-	success: jsonValueSchema,
 	payload: { index: Schema.Int },
 	idempotencyKey: ({ index }) => String(index),
 });

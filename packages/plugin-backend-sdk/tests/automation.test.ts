@@ -63,8 +63,6 @@ describe("automation definitions", () => {
 		() =>
 			Effect.gen(function* () {
 				const context = {
-					runId: "run-1",
-					triggerId: "trigger-1",
 					hookSlug: "test.policy",
 					executionUserId: "user-1",
 					occurredAt: "2026-09-15T00:00:00.000Z",
@@ -102,7 +100,9 @@ describe("automation definitions", () => {
 						.automation.payload,
 				).toMatchObject({ category: "request" });
 				yield* Effect.flip(
-					Schema.decodeUnknownEffect(automationInputSchema)({ automation: request }),
+					Schema.decodeUnknownEffect(automationInputSchema)({
+						automation: { ...request, runId: "run-1", triggerId: "trigger-1" },
+					}),
 				);
 				yield* Effect.flip(
 					Schema.decodeUnknownEffect(automationPolicyInputSchema)({

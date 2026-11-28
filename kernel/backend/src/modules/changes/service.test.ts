@@ -7,6 +7,7 @@ import type {
 	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { ChangeSet, ChangeSetEntityUpdate } from "@ryot-app/contract/modules/changes/change-set";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
@@ -36,12 +37,22 @@ import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recor
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema, type Tracer } from "effect";
+import {
+	Context,
+	Deferred,
+	Effect,
+	Fiber,
+	Function,
+	Layer,
+	Ref,
+	Schema,
+	type Tracer,
+} from "effect";
 
 import {
 	AutomationPolicyExecutionError,
 	LifecyclePolicies,
-	type LifecyclePolicyItem,
+	type PolicyRequest,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
@@ -52,6 +63,7 @@ import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { unrecorded } from "#modules/mutations/idempotency";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -77,9 +89,8 @@ import { workflowEngineTestLayer } from "#testing/effect";
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
 import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
-import { unrecordedChanges } from "./receipts";
 import { ScriptChangesLayer } from "./script-changes";
-import { ChangeSets } from "./service";
+import { ChangeSets, type ScriptLifecycleCommand } from "./service";
 
 type StagedWrites = {
 	readonly events: number;
@@ -154,10 +165,14 @@ const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => 
 
 const commitUserCommand = (payload: {
 	readonly input: ChangeSet;
-	readonly command: DomainLifecycleCommand;
+	readonly command: ScriptLifecycleCommand;
 }) =>
 	Effect.flatMap(ChangeSets, (changes) =>
-		changes.commitScript(payload.input, payload.command, unrecordedChanges),
+		changes.commitScript(
+			payload.input,
+			payload.command,
+			unrecorded(Function.identity<CommittedChanges>),
+		),
 	).pipe(
 		Effect.map(({ events, entityId }) => {
 			assert(entityId);
@@ -297,7 +312,7 @@ const policyPackage = (
 
 /** Renames a created entity, and sets a created event's value to its entity's name as policies see it. */
 const renamingRoot = (
-	request: LifecyclePolicyItem["request"],
+	request: PolicyRequest["items"][number]["request"],
 	references: Readonly<Record<string, AutomationEntityDraft>>,
 ): AutomationPolicyOutput => {
 	if (request.operation !== "create") {
@@ -359,7 +374,7 @@ layer(testLayer(false))((test) => {
 						LifecyclePolicies,
 						LifecyclePolicies.of({
 							match,
-							run: ({ items, references }) =>
+							run: ({ request: { items, references } }) =>
 								Effect.succeed({
 									items: items.map(({ request, itemIdentity }) => ({
 										itemIdentity,
@@ -372,7 +387,7 @@ layer(testLayer(false))((test) => {
 				const { entityId } = yield* changeSets.commitScript(
 					{ ...input.input, relationships: {} },
 					input.command,
-					unrecordedChanges,
+					unrecorded(Function.identity<CommittedChanges>),
 				);
 				assert(entityId);
 				expect((yield* (yield* EntitiesRepository).getById(entityId))?.properties).toEqual({
@@ -518,7 +533,7 @@ layer(testLayer(false))((test) => {
 				const committed = yield* commands.commitScript(
 					{ events: eventCreate({ kind: "existing", entityId: target }) },
 					input.command,
-					unrecordedChanges,
+					unrecorded(Function.identity<CommittedChanges>),
 				);
 				expect(committed.entityId).toBeUndefined();
 				expect(committed.events.map(({ itemIdentity }) => itemIdentity)).toEqual(["event"]);
@@ -531,7 +546,7 @@ layer(testLayer(false))((test) => {
 							writeContext: input.command.writeContext,
 							accountUserId: input.command.accountUserId,
 						},
-						unrecordedChanges,
+						unrecorded(Function.identity<CommittedChanges>),
 					),
 				);
 				expect(rejected).toEqual(new EventBadRequest({ reason: { code: "root-entity-required" } }));
@@ -1145,30 +1160,41 @@ const nextCommand = (input: Fixture, principal = input.command.writeContext) => 
 	accountUserId: input.command.accountUserId,
 });
 
-const commit = (input: ChangeSet, lifecycle: DomainLifecycleCommand) =>
+const commit = (input: ChangeSet, lifecycle: ScriptLifecycleCommand) =>
 	Effect.flatMap(ChangeSets, (changes) =>
-		changes.commitScript(input, lifecycle, unrecordedChanges),
+		changes.commitScript(input, lifecycle, unrecorded(Function.identity<CommittedChanges>)),
 	);
 
-const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "before" } = {}) => {
+const automationSubject = (input: Fixture) => {
 	const { pluginRevision } = input.command.writeContext;
 	assert(pluginRevision);
 	return {
+		accountUserId: userId,
+		executionUserId: userId,
+		pluginId: pluginRevision.id,
+		type: "automation-run" as const,
+		causation: input.command.causation,
+		pluginRevisionId: pluginRevision.revisionId,
+		pluginConfigRevisionId: pluginRevision.configRevisionId,
+	};
+};
+
+const automationRun = (input: Fixture) =>
+	({
 		...input.command.writeContext,
 		subject: {
-			accountUserId: userId,
-			executionUserId: userId,
-			pluginId: pluginRevision.id,
-			type: "automation-run" as const,
-			stage: overrides.stage ?? "after",
-			causation: input.command.causation,
-			pluginRevisionId: pluginRevision.revisionId,
-			pluginConfigRevisionId: pluginRevision.configRevisionId,
+			...automationSubject(input),
+			stage: "after" as const,
 			runId: AutomationRunId.make(`run-${crypto.randomUUID()}`),
 			triggerId: AutomationTriggerId.make(`trigger-${crypto.randomUUID()}`),
 		},
-	} satisfies ScriptExecutionPrincipal;
-};
+	}) satisfies ScriptExecutionPrincipal;
+
+const policyRun = (input: Fixture) =>
+	({
+		...input.command.writeContext,
+		subject: { ...automationSubject(input), stage: "before" as const },
+	}) satisfies ScriptExecutionPrincipal;
 
 const targetOf = (input: Fixture) => {
 	const [relation] = input.input.relationships.upserts;
@@ -1295,6 +1321,43 @@ const entityUpdates = (
 			})),
 		},
 	});
+
+/** A fixture whose plugin declares a keyed record link, with a committed root and another record. */
+const keyedLinkFixture = Effect.gen(function* () {
+	const source = revisionPackage("atomic", "fixture", "record");
+	const input = yield* fixture({
+		...source,
+		manifest: {
+			...source.manifest,
+			relationshipSchemas: [
+				...source.manifest.relationshipSchemas,
+				{
+					keyed: true,
+					slug: "atomic-keyed",
+					name: { key: "test.link" },
+					propertiesSchema: { fields: {} },
+					sourceEntitySchemaSlug: "record",
+					targetEntitySchemaSlug: "record",
+				},
+			],
+		},
+	});
+	const root = yield* commitUserCommand(input);
+	const [other] = yield* (yield* EntitiesRepository).insertEntities([
+		{
+			userId,
+			scope: "user",
+			name: "Other",
+			properties: {},
+			populatedAt: null,
+			id: EntityId.make(yield* randomUuid),
+			entitySchemaPluginId: input.pluginId,
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
+		},
+	]);
+	assert(other);
+	return { root, input, other, target: targetOf(input) };
+});
 
 layer(testLayer(false))((test) => {
 	test.effect(
@@ -1640,39 +1703,7 @@ layer(testLayer(false))((test) => {
 		"merges an entity whose keyed and unkeyed relationships the same change set deletes",
 		() =>
 			Effect.gen(function* () {
-				const source = revisionPackage("atomic", "fixture", "record");
-				const input = yield* fixture({
-					...source,
-					manifest: {
-						...source.manifest,
-						relationshipSchemas: [
-							...source.manifest.relationshipSchemas,
-							{
-								keyed: true,
-								slug: "atomic-keyed",
-								name: { key: "test.link" },
-								propertiesSchema: { fields: {} },
-								sourceEntitySchemaSlug: "record",
-								targetEntitySchemaSlug: "record",
-							},
-						],
-					},
-				});
-				const root = yield* commitUserCommand(input);
-				const target = targetOf(input);
-				const [other] = yield* (yield* EntitiesRepository).insertEntities([
-					{
-						userId,
-						scope: "user",
-						name: "Other",
-						properties: {},
-						populatedAt: null,
-						id: EntityId.make(yield* randomUuid),
-						entitySchemaPluginId: input.pluginId,
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
-					},
-				]);
-				assert(other);
+				const { root, input, other, target } = yield* keyedLinkFixture;
 				const links = [
 					{
 						target: existing(other.id),
@@ -1734,6 +1765,52 @@ layer(testLayer(false))((test) => {
 							.where(eq(tables.relationship.relationshipSchemaPluginId, input.pluginId)),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"merges an entity a keyed relationship targets by moving the target of the same row",
+		() =>
+			Effect.gen(function* () {
+				const { root, input, other, target } = yield* keyedLinkFixture;
+				yield* commit(
+					{
+						relationships: {
+							upserts: [
+								{
+									properties: {},
+									key: "incoming",
+									propertiesMode: "replace",
+									source: existing(other.id),
+									target: existing(root.entityId),
+									relationshipSchemaSlug: "atomic-keyed",
+								},
+							],
+						},
+					},
+					nextCommand(input),
+				);
+				const keyed = input.session.run((db) =>
+					db
+						.select({
+							id: tables.relationship.id,
+							targetEntityId: tables.relationship.targetEntityId,
+						})
+						.from(tables.relationship)
+						.where(eq(tables.relationship.relationshipSchemaSlug, "atomic-keyed")),
+				);
+				const [before] = yield* keyed;
+				assert(before);
+				yield* commit(
+					{
+						entities: {
+							merges: [{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" }],
+						},
+					},
+					nextCommand(input),
+				);
+				expect(yield* keyed).toEqual([{ id: before.id, targetEntityId: target }]);
 			}),
 		testTimeout,
 	);
@@ -2023,12 +2100,12 @@ layer(testLayer(false))((test) => {
 					["theme", { theme: "dark" }],
 					["layout", { layout: "grid" }],
 				];
-				const inCommit = yield* Ref.make(0);
-				const bothInCommit = yield* Deferred.make<void>();
+				const started = yield* Ref.make(0);
+				const bothStarted = yield* Deferred.make<void>();
 				const loads = yield* Effect.forEach(patches, () => Ref.make(0));
-				// A commit loads its receipt once before preparing and once in each commit transaction it
-				// starts; its first commit transaction waits there until both commits are in theirs, and a
-				// transaction retried after a deadlock loads it again.
+				// A commit loads its receipt once before preparing, where it waits until both commits have
+				// started, and once in each commit transaction it starts, which a transaction retried after
+				// a deadlock loads again.
 				yield* Effect.forEach(
 					patches,
 					([item, settings], index) => {
@@ -2042,15 +2119,15 @@ layer(testLayer(false))((test) => {
 								accountUserId: input.command.accountUserId,
 							},
 							{
-								...unrecordedChanges,
+								...unrecorded(Function.identity<CommittedChanges>),
 								load: Effect.gen(function* () {
-									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 2) {
+									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 1) {
 										if (
-											(yield* Ref.updateAndGet(inCommit, (value) => value + 1)) === patches.length
+											(yield* Ref.updateAndGet(started, (value) => value + 1)) === patches.length
 										) {
-											yield* Deferred.succeed(bothInCommit, undefined);
+											yield* Deferred.succeed(bothStarted, undefined);
 										}
-										yield* Deferred.await(bothInCommit);
+										yield* Deferred.await(bothStarted);
 									}
 									return null;
 								}),
@@ -2153,7 +2230,7 @@ layer(testLayer(false))((test) => {
 						"globalRelationships",
 					],
 					[{ events }, { ...user, subject: { userId, type: "projection" } }, "changes"],
-					[{ events }, automationRun(input, { stage: "before" }), "changes"],
+					[{ events }, policyRun(input), "changes"],
 					[{ events }, { ...user, subject: { type: "system" } }, "events"],
 					[
 						{ folds: { scope: "all-users", entityIds: [target] } },
@@ -2387,7 +2464,7 @@ layer(testLayer(false))((test) => {
 						LifecyclePolicies,
 						LifecyclePolicies.of({
 							match,
-							run: ({ items }) =>
+							run: ({ request: { items } }) =>
 								Effect.gen(function* () {
 									if (!(yield* Ref.getAndSet(raced, true))) {
 										yield* shared(changeSets).pipe(Effect.orDie);
@@ -3156,14 +3233,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 								LifecyclePolicies,
 								LifecyclePolicies.of({
 									match,
-									run: ({ policy }) =>
-										Effect.fail(
-											new AutomationPolicyExecutionError({
-												kind,
-												runId: policy.runId,
-												code: "policy-execution-failed",
-											}),
-										),
+									run: () => Effect.fail(new AutomationPolicyExecutionError({ kind })),
 								}),
 							),
 						);

@@ -1,12 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { BunServices } from "@effect/platform-bun";
-import {
-	AutomationExecutionId,
-	AutomationRunId,
-	AutomationTriggerId,
-	SandboxScriptId,
-} from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -30,6 +25,7 @@ import { ExecutionFiles } from "./file-access";
 import { measureSandboxScratchBytes } from "./filesystem-grants";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
+import { policyRunSubject } from "./run-input.test-support";
 
 const { chunkBytes } = SANDBOX_LIMITS.scratch;
 const parentExecutionId = "parent-workflow-execution";
@@ -603,27 +599,11 @@ describe("sandbox file service", () => {
 					const beforePolicy = yield* Effect.scoped(
 						Effect.gen(function* () {
 							const files = yield* service.open(
-								makeInput({ artifactPath: namedSource }, ["artifact-read", "scratch"], {
-									pluginId: null,
-									stage: "before",
-									accountUserId: null,
-									executionUserId: null,
-									type: "automation-run",
-									pluginRevisionId: null,
-									pluginConfigRevisionId: null,
-									runId: AutomationRunId.make("before-run"),
-									triggerId: AutomationTriggerId.make("before-trigger"),
-									causation: {
-										depth: 0,
-										source: "api",
-										parentRunId: null,
-										lane: "interactive",
-										parentTriggerId: null,
-										initiator: { id: null, kind: "system" },
-										executionId: AutomationExecutionId.make("before-execution"),
-										rootExecutionId: AutomationExecutionId.make("before-execution"),
-									},
-								}),
+								makeInput(
+									{ artifactPath: namedSource },
+									["artifact-read", "scratch"],
+									policyRunSubject(null),
+								),
 							);
 							const read = yield* Effect.exit(files.artifactReadRange({ length: 1, offset: 0 }));
 							const write = yield* Effect.exit(

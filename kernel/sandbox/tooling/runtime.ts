@@ -62,6 +62,10 @@ const compileTrustedRunner = (sandboxDirectory: string) =>
 					replacement: Bun.resolveSync("@ryot-app/plugin-backend-compiler/limits", import.meta.dir),
 				},
 				{
+					find: "@ryot-app/ts-utils/json",
+					replacement: Bun.resolveSync("@ryot-app/ts-utils/json", import.meta.dir),
+				},
+				{
 					find: /^@ryot-app\/contract\/(.+)$/,
 					replacement: `${path.resolve(sandboxDirectory, "../..", "packages/contract/src")}/$1`,
 				},
