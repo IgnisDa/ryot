@@ -794,8 +794,9 @@ terminal, so its size does not grow with the episodes a title covers. A replay r
 occurrence at the first episode completion of a cycle that holds its closing source and has completed
 at least that many episodes, so replaying the fold's own completions changes nothing, later provider
 changes do not rewrite past completions, and a corrected source keeps the completion it supports.
-Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect
-live coverage without creating history. A change to one of the declared properties of a title, such as a new status,
+Otherwise the occurrence lapses unless the title completes anew; while a lapsed occurrence's closing
+source is in the open cycle, the value marks it `waiting`. Relationship changes still affect live
+coverage without creating history. A change to one of the declared properties of a title, such as a new status,
 replays it for every user, and one of an episode replays the titles of the users with events on it;
 other content changes, such as a new overview or images, fold nothing. Other users' summaries follow
 episode changes through all-users fold requests, which refold without replaying history:
@@ -816,12 +817,13 @@ Show or Podcast covers:
   earlier progress completes, so that replay starts at the previous explicit completion.
 - A Show or Podcast replays in full, because coverage spans every episode, unless the change is an
   append, every changed event created after every existing consumption event, that cannot complete
-  the title. An append that completes or progresses no episode cannot; one that does can only
-  restore a lapsed coverage occurrence, complete a title that just became terminal, or complete a
-  terminal title once no required episode is left uncovered in the current cycle, which
-  `mediaFoldUncoveredRecipe` reads from the written history, counting the episodes the append
-  progresses as covered. The append still advances `counted` to the latest episode completion it
-  sources.
+  the title. Coverage before the appended events is judged as before, so an append that completes or
+  progresses no episode cannot; one that does can only restore a lapsed occurrence while the value
+  is `waiting`, complete a title that just became terminal, or complete a terminal title once no
+  required episode is left uncovered in the current cycle, which `mediaFoldUncoveredRecipe` reads
+  from the written history, counting the episodes the append progresses as covered. Suppressed,
+  overridden or lapsed occurrences elsewhere do not replay it. The append still advances `counted`
+  to the latest episode completion it sources, and an explicit title completion ends `waiting`.
 
 Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
 history work; links refresh on every run.

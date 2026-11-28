@@ -487,4 +487,73 @@ describe("incremental media history", () => {
 			}),
 		testTimeout,
 	);
+
+	it.effect(
+		"folds an append to a show whose completion was deleted without replaying, and replays one while a lapsed completion's closing episode is in the open cycle, restoring it",
+		() =>
+			Effect.gen(function* () {
+				const subject = { id: "show", episodic: true, terminal: true, entitySchemaSlug: "show" };
+				const inventory = (length: number) =>
+					Array.from({ length }, (_, index) => storedId("episode", index));
+				const covered = yield* settle(
+					"full",
+					subject,
+					inventory(10),
+					empty,
+					Array.from({ length: 10 }, (_, index) => episodeCompletion(index)),
+					{ rows: 0 },
+				);
+				const parent = covered.history.find(({ entityId }) => entityId === subject.id);
+				const rewatch = (index: number, day: number) => {
+					const occurredAt = new Date(Date.UTC(2021, 0, day)).toISOString();
+					const id = storedId(`rewatch-${day}`, index);
+					return {
+						...episodeCompletion(index),
+						id,
+						occurredAt,
+						orderKey: id,
+						orderCreatedAt: occurredAt,
+					};
+				};
+				const run = Effect.fnUntraced(function* (store: Store, history: ReadonlyArray<FoldEvent>) {
+					const counts = { rows: 0 };
+					const aired = inventory(11);
+					const incremental = yield* settle("incremental", subject, aired, store, history, counts);
+					const full = yield* settle("full", subject, aired, store, history, { rows: 0 });
+					expect(incremental.value).toEqual(full.value);
+					expect(incremental.history).toEqual(full.history);
+					return { counts, incremental };
+				});
+
+				const suppressed = yield* run(
+					covered,
+					covered.history.filter(({ id }) => id !== parent?.id),
+				);
+				const appended = [...suppressed.incremental.history, rewatch(0, 1)];
+				const quiet = yield* run(suppressed.incremental, appended);
+				expect(quiet.counts.rows).toBeLessThan(appended.length);
+				expect(quiet.incremental.value.occurrences).toMatchObject([{ status: "suppressed" }]);
+
+				const lapsed = yield* run(
+					covered,
+					covered.history.filter(({ id }) => id !== storedId("event", 1)),
+				);
+				expect(lapsed.incremental.value).toMatchObject({ waiting: true });
+				const restored = yield* run(lapsed.incremental, [
+					...lapsed.incremental.history,
+					rewatch(1, 2),
+				]);
+				expect(restored.counts.rows).toBeGreaterThanOrEqual(lapsed.incremental.history.length);
+				expect(
+					restored.incremental.history.filter(({ entityId }) => entityId === subject.id),
+				).toMatchObject([
+					{
+						orderKey: `${storedId("rewatch-2", 1)}~parent`,
+						properties: { completionKey: parent?.properties["completionKey"] },
+					},
+				]);
+				expect(restored.incremental.value).not.toHaveProperty("waiting");
+			}),
+		testTimeout,
+	);
 });

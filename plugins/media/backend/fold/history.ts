@@ -47,13 +47,15 @@ const HistoryPosition = Schema.Struct({
 type HistoryPosition = typeof HistoryPosition.Type;
 
 /**
- * An episodic subject also keeps whether it was terminal and `counted`, the latest episode completion
- * source its coverage has counted.
+ * An episodic subject also keeps whether it was terminal, `counted`, the latest episode completion
+ * source its coverage has counted, and `waiting` while a coverage occurrence that did not restore
+ * still has its closing source in the open cycle.
  */
 export const MediaFoldValue = Schema.Struct({
 	occurrences: Schema.Array(Occurrence),
 	terminal: Schema.optionalKey(Schema.Boolean),
 	counted: Schema.optionalKey(HistoryPosition),
+	waiting: Schema.optionalKey(Schema.Literal(true)),
 });
 export type MediaFoldValue = typeof MediaFoldValue.Type;
 
@@ -387,6 +389,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	const isEpisodeCompletion = (event: FoldEvent) =>
 		event.eventSchemaSlug === "complete" && event.entityId !== input.subject.id;
 	let counted: undefined | HistoryPosition;
+	let waiting = false;
 	if (input.subject.episodic && input.fresh !== undefined) {
 		for (const event of effective) {
 			const source = sourceOf(event);
@@ -484,6 +487,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			);
 			coverage = new Map();
 		}
+		waiting = frozen.some(({ key, sourceEventId }) => !used.has(key) && inCycle(sourceEventId));
 	}
 
 	const wanted = new Map(desired.map((value) => [value.occurrence.key, value]));
@@ -557,7 +561,11 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		value: {
 			occurrences: sortedOccurrences([...occurrences, ...kept]),
 			...(input.subject.episodic
-				? { terminal: input.subject.terminal, ...(counted ? { counted } : {}) }
+				? {
+						terminal: input.subject.terminal,
+						...(waiting ? { waiting } : {}),
+						...(counted ? { counted } : {}),
+					}
 				: {}),
 		} satisfies MediaFoldValue,
 		automatic: new Map(

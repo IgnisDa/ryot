@@ -206,10 +206,15 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		...derived.value.occurrences,
 	]);
 	const counted = latestPosition(input.previous.counted, derived.counted);
+	const waiting = input.previous.waiting === true && !added.some(isExplicitCompletion);
 	const value: MediaFoldValue = {
 		occurrences,
 		...(input.subject.episodic
-			? { terminal: input.subject.terminal, ...(counted ? { counted } : {}) }
+			? {
+					terminal: input.subject.terminal,
+					...(waiting ? { waiting } : {}),
+					...(counted ? { counted } : {}),
+				}
 			: {}),
 	};
 	return {
@@ -222,10 +227,10 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 /**
  * Whether an episodic subject's change leaves its coverage completions as they are, so only the
  * entities it touches replay. It must be an append, every changed event created after every existing
- * consumption event, and an append that completes an episode can still complete the subject: by
- * restoring a lapsed coverage occurrence, by the subject newly becoming terminal, or on a terminal
- * subject once every required episode is covered. An episode the append progresses may complete, so
- * it does not count as uncovered.
+ * consumption event, so coverage is judged as before up to the appended events. There it can still
+ * change: by restoring a lapsed coverage occurrence whose closing source is in the open cycle, by the
+ * subject newly becoming terminal, or on a terminal subject once every required episode is covered.
+ * An episode the append progresses may complete, so it does not count as uncovered.
  */
 const keepsCoverage = Effect.fnUntraced(function* <E, R>(
 	input: {
@@ -266,10 +271,8 @@ const keepsCoverage = Effect.fnUntraced(function* <E, R>(
 		return true;
 	}
 	if (
-		(input.subject.terminal && input.previous.terminal !== true) ||
-		input.previous.occurrences.some(
-			({ rule, status }) => rule === "coverage" && status !== "active",
-		)
+		input.previous.waiting === true ||
+		(input.subject.terminal && input.previous.terminal !== true)
 	) {
 		return false;
 	}
