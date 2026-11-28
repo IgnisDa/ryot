@@ -93,7 +93,7 @@ export const NotificationSubscriptionsServiceLive = NotificationSubscriptionsSer
 export const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			LifecycleServicesLive,
+			LifecyclePlannerServiceLive,
 			AutomationTriggerRepository.layer,
 			EntitiesRepositoryLive,
 			RelationshipsRepository.layer,

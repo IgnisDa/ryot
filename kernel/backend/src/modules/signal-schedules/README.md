@@ -27,13 +27,13 @@ than the window are skipped, not sent late. A null `confirmedAt` has no freshnes
 older value defers the row until the owner refreshes the data.
 
 The worker queries as the recipient, so the query's own visibility rules decide the audience. Each
-new occurrence commits the signal through `ChangeSets` with a deterministic execution ID. The
-commit's precondition admits the account and takes the occurrence's delivery lock, writing nothing
-when the occurrence is already recorded; its `written` step records
-`(user, plugin, schedule, occurrence)` in `signal_schedule_delivery` with the signal's trigger in the
-same transaction. Dispatch starts after commit. A recorded occurrence is never
-planned again, even if its date later moves, until retention deletes the row after 30 days. A failing
-target is logged and saves no evaluation, so a later run tries it again.
+new occurrence commits the signal through `KernelSignals` (see
+[automations](../automations/README.md)) with a deterministic execution ID. Its ledger's check admits
+the account and takes the occurrence's delivery lock, writing nothing when the occurrence is already
+recorded; its record step stores `(user, plugin, schedule, occurrence)` in `signal_schedule_delivery`
+with the signal's trigger in the same transaction. Dispatch starts after commit. A recorded
+occurrence is never planned again, even if its date later moves, until retention deletes the row
+after 30 days. A failing target is logged and saves no evaluation, so a later run tries it again.
 
 ## Evaluation
 

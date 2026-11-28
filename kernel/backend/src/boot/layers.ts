@@ -33,7 +33,6 @@ import {
 	AutomationRunOperationsServiceLive,
 	LifecycleServicesLive,
 	NotificationSubscriptionsServiceLive,
-	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
 import { AutomationRunJobLive } from "#modules/automations/run-job-live";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
@@ -288,7 +287,6 @@ const ServicesLive = Layer.mergeAll(
 	SignalScheduleWorkerLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
-	SignalEmissionServiceLive,
 	TranslationsServiceLive,
 	UploadServicesLive,
 	ManagedAssetCollectorLive,

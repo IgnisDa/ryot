@@ -10,11 +10,11 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
 
+import { KernelSignals } from "#modules/automations/kernel-signals";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
-import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -42,7 +42,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 			const entities = yield* EntitiesRepository;
 			const plugins = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
-			const changeSets = yield* ChangeSets;
+			const kernelSignals = yield* KernelSignals.make;
 			const execution = yield* LifecycleExecution;
 			const notifications = yield* NotificationDeliveryRepository;
 			const runs = yield* AutomationRunRepository;
@@ -101,73 +101,55 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 					owner: { kind: "kernel" as const },
 					slug: SignalSchemaSlug.make("reminder.due"),
 				};
-				const command = rootLifecycleCommand({
-					lane: "background",
-					source: "scheduler",
-					accountUserId: userId,
-					itemIdentity: captured.id,
-					occurredAt: now.toISOString(),
-					initiator: { id: userId, kind: "user" },
-					executionId: AutomationExecutionId.make(`reminder-due:${captured.id}`),
+				yield* kernelSignals.commit({
+					userId,
+					reference,
+					subjectEntityId: EntityId.make(captured.entityId),
+					properties: {
+						reminderId: captured.id,
+						message: captured.message,
+						timezone: captured.timezone,
+						entityId: captured.entityId,
+						dueAt: captured.dueAt.toISOString(),
+					},
+					command: rootLifecycleCommand({
+						lane: "background",
+						source: "scheduler",
+						accountUserId: userId,
+						itemIdentity: captured.id,
+						occurredAt: now.toISOString(),
+						initiator: { id: userId, kind: "user" },
+						executionId: AutomationExecutionId.make(`reminder-due:${captured.id}`),
+					}),
+					ledger: {
+						check: (writes) => Effect.map(lockCandidate(captured, writes), (row) => row !== null),
+						record: Effect.fnUntraced(function* (plan) {
+							const definition = yield* definitions.findGlobalSignalSchema(reference);
+							if (!definition) {
+								return yield* new DbError({ message: "Reminder signal definition is unavailable" });
+							}
+							yield* repository.update(captured.id, { triggerId: plan.trigger.id });
+							const formatter = plan.runs.find(
+								(run) =>
+									run.pluginId === null &&
+									run.hookSlug === definition.notificationHookSlug &&
+									run.executionUserId === userId,
+							);
+							if (!formatter) {
+								return yield* settle(captured, now, "not-sent", "subscription-disabled");
+							}
+							return yield* repository.update(captured.id, {
+								updatedAt: now,
+								reconcileAt: now,
+								processingAt: now,
+								state: "processing",
+								formatterRunId: formatter.id,
+								revision: captured.revision + 1,
+								dispatch: toLifecycleDispatchPlan(plan),
+							});
+						}),
+					},
 				});
-				yield* changeSets.commit(
-					{
-						userId,
-						signals: [
-							{
-								reference,
-								itemIdentity: "reminder-due",
-								principal: { userId, kind: "user" },
-								subjectEntityId: EntityId.make(captured.entityId),
-								properties: {
-									reminderId: captured.id,
-									message: captured.message,
-									timezone: captured.timezone,
-									entityId: captured.entityId,
-									dueAt: captured.dueAt.toISOString(),
-								},
-							},
-						],
-					},
-					{ ...command, writeContext: null },
-					{
-						precondition: {
-							check: (writes) => Effect.map(lockCandidate(captured, writes), (row) => row !== null),
-							written: Effect.fnUntraced(function* (result) {
-								const [signal] = result.signals;
-								if (signal?.plan.trigger.blockedReason !== null) {
-									return yield* new DbError({ message: "Reminder signal planning was blocked" });
-								}
-								const { plan } = signal;
-								const definition = yield* definitions.findGlobalSignalSchema(reference);
-								if (!definition) {
-									return yield* new DbError({
-										message: "Reminder signal definition is unavailable",
-									});
-								}
-								yield* repository.update(captured.id, { triggerId: plan.trigger.id });
-								const formatter = plan.runs.find(
-									(run) =>
-										run.pluginId === null &&
-										run.hookSlug === definition.notificationHookSlug &&
-										run.executionUserId === userId,
-								);
-								if (!formatter) {
-									return yield* settle(captured, now, "not-sent", "subscription-disabled");
-								}
-								return yield* repository.update(captured.id, {
-									updatedAt: now,
-									reconcileAt: now,
-									processingAt: now,
-									state: "processing",
-									formatterRunId: formatter.id,
-									revision: captured.revision + 1,
-									dispatch: toLifecycleDispatchPlan(plan),
-								});
-							}),
-						},
-					},
-				);
 			});
 			const reconcile = Effect.fn("ReminderWorker.reconcile")(function* (
 				captured: ReminderRecord,

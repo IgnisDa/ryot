@@ -21,15 +21,14 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner, toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import type { WriteTransaction } from "#platform/db/write-transaction";
 
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -48,7 +47,6 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const session = yield* DatabaseSession;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const planner = yield* LifecyclePlanner;
-			const execution = yield* LifecycleExecution;
 			const triggers = yield* AutomationTriggerRepository;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -192,18 +190,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 				}
 				return plan;
 			});
-			const emitSignal = Effect.fn("SignalEmissionService.emitSignal")(function* (
-				input: EmitSignalInput,
-			) {
-				const plan = yield* session.transaction(
-					Effect.suspend(() => planSignal(input, new WriteTransaction())),
-				);
-				yield* execution
-					.dispatch([toLifecycleDispatchPlan(plan)])
-					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
-			});
-			return { planSignal, emitSignal };
+			return { planSignal };
 		}),
 	},
 ) {
