@@ -36,6 +36,7 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Context, DateTime, Effect, Function, Layer, Result, Schema } from "effect";
+import { zip } from "effect/Array";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -103,6 +104,7 @@ import {
 	matchRelationshipPolicies,
 	preparedRelationshipEntityIds,
 	type PreparedUserRelationship,
+	type UserRelationshipChange,
 	type UserRelationshipMode,
 } from "#modules/relationships/prepared-mutations";
 import { relationshipMutationLockKey } from "#modules/relationships/repository";
@@ -262,10 +264,7 @@ const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[num
 
 type PreparedEventChange = PreparedEventChanges["items"][number];
 
-type EntitySave = {
-	readonly itemIdentity: string;
-	readonly prepared: Prepared<"prepareSave">;
-};
+type EntitySave = { readonly itemIdentity: string; readonly prepared: Prepared<"prepareSave"> };
 
 /** A user relationship change prepared under its item identity; null when it prepares nothing. */
 type PreparedRelationship = {
@@ -758,7 +757,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				createdEntities: ReadonlyArray<PreparedEntityCreate>,
 			) {
 				const { userId } = input;
-				const relationshipInput = Effect.fnUntraced(function* (
+				const endpoints = Effect.fnUntraced(function* (
 					relation: NonNullable<NonNullable<Changes["relationships"]>["deletes"]>[number],
 				) {
 					return {
@@ -771,69 +770,97 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					};
 				});
 				const parts = input.relationships ?? {};
-				const prepared: PreparedRelationship[] = [];
-				const prepareWrite = Effect.fnUntraced(function* (
-					relation: NonNullable<(typeof parts)["updates"]>[number],
-					mode: UserRelationshipMode,
-					itemIdentity: string,
-				) {
-					prepared.push({
+				const writes: ReadonlyArray<{
+					readonly itemIdentity: string;
+					readonly mode: UserRelationshipMode;
+					readonly relation: NonNullable<(typeof parts)["updates"]>[number];
+				}> = [
+					...(parts.upserts ?? []).map((relation, index) => ({
+						relation,
+						itemIdentity: relation.itemIdentity ?? `relationship:${index}`,
+						mode: relation.propertiesMode === "merge" ? ("merge" as const) : ("upsert" as const),
+					})),
+					...(parts.updates ?? []).map((relation, index) => ({
+						relation,
+						mode: "update" as const,
+						itemIdentity: relation.itemIdentity ?? `relationship-update:${index}`,
+					})),
+					...(parts.ensures ?? []).map((relation, index) => ({
+						relation,
+						mode: "ensure" as const,
+						itemIdentity: relation.itemIdentity ?? `relationship-ensure:${index}`,
+					})),
+				];
+				const changes: Array<{
+					readonly itemIdentity: string;
+					readonly change: null | UserRelationshipChange;
+				}> = [];
+				for (const { mode, relation, itemIdentity } of writes) {
+					changes.push({
 						itemIdentity,
-						prepared: yield* relationships.prepareUserWrite(
-							preparation,
-							{ ...(yield* relationshipInput(relation)), properties: relation.properties },
-							identityCommand(command, options.relationships, itemIdentity, relation),
+						change: {
 							mode,
-							createdEntities,
-							relation.expected ?? {},
-						),
+							expected: relation.expected ?? {},
+							input: { ...(yield* endpoints(relation)), properties: relation.properties },
+							command: identityCommand(command, options.relationships, itemIdentity, relation),
+						},
 					});
-				});
-				for (const [index, relation] of (parts.upserts ?? []).entries()) {
-					yield* prepareWrite(
-						relation,
-						relation.propertiesMode === "merge" ? "merge" : "upsert",
-						relation.itemIdentity ?? `relationship:${index}`,
-					);
-				}
-				for (const [index, relation] of (parts.updates ?? []).entries()) {
-					yield* prepareWrite(
-						relation,
-						"update",
-						relation.itemIdentity ?? `relationship-update:${index}`,
-					);
-				}
-				for (const [index, relation] of (parts.ensures ?? []).entries()) {
-					yield* prepareWrite(
-						relation,
-						"ensure",
-						relation.itemIdentity ?? `relationship-ensure:${index}`,
-					);
 				}
 				for (const [index, relation] of (parts.deletes ?? []).entries()) {
 					const itemIdentity = relation.itemIdentity ?? `relationship-delete:${index}`;
-					prepared.push({
+					changes.push({
 						itemIdentity,
-						prepared: yield* relationships.prepareUserDelete(
-							preparation,
-							yield* relationshipInput(relation),
-							identityCommand(command, options.relationships, itemIdentity),
-						),
+						change: {
+							mode: "delete",
+							input: yield* endpoints(relation),
+							command: identityCommand(command, options.relationships, itemIdentity),
+						},
 					});
 				}
-				for (const [index, relation] of (parts.deletesById ?? []).entries()) {
-					const itemIdentity = relation.itemIdentity ?? `relationship-delete-by-id:${index}`;
-					prepared.push({
+				const deletesById = parts.deletesById ?? [];
+				const byId =
+					deletesById.length === 0
+						? undefined
+						: yield* relationships.findUserRelationshipInputs(
+								yield* requireUser(userId),
+								deletesById.map(({ relationshipId }) => relationshipId),
+							);
+				for (const [
+					index,
+					{ relationshipId, itemIdentity = `relationship-delete-by-id:${index}` },
+				] of deletesById.entries()) {
+					const found = byId?.get(relationshipId);
+					changes.push({
 						itemIdentity,
-						prepared: yield* relationships.prepareUserDeleteById(
-							preparation,
-							yield* requireUser(userId),
-							relation.relationshipId,
-							identityCommand(command, options.relationships, itemIdentity),
-						),
+						change:
+							found === undefined
+								? null
+								: {
+										input: found,
+										mode: "delete",
+										command: identityCommand(command, options.relationships, itemIdentity),
+									},
 					});
 				}
-				return prepared;
+				const prepared = changes.flatMap((item) =>
+					item.change === null ? [] : [{ item, change: item.change }],
+				);
+				const tokens = new Map(
+					prepared.length === 0
+						? []
+						: zip(
+								prepared.map(({ item }) => item),
+								yield* relationships.prepareUserChanges(
+									preparation,
+									prepared.map(({ change }) => change),
+									createdEntities,
+								),
+							),
+				);
+				return changes.map((item): PreparedRelationship => ({
+					itemIdentity: item.itemIdentity,
+					prepared: tokens.get(item) ?? null,
+				}));
 			});
 			/** The entity deletes, prepared once per schema and history preservation. */
 			const prepareEntityDeletes = (
@@ -886,7 +913,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				);
 				return { clears, merges };
 			});
-			/** Prepares every part of a change set outside the commit, in the order its parts commit. */
+			/**
+			 * Prepares a change set outside its commit: its entity saves, relationship changes, ensures,
+			 * entity deletes, data clears and merges, then its event groups.
+			 */
 			const prepareChanges = Effect.fn("ChangeSets.prepareChanges")(function* (
 				preparation: WritePreparation,
 				input: Changes,
@@ -1302,22 +1332,31 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							resource: "relationship" as const,
 						};
 						yield* planner.prepareBatch(transaction, { ...batch, scopes: [userId] });
-						for (const [index, write] of prepared.relationships.entries()) {
-							if (write.prepared === null) {
-								relationshipResults.push({
-									operation: "noop",
-									relationship: null,
-									itemIdentity: write.itemIdentity,
-								});
-								continue;
-							}
-							const work = yield* relationships.persistPrepared(
-								transaction,
-								yield* accept(write.prepared),
-								{ ...batch, index },
+						const writes = prepared.relationships.flatMap((write) =>
+							write.prepared === null ? [] : [{ write, token: write.prepared }],
+						);
+						const work =
+							writes.length === 0
+								? { results: [], dispatch: [] }
+								: yield* relationships.persistPrepared(
+										transaction,
+										yield* Effect.forEach(writes, ({ token }) => accept(token)),
+										batch,
+									);
+						dispatch.push(...work.dispatch);
+						const results = new Map(
+							zip(
+								writes.map(({ write }) => write),
+								work.results,
+							),
+						);
+						for (const write of prepared.relationships) {
+							const result = results.get(write);
+							relationshipResults.push(
+								result === undefined
+									? { operation: "noop", relationship: null, itemIdentity: write.itemIdentity }
+									: { ...result, itemIdentity: write.itemIdentity },
 							);
-							dispatch.push(...work.dispatch);
-							relationshipResults.push({ ...work.result, itemIdentity: write.itemIdentity });
 						}
 						dispatch.push(...(yield* planner.planBatch(transaction, batch)));
 					}

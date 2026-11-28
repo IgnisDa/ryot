@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
+import { zip } from "effect/Array";
 
 import type {
 	CommittedLifecycleWork,
@@ -234,13 +235,15 @@ export const makePlannedRelationshipReconciliation = (
 			};
 			let changedIndex = 0;
 			const groupDispatch: LifecycleDispatchPlan[] = [];
+			const planned = yield* primitives.planSources(
+				prepared.map((item) => ({ mutation: item, before: item.before, request: item.request })),
+				rows,
+			);
 			const persisted = yield* primitives.persistSources(
 				transaction,
-				prepared.map((item) => ({
+				zip(prepared, planned).map(([item, source]) => ({
 					mutation: item,
-					before: item.before,
-					request: item.request,
-					validated: item.validated,
+					source: source.kind === "write" ? { ...source, validated: item.validated } : source,
 				})),
 			);
 			for (const [index, item] of prepared.entries()) {

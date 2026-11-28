@@ -39,11 +39,12 @@ import {
 	type RelationshipMutationDependencies,
 	relationshipSchemaReference,
 	relationshipWriteFailure,
+	type RelationshipWriteResult,
 	snapshot,
 	type UserEntityScopes,
 	validateUserRelationshipEntities,
 } from "./mutation-support";
-import { relationshipMutationLockKey } from "./repository";
+import { relationshipMutationLockKey, type RelationshipsRepository } from "./repository";
 
 export type ValidatedMutation = {
 	readonly active: RelationshipSchemaDefinition;
@@ -54,6 +55,32 @@ export type MutationEntities = {
 	readonly users: ReadonlyMap<UserId, UserEntityScopes>;
 	readonly global: ReadonlyMap<EntityId, MutationEntity>;
 };
+
+/** A planned source to persist; a write carries its validation under the commit's locks. */
+export type PersistedSource =
+	| Exclude<PlannedSource, { readonly kind: "write" }>
+	| ({ readonly validated: ValidatedMutation } & Extract<
+			PlannedSource,
+			{ readonly kind: "write" }
+	  >);
+
+type SourceRow = NonNullable<
+	Effect.Success<ReturnType<RelationshipsRepository["Service"]["findRelationship"]>>
+>;
+
+/**
+ * How a batch item stands against its locked row: unchanged, ensured by the earlier item of the
+ * batch that writes its identity, or a write.
+ */
+type PlannedSource =
+	| { readonly writer: number; readonly kind: "ensured" }
+	| { readonly kind: "unchanged"; readonly row: null | SourceRow }
+	| {
+			readonly kind: "write";
+			readonly row: null | SourceRow;
+			readonly request: AutomationRelationshipRequestPayload;
+			readonly before: null | AutomationRelationshipSnapshot;
+	  };
 
 export const mutationWriteCheck = (
 	mutation: Pick<Mutation, "input" | "command">,
@@ -319,31 +346,16 @@ export const makeRelationshipMutationPrimitives = ({
 					resource: "relationship",
 				} satisfies AutomationRelationshipRequestPayload);
 	});
+	/** Revalidates a prepared request against the relationship's current `definition`. */
 	const revalidateRequest = Effect.fnUntraced(function* (
-		transaction: WriteTransaction,
 		mutation: Mutation,
 		request: AutomationRelationshipRequestPayload,
 		validated: ValidatedMutation,
-		resolved?: { definition: null | undefined | RelationshipSchemaDefinition },
+		definition: undefined | RelationshipSchemaDefinition,
 	) {
 		yield* assertActiveTransaction;
 		if (request.operation === "delete") {
 			return request;
-		}
-		let definition: null | undefined | RelationshipSchemaDefinition;
-		if (resolved) {
-			definition = resolved.definition;
-		} else if (mutation.input.scope === "user") {
-			const reference = relationshipSchemaReference(mutation.input);
-			definition = (yield* definitions.findUserRelationshipSchemas(
-				mutation.input.userId,
-				[reference],
-				transaction,
-			))[definitionKey("relationship", reference.owner, reference.slug)];
-		} else {
-			definition = yield* definitions.findGlobalRelationshipSchema(
-				relationshipSchemaReference(mutation.input),
-			);
 		}
 		if (
 			!definition ||
@@ -375,170 +387,159 @@ export const makeRelationshipMutationPrimitives = ({
 			: properties;
 		return { ...request, draft: yield* draft(request, protectedProperties) };
 	});
-	const persistSources = Effect.fnUntraced(function* (
-		transaction: WriteTransaction,
+	/**
+	 * Plans each item of a batch against its locked current row in `rows`: an item without a request
+	 * stands unchanged unless its relationship changed since `before`, an ensure of an existing
+	 * relationship stands unchanged, and an item whose identity an earlier item writes conflicts, unless
+	 * it ensures a relationship that write leaves.
+	 */
+	const planSources = Effect.fnUntraced(function* (
 		items: ReadonlyArray<{
 			readonly mutation: Mutation;
-			readonly validated: ValidatedMutation;
 			readonly before: null | AutomationRelationshipSnapshot;
 			readonly request: null | AutomationRelationshipRequestPayload;
 		}>,
+		rows: ReadonlyMap<string, SourceRow>,
 	) {
-		yield* assertActiveTransaction;
-		const rows = yield* repository.findRelationships(items.map(({ mutation }) => mutation.input));
-		const written = new Set<string>();
-		const decisions = [];
-		for (const { before, request, mutation, validated } of items) {
+		const writers = new Map<
+			string,
+			{
+				readonly index: number;
+				readonly operation: AutomationRelationshipRequestPayload["operation"];
+			}
+		>();
+		const planned: PlannedSource[] = [];
+		for (const [index, { before, request, mutation }] of items.entries()) {
 			const key = relationshipMutationLockKey(mutation.input);
-			// An earlier item of this batch already changed the row this item planned against.
-			if (written.has(key)) {
-				return yield* concurrentChange();
+			const writer = writers.get(key);
+			if (writer !== undefined) {
+				if (mutation.mode !== "ensure" || writer.operation === "delete") {
+					return yield* concurrentChange();
+				}
+				planned.push({ kind: "ensured", writer: writer.index });
+				continue;
 			}
 			const row = rows.get(key) ?? null;
 			const current = row ? yield* snapshot(row) : null;
-			yield* assertStableSource(mutation, validated, current);
-			const alreadyEnsured = mutation.mode === "ensure" && current !== null;
-			if (!alreadyEnsured && !equal(current, before)) {
+			const ensured = mutation.mode === "ensure" && current !== null;
+			if (!ensured && request === null && !equal(current, before)) {
 				return yield* concurrentChange();
 			}
-			if (
-				alreadyEnsured ||
-				!request ||
-				(request.operation !== "delete" &&
-					current &&
-					equal(current.properties, request.draft.properties))
-			) {
-				decisions.push({
-					key,
-					row,
-					request: null,
-					input: mutation.input,
-					propertiesSchema: validated.active.propertiesSchema,
-				});
+			if (ensured || request === null) {
+				planned.push({ row, kind: "unchanged" });
 				continue;
 			}
-			written.add(key);
-			decisions.push({
-				key,
-				row,
-				request,
-				input: mutation.input,
-				propertiesSchema: validated.active.propertiesSchema,
-			});
+			writers.set(key, { index, operation: request.operation });
+			planned.push({ row, before, request, kind: "write" });
 		}
-		const assetRecords = decisions.flatMap(({ input, request, propertiesSchema }) =>
-			request && request.operation !== "delete"
-				? [
-						{
-							propertiesSchema,
-							properties: request.draft.properties,
-							ownerUserId: input.scope === "user" ? input.userId : null,
-						},
-					]
-				: [],
+		return planned;
+	});
+	/**
+	 * Persists planned sources in one statement per operation, answering each item; a write whose
+	 * relationship changed since `before` conflicts.
+	 */
+	const persistSources = Effect.fnUntraced(function* (
+		transaction: WriteTransaction,
+		items: ReadonlyArray<{ readonly mutation: Mutation; readonly source: PersistedSource }>,
+	) {
+		yield* assertActiveTransaction;
+		const written = items.flatMap(({ source, mutation }) =>
+			source.kind === "write" ? [{ ...source, mutation }] : [],
 		);
+		for (const { row, before, mutation, validated } of written) {
+			const current = row ? yield* snapshot(row) : null;
+			if (!equal(current, before)) {
+				return yield* concurrentChange();
+			}
+			yield* assertStableSource(mutation, validated, current);
+		}
 		yield* assetReferences
-			.lock(assetRecords)
+			.lock(
+				written.flatMap(({ request, mutation, validated }) =>
+					request.operation === "delete"
+						? []
+						: [
+								{
+									properties: request.draft.properties,
+									propertiesSchema: validated.active.propertiesSchema,
+									ownerUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
+								},
+							],
+				),
+			)
 			.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 		const deleted = yield* repository.deleteRelationshipsById(
-			decisions.flatMap(({ row, request }) =>
-				request?.operation === "delete" && row ? [row.id] : [],
+			written.flatMap(({ row, request }) =>
+				request.operation === "delete" && row ? [row.id] : [],
 			),
 		);
 		const updated = yield* repository.updateRelationshipsById(
-			decisions.flatMap(({ row, request }) =>
-				request?.operation === "update" && row
-					? [{ id: row.id, properties: { ...request.draft.properties } }]
+			written.flatMap(({ row, request, mutation }) =>
+				request.operation === "update" && row
+					? [
+							{
+								id: row.id,
+								properties: { ...request.draft.properties },
+								targetEntityId: mutation.input.targetEntityId,
+							},
+						]
 					: [],
 			),
 		);
 		const created = yield* repository.createRelationships(
 			transaction,
-			decisions.flatMap(({ input, request }) =>
-				request?.operation === "create"
-					? [{ ...input, properties: { ...request.draft.properties } }]
+			written.flatMap(({ request, mutation }) =>
+				request.operation === "create"
+					? [{ ...mutation.input, properties: { ...request.draft.properties } }]
 					: [],
 			),
 		);
-		return yield* Effect.forEach(
-			decisions,
-			Effect.fnUntraced(function* ({ key, row, request }) {
-				if (!request) {
-					return {
-						payload: null,
-						operation: "noop" as const,
-						relationship: row ? { ...row, wasInserted: false } : null,
-					};
-				}
-				let saved;
-				if (request.operation === "create") {
-					saved = created.get(key);
-				} else if (row) {
-					saved = (request.operation === "delete" ? deleted : updated).get(row.id);
-				}
-				if (!saved) {
-					return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
-				}
-				return {
-					operation: request.operation,
-					payload: relationshipChange(request, yield* snapshot(saved)),
-					relationship: { ...saved, wasInserted: request.operation === "create" },
-				};
-			}),
-		);
-	});
-	const persistPreparedSource = Effect.fnUntraced(function* (
-		transaction: WriteTransaction,
-		mutation: Mutation,
-		request: AutomationRelationshipRequestPayload,
-		before: null | AutomationRelationshipSnapshot,
-		validated: ValidatedMutation,
-	) {
-		yield* assertActiveTransaction;
-		yield* assertStableSource(mutation, validated, before);
-		if (request.operation !== "delete") {
-			yield* assetReferences
-				.lock([
-					{
-						properties: request.draft.properties,
-						propertiesSchema: validated.active.propertiesSchema,
-						ownerUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
-					},
-				])
-				.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
-		}
-		if (request.operation === "create") {
-			const saved = yield* repository.createRelationship(transaction, {
-				...mutation.input,
-				properties: { ...request.draft.properties },
-			});
-			if (!saved.wasInserted) {
-				return yield* concurrentChange();
-			}
-			return {
-				operation: request.operation,
-				relationship: { ...saved, wasInserted: true },
-				payload: relationshipChange(request, yield* snapshot(saved)),
-			};
-		}
-		if (!before) {
-			return yield* concurrentChange();
-		}
-		const saved = yield* request.operation === "delete"
-			? repository.deletePreparedRelationship({ ...mutation.input, before })
-			: repository.updatePreparedRelationship({
-					...mutation.input,
-					before,
-					properties: { ...request.draft.properties },
+		const results: Array<{
+			readonly operation: RelationshipWriteResult["operation"];
+			readonly payload: null | ReturnType<typeof relationshipChange>;
+			readonly relationship: null | (SourceRow & { readonly wasInserted: boolean });
+		}> = [];
+		for (const { source, mutation } of items) {
+			if (source.kind === "unchanged") {
+				results.push({
+					payload: null,
+					operation: "noop",
+					relationship: source.row ? { ...source.row, wasInserted: false } : null,
 				});
-		if (!saved) {
-			return yield* concurrentChange();
+				continue;
+			}
+			if (source.kind === "ensured") {
+				const ensured = results[source.writer]?.relationship;
+				if (!ensured) {
+					return yield* Effect.die("An ensured relationship is missing the write it follows");
+				}
+				results.push({
+					payload: null,
+					operation: "noop",
+					relationship: { ...ensured, wasInserted: false },
+				});
+				continue;
+			}
+			const { row, request } = source;
+			let saved;
+			if (request.operation === "create") {
+				saved = created.get(relationshipMutationLockKey(mutation.input));
+				if (saved && !saved.wasInserted) {
+					return yield* concurrentChange();
+				}
+			} else if (row) {
+				saved = (request.operation === "delete" ? deleted : updated).get(row.id);
+			}
+			if (!saved) {
+				return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
+			}
+			results.push({
+				operation: request.operation,
+				payload: relationshipChange(request, yield* snapshot(saved)),
+				relationship: { ...saved, wasInserted: request.operation === "create" },
+			});
 		}
-		return {
-			operation: request.operation,
-			relationship: { ...saved, wasInserted: false },
-			payload: relationshipChange(request, yield* snapshot(saved)),
-		};
+		return results;
 	});
 	const planChange = Effect.fnUntraced(function* (
 		transaction: WriteTransaction,
@@ -595,6 +596,7 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	return {
 		planChange,
+		planSources,
 		readEntities,
 		verifyWrites,
 		lockMutations,
@@ -602,7 +604,6 @@ export const makeRelationshipMutationPrimitives = ({
 		prepareRequest,
 		validateMutation,
 		revalidateRequest,
-		persistPreparedSource,
 	};
 };
 

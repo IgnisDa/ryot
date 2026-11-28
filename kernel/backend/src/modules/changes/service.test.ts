@@ -1322,6 +1322,43 @@ const entityUpdates = (
 		},
 	});
 
+/** A fixture whose plugin declares a keyed record link, with a committed root and another record. */
+const keyedLinkFixture = Effect.gen(function* () {
+	const source = revisionPackage("atomic", "fixture", "record");
+	const input = yield* fixture({
+		...source,
+		manifest: {
+			...source.manifest,
+			relationshipSchemas: [
+				...source.manifest.relationshipSchemas,
+				{
+					keyed: true,
+					slug: "atomic-keyed",
+					name: { key: "test.link" },
+					propertiesSchema: { fields: {} },
+					sourceEntitySchemaSlug: "record",
+					targetEntitySchemaSlug: "record",
+				},
+			],
+		},
+	});
+	const root = yield* commitUserCommand(input);
+	const [other] = yield* (yield* EntitiesRepository).insertEntities([
+		{
+			userId,
+			scope: "user",
+			name: "Other",
+			properties: {},
+			populatedAt: null,
+			id: EntityId.make(yield* randomUuid),
+			entitySchemaPluginId: input.pluginId,
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
+		},
+	]);
+	assert(other);
+	return { root, input, other, target: targetOf(input) };
+});
+
 layer(testLayer(false))((test) => {
 	test.effect(
 		"moves an event's entity references and rewrites its properties for a kernel writer",
@@ -1666,39 +1703,7 @@ layer(testLayer(false))((test) => {
 		"merges an entity whose keyed and unkeyed relationships the same change set deletes",
 		() =>
 			Effect.gen(function* () {
-				const source = revisionPackage("atomic", "fixture", "record");
-				const input = yield* fixture({
-					...source,
-					manifest: {
-						...source.manifest,
-						relationshipSchemas: [
-							...source.manifest.relationshipSchemas,
-							{
-								keyed: true,
-								slug: "atomic-keyed",
-								name: { key: "test.link" },
-								propertiesSchema: { fields: {} },
-								sourceEntitySchemaSlug: "record",
-								targetEntitySchemaSlug: "record",
-							},
-						],
-					},
-				});
-				const root = yield* commitUserCommand(input);
-				const target = targetOf(input);
-				const [other] = yield* (yield* EntitiesRepository).insertEntities([
-					{
-						userId,
-						scope: "user",
-						name: "Other",
-						properties: {},
-						populatedAt: null,
-						id: EntityId.make(yield* randomUuid),
-						entitySchemaPluginId: input.pluginId,
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
-					},
-				]);
-				assert(other);
+				const { root, input, other, target } = yield* keyedLinkFixture;
 				const links = [
 					{
 						target: existing(other.id),
@@ -1760,6 +1765,52 @@ layer(testLayer(false))((test) => {
 							.where(eq(tables.relationship.relationshipSchemaPluginId, input.pluginId)),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"merges an entity a keyed relationship targets by moving the target of the same row",
+		() =>
+			Effect.gen(function* () {
+				const { root, input, other, target } = yield* keyedLinkFixture;
+				yield* commit(
+					{
+						relationships: {
+							upserts: [
+								{
+									properties: {},
+									key: "incoming",
+									propertiesMode: "replace",
+									source: existing(other.id),
+									target: existing(root.entityId),
+									relationshipSchemaSlug: "atomic-keyed",
+								},
+							],
+						},
+					},
+					nextCommand(input),
+				);
+				const keyed = input.session.run((db) =>
+					db
+						.select({
+							id: tables.relationship.id,
+							targetEntityId: tables.relationship.targetEntityId,
+						})
+						.from(tables.relationship)
+						.where(eq(tables.relationship.relationshipSchemaSlug, "atomic-keyed")),
+				);
+				const [before] = yield* keyed;
+				assert(before);
+				yield* commit(
+					{
+						entities: {
+							merges: [{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" }],
+						},
+					},
+					nextCommand(input),
+				);
+				expect(yield* keyed).toEqual([{ id: before.id, targetEntityId: target }]);
 			}),
 		testTimeout,
 	);

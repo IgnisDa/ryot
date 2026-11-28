@@ -62,7 +62,7 @@ import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-sett
 import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
-import { WriteTransaction } from "#platform/db/write-transaction";
+import { WritePreparation, WriteTransaction } from "#platform/db/write-transaction";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -73,7 +73,7 @@ import {
 } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import type { PreparedUserRelationship } from "./prepared-mutations";
+import type { PreparedUserRelationship, UserRelationshipChange } from "./prepared-mutations";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
 
@@ -366,12 +366,26 @@ export const deleteRelationshipById = (
 		return result;
 	});
 
-/** Persists prepared user relationship writes in one transaction, answering their results. */
+/** Prepares one user relationship change outside any transaction, answering its prepared write. */
+export const prepareUserChange = (change: UserRelationshipChange) =>
+	Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const [prepared] = yield* service.prepareUserChanges(new WritePreparation(), [change]);
+		assert(prepared);
+		return prepared;
+	});
+
+/** Persists prepared user relationship writes as one batch in one transaction, answering its work. */
 export const persistPrepared = (...prepared: ReadonlyArray<PreparedUserRelationship>) =>
 	Effect.gen(function* () {
 		const service = yield* RelationshipsService;
+		const [first] = prepared;
+		assert(first);
 		return yield* (yield* DatabaseSession).transaction(
-			Effect.forEach(prepared, (token) => service.persistPrepared(new WriteTransaction(), token)),
+			service.persistPrepared(new WriteTransaction(), prepared, {
+				identity: ["relationships"],
+				command: first.mutation.command,
+			}),
 		);
 	});
 
