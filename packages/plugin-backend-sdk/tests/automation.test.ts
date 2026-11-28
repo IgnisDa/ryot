@@ -5,7 +5,6 @@ import {
 	automationPolicyBatchInputSchema,
 	automationPolicyBatchResultSchema,
 	automationPolicyInputSchema,
-	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,
 	notifySignals,
@@ -15,7 +14,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { sandboxManifestSchema } from "../src/core";
+import { changesOutputSchema, sandboxManifestSchema } from "../src/core";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const manifest = defineManifest({
@@ -136,8 +135,8 @@ describe("automation definitions", () => {
 		expect(automation).toMatchObject({
 			run,
 			manifest,
+			output: changesOutputSchema,
 			input: automationInputSchema,
-			output: automationResultSchema,
 			definitionType: SANDBOX_SCRIPT_DEFINITION,
 		});
 		expect(policy).toMatchObject({

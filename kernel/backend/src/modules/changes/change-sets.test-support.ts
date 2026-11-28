@@ -1,8 +1,8 @@
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { EventUpdate } from "@ryot-app/contract/modules/events/mutations";
 import type {
 	CreateEventItem,
 	EventWritePrecondition,
-	UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
@@ -157,7 +157,7 @@ export const entityUpdate = (entity: ListedEntity, name: string, properties: unk
 	},
 });
 
-export const eventUpdate = (item: UpdateEventItem): EventChange => ({
+export const eventUpdate = (item: EventUpdate["item"]): EventChange => ({
 	item,
 	kind: "update",
 	itemIdentity: `event:${item.eventId}`,

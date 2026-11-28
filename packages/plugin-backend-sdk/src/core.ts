@@ -10,6 +10,7 @@ export { readAllPages, PaginationError, continuationCursor } from "./core/pages"
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
 export type { SignalChange, RelationshipUpsert, GlobalRelationship } from "./core/changes";
+export type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 export {
 	executeRyotqlArgsSchema,
 	executeRyotqlDataSchema,
@@ -32,13 +33,8 @@ export type {
 	EventDelete,
 	EventChange,
 } from "@ryot-app/contract/modules/events/mutations";
-export type {
-	ChangeSetEntityReference,
-	ChangeSetGlobalEntityReference,
-} from "@ryot-app/contract/modules/changes/references";
 export {
 	CHANGE_SET_LIMITS,
-	ChangeSet as changeSetSchema,
 	ChangesOutput as changesOutputSchema,
 } from "@ryot-app/contract/modules/changes/change-set";
 export {

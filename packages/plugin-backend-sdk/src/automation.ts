@@ -5,10 +5,7 @@ import {
 	AutomationPolicyInput as automationPolicyInputSchema,
 	AutomationPolicyOutput as automationPolicyResultSchema,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	type ChangeSet,
-	ChangesOutput as automationResultSchema,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { type ChangeSet, ChangesOutput } from "@ryot-app/contract/modules/changes/change-set";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { SandboxManifest } from "./core/script-manifest";
@@ -16,7 +13,6 @@ import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./drive
 
 export {
 	automationInputSchema,
-	automationResultSchema,
 	automationPolicyInputSchema,
 	automationPolicyResultSchema,
 	automationPolicyBatchInputSchema,
@@ -46,12 +42,7 @@ export type AutomationPolicyManifest = Extract<
 export type AutomationDefinition<
 	Manifest extends AutomationManifest,
 	Failure,
-> = GenericScriptDefinition<
-	Manifest,
-	typeof automationInputSchema,
-	typeof automationResultSchema,
-	Failure
->;
+> = GenericScriptDefinition<Manifest, typeof automationInputSchema, typeof ChangesOutput, Failure>;
 export type AutomationPolicyDefinition<
 	Manifest extends AutomationPolicyManifest,
 	Failure,
@@ -74,9 +65,9 @@ export const defineAutomation = <
 	"run"
 > => ({
 	run: definition.run,
+	output: ChangesOutput,
 	input: automationInputSchema,
 	manifest: definition.manifest,
-	output: automationResultSchema,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
 });
 export const defineAutomationPolicy = <

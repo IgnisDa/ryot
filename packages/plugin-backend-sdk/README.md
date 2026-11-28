@@ -65,7 +65,7 @@ helpers to capabilities by canonical module/export, not import alias. Contract w
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
 Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `ChangeSet`
-(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
+(the `ChangeSet` type from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
 that the kernel commits after the run in one database transaction. Its parts and per-writer authority
 are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets); `CHANGE_SET_LIMITS`
 holds their bounds. Any validation, authority, or commit failure leaves the entire change set

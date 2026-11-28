@@ -929,7 +929,7 @@ commit's conflict code.
 
 ### Change sets
 
-`ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
+`ChangeSet` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
 references, `entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)` and
 `expectedRelationshipProperties(properties, checked)` baselines,
