@@ -423,8 +423,17 @@ const eventScope: TableBinding<"eventScope"> = {
 	},
 };
 
+const relationshipSource: CatalogSource = (context) => ({
+	ctes: noCtes,
+	from: context.fields.has("projection")
+		? sql`(select r.*, p.value as projection_value from ${context.source} r
+			left join derived_value p on p.user_id = r.user_id and p.kind = 'relationship' and p.target_id = r.id)`
+		: context.source,
+});
+
 const relationship: TableBinding<"relationship"> = {
 	relation: "relationship",
+	source: relationshipSource,
 	policies: {
 		admin: { type: "all" },
 		user: { type: "owned", column: "user_id", includeGlobal: true },
@@ -442,15 +451,11 @@ const relationship: TableBinding<"relationship"> = {
 		userId: column("user_id"),
 		createdAt: column("created_at"),
 		properties: column("properties"),
+		projection: column("projection_value"),
 		sourceEntityId: column("source_entity_id"),
 		targetEntityId: column("target_entity_id"),
 		relationshipSchemaSlug: column("relationship_schema_slug"),
 		relationshipSchemaPluginId: column("relationship_schema_plugin_id"),
-		projection: {
-			resolve: ({ sqlAlias }) =>
-				sql`(select p.value from derived_value p where p.user_id = ${sql.raw(sqlAlias)}.user_id
-				and p.kind = 'relationship' and p.target_id = ${sql.raw(sqlAlias)}.id)`,
-		},
 		collectionRank: {
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
