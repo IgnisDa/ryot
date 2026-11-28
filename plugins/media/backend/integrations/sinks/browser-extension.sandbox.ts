@@ -19,6 +19,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Ryot browser extension sink",
 	slug: "integration.browser-extension",
 });
@@ -116,5 +117,8 @@ export default defineActivity({
 					failureResult("Could not parse browser extension webhook payload"),
 				),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

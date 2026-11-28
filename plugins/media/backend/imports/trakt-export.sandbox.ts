@@ -17,6 +17,7 @@ import { classifyTraktExportName } from "./trakt-files";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.trakt-export",
 	name: "Collect Trakt export",
 });
@@ -133,5 +134,5 @@ export default defineActivity({
 				itemIndex,
 				carryFile: "metadata.json",
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

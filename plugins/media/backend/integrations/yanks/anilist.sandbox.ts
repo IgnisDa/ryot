@@ -29,6 +29,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "AniList yank",
 	slug: "integration.anilist",
 });
@@ -392,5 +393,6 @@ export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
-	run: (input, host, execution) => runAniListYank(input, host, execution),
+	run: (input, host, execution) =>
+		runAniListYank(input, host, execution).pipe(Effect.map((output) => ({ output }))),
 });

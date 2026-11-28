@@ -18,6 +18,10 @@ type ExecutableManifest = {
 
 const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
+/** A `step.activity` target: a script defined with `defineActivity`. */
+const isActivity = (script: undefined | PluginScript) =>
+	script?.kind === "script" && script.activity === true;
+
 export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";
 export const KERNEL_ENTITY_IMPORT_WORKFLOW = "kernel:entity-import";
 export const KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW = "kernel:provider-entity-population";
@@ -102,7 +106,7 @@ export const hasReachableExternalEffects = (
 			}
 			traversalCount += 1;
 			if (dependency.kind === "script") {
-				if (scripts.get(dependency.slug)?.kind !== "script") {
+				if (!isActivity(scripts.get(dependency.slug))) {
 					return undefined;
 				}
 				pending.push(dependency.slug);
@@ -216,8 +220,7 @@ export const hasValidExecutableDependencies = (manifest: ExecutableManifest): bo
 	for (const script of manifest.scripts) {
 		for (const dependency of script.executableDependencies) {
 			if (dependency.kind === "script") {
-				const target = scripts.get(dependency.slug);
-				if (target?.kind !== "script") {
+				if (!isActivity(scripts.get(dependency.slug))) {
 					return false;
 				}
 			} else if (

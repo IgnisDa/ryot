@@ -21,7 +21,11 @@ const manifestSlugSchema = Schema.String.pipe(
 );
 const sandboxManifestBaseFields = { slug: manifestSlugSchema, name: manifestStringSchema };
 export const sandboxManifestSchema = Schema.Union([
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("script"),
+		activity: Schema.optional(Schema.Literal(true)),
+	}),
 	strictStruct({
 		...sandboxManifestBaseFields,
 		kind: Schema.Literal("provider"),
@@ -44,6 +48,8 @@ export const sandboxManifestSchema = Schema.Union([
 	}),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("workflow") }),
 ]);
+/** A script a workflow calls with `step.activity`, defined with `defineActivity`. */
+export type ActivityManifest = ScriptManifest & { readonly activity: true };
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
 export type WorkflowManifest = Extract<SandboxManifest, { readonly kind: "workflow" }>;

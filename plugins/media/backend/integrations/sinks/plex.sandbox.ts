@@ -23,6 +23,7 @@ import { searchTmdbShow, type TmdbEpisode } from "./tmdb-episode";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Plex sink",
 	slug: "integration.plex-sink",
 });
@@ -215,5 +216,8 @@ export default defineActivity({
 					failureResult(catalogMessage("integration.plex.lookup-failed"), "provider_resolution"),
 				),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

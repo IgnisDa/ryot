@@ -34,13 +34,6 @@ export type {
 	ChangeSetEntityReference,
 	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/references";
-export type {
-	ScriptManifest,
-	SandboxManifest,
-	WorkflowManifest,
-	ExecutionMetadata,
-	OperationManifest,
-} from "./core/script-manifest";
 export {
 	CHANGE_SET_LIMITS,
 	ChangeSet as changeSetSchema,
@@ -53,6 +46,14 @@ export {
 	httpCallResponseSchema,
 	httpCallFailureDetailsSchema,
 } from "./core/http";
+export type {
+	ScriptManifest,
+	SandboxManifest,
+	ActivityManifest,
+	WorkflowManifest,
+	ExecutionMetadata,
+	OperationManifest,
+} from "./core/script-manifest";
 export {
 	logArgsSchema,
 	logEntrySchema,

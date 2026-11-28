@@ -1,7 +1,7 @@
 import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { mediaCopyRelationship } from "../../../shared/media-copy";
@@ -10,13 +10,14 @@ import { inventoryReconcileInput, inventoryReconcileOutput } from "./reconciliat
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "integration.reconcile-inventory",
 	name: "Reconcile a completed media inventory",
 });
 
 const reference = { kind: "self" } as const;
 
-export default defineActivityWithChanges({
+export default defineActivity({
 	manifest,
 	input: inventoryReconcileInput,
 	output: inventoryReconcileOutput,

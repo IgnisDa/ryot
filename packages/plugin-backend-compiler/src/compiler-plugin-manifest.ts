@@ -79,7 +79,10 @@ export const derivePluginSandboxScripts = Effect.fn("derivePluginSandboxScripts"
 		catalog,
 	);
 	const activities = new Map(
-		compiled.map(({ activity, compiled: { manifest } }) => [manifest.slug, activity]),
+		compiled.map(({ compiled: { manifest } }) => [
+			manifest.slug,
+			manifest.kind === "script" && manifest.activity === true,
+		]),
 	);
 	const nonActivityTargets = compiled.flatMap(({ entry, compiled: { manifest } }) =>
 		manifest.executableDependencies.flatMap(({ kind, slug }) =>

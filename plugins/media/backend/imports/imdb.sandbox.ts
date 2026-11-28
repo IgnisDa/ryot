@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
@@ -6,6 +7,7 @@ import { adaptImdbCsv } from "./imdb";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.imdb",
 	name: "Parse IMDb import",
 });
@@ -14,5 +16,8 @@ export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
-	run: (input) => collectMediaCsv("imdb", input, (text) => adaptImdbCsv(text, input.importedAt)),
+	run: (input) =>
+		collectMediaCsv("imdb", input, (text) => adaptImdbCsv(text, input.importedAt)).pipe(
+			Effect.map((output) => ({ output })),
+		),
 });

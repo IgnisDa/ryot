@@ -21,15 +21,16 @@ export const installTestIntegrationProvider = (
 	const name = "E2E integration sink";
 	const source = `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
+	activity: true,
   name: ${JSON.stringify(name)},
   slug: ${JSON.stringify(scriptSlug)},
 });
 
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest,
   input: Schema.Unknown,
   output: Schema.Unknown,

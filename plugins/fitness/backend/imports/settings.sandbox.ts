@@ -7,6 +7,7 @@ import { FitnessSettingsInput, FitnessSettingsOutput } from "./settings";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.settings",
 	name: "Read admitted Fitness settings",
 });
@@ -29,5 +30,5 @@ export default defineActivity({
 				throw new Error("Import job is missing timezone");
 			}
 			return { timezone: timezone.trim() };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

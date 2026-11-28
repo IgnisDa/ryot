@@ -13,6 +13,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.read-batch",
 	name: "Prepare captured media application batch",
 });
@@ -151,5 +152,5 @@ export default defineActivity({
 					),
 				},
 			};
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

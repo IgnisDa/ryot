@@ -564,13 +564,16 @@ describe("lifecycle hook declarations", () => {
 									},
 								],
 							},
-							registeredScript("delegate", [], [{ slug: "nested", kind: "workflow" }]),
-							registeredScript("safe"),
+							{
+								...registeredScript("delegate", [], [{ slug: "nested", kind: "workflow" }]),
+								activity: true,
+							},
+							{ ...registeredScript("safe"), activity: true },
 							{
 								...registeredScript("nested-workflow", [], [{ kind: "script", slug: "effect" }]),
 								kind: "workflow" as const,
 							},
-							registeredScript("effect", [capability]),
+							{ ...registeredScript("effect", [capability]), activity: true },
 						],
 					};
 					yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)(candidate));

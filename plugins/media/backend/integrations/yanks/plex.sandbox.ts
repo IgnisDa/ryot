@@ -13,6 +13,7 @@ import { baseUrl, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Plex yank",
 	slug: "integration.plex-yank",
 });
@@ -433,5 +434,5 @@ export default defineActivity({
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 				eventIndexBase,
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

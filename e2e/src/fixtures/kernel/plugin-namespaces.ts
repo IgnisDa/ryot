@@ -331,9 +331,9 @@ const checkpointSource = `
 import { genericImportWorkflowInputSchema, genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
 import { configValuesSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "script", name: "Whiskey checkpoint", slug: "checkpoint" });
-export default defineActivityWithChanges({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Whiskey checkpoint", slug: "checkpoint" });
+export default defineActivity({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
   const request = { runId: input.runId, command: input.command, operation: { action: "seal" as const } };
   const config = yield* host.getPluginConfig({ optional: ["checkpointUrl", "writerMarker"] });
   if (typeof config.checkpointUrl === "string") {
@@ -356,10 +356,10 @@ const kernelWriteChunksSource = (label: string, strength: string | number) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { genericImportChunkSchema, type GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
-import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "script", name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "script", activity: true, name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
 const Source = Schema.Struct({ ownEntityId: Schema.String, foreignEntityId: Schema.String });
-export default defineActivityWithChanges({
+export default defineActivity({
   manifest, input: Schema.Struct({ artifactHandle: Schema.String, occurredAt: Schema.String }), output: sandboxScratchManifestSchema,
   run: (input) => Effect.gen(function* () {
     const source = yield* Schema.decodeEffect(Schema.fromJsonString(Source))(new TextDecoder().decode(yield* readArtifact));

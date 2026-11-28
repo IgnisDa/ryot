@@ -6,6 +6,7 @@ import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.trakt",
 	name: "Collect Trakt API",
 });
@@ -23,5 +24,5 @@ export default defineActivity({
 			return yield* collectTraktApi(input, clientId, host).pipe(
 				Effect.catch((error) => recoverMediaApiTask(input, error, "Trakt")),
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

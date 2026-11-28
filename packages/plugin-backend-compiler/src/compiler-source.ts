@@ -294,7 +294,7 @@ const inspectImports = (
 						if (importedName === "defineWorkflow") {
 							workflowHelpers.add(element.name.text);
 						}
-						if (importedName === "defineActivity" || importedName === "defineActivityWithChanges") {
+						if (importedName === "defineActivity") {
 							activityHelpers.add(element.name.text);
 						}
 					}
@@ -527,9 +527,17 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile, sourcePath: str
 	inspectImports(file, true, sourcePath).diagnostics;
 
 export const sandboxDefinitionMismatch = (
-	inspection: { readonly definitionKind: null | SandboxManifest["kind"] },
+	inspection: {
+		readonly activity: boolean;
+		readonly definitionKind: null | SandboxManifest["kind"];
+	},
 	manifest: SandboxManifest,
 ) => {
+	if (manifest.kind === "script" && (manifest.activity === true) !== inspection.activity) {
+		return manifest.activity === true
+			? "An activity manifest must use defineActivity"
+			: 'defineActivity requires a manifest with "activity: true"';
+	}
 	let helper = "defineScript";
 	if (manifest.kind === "provider") {
 		helper = "defineProvider";

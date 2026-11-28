@@ -19,6 +19,7 @@ const script = (
 	runtimeImports: [],
 	executableDependencies,
 	kind: "script" as const,
+	activity: true as const,
 	requiredPluginConfigKeys,
 	capabilities: [] as const,
 	oauthConnectionFields: [],
@@ -189,6 +190,12 @@ it("validates integration plans against finite settings and linked executable ch
 		scripts: manifest.scripts.map((entry) => Object.assign({}, entry, { kind: "script" as const })),
 	};
 	expect(hasValidExecutableDependencies(executable)).toBe(true);
+	expect(
+		hasValidExecutableDependencies({
+			...executable,
+			scripts: executable.scripts.map(({ activity: _activity, ...entry }) => entry),
+		}),
+	).toBe(false);
 	const booleanPlan = {
 		selections: { collector: { field: "mode", cases: { true: "api", false: "file" } } },
 	};

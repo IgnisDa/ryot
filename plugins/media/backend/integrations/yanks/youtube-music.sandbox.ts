@@ -17,6 +17,7 @@ import { confirmIntegrationSource, integrationSourceAttribution } from "../sourc
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "YouTube Music yank",
 	slug: "integration.youtube-music",
 });
@@ -198,5 +199,6 @@ export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
-	run: (input, host, execution) => runYoutubeMusicYank(input, host, execution),
+	run: (input, host, execution) =>
+		runYoutubeMusicYank(input, host, execution).pipe(Effect.map((output) => ({ output }))),
 });

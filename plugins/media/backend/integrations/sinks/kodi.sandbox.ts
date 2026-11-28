@@ -17,6 +17,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Kodi sink",
 	slug: "integration.kodi",
 });
@@ -82,5 +83,8 @@ export default defineActivity({
 			const occurredAt = yield* executionStartedAt(execution);
 			yield* host.getCurrentIntegration();
 			return yield* parseKodi(input.rawBody, occurredAt);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

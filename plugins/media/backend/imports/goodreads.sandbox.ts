@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
@@ -8,6 +9,7 @@ import { normalizeReadCount } from "./helpers";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	slug: "import.goodreads",
 	name: "Parse Goodreads import",
 });
@@ -23,5 +25,5 @@ export default defineActivity({
 				eventOffset + 128 < normalizeReadCount(parseCsvText(text).rows[0]?.["Read Count"] ?? "")
 					? eventOffset + 128
 					: 0,
-		})),
+		})).pipe(Effect.map((output) => ({ output }))),
 });

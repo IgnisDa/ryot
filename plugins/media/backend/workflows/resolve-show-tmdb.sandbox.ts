@@ -10,6 +10,7 @@ import { resolve } from "../providers/show/tmdb/shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Resolve imported TMDB show",
 	slug: "media-import-resolve.show.tmdb",
 });
@@ -24,5 +25,6 @@ export default defineActivity({
 			Effect.catch((error) =>
 				Effect.succeed({ status: "failed" as const, message: mediaFailureMessage(error) }),
 			),
+			Effect.map((output) => ({ output })),
 		),
 });

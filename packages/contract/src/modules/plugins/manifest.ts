@@ -656,6 +656,8 @@ export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("script"),
+		/** Defined with `defineActivity`, so a workflow may call it with `step.activity`. */
+		activity: Schema.optional(Schema.Literal(true)),
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
 	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),

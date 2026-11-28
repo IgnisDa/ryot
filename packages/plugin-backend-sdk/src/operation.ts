@@ -1,36 +1,23 @@
-import {
-	CommitConflictCode,
-	OutputWithChanges,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { OperationManifest } from "./core/script-manifest";
-import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
-
-type OperationResult<Output extends Schema.Codec<unknown, unknown>> = ReturnType<
-	typeof OutputWithChanges<Output>
->;
+import {
+	defineWithChanges,
+	type DefinitionWithChangesInput,
+	type RunWithChanges,
+} from "./with-changes";
 
 export const defineOperation = <
 	const Manifest extends OperationManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
 	Failure,
-	Run extends GenericScriptDefinition<Manifest, Input, OperationResult<Output>, Failure>["run"],
+	Run extends RunWithChanges<Manifest, Input, Output, Failure>,
 >(
-	definition: { readonly run: Run } & Omit<
-		GenericScriptDefinition<Manifest, Input, Output, Failure>,
-		"run" | "definitionType"
-	>,
-): { readonly run: Run } & Omit<
-	GenericScriptDefinition<Manifest, Input, OperationResult<Output>, Effect.Error<ReturnType<Run>>>,
-	"run"
-> => ({
-	...definition,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	output: OutputWithChanges(definition.output),
-});
+	definition: DefinitionWithChangesInput<Manifest, Input, Output, Failure, Run>,
+) => defineWithChanges(definition);
 
 /**
  * A refusal the user sees. `reason` is a message from the plugin's own catalog; the kernel stamps

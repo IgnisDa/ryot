@@ -20,6 +20,8 @@ Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-ba
 The checkpoint is `null` initially. `step.save(state)` ends the current bounded step; the next step
 receives the saved state. Return a value to finish. Bounded workflows can omit the checkpoint schema.
 Use `step.activity` and `step.child` to invoke typed scripts and workflows. There is no workflow sleep API.
+An activity's manifest declares `activity: true`, and `defineActivity`, like `defineOperation`,
+takes a `run` that returns `{ output, changes? }`.
 
 The runtime retains a private call journal only for the unfinished step, then atomically saves its
 checkpoint and discards completed step receipts. Calls within that step must remain deterministic.

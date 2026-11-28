@@ -13,6 +13,7 @@ import { confirmIntegrationSource, integrationSourceAttribution } from "../sourc
 
 export const manifest = defineManifest({
 	kind: "script",
+	activity: true,
 	name: "Spotify yank",
 	slug: "integration.spotify",
 });
@@ -187,5 +188,6 @@ export default defineActivity({
 	run: (input, host, execution) =>
 		runSpotifyYank(input, host, execution).pipe(
 			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
 		),
 });
