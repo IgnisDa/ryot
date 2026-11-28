@@ -606,29 +606,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						: remove({ ...input, submission: input.submission }),
 				).pipe(
 					Effect.catchTags({
-						CommitConflict: ({ reason }: CommitConflict) => {
-							if (reason.code !== "entity-not-found") {
-								return Effect.succeed({ output: stale });
-							}
-							const { submission } = input;
-							let entityId: undefined | EntityId;
-							if (submission.action === "delete") {
-								entityId = submission.entityId;
-							} else if (submission.target.kind === "update") {
-								entityId = submission.target.entityId;
-							}
-							return entityId !== undefined && reason.entityIds.includes(entityId)
-								? Effect.fail(new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }))
-								: Effect.succeed({
-										output: invalid(kernelMessage("error.entity-editor.target-not-found")),
-									});
+						RelationshipBadRequest: (error: RelationshipBadRequest) => {
+							const reason = invalidRelationshipReason(error);
+							return reason === null
+								? Effect.fail(error)
+								: Effect.succeed({ output: invalid(reason) });
 						},
-						PolicyRejected: (error: PolicyRejected) =>
-							error.reason.code === "invalid-properties"
-								? Effect.succeed({
-										output: invalid(kernelMessage("error.entity-editor.invalid-properties")),
-									})
-								: Effect.fail(error),
 						EntityBadRequest: (error: EntityBadRequest) => {
 							const reason = invalidEntityReason(error);
 							if (reason !== null) {
@@ -636,11 +619,30 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							}
 							return Effect.fail(error);
 						},
-						RelationshipBadRequest: (error: RelationshipBadRequest) => {
-							const reason = invalidRelationshipReason(error);
-							return reason === null
-								? Effect.fail(error)
-								: Effect.succeed({ output: invalid(reason) });
+						PolicyRejected: (error: PolicyRejected) =>
+							error.reason.code === "invalid-properties"
+								? Effect.succeed({
+										output: invalid(kernelMessage("error.entity-editor.invalid-properties")),
+									})
+								: Effect.fail(error),
+						CommitConflict: ({ reason }: CommitConflict) => {
+							if (reason.code !== "entity-not-found") {
+								return Effect.succeed({ output: stale });
+							}
+							const { submission } = input;
+							let entityId: EntityId | undefined;
+							if (submission.action === "delete") {
+								entityId = submission.entityId;
+							} else if (submission.target.kind === "update") {
+								entityId = submission.target.entityId;
+							}
+							return entityId !== undefined && reason.entityIds.includes(entityId)
+								? Effect.fail(
+										new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
+									)
+								: Effect.succeed({
+										output: invalid(kernelMessage("error.entity-editor.target-not-found")),
+									});
 						},
 					}),
 					Effect.catchIf((error) => !isEditorFailure(error), Effect.die),

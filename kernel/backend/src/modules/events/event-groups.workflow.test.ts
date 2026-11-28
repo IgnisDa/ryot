@@ -13,12 +13,12 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import {
 	commitEventChanges,
 	createEvents,
 	eventDelete,
 } from "#modules/changes/change-sets.test-support";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";

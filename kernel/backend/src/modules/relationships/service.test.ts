@@ -18,7 +18,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import { insertManagedAsset } from "#lib/domain/managed-asset-writes.test-support";
 import {
 	decidingPolicies,
@@ -29,6 +28,7 @@ import {
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import {
 	installRevisionPackage,
@@ -211,9 +211,7 @@ describe("Relationships lifecycle owner", () => {
 							yield* writeRelationship("upsert", baseInput, command("schema-race")).pipe(
 								Effect.flip,
 							),
-						).toEqual(
-							new CommitConflict({ reason: { code: "concurrent-relationship-change" } }),
-						);
+						).toEqual(new CommitConflict({ reason: { code: "concurrent-relationship-change" } }));
 						expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 					}),
 				testTimeout,

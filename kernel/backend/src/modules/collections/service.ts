@@ -13,10 +13,7 @@ import {
 	type DeleteMembershipBody,
 	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
-import type {
-	EntityBadRequest,
-	EntityNotFound,
-} from "@ryot-app/contract/modules/entities/schemas";
+import type { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	type EntityId,
@@ -69,7 +66,11 @@ const invalidCollection = (error: EntityBadRequest) =>
 		},
 	});
 
-const membershipEventFailures = new Set(["CommitConflict", "EventBadRequest", "EventCreateItemError"]);
+const membershipEventFailures = new Set([
+	"CommitConflict",
+	"EventBadRequest",
+	"EventCreateItemError",
+]);
 const membershipEventFailed = () =>
 	new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 
@@ -207,7 +208,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				userId: UserId,
 				entity: NonNullable<Changes["entity"]>,
 				command: DomainLifecycleCommand,
-				rejected: (error: CommitConflict | EntityNotFound | EntityBadRequest) => Effect.Effect<A, E>,
+				rejected: (
+					error: CommitConflict | EntityNotFound | EntityBadRequest,
+				) => Effect.Effect<A, E>,
 			) =>
 				changes
 					.commit({ entity, userId }, command, { entities: { verbatimIdentities: true } })

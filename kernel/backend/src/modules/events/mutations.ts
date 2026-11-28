@@ -637,8 +637,8 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					}
 					if (assetForbidden.has(index)) {
 						failures.push({
-							itemIdentity: change.change.itemIdentity,
 							reason: { code: "asset-forbidden" },
+							itemIdentity: change.change.itemIdentity,
 						});
 						continue;
 					}

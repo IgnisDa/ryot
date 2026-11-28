@@ -1,4 +1,8 @@
-import type { EntityBadRequest, EntityNotFound, EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import type {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
@@ -23,15 +27,19 @@ export const CommitConflictReason = Schema.Union([
 	strictStruct({ eventId: EventId, code: Schema.Literal("event-not-found") }),
 	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-stale") }),
 	strictStruct({
-		entityIds: Schema.NonEmptyArray(EntityId),
 		code: Schema.Literal("entity-not-found"),
+		entityIds: Schema.NonEmptyArray(EntityId),
 	}),
 	strictStruct({
 		entityIds: Schema.Array(EntityId),
 		code: Schema.Literal("child-mapping-conflict"),
 	}),
 	strictStruct({
-		code: Schema.Literals(["state-conflict", "mutation-conflict", "concurrent-relationship-change"]),
+		code: Schema.Literals([
+			"state-conflict",
+			"mutation-conflict",
+			"concurrent-relationship-change",
+		]),
 	}),
 ]);
 export type CommitConflictReason = typeof CommitConflictReason.Type;
@@ -56,7 +64,7 @@ const unlessConflict =
 		return reason === null ? Effect.fail(error) : conflict(reason);
 	};
 
-const mutationConflict = <E extends { readonly reason: { readonly code: string } }>(error: E) =>
+const mutationConflict = (error: { readonly reason: { readonly code: string } }) =>
 	error.reason.code === "mutation-conflict" ? { code: "mutation-conflict" as const } : null;
 
 /** The `catchTags` cases that turn the commit failures that are conflicts into `CommitConflict`. */
@@ -64,22 +72,16 @@ export const commitConflicts = {
 	EventStale: (error: EventStale) => conflict(error.reason),
 	EntityStale: (error: EntityStale) => conflict(error.reason),
 	EventNotFound: (error: EventNotFound) => conflict(error.reason),
+	EntityUserDataNotFound: (error: EntityUserDataNotFound) => conflict(error.reason),
 	EventBadRequest: unlessConflict((error: EventBadRequest) => mutationConflict(error)),
 	EntityBadRequest: unlessConflict((error: EntityBadRequest) => mutationConflict(error)),
+	RelationshipNotFound: unlessConflict((error: RelationshipNotFound) =>
+		error.reason.code === "entity-not-found" ? error.reason : null,
+	),
 	EntityNotFound: unlessConflict((error: EntityNotFound) =>
 		error.reason.code === "entity-not-found"
 			? { code: "entity-not-found", entityIds: [error.reason.entityId] }
 			: null,
-	),
-	EventCreateItemError: unlessConflict((error: EventCreateItemError) => {
-		if (error.reason.code === "entity-not-found") {
-			return { code: "entity-not-found", entityIds: [error.reason.entityId] };
-		}
-		return mutationConflict(error);
-	}),
-	EntityUserDataNotFound: (error: EntityUserDataNotFound) => conflict(error.reason),
-	RelationshipNotFound: unlessConflict((error: RelationshipNotFound) =>
-		error.reason.code === "entity-not-found" ? error.reason : null,
 	),
 	EntityUserDataBadRequest: unlessConflict((error: EntityUserDataBadRequest) =>
 		error.reason.code === "state-conflict" || error.reason.code === "child-mapping-conflict"
@@ -91,4 +93,10 @@ export const commitConflicts = {
 			? { code: "concurrent-relationship-change" as const }
 			: null,
 	),
+	EventCreateItemError: unlessConflict((error: EventCreateItemError) => {
+		if (error.reason.code === "entity-not-found") {
+			return { code: "entity-not-found", entityIds: [error.reason.entityId] };
+		}
+		return mutationConflict(error);
+	}),
 };

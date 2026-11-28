@@ -20,7 +20,7 @@ const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
 /** A `step.activity` target: a script defined with `defineActivity`, declared or stored. */
 export const isActivityScript = (
-	script: undefined | { readonly kind?: undefined | string; readonly activity?: undefined | true },
+	script: undefined | { readonly kind?: string | undefined; readonly activity?: true | undefined },
 ) => script?.kind === "script" && script.activity === true;
 
 export const KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW = "kernel:process-import-chunks";

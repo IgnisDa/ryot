@@ -37,7 +37,6 @@ import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
@@ -58,6 +57,7 @@ import {
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { entityChangeSets, entityUpdate } from "#modules/changes/change-sets.test-support";
 import type { Changes } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";

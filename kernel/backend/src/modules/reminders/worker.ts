@@ -234,7 +234,9 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 							});
 						}
 					}),
-				).pipe(Effect.catchCause((failure) => Effect.logWarning("Reminder deferral failed", failure)));
+				).pipe(
+					Effect.catchCause((failure) => Effect.logWarning("Reminder deferral failed", failure)),
+				);
 			const run = Effect.fn("ReminderWorker.run")(function* () {
 				if (config.scheduler.disableDispatchers) {
 					return;

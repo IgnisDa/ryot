@@ -503,13 +503,13 @@ const genericItemChanges = Effect.fnUntraced(function* (
 							occurredAt: event.occurredAt,
 							properties: event.properties,
 							eventSchemaSlug: event.eventSchemaSlug,
+							session: event.sessionEntityAlias
+								? yield* keyed(event.sessionEntityAlias)
+								: undefined,
 							entity:
 								event.subjectEntityId === undefined
 									? yield* keyed(event.entityAlias)
 									: { kind: "existing", entityId: EntityId.make(event.subjectEntityId) },
-							session: event.sessionEntityAlias
-								? yield* keyed(event.sessionEntityAlias)
-								: undefined,
 						});
 					}),
 			),

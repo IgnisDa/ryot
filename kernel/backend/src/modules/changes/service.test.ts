@@ -85,10 +85,10 @@ import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
-import { CommitConflict } from "./conflict";
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
 import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
+import { CommitConflict } from "./conflict";
 import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets, type ScriptLifecycleCommand } from "./service";
 
@@ -2886,45 +2886,15 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						foreignEntity,
 						{ folds: { scope: "user", entityIds: [foreignEntity] } },
 					],
-					"another user's fold subject": [
-						"folds",
-						otherUserEntity,
-						{ folds: { scope: "user", entityIds: [otherUserEntity] } },
-					],
-					"signal subject": [
-						"signals",
-						foreignEntity,
-						{
-							signals: [
-								{
-									properties: {},
-									discriminator: "foreign",
-									schemaSlug: "atomic.signal",
-									subjectEntityId: foreignEntity,
-								},
-							],
-						},
-						run,
-					],
-					"another user's signal subject": [
-						"signals",
-						otherUserEntity,
-						{
-							signals: [
-								{
-									properties: {},
-									discriminator: "other-user",
-									schemaSlug: "atomic.signal",
-									subjectEntityId: otherUserEntity,
-								},
-							],
-						},
-						run,
-					],
 					"event entity": [
 						"events",
 						foreignEntity,
 						{ events: eventCreate({ kind: "existing", entityId: foreignEntity }) },
+					],
+					"another user's fold subject": [
+						"folds",
+						otherUserEntity,
+						{ folds: { scope: "user", entityIds: [otherUserEntity] } },
 					],
 					"kernel-owned entity": [
 						"events",
@@ -3007,6 +2977,21 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 							},
 						},
 					],
+					"signal subject": [
+						"signals",
+						foreignEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "foreign",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: foreignEntity,
+								},
+							],
+						},
+						run,
+					],
 					"entity update": [
 						"entities.updates",
 						foreignEntity,
@@ -3022,6 +3007,21 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 								],
 							},
 						},
+					],
+					"another user's signal subject": [
+						"signals",
+						otherUserEntity,
+						{
+							signals: [
+								{
+									properties: {},
+									discriminator: "other-user",
+									schemaSlug: "atomic.signal",
+									subjectEntityId: otherUserEntity,
+								},
+							],
+						},
+						run,
 					],
 					"relationship delete": [
 						"relationships",
@@ -3096,8 +3096,8 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 				const expected: Record<string, unknown> = {
 					"missing entity": { code: "conflict", conflict: "entity-not-found" },
 					"another user's entity": { code: "conflict", conflict: "entity-not-found" },
-					"another user's entity delete": { code: "conflict", conflict: "entity-not-found" },
 					"another user's fold subject": { code: "conflict", conflict: "entity-not-found" },
+					"another user's entity delete": { code: "conflict", conflict: "entity-not-found" },
 					"another user's signal subject": { code: "conflict", conflict: "entity-not-found" },
 				};
 				const missing = EntityId.make(yield* randomUuid);

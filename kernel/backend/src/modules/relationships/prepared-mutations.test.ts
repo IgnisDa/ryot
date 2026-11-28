@@ -16,9 +16,9 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import {
 	countStatementClasses,
@@ -132,9 +132,7 @@ const entityNotFound = (targetEntityId: EntityId, source: EntityId = sourceEntit
 	});
 
 const entityConflict = (targetEntityId: EntityId, source: EntityId = sourceEntityId) =>
-	new CommitConflict({
-		reason: { code: "entity-not-found", entityIds: [source, targetEntityId] },
-	});
+	new CommitConflict({ reason: { code: "entity-not-found", entityIds: [source, targetEntityId] } });
 
 const concurrentChange = new RelationshipBadRequest({
 	reason: { code: "concurrent-relationship-change" },

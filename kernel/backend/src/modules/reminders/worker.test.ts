@@ -512,16 +512,16 @@ layer(services)((test) => {
 							userId: user.id,
 							command: lifecycleCommand({ user, body }),
 							reference: { owner: { kind: "kernel" }, slug: SignalSchemaSlug.make("reminder.due") },
-							properties: {
-								reminderId: created.id,
-								message: body.message,
-								timezone: body.timezone,
-								entityId: body.entityId,
-								dueAt: body.dueAt,
-							},
 							ledger: {
 								check: () => Effect.succeed(true),
 								record: () => Ref.update(recorded, (count) => count + 1),
+							},
+							properties: {
+								dueAt: body.dueAt,
+								message: body.message,
+								reminderId: created.id,
+								timezone: body.timezone,
+								entityId: body.entityId,
 							},
 						})
 						.pipe(Effect.exit),
@@ -534,13 +534,13 @@ layer(services)((test) => {
 					Effect.provideService(ChangeSets, changeSets),
 				);
 				yield* TestClock.adjust("2 hours");
-				const now = yield* DateTime.nowAsDate;
+				const retryAt = DateTime.toDateUtc(DateTime.addDuration(yield* DateTime.now, "1 minute"));
 				yield* worker.run();
 				expect(yield* (yield* RemindersRepository).findForUser(user.id, created.id)).toMatchObject({
 					triggerId: null,
 					state: "scheduled",
+					reconcileAt: retryAt,
 					formatterRunId: null,
-					reconcileAt: new Date(now.getTime() + 60_000),
 				});
 				const triggers = yield* (yield* DatabaseSession).run((db) =>
 					db

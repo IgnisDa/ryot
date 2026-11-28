@@ -40,9 +40,9 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes, RelationshipEvent } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { type CommitResult, emptyCommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -853,7 +853,9 @@ layer(
 	makeServiceLayer({
 		entities: {
 			update: () =>
-				Effect.fail(new CommitConflict({ reason: { code: "entity-stale", entityId: collectionId } })),
+				Effect.fail(
+					new CommitConflict({ reason: { code: "entity-stale", entityId: collectionId } }),
+				),
 		},
 	}),
 )((test) => {

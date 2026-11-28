@@ -32,7 +32,6 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
@@ -57,6 +56,7 @@ import {
 	eventUpdate,
 } from "#modules/changes/change-sets.test-support";
 import type { EventChange } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -1476,9 +1476,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								command("unreadable-edit-reference"),
 							),
 						),
-						new CommitConflict({
-							reason: { entityIds: [unreadable], code: "entity-not-found" },
-						}),
+						new CommitConflict({ reason: { entityIds: [unreadable], code: "entity-not-found" } }),
 					);
 					expect(
 						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
@@ -1575,7 +1573,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						const stale = yield* Effect.flip(
 							rejectsEdit(mismatch, `field-precondition-stale-${index}`),
 						);
-						expect(stale).toMatchObject({ _tag: "CommitConflict", reason: { code: "event-stale" } });
+						expect(stale).toMatchObject({
+							_tag: "CommitConflict",
+							reason: { code: "event-stale" },
+						});
 					}
 
 					const deleteId = EventId.make("field-precondition-delete");

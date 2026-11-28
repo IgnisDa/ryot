@@ -733,7 +733,7 @@ export const eventCreateChange = <Reference>(
 		readonly properties: unknown;
 		readonly eventSchemaSlug: string;
 		readonly session?: undefined | Reference;
-		readonly occurredAt?: undefined | string;
+		readonly occurredAt?: string | undefined;
 		readonly orderAfter?: EventCreate["orderAfter"];
 	},
 ): EventCreateChange<Reference> => ({

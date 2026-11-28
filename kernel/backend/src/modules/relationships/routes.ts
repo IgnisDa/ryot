@@ -23,7 +23,9 @@ const relationshipConflict = ({
 }: CommitConflict): Effect.Effect<never, RelationshipNotFound | RelationshipBadRequest> =>
 	reason.code === "entity-not-found"
 		? Effect.fail(new RelationshipNotFound({ reason }))
-		: Effect.fail(new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }));
+		: Effect.fail(
+				new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+			);
 
 export const RelationshipsRoutesLive = HttpApiBuilder.group(
 	AppContract,

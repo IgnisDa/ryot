@@ -31,7 +31,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Context, Data, DateTime, Effect, Function, Layer, Ref, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Function, Layer, Ref, Result, Schema } from "effect";
 import { zip } from "effect/Array";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
@@ -129,6 +129,7 @@ import {
 	type GlobalEntityReference,
 	scriptChangeSetParts,
 } from "./changes";
+import { CommitConflict, commitConflicts } from "./conflict";
 import {
 	commitRejection,
 	EventCreateRejected,
@@ -137,7 +138,6 @@ import {
 	sortedOutcomes,
 	toCreateEventsResponse,
 } from "./outcomes";
-import { CommitConflict, commitConflicts } from "./conflict";
 import { type CommitResult, emptyCommitResult } from "./receipts";
 
 export const ChangeSetFailure = Schema.Union([
@@ -204,7 +204,13 @@ type CommitPrecondition<E> = {
 };
 
 /** A precondition's `written` refused the commit's writes, which its transaction rolls back. */
-class WrittenRefusal<E> extends Data.TaggedError("WrittenRefusal")<{ readonly refused: E }> {}
+class WrittenRefusal<E> {
+	readonly refused: E;
+	readonly _tag = "WrittenRefusal";
+	constructor(refused: E) {
+		this.refused = refused;
+	}
+}
 
 /** Whether committing the change set would write nothing. */
 const isEmptyChangeSet = (changes: ChangeSet) =>
@@ -1785,7 +1791,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						yield* precondition.written(result).pipe(
 							Effect.catchIf(
 								(error): error is Refusal => !(error instanceof DbError),
-								(refused) => Effect.fail(new WrittenRefusal({ refused })),
+								(refused) => Effect.fail(new WrittenRefusal(refused)),
 							),
 						);
 					}
@@ -1879,21 +1885,22 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							),
 						),
 					),
-					Effect.catchTag("EventCreateRejected", (rejection) =>
-						inTransaction(
-							Effect.gen(function* () {
-								const stored = yield* receipt.load;
-								return settled(
-									stored ??
-										(yield* receipt.record({
-											...emptyCommitResult,
-											outcomes: rejectedOutcomes(rejection, prepared.creates.size),
-										})),
-								);
-							}),
-						),
-					),
-					Effect.catchTag("WrittenRefusal", (error) => Effect.succeed({ refused: error.refused })),
+					Effect.catchTags({
+						WrittenRefusal: (error) => Effect.succeed({ refused: error.refused }),
+						EventCreateRejected: (rejection) =>
+							inTransaction(
+								Effect.gen(function* () {
+									const stored = yield* receipt.load;
+									return settled(
+										stored ??
+											(yield* receipt.record({
+												...emptyCommitResult,
+												outcomes: rejectedOutcomes(rejection, prepared.creates.size),
+											})),
+									);
+								}),
+							),
+					}),
 				);
 				if ("refused" in committed) {
 					return committed;

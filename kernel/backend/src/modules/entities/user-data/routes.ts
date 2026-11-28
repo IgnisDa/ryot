@@ -23,7 +23,7 @@ const relationshipMergeFailed = () =>
 /** The user data no longer allows the clear or merge, or one of its entities is gone. */
 const userDataConflict = ({
 	reason,
-}: CommitConflict): Effect.Effect<never, EntityUserDataBadRequest | EntityUserDataNotFound> => {
+}: CommitConflict): Effect.Effect<never, EntityUserDataNotFound | EntityUserDataBadRequest> => {
 	if (reason.code === "child-mapping-conflict") {
 		return Effect.fail(new EntityUserDataBadRequest({ reason }));
 	}
@@ -56,8 +56,8 @@ const commitUserData = <A>(
 		return value;
 	}).pipe(
 		Effect.catchTags({
-			CommitConflict: userDataConflict,
 			EventBadRequest: stateConflict,
+			CommitConflict: userDataConflict,
 			EventCreateItemError: stateConflict,
 			RelationshipBadRequest: relationshipMergeFailed,
 		}),

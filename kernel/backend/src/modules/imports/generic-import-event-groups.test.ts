@@ -25,12 +25,12 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
@@ -142,9 +142,9 @@ const chunkFixture = Effect.fnUntraced(function* (
 			projectBatch: () => Effect.succeed(true),
 			registerBatch: () => Effect.succeed(true),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
+			getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
 			recordedOutcomeIds: (_scope, ids) =>
 				Effect.sync(() => new Set(ids.filter((id) => outcomes.has(id)))),
-			getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
 			recordIssue: (_scope, issue) =>
 				Effect.sync(() => {
 					issues.set(issue.id, issue);

@@ -41,8 +41,8 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import { AuthService } from "#modules/accounts/auth/service";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ScriptChangesLayer } from "#modules/changes/script-changes";
 import {
 	type ChangeSetFailure,

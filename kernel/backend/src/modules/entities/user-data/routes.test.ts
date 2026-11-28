@@ -15,9 +15,9 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
-import { CommitConflict } from "#modules/changes/conflict";
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
 import type { Changes } from "#modules/changes/changes";
+import { CommitConflict } from "#modules/changes/conflict";
 import { ChangeSets } from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
@@ -74,7 +74,9 @@ const routesLayer = Layer.unwrap(
 				const clearedId = changes.entities?.clears?.[0]?.entityId;
 				if (clearedId === "edited") {
 					return Effect.fail(
-						new CommitConflict({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
+						new CommitConflict({
+							reason: { code: "event-stale", eventId: EventId.make("edited") },
+						}),
 					);
 				}
 				if (clearedId === "unavailable") {
