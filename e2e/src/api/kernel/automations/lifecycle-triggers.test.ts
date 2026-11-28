@@ -367,30 +367,24 @@ const requireWrittenEventId = (result: CreateEventsResult, index = 0) => {
 	return outcome.eventId;
 };
 
-function requireCreatePayload<
-	Category extends "change" | "request",
-	Resource extends "event" | "entity" | "relationship",
->(
+function requireCreatePayload<Resource extends "event" | "entity" | "relationship">(
 	trigger: AutomationTrigger,
-	category: Category,
 	resource: Resource,
 ): Extract<
 	TriggerPayload,
-	{ readonly category: Category; readonly resource: Resource; readonly operation: "create" }
+	{ readonly category: "change"; readonly resource: Resource; readonly operation: "create" }
 >;
 function requireCreatePayload(
 	trigger: AutomationTrigger,
-	category: "change" | "request",
 	resource: "event" | "entity" | "relationship",
 ): TriggerPayload {
 	const payload = trigger.payload;
 	if (
-		payload === null ||
-		payload.category !== category ||
+		payload?.category !== "change" ||
 		payload.resource !== resource ||
 		payload.operation !== "create"
 	) {
-		throw new Error(`Expected ${category} ${resource} create trigger '${trigger.id}'`);
+		throw new Error(`Expected change ${resource} create trigger '${trigger.id}'`);
 	}
 	return payload;
 }
@@ -400,7 +394,7 @@ const inspectCommittedCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 		const changes = yield* listAutomationTriggers({ sourceRecord });
 		expect(changes).toHaveLength(1);
 		const change = requirePresent(changes[0], "Expected a committed change trigger");
-		requireCreatePayload(change, "change", sourceRecord.resource);
+		requireCreatePayload(change, sourceRecord.resource);
 
 		const runs = yield* listAutomationRuns({
 			triggerId: change.id,
@@ -483,7 +477,7 @@ describe("automation lifecycle triggers", () => {
 				slugs.policyAfterHook,
 			);
 			expect(committed.change.causation).toMatchObject({ source: "import", importRunId: runId });
-			expect(requireCreatePayload(committed.change, "change", "event").after).toMatchObject({
+			expect(requireCreatePayload(committed.change, "event").after).toMatchObject({
 				id: event.id,
 				properties: { marker: "transformed" },
 			});
@@ -525,7 +519,7 @@ describe("automation lifecycle triggers", () => {
 				{ resource: "event", id: transformedId },
 				slugs.policyAfterHook,
 			);
-			const transformedChange = requireCreatePayload(transformed.change, "change", "event");
+			const transformedChange = requireCreatePayload(transformed.change, "event");
 			expect(transformedChange.after).toMatchObject({
 				id: transformedId,
 				entityId: entity.id,
@@ -574,11 +568,6 @@ describe("automation lifecycle triggers", () => {
 				slugs.entityHook,
 			);
 			expect(entityInspection.change.causation.parentTriggerId).toBeNull();
-			expect(
-				(yield* listAutomationTriggers({
-					rootExecutionId: entityInspection.change.causation.rootExecutionId,
-				})).filter(({ kind }) => kind.category === "request"),
-			).toEqual([]);
 			expect(entityInspection.change.payload).toEqual({
 				category: "change",
 				resource: "entity",
@@ -609,7 +598,7 @@ describe("automation lifecycle triggers", () => {
 				{ id: eventId, resource: "event" },
 				slugs.policyAfterHook,
 			);
-			const eventChange = requireCreatePayload(eventInspection.change, "change", "event");
+			const eventChange = requireCreatePayload(eventInspection.change, "event");
 			const { createdAt, updatedAt, ...eventSnapshot } = eventChange.after;
 			expect(eventSnapshot).toEqual({
 				id: eventId,
@@ -639,11 +628,6 @@ describe("automation lifecycle triggers", () => {
 				slugs.relationshipHook,
 			);
 			expect(relationshipInspection.change.causation.parentTriggerId).toBeNull();
-			expect(
-				(yield* listAutomationTriggers({
-					rootExecutionId: relationshipInspection.change.causation.rootExecutionId,
-				})).filter(({ kind }) => kind.category === "request"),
-			).toEqual([]);
 			expect(relationshipInspection.change.payload).toEqual({
 				category: "change",
 				operation: "create",
