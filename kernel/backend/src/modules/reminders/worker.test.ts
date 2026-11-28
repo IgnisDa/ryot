@@ -2,7 +2,12 @@ import { expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
-import { AutomationExecutionId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	EntityId,
+	ReminderId,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
@@ -16,6 +21,7 @@ import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { KernelSignalBlocked, KernelSignals } from "#modules/automations/kernel-signals";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
@@ -473,6 +479,78 @@ layer(services)((test) => {
 				yield* TestClock.adjust("2 minutes");
 				yield* (yield* ReminderWorker).run();
 				expect((yield* repository.findForUser(user.id, first.id))?.state).toBe("processing");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"defers a due reminder whose signal is blocked without committing the signal",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* enabledInput();
+				const created = yield* (yield* RemindersService).create(user, body);
+				const signals = yield* SignalEmissionService;
+				const changeSets = yield* userDataChangeSets().pipe(
+					Effect.provideService(SignalEmissionService, {
+						...signals,
+						planSignal: (input, transaction) =>
+							Effect.map(signals.planSignal(input, transaction), (plan) => ({
+								...plan,
+								trigger: {
+									...plan.trigger,
+									blockedReason: { omittedHooks: [], code: "automation-limit-reached" as const },
+								},
+							})),
+					}),
+				);
+				const recorded = yield* Ref.make(0);
+				const kernelSignals = yield* KernelSignals.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
+				);
+				assertExitFails(
+					yield* kernelSignals
+						.commit({
+							userId: user.id,
+							command: lifecycleCommand({ user, body }),
+							reference: { owner: { kind: "kernel" }, slug: SignalSchemaSlug.make("reminder.due") },
+							properties: {
+								reminderId: created.id,
+								message: body.message,
+								timezone: body.timezone,
+								entityId: body.entityId,
+								dueAt: body.dueAt,
+							},
+							ledger: {
+								check: () => Effect.succeed(true),
+								record: () => Ref.update(recorded, (count) => count + 1),
+							},
+						})
+						.pipe(Effect.exit),
+					new KernelSignalBlocked({
+						reason: { omittedHooks: [], code: "automation-limit-reached" },
+					}),
+				);
+				expect(yield* Ref.get(recorded)).toBe(0);
+				const worker = yield* ReminderWorker.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
+				);
+				yield* TestClock.adjust("2 hours");
+				const now = yield* DateTime.nowAsDate;
+				yield* worker.run();
+				expect(yield* (yield* RemindersRepository).findForUser(user.id, created.id)).toMatchObject({
+					triggerId: null,
+					state: "scheduled",
+					formatterRunId: null,
+					reconcileAt: new Date(now.getTime() + 60_000),
+				});
+				const triggers = yield* (yield* DatabaseSession).run((db) =>
+					db
+						.select({ id: tables.automationTrigger.id })
+						.from(tables.automationTrigger)
+						.where(
+							sql`${tables.automationTrigger.payload}->'properties'->>'reminderId' = ${created.id}`,
+						),
+				);
+				expect(triggers).toEqual([]);
 			}),
 		testTimeout,
 	);

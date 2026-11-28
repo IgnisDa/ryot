@@ -313,6 +313,17 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					for (const target of targets) {
 						const nextDueAt = yield* evaluateTarget(target, now).pipe(
 							Effect.asSome,
+							Effect.catchTag("KernelSignalBlocked", ({ reason }) =>
+								Effect.logInfo("Signal schedule delivery deferred: its signal was blocked").pipe(
+									Effect.annotateLogs({
+										reason: reason.code,
+										userId: target.userId,
+										scheduleSlug: target.slug,
+										pluginId: target.pluginId,
+									}),
+									Effect.as(Option.none()),
+								),
+							),
 							Effect.catchCause((cause) =>
 								Effect.logWarning("Signal schedule delivery deferred", cause).pipe(
 									Effect.annotateLogs({

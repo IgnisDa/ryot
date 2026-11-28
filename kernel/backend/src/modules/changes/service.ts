@@ -35,7 +35,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Context, DateTime, Effect, Function, Layer, Ref, Result, Schema } from "effect";
+import { Context, Data, DateTime, Effect, Function, Layer, Ref, Result, Schema } from "effect";
 import { zip } from "effect/Array";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
@@ -201,13 +201,16 @@ type Writer =
  * transaction after its catalog lock, each time given that transaction's `WriteTransaction`, where
  * false records an empty result and a failure fails the commit; `lock` runs first in each of those
  * transactions, before the catalog lock; `written` runs after every write of a commit that wrote
- * anything, with what it wrote.
+ * anything, with what it wrote, and its failure rolls the commit back.
  */
 type CommitPrecondition<E> = {
-	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
+	readonly written: (result: CommitResult) => Effect.Effect<void, E | DbError>;
 	readonly lock?: (transaction: WriteTransaction) => Effect.Effect<void, DbError>;
 	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, E | DbError>;
 };
+
+/** A precondition's `written` refused the commit's writes, which its transaction rolls back. */
+class WrittenRefusal<E> extends Data.TaggedError("WrittenRefusal")<{ readonly refused: E }> {}
 
 /** Whether committing the change set would write nothing. */
 const isEmptyChangeSet = (changes: ChangeSet) =>
@@ -1779,7 +1782,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						entities: [...written.result.entities, ...global.entities],
 					};
 					if (precondition && wroteAnything(result)) {
-						yield* precondition.written(result);
+						yield* precondition.written(result).pipe(
+							Effect.catchIf(
+								(error): error is Refusal => !(error instanceof DbError),
+								(refused) => Effect.fail(new WrittenRefusal({ refused })),
+							),
+						);
 					}
 					return { dispatch, value: yield* receipt.record(result) };
 				});
@@ -1885,6 +1893,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							}),
 						),
 					),
+					Effect.catchTag("WrittenRefusal", (error) => Effect.fail(error.refused)),
 				);
 				if ("refused" in committed) {
 					return yield* Effect.fail(committed.refused);
