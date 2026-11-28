@@ -1,13 +1,12 @@
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import * as tables from "@ryot-app/kernel-backend/schema/tables/combined";
 import { makeAppConfigLayer } from "@ryot-app/kernel-backend/testing/effect";
 import { isolatedDatabaseLayer } from "@ryot-app/kernel-backend/testing/isolated-database";
+import { seedPluginRevision } from "@ryot-app/kernel-backend/testing/plugin-revision";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 import type { AuthoredAppSchema } from "@ryot-app/plugin-kit/schema";
 import { Effect, Layer, Result } from "effect";
@@ -36,26 +35,6 @@ export const libraryId = (user: MediaUser) => `${user}-library`;
 export const linkId = (user: MediaUser, entityId: string, slug: string) =>
 	`${slug}:${user}:${entityId}`;
 
-const manifest: PluginManifest = {
-	crons: [],
-	hooks: [],
-	scripts: [],
-	workflows: [],
-	providers: [],
-	operations: [],
-	savedViews: [],
-	entitySchemas: [],
-	signalSchemas: [],
-	userBootstrap: [],
-	importSources: [],
-	httpRateLimits: [],
-	calendarSources: [],
-	relationshipSchemas: [],
-	integrationProviders: [],
-	configSchema: { fields: {}, unknownKeys: "strict" },
-	metadata: { ...fixturePlugin.metadata, packageId: PLUGIN_PACKAGE_ID },
-};
-
 const datedSchemas = mediaEntitySchemas().filter(({ slug }) =>
 	["book", "movie", "anime", "show-episode", "podcast-episode"].includes(slug),
 );
@@ -63,38 +42,18 @@ const datedSchemas = mediaEntitySchemas().filter(({ slug }) =>
 const seed = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
+		db
+			.insert(tables.user)
+			.values(mediaUsers.map((id) => ({ id, name: id, email: `media-${id}@test.local` }))),
+	);
+	yield* seedPluginRevision({
+		userIds: mediaUsers,
+		pluginId: mediaPluginId,
+		revisionId: "media-revision",
+		packageId: PLUGIN_PACKAGE_ID,
+	});
+	yield* session.run((db) =>
 		Effect.gen(function* () {
-			yield* db
-				.insert(tables.user)
-				.values(mediaUsers.map((id) => ({ id, name: id, email: `media-${id}@test.local` })));
-			yield* db
-				.insert(tables.plugin)
-				.values({ id: mediaPluginId, status: "inactive", packageId: PLUGIN_PACKAGE_ID });
-			const { metadata, ...sections } = manifest;
-			yield* db
-				.insert(tables.pluginRevision)
-				.values({
-					...sections,
-					...metadata,
-					manifest,
-					id: "media-revision",
-					contentHash: "media",
-					pluginId: mediaPluginId,
-					clientConfigSchema: { fields: {} },
-					sandboxAuthority: {
-						scriptKinds: {},
-						workflowScripts: {},
-						packageId: PLUGIN_PACKAGE_ID,
-						userBootstrapScriptSlugs: [],
-						configSchema: manifest.configSchema,
-						schemaScope: {
-							eventSchemas: [],
-							entitySchemaSlugs: [],
-							signalSchemaSlugs: [],
-							relationshipSchemaSlugs: [],
-						},
-					},
-				});
 			yield* db
 				.insert(tables.definitionEntitySchema)
 				.values(
@@ -122,19 +81,6 @@ const seed = Effect.gen(function* () {
 					projection: { propertiesSchema: { fields: {} } },
 					name: { namespace: "media", key: "in-media-library" },
 				});
-			yield* db.execute(
-				`update plugin set status = 'active', active_revision_id = 'media-revision' where id = '${mediaPluginId}'`,
-			);
-			yield* db
-				.insert(tables.pluginInstallation)
-				.values(
-					mediaUsers.map((userId) => ({
-						userId,
-						isInitialized: true,
-						pluginId: mediaPluginId,
-						id: `${userId}-installation`,
-					})),
-				);
 			yield* db
 				.insert(tables.entity)
 				.values(

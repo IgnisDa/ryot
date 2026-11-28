@@ -97,6 +97,8 @@ The [MCP transport](src/modules/mcp/README.md) exposes the shared per-user agent
 ## Tests
 
 `test.ts` provisions one PostgreSQL for the run, reusing `TEST_DATABASE_URL` when supplied. It runs four workers unless `--parallel=N` says otherwise.
+`runDatabaseTests({ label, workers, run })` from `#testing/database-run` is that launcher; the server
+and Media test runners use it too, passing their own runner as `run`.
 
 PostgreSQL connections are bounded by construction. The launcher migrates one template database and
 sizes a started container's `max_connections` from the worker count; a supplied server must already

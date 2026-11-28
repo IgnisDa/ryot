@@ -1,13 +1,12 @@
 import { expect, it } from "bun:test";
 
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import * as tables from "@ryot-app/kernel-backend/schema/tables/combined";
 import { makeAppConfigLayer } from "@ryot-app/kernel-backend/testing/effect";
 import { isolatedDatabaseLayer } from "@ryot-app/kernel-backend/testing/isolated-database";
+import { seedPluginRevision } from "@ryot-app/kernel-backend/testing/plugin-revision";
 import { entityPickerMaterializedRecipe } from "@ryot-app/ryotql-recipes/entity-picker";
 import { loadCompleteRows } from "@ryot-app/ryotql-recipes/paging";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
@@ -21,81 +20,24 @@ import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result } from "effect";
 
-const plugins = ["plugin", "other"].map((id) => {
-	const packageId = PluginPackageId.make(`example/${id}`);
-	const manifest: PluginManifest = {
-		crons: [],
-		hooks: [],
-		scripts: [],
-		workflows: [],
-		providers: [],
-		operations: [],
-		savedViews: [],
-		entitySchemas: [],
-		signalSchemas: [],
-		userBootstrap: [],
-		importSources: [],
-		httpRateLimits: [],
-		calendarSources: [],
-		relationshipSchemas: [],
-		integrationProviders: [],
-		metadata: { ...fixturePlugin.metadata, packageId },
-		configSchema: { fields: {}, unknownKeys: "strict" },
-	};
-	return { id, manifest, packageId };
-});
+const plugins = ["plugin", "other"];
 const seed = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
+		db
+			.insert(tables.user)
+			.values({ id: "owner", name: "Owner", email: "provider-lookup@test.local" }),
+	);
+	for (const id of plugins) {
+		yield* seedPluginRevision({
+			pluginId: id,
+			userIds: ["owner"],
+			revisionId: `${id}-revision`,
+			packageId: PluginPackageId.make(`example/${id}`),
+		});
+	}
+	yield* session.run((db) =>
 		Effect.gen(function* () {
-			yield* db
-				.insert(tables.user)
-				.values({ id: "owner", name: "Owner", email: "provider-lookup@test.local" });
-			yield* db
-				.insert(tables.plugin)
-				.values(plugins.map(({ id, packageId }) => ({ id, packageId, status: "inactive" })));
-			for (const { id, manifest, packageId } of plugins) {
-				const { metadata, ...sections } = manifest;
-				const revisionId = `${id}-revision`;
-				yield* db
-					.insert(tables.pluginRevision)
-					.values({
-						...sections,
-						...metadata,
-						manifest,
-						pluginId: id,
-						id: revisionId,
-						contentHash: id,
-						clientConfigSchema: { fields: {} },
-						sandboxAuthority: {
-							packageId,
-							scriptKinds: {},
-							workflowScripts: {},
-							userBootstrapScriptSlugs: [],
-							configSchema: manifest.configSchema,
-							schemaScope: {
-								eventSchemas: [],
-								entitySchemaSlugs: [],
-								signalSchemaSlugs: [],
-								relationshipSchemaSlugs: [],
-							},
-						},
-					});
-			}
-			yield* db.execute(
-				"update plugin set status = 'active', active_revision_id = id || '-revision'",
-			);
-			yield* db
-				.insert(tables.pluginInstallation)
-				.values(
-					plugins.map(({ id }) => ({
-						pluginId: id,
-						userId: "owner",
-						isInitialized: true,
-						id: `${id}-installation`,
-					})),
-				);
-
 			yield* db
 				.insert(tables.sandboxProvider)
 				.values(

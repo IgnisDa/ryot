@@ -1032,8 +1032,8 @@ analytics-summary, analytics-trend, and analytics-ranking using these recipes. E
 views declare browse controls and an explicit `librarySearch` query with ranked search and summary
 fields. Their search argument is persisted with the saved selection.
 
-The Media test runner provisions PostgreSQL through the canonical scoped database-run setup before
-calling the shared client runner. Executor regressions and node tests share that lifecycle; DOM
+The Media test runner provisions PostgreSQL through the kernel's `runDatabaseTests` before calling
+the shared client runner. Executor regressions and node tests share that lifecycle; DOM
 tests retain the shared browser preload. Package test arguments pass through unchanged.
 
 ## Original language
