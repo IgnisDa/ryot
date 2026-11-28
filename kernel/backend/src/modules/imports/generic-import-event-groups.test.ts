@@ -803,7 +803,7 @@ layer(
 					eq(tables.pluginInstallation.userId, fixture.userId),
 				);
 				const commitRevoking = (revoke: Effect.Effect<unknown, DbError>, name: string) => {
-					let loads = 0;
+					let locks = 0;
 					return Effect.exit(
 						changeSets.commitOnce(
 							{
@@ -816,13 +816,14 @@ layer(
 								},
 							},
 							{ ...fixture.command, itemIdentity: name },
+							{ load: Effect.succeed(null), record: () => Effect.succeed("recorded") },
 							{
-								record: () => Effect.succeed("recorded"),
-								load: Effect.suspend(() =>
-									++loads === 2
-										? session.detached(revoke).pipe(Effect.as(null))
-										: Effect.succeed(null),
-								),
+								precondition: {
+									written: () => Effect.void,
+									check: () => Effect.succeed(true),
+									lock: () =>
+										++locks === 2 ? Effect.asVoid(session.detached(revoke)) : Effect.void,
+								},
 							},
 						),
 					);

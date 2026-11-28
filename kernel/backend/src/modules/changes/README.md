@@ -147,8 +147,8 @@ final draft once more under the catalog lock. Entity policies run before event p
 each saved entity as the entity policies left it. A policy batch stops calling policies once none of
 its items is still active.
 
-The commit transaction applies, in order: the catalog lock, the receipt's `load`, the precondition's
-`check`, the settings patch, source writes (event group capture, then each clear's and merge's account admission,
+The commit transaction applies, in order: the precondition's `lock`, the catalog lock, the receipt's
+`load`, the precondition's `check`, the settings patch, source writes (event group capture, then each clear's and merge's account admission,
 locks and state recheck, which a change set with only entity saves skips, then the root entity with
 entity creates and updates as one set, relationships, the events relationship changes record,
 events, baselines), ensures, entity deletes (which fail when an event still references a deleted
@@ -169,8 +169,10 @@ back the commit.
 
 ### Preconditions
 
-`CommitOptions.precondition` holds `{ check, written }` for writers whose durable state decides
-whether to write. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
+`CommitOptions.precondition` holds `{ check, written }`, and an optional `lock`, for writers whose
+durable state decides whether to write. `lock` runs first in each transaction that runs `check`,
+before the catalog lock, for a `check` that relies on the user's ingestion fence and user-write lock,
+which precede the catalog lock. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
 `check` also runs in the events transaction, after its catalog lock and the receipt's `load`, before
 policies are matched. False commits the check's own writes and records an empty result without
 running policies; a failure other than `DbError` refuses the commit, which writes nothing and fails
@@ -232,6 +234,8 @@ The entity editor commits through `commitOnce` with its idempotency key as the r
 entry's root command. Generic import items, data import records and runs of data import events commit
 through `commitImportItem`: `commitOnce` with the account's idempotency key under the item's command
 identity, holding its entity, relationship and event results (see [imports](../imports/README.md)).
+Its precondition's `lock` takes the run's outcome locks, so the run is still running or cancelling
+when the receipt records the item's outcomes.
 
 HTTP event creation commits independently without a receipt, and a collection membership commits its
 relationship change with the membership event it records, alone from the collection routes or within

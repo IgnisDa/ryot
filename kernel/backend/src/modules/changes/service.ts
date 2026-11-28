@@ -194,11 +194,13 @@ type Writer =
 /**
  * Durable state the commit consults: `check` runs before preparation and again in the commit
  * transaction after its catalog lock, each time given that transaction's `WriteTransaction`, where
- * false records an empty result and a failure fails the commit; `written` runs after every write of
- * a commit that wrote anything, with what it wrote.
+ * false records an empty result and a failure fails the commit; `lock` runs first in each of those
+ * transactions, before the catalog lock; `written` runs after every write of a commit that wrote
+ * anything, with what it wrote.
  */
 type CommitPrecondition<E> = {
 	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
+	readonly lock?: (transaction: WriteTransaction) => Effect.Effect<void, DbError>;
 	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, E | DbError>;
 };
 
@@ -1573,13 +1575,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				// Every catalog read and write check of a commit transaction follows its catalog lock, so they
 				// share one current reading of the user's plugins.
-				const lockCatalog = (writes: WriteTransaction) =>
-					Effect.andThen(
-						input.settings !== undefined && pluginRevision !== null && input.userId !== null
-							? settingsWriter.lockForPatch(input.userId, writes)
-							: Effect.void,
-						planner.lockCatalog([input.userId], writes),
-					);
+				const lockCatalog = Effect.fnUntraced(function* (writes: WriteTransaction) {
+					if (input.settings !== undefined && pluginRevision !== null && input.userId !== null) {
+						yield* settingsWriter.lockForPatch(input.userId, writes);
+					}
+					if (precondition?.lock) {
+						yield* precondition.lock(writes);
+					}
+					yield* planner.lockCatalog([input.userId], writes);
+				});
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {
@@ -1737,9 +1741,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					options.precondition === undefined && receipt.peek
 						? Effect.map(receipt.peek, (value) => (value === null ? null : { value }))
 						: inTransaction(
-								Effect.suspend(() =>
-									settledByReceipt(receipt, new WriteTransaction(), options.precondition),
-								),
+								Effect.suspend(() => {
+									const writes = new WriteTransaction();
+									return Effect.andThen(
+										options.precondition?.lock?.(writes) ?? Effect.void,
+										settledByReceipt(receipt, writes, options.precondition),
+									);
+								}),
 							);
 				const stopped = yield* settled;
 				if (stopped === null) {

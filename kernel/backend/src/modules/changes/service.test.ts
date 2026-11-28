@@ -2049,12 +2049,12 @@ layer(testLayer(false))((test) => {
 					["theme", { theme: "dark" }],
 					["layout", { layout: "grid" }],
 				];
-				const inCommit = yield* Ref.make(0);
-				const bothInCommit = yield* Deferred.make<void>();
+				const started = yield* Ref.make(0);
+				const bothStarted = yield* Deferred.make<void>();
 				const loads = yield* Effect.forEach(patches, () => Ref.make(0));
-				// A commit loads its receipt once before preparing and once in each commit transaction it
-				// starts; its first commit transaction waits there until both commits are in theirs, and a
-				// transaction retried after a deadlock loads it again.
+				// A commit loads its receipt once before preparing, where it waits until both commits have
+				// started, and once in each commit transaction it starts, which a transaction retried after
+				// a deadlock loads again.
 				yield* Effect.forEach(
 					patches,
 					([item, settings], index) => {
@@ -2070,13 +2070,13 @@ layer(testLayer(false))((test) => {
 							{
 								...unrecorded(Function.identity<CommittedChanges>),
 								load: Effect.gen(function* () {
-									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 2) {
+									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 1) {
 										if (
-											(yield* Ref.updateAndGet(inCommit, (value) => value + 1)) === patches.length
+											(yield* Ref.updateAndGet(started, (value) => value + 1)) === patches.length
 										) {
-											yield* Deferred.succeed(bothInCommit, undefined);
+											yield* Deferred.succeed(bothStarted, undefined);
 										}
-										yield* Deferred.await(bothInCommit);
+										yield* Deferred.await(bothStarted);
 									}
 									return null;
 								}),

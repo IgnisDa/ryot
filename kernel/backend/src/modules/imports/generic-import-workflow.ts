@@ -219,10 +219,11 @@ export const commitImportItem = Effect.fn("imports.commitImportItem")(function* 
 			...options,
 			precondition: {
 				written: () => Effect.void,
-				check: (transaction) =>
+				check: () => Effect.succeed(true),
+				lock: (transaction) =>
 					repository
 						.lockOutcomes(outcomes.scope, transaction)
-						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), Effect.as(true)),
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 			},
 		},
 	);
