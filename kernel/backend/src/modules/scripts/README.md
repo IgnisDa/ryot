@@ -282,6 +282,12 @@ fence. Current revisions, source-zero scripts, active workflows, and retained au
 their artifacts. Completion/cancellation releases workflow references. Pruning deletes unreferenced
 database rows transactionally, not compiled caches/files.
 
+Pinning a workflow (`SandboxWorkflowPinning.establish`) runs no script: it admits the account,
+resolves the exact pin and registers the workflow reference. It joins the caller's active transaction,
+so the reference commits or rolls back with the admission that owns it (an import's reserved pins, a
+translation request, a provider workflow), and opens its own transaction otherwise. The script runs
+later, from the workflow, outside any transaction.
+
 `executeRyotql` accepts canonical `{ source, arguments?, filter?, sort?, pages? }` requests. User
 scripts execute in their user/plugin audience; system scripts retain exact plugin/revision authority,
 including declared queries from that pin. The backend host performs decoding and authority resolution;
