@@ -93,6 +93,7 @@ export default defineWorkflow({
 				name,
 				entry,
 				kind: "script",
+				activity: true,
 				slug: scriptSlug,
 				capabilities: [],
 				requiredPluginConfigKeys: [],

@@ -285,6 +285,7 @@ describe("isolated import durability", () => {
 				scripts: [
 					{
 						kind: "script",
+						activity: true,
 						capabilities: [],
 						name: "Checkpoint wait",
 						requiredPluginConfigKeys: [],
@@ -293,6 +294,7 @@ describe("isolated import durability", () => {
 					},
 					{
 						kind: "script",
+						activity: true,
 						requiredPluginConfigKeys: [],
 						capabilities: ["artifact-read"],
 						slug: `${activityScriptSlug}-read`,
@@ -309,6 +311,7 @@ describe("isolated import durability", () => {
 					},
 					{
 						kind: "script",
+						activity: true,
 						entry: activityEntry,
 						slug: activityScriptSlug,
 						capabilities: ["getPluginConfig"],

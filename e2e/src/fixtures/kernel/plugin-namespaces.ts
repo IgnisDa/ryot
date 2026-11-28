@@ -803,6 +803,7 @@ const namespacePackage = (input: {
 		scripts: [
 			{
 				kind: "script",
+				activity: true,
 				capabilities: [],
 				slug: "kernel-write-chunks",
 				requiredPluginConfigKeys: [],
@@ -843,6 +844,7 @@ const namespacePackage = (input: {
 			},
 			{
 				kind: "script",
+				activity: true,
 				capabilities: [],
 				slug: "bootstrap",
 				entry: bootstrapEntry,

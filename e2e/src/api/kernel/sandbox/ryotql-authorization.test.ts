@@ -586,6 +586,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 								({
 									providerSlug,
 									kind: "script",
+									activity: true,
 									slug: probe.slug,
 									name: probe.name,
 									oauthConnectionFields: [],

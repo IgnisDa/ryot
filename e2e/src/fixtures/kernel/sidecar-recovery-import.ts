@@ -138,6 +138,7 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 				},
 				{
 					kind: "script",
+					activity: true,
 					slug: chunkSlug,
 					entry: chunkEntry,
 					capabilities: ["scratch"],
