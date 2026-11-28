@@ -464,23 +464,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				},
 			);
 
-			const deleteUserRelationshipById = Effect.fn(
-				"RelationshipsRepository.deleteUserRelationshipById",
-			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const [row] = yield* session.run((db) =>
-					db
-						.delete(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.id, relationshipId),
-								eq(schema.relationship.userId, userId),
-							),
-						)
-						.returning({ id: schema.relationship.id }),
-				);
-				return row !== undefined;
-			});
-
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
@@ -646,7 +629,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				listGlobalRelationships,
 				findUserRelationshipsById,
 				lockRelationshipMutations,
-				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserEditorRelationships,
