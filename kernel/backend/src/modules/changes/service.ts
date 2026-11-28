@@ -123,10 +123,12 @@ import {
 } from "./authority";
 import {
 	type Changes,
+	changesParts,
 	type EntityReference,
 	eventMutation,
 	fromScriptChangeSet,
 	type GlobalEntityReference,
+	scriptChangeSetParts,
 } from "./changes";
 import {
 	commitRejection,
@@ -204,56 +206,20 @@ type CommitPrecondition<E> = {
 	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, E | DbError>;
 };
 
-const parts = (changes: ChangeSet) => [
-	changes.entity,
-	changes.folds,
-	changes.signals,
-	changes.notifications,
-	changes.globalEntities,
-	changes.globalRelationships,
-	changes.events?.changes,
-	changes.entities?.deletes,
-	changes.entities?.clears,
-	changes.entities?.merges,
-	changes.entities?.updates,
-	changes.entities?.ensures,
-	changes.relationships?.upserts,
-	changes.relationships?.deletes,
-	changes.settings === undefined ? undefined : Object.keys(changes.settings),
-];
-
 /** Whether committing the change set would write nothing. */
 const isEmptyChangeSet = (changes: ChangeSet) =>
-	parts(changes).every((part) => part === undefined || (Array.isArray(part) && part.length === 0));
+	!scriptChangeSetParts.some(({ present }) => present(changes));
 
 /** A part only a script writer's principal resolves. */
 const scriptOnlyPart = (changes: Changes) =>
-	(
-		[
-			["settings", changes.settings !== undefined],
-			["folds", changes.folds !== undefined],
-			["events.expected", changes.events?.expected !== undefined],
-			["events.baselines", changes.events?.baselines !== undefined],
-		] as const
-	).find(([, present]) => present)?.[0];
+	changesParts.find(({ script, present }) => script === true && present(changes))?.part;
 
-/** A part only a change set with a user writes. */
+/** A part only a change set with a user writes; a create's match finds the user's entity. */
 const userOnlyPart = (changes: Changes) =>
-	(
-		[
-			["entity", changes.entity !== undefined],
-			["events", changes.events !== undefined],
-			["relationships", changes.relationships !== undefined],
-			["entities.ensures", (changes.entities?.ensures?.length ?? 0) > 0],
-			["entities.clears", (changes.entities?.clears?.length ?? 0) > 0],
-			["entities.merges", (changes.entities?.merges?.length ?? 0) > 0],
-			["entities.references", (changes.entities?.references?.length ?? 0) > 0],
-			[
-				"entities.creates",
-				changes.entities?.creates?.some((item) => item.match !== undefined) === true,
-			],
-		] as const
-	).find(([, present]) => present)?.[0];
+	changesParts.find(({ user, present }) => user === true && present(changes))?.part ??
+	(changes.entities?.creates?.some((item) => item.match !== undefined) === true
+		? "entities.creates"
+		: undefined);
 
 const itemCommand = (command: DomainLifecycleCommand, itemIdentity: string) => ({
 	...command,

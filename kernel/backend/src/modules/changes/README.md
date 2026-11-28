@@ -67,8 +67,17 @@ entity `ensures`, `clears` and `merges` need a user and fail a global commit wit
 `ChangeSetRejected`. The entity and relationship HTTP routes refuse a change set naming a kernel-owned
 schema with `kernel-owned-schema` (`rejectKernelOwnedSchemas`) before committing it.
 
-`CHANGE_SET_LIMITS` holds every per-part bound. `isEmptyChangeSet` lets callers skip a commit that
-writes nothing.
+`CHANGE_SET_LIMITS` holds every per-part bound. Each part has one descriptor in `changes.ts`. A
+script `ChangeSet` part (`scriptChangeSetParts`) gives its `ChangeSetRejected` name, whether it writes
+anything, the writers that may write it once the change set names it, the schemas and existing
+references it names, and its translation into `Changes`; script authority, `undeclaredSchema`,
+`changeSetReferences`, `fromScriptChangeSet` and the empty-change-set check derive from them. A
+kernel `Changes` part (`changesParts`) gives whether it needs a user or a script writer and the
+schemas it names, from which the global and kernel commit checks and `rejectKernelOwnedSchemas`
+derive. The two shapes keep separate tables: only part names overlap, and the script table's facts
+are about the wire shape before translation. Rules that belong to one part (settings, all-user
+folds, signals, notifications, ensures, provider upserts, matched creates) stay explicit beside
+them.
 
 ## Authority
 
