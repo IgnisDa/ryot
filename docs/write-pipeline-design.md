@@ -547,12 +547,46 @@ and its named tests, then its e2e files.
    The drain still costs 4.1 CPU-seconds per fold job, with no failed jobs. The later idle window
    started 1.5 h after the drain, against 1.75 h before.
 
-   One schedule evaluation per cron still passes the 30 s statement timeout. It hit all 51 crons
-   between listening and the end of the run, and `frequent-cron` logs each one. The statement is
-   the next-instant schedule query, which finishes in 0.1–0.2 s for other targets. Each worker run
-   therefore takes 31 s at p50. Cancelled statements are missing from the per-cron database time
-   above. Schedule evaluation also runs a `signalScheduleNext` statement that walks 40.9k entities
-   of one schema through the schema index to find nothing (0.4–1.9 s under `EXPLAIN ANALYZE`).
+   At `2f9e710d34`, the next-instant schedule query for the largest library passed the 30 s
+   statement timeout in all 51 crons, so that target never saved an evaluation. A worker run took
+   31 s at p50 when idle, 43 s overall and 50 s during the drain. A `signalScheduleNext` statement
+   walked 40.9k entities of one schema to find nothing. At `8487b9c021`, `signalScheduleNext` and
+   `signalScheduleNextInstant` look only three days past their window's end. A target with no row
+   there is due again when its window reaches that end. `file2` from a fresh restore, with no read
+   or write probes, `2f9e710d34` → `8487b9c021`:
+
+   | Measure                                       |       2f9e710d34 → 8487b9c021 |
+   | --------------------------------------------- | ----------------------------: |
+   | `frequent-cron` statement timeouts            |      51 of 51 crons → 0 of 44 |
+   | Worker run p50, drain (max)                   |          50 s → 8.9 s (147 s) |
+   | Worker run p50, first idle window (max)       |         31 s → 0.6 s (12.1 s) |
+   | Worker run p50, second idle window (max)      |          31 s → 0.3 s (0.6 s) |
+   | Next-instant statement, mean / max            |       timed out → 26 / 546 ms |
+   | `signalScheduleNext`, mean / max              |             – → 62 ms / 3.0 s |
+   | `signalScheduleDue`, mean / max               |               – → 37 / 930 ms |
+   | Database time per cron, first / second window |       1.1 / 4.9 → 1.2 / 0.8 s |
+   | Targets evaluated                             |                – → 472 of 472 |
+   | Migration: legacy / artwork cutover           | 45.3 / 11.2 → 46.4 / 11.1 min |
+   | Drain after listening                         |           2 h 29 → 3 h 10 min |
+
+   Statement figures come from `pg_stat_statements` from the drain's start to the end of the second
+   window: 248 next-instant calls, 619 next calls and 620 due calls. No statement was cancelled, so
+   none are missing, and no "Signal schedule delivery deferred" warning was logged. All eight of the
+   largest library's targets saved an evaluation, and three deliveries were recorded.
+
+   Plans for the largest library (14.7k members) were captured after deleting its eight evaluations
+   on the copy. The next statement took 595 ms under `EXPLAIN ANALYZE` and next-instant 211 ms. Both
+   start from the library and look up each member's derived value (14.7k lookups); neither walks the
+   show episodes.
+
+   The drain overlapped Media's midnight-UTC provider refresh: 105 sandbox runs from 00:02 to 00:55
+   UTC on the single background slot. Its monitoring sweep failed with "Provider population
+   failed", as it must without egress, and no job failed. Other tenants used 0.7 of a core on
+   average during the drain, and it cost 3.5 CPU-seconds per fold job. In both idle windows other
+   tenants used about 1.2 cores. The 1-min load averaged 2.5 (max 3.6) and 2.8 (max 10.4).
+
+   A driver error started the second window 15 minutes after the first instead of 1.5 h after the
+   drain. No write probes ran before it, so its 0.8 s does not compare with the earlier 4.9 s.
 
    Suggestions ran two statements that returned no rows after 3.6 and 4.0 s. A later plan capture,
    after the write probes, ran neither. The cost depends on the library's state at the time, and it
