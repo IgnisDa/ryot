@@ -19,6 +19,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import type { RecordedCommit } from "#modules/changes/change-sets.test-support";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -42,11 +43,7 @@ import { workflowAccountsTestLayer } from "#testing/effect";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import { type PopulationWritePayload, runPopulationAttempt } from "./population-job";
-import {
-	type PopulationCommit,
-	populationCommitsLayer,
-	upsertedFixture,
-} from "./population.test-support";
+import { populationCommitsLayer, upsertedFixture } from "./population.test-support";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
@@ -143,7 +140,7 @@ const population = {
 
 class FakeProviderWrites extends Context.Service<
 	FakeProviderWrites,
-	{ readonly commits: Effect.Effect<ReadonlyArray<PopulationCommit>> }
+	{ readonly commits: Effect.Effect<ReadonlyArray<RecordedCommit>> }
 >()(
 	"@ryot-app/kernel-backend/modules/entities/providers/population-children.test/FakeProviderWrites",
 ) {}
@@ -152,7 +149,7 @@ const populationOwner = { requestAttempt: 1, requestId: "population-children" };
 
 const providerWritesLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const commits = yield* Ref.make<ReadonlyArray<PopulationCommit>>([]);
+		const commits = yield* Ref.make<ReadonlyArray<RecordedCommit>>([]);
 		return Layer.mergeAll(
 			populationCommitsLayer((commit) => Ref.update(commits, (all) => [...all, commit])),
 			Layer.mock(EnrichmentRequests)({}),

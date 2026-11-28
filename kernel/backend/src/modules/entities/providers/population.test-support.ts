@@ -2,16 +2,14 @@ import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwnerPluginId } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
+import {
+	type RecordedCommit,
+	recordingChangeSets,
+} from "#modules/changes/change-sets.test-support";
 import type { Changes } from "#modules/changes/changes";
-import { ChangeSets } from "#modules/changes/service";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-
-export type PopulationCommit = {
-	readonly changes: Changes;
-	readonly command: DomainLifecycleCommand;
-};
+import { emptyCommitResult } from "#modules/changes/receipts";
 
 type GlobalUpsert = NonNullable<Changes["globalEntities"]>[number];
 
@@ -42,31 +40,23 @@ export const upsertedFixture = (
  * entity `entityOf` gives, under its item identity.
  */
 export const populationCommitsLayer = (
-	observe: (commit: PopulationCommit) => Effect.Effect<void>,
-	entityOf: (item: GlobalUpsert, commit: PopulationCommit) => Effect.Effect<ListedEntity> = (
+	observe: (commit: RecordedCommit) => Effect.Effect<void>,
+	entityOf: (item: GlobalUpsert, commit: RecordedCommit) => Effect.Effect<ListedEntity> = (
 		item,
 		{ command },
 	) => upsertedFixture(item, command.occurredAt),
 ) =>
-	Layer.mock(ChangeSets)({
-		commit: (changes, command) =>
-			Effect.gen(function* () {
-				const commit = { changes, command };
-				yield* observe(commit);
-				return {
-					merged: [],
-					signals: [],
-					cleared: [],
-					deleted: [],
-					outcomes: [],
-					relationships: [],
-					committed: { events: [] },
-					entities: yield* Effect.forEach(changes.globalEntities ?? [], (item) =>
-						Effect.map(entityOf(item, commit), (entity) => ({
-							entity,
-							itemIdentity: item.itemIdentity ?? "",
-						})),
-					),
-				};
-			}),
-	});
+	recordingChangeSets((commit) =>
+		Effect.gen(function* () {
+			yield* observe(commit);
+			return {
+				...emptyCommitResult,
+				entities: yield* Effect.forEach(commit.changes.globalEntities ?? [], (item) =>
+					Effect.map(entityOf(item, commit), (entity) => ({
+						entity,
+						itemIdentity: item.itemIdentity ?? "",
+					})),
+				),
+			};
+		}),
+	);

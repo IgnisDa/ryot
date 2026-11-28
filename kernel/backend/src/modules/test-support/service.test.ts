@@ -23,7 +23,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { AuthService } from "#modules/accounts/auth/service";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import type { CommitResult } from "#modules/changes/receipts";
+import { type CommitResult, emptyCommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
@@ -348,17 +348,7 @@ const unpopulatedEntity = {
 
 const committed = (
 	result: Partial<Pick<CommitResult, "deleted" | "entities">> = {},
-): CommitResult => ({
-	merged: [],
-	signals: [],
-	cleared: [],
-	deleted: [],
-	entities: [],
-	outcomes: [],
-	relationships: [],
-	committed: { events: [] },
-	...result,
-});
+): CommitResult => ({ ...emptyCommitResult, ...result });
 
 const entityUpdates = recordingServiceLayer<unknown>((record) => ({
 	entitiesRepository: {
