@@ -2,11 +2,12 @@ import { describe, expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { inMemoryRyotql } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { inMemoryRyotql, measurementTables } from "./in-memory-ryotql.test-support";
 import pinDefinition, { manifest } from "./measurement-metric-pin.sandbox";
+import { measurementTables } from "./measurement-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -25,25 +26,28 @@ const pinEdge = (metricId: string) => ({
 const recordingHost = (pinnedIds: readonly string[]) =>
 	defineSandboxTestHost(manifest, {
 		executeRyotql: inMemoryRyotql({
-			...measurementTables,
-			relationship: pinnedIds.map((metricId) => ({
-				id: `pin-${metricId}`,
-				...pin(metricId),
-				relationshipSchemaPluginId: "fitness-owner",
-			})),
-			entity: [
-				...(measurementTables.entity ?? []),
-				{
-					id: "hip",
-					entitySchemaPluginId: "fitness-owner",
-					entitySchemaSlug: "measurement-metric",
-				},
-				{
-					id: "bmi",
-					entitySchemaPluginId: "fitness-owner",
-					entitySchemaSlug: "measurement-metric",
-				},
-			],
+			pluginId: "fitness-owner",
+			tables: {
+				...measurementTables,
+				relationship: pinnedIds.map((metricId) => ({
+					id: `pin-${metricId}`,
+					...pin(metricId),
+					relationshipSchemaPluginId: "fitness-owner",
+				})),
+				entity: [
+					...(measurementTables.entity ?? []),
+					{
+						id: "hip",
+						entitySchemaPluginId: "fitness-owner",
+						entitySchemaSlug: "measurement-metric",
+					},
+					{
+						id: "bmi",
+						entitySchemaPluginId: "fitness-owner",
+						entitySchemaSlug: "measurement-metric",
+					},
+				],
+			},
 		}),
 	});
 

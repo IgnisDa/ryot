@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { inMemoryRyotql, type StoredTables } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -12,7 +13,6 @@ import {
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";
 import deleteDefinition, { manifest as deleteManifest } from "./exercise-note-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./exercise-note-update.sandbox";
-import { inMemoryRyotql, type StoredTables } from "./in-memory-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -63,7 +63,7 @@ const tables: StoredTables = {
 	],
 };
 
-const executeRyotql = inMemoryRyotql(tables);
+const executeRyotql = inMemoryRyotql({ tables, pluginId: "fitness-owner" });
 
 const hosts = {
 	delete: defineSandboxTestHost(deleteManifest, { executeRyotql }),

@@ -2,9 +2,11 @@ import type { AuthoredSchemaText } from "@ryot-app/contract/modules/plugins/mani
 import type * as Authored from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	NamedQuery,
+	Predicate,
 	RowsOutput,
 	RowsResult,
 	RyotQLDocument,
+	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	type ExecutionRequest,
@@ -16,7 +18,7 @@ import { type AppSchema, mapAppSchemaText } from "@ryot-app/contract/schema/prop
 import { type DisplayText, stampNamespace } from "@ryot-app/i18n/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import { bindDocument, type BindingContext } from "@ryot-app/ryotql/binding";
-import { Result, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 export const rowsResult = (items: readonly unknown[], pageInfo: RowsResult["pageInfo"]) => ({
 	items,
@@ -156,3 +158,120 @@ export const recipeResponse = (
 	}
 	return { data: Object.assign(data, overrides) };
 };
+
+export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
+type StoredRow = Readonly<Record<string, unknown>>;
+type JoinedRows = Readonly<Record<string, StoredRow>>;
+
+const evaluate = (
+	expression: Predicate | ScalarExpression,
+	rows: JoinedRows,
+	store: { readonly pluginId: string; readonly tables: StoredTables },
+): unknown => {
+	if (expression.type === "literal") {
+		return expression.value;
+	}
+	if (expression.type === "pluginId") {
+		if (expression.reference.kind === "package") {
+			throw new Error("Unsupported package plugin reference");
+		}
+		return expression.reference.kind === "local" ? expression.reference.pluginId : store.pluginId;
+	}
+	if (expression.type === "cast") {
+		return evaluate(expression.expr, rows, store);
+	}
+	if (expression.type === "jsonPath") {
+		let value = evaluate(expression.expr, rows, store);
+		for (const key of expression.path) {
+			if (typeof value !== "object" || value === null) {
+				throw new Error("Expected a JSON object along the path");
+			}
+			value = Object.entries(value).find(([name]) => name === String(key))?.[1];
+		}
+		return value;
+	}
+	if (expression.type === "aggregate") {
+		const { from, where } = expression.query;
+		return (store.tables[from.table] ?? []).filter(
+			(row) =>
+				where === undefined || evaluate(where, { ...rows, [from.alias]: row }, store) === true,
+		).length;
+	}
+	if (expression.type === "column") {
+		return rows[expression.tableAlias]?.[expression.field];
+	}
+	if (expression.type === "isNotNull") {
+		return evaluate(expression.expr, rows, store) != null;
+	}
+	if (expression.type === "and") {
+		return expression.predicates.every((predicate) => evaluate(predicate, rows, store) === true);
+	}
+	if (expression.type === "in") {
+		const value = evaluate(expression.expr, rows, store);
+		return expression.values.some((candidate) => evaluate(candidate, rows, store) === value);
+	}
+	if (expression.type === "comparison" && expression.operator === "eq") {
+		return evaluate(expression.left, rows, store) === evaluate(expression.right, rows, store);
+	}
+	throw new Error(`Unsupported RyotQL expression '${expression.type}'`);
+};
+
+/**
+ * Answers a request's single rows query from `tables`, keyed by catalog table name, with `pluginId`
+ * as the requesting plugin. It evaluates inner joins, equality, `in`, `and`, null checks, JSON paths,
+ * casts, and counting aggregates, and pages by row `id`; anything else throws.
+ */
+export const inMemoryRyotql =
+	(store: { readonly pluginId: string; readonly tables: StoredTables }) =>
+	(request: PluginExecutionRequest) =>
+		Effect.sync(() => {
+			const [[key, query] = []] = Object.entries(bindTestRequest(request).queries);
+			if (key === undefined || query?.output.type !== "rows") {
+				throw new Error("Expected a single rows query");
+			}
+			const { output } = query;
+			let rows: JoinedRows[] = (store.tables[query.from.table] ?? []).map((row) => ({
+				[query.from.alias]: row,
+			}));
+			for (const joined of query.joins ?? []) {
+				if (joined.type !== "inner") {
+					throw new Error(`Unsupported RyotQL join '${joined.type}'`);
+				}
+				rows = rows.flatMap((row) =>
+					(store.tables[joined.table.table] ?? [])
+						.map((candidate) => Object.assign({ [joined.table.alias]: candidate }, row))
+						.filter((candidate) => evaluate(joined.on, candidate, store) === true),
+				);
+			}
+			const matches = rows
+				.filter((row) => query.where === undefined || evaluate(query.where, row, store) === true)
+				.map((row) =>
+					Object.fromEntries(
+						output.fields.map((selection) => {
+							if (!("key" in selection)) {
+								throw new Error("Unsupported RyotQL selection");
+							}
+							return [selection.key, evaluate(selection.expr, row, store)];
+						}),
+					),
+				);
+			const offset =
+				output.pagination.after === undefined
+					? 0
+					: matches.findIndex(({ id }) => id === output.pagination.after) + 1;
+			const items = matches.slice(offset, offset + output.pagination.limit);
+			const hasMore = offset + items.length < matches.length;
+			return {
+				data: {
+					[key]: {
+						items,
+						type: "rows",
+						pageInfo: {
+							hasMore,
+							limit: output.pagination.limit,
+							nextCursor: hasMore ? items.at(-1)?.id : null,
+						},
+					},
+				},
+			};
+		});
