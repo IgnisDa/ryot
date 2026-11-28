@@ -325,7 +325,7 @@ layer(makeServiceLayer())((test) => {
 	);
 
 	test.effect(
-		"runs aggregates and firsts read only in a conditional's branch where the branch is taken",
+		"guards laterals read only in a conditional's branch by its condition and renders each read once",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* RyotQLService;
@@ -339,44 +339,70 @@ layer(makeServiceLayer())((test) => {
 						orderBy: [descending(column(source, "occurredAt"))],
 					});
 				const named = isNull(column(subject, "name"));
-				const execute = (fields: ReadonlyArray<ReturnType<typeof field>>) =>
-					service.executeForUser("user-1", null, "plugin", {
-						source: {
-							kind: "inline",
-							document: {
-								queries: {
-									branches: rows(subject, { fields, orderBy: [ascending(column(subject, "id"))] }),
+				const slug = conditional(named, latest(column(source, "eventSchemaSlug")), literal(""));
+				const events = conditional(named, count(source, scope), literal(0));
+				const execute = (
+					query: Omit<Parameters<typeof rows>[1], "orderBy"> & {
+						readonly orderBy?: Parameters<typeof rows>[1]["orderBy"];
+					},
+				) =>
+					Effect.gen(function* () {
+						yield* service.executeForUser("user-1", null, "plugin", {
+							source: {
+								kind: "inline",
+								document: {
+									queries: {
+										branches: rows(subject, {
+											orderBy: [ascending(column(subject, "id"))],
+											...query,
+										}),
+									},
 								},
 							},
-						},
+						});
+						const statement = (yield* (yield* RecordedStatements).statements).findLast((value) =>
+							value.includes("CASE"),
+						);
+						assert(statement);
+						return statement;
 					});
-				const branchOnly = [
-					field("events", conditional(named, count(source, scope), literal(0))),
-					field("slug", conditional(named, latest(column(source, "eventSchemaSlug")), literal(""))),
-					field(
-						"session",
-						conditional(named, latest(column(source, "sessionEntityId")), literal("")),
-					),
-				];
-				yield* execute(branchOnly);
-				const recorded = yield* RecordedStatements;
-				const branched = (yield* recorded.statements).findLast((value) => value.includes("CASE"));
-				assert(branched);
-				expect(branched).not.toContain("JOIN LATERAL");
-				expect(branched.match(/COUNT\(/g)).toHaveLength(1);
-				expect(branched.match(/LIMIT 1\)/g)).toHaveLength(2);
 
-				yield* execute([
-					...branchOnly,
-					field("total", count(source, scope)),
-					field("first", latest(column(source, "id"))),
-					field("again", latest(column(source, "createdAt"))),
-				]);
-				const fused = (yield* recorded.statements).findLast((value) => value.includes("CASE"));
-				assert(fused);
+				const branched = yield* execute({
+					where: eq(slug, literal("watched")),
+					orderBy: [ascending(slug), descending(events)],
+					fields: [
+						field("slug", slug),
+						field("events", events),
+						field(
+							"session",
+							conditional(named, latest(column(source, "sessionEntityId")), literal("")),
+						),
+						field("unnamed", conditional(named, literal(0), count(source, scope))),
+					],
+				});
+				expect(branched.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(branched.match(/COUNT\(/g)).toHaveLength(1);
+				expect(branched).toMatch(
+					/LEFT JOIN LATERAL \(SELECT [^]* AND \(t0\.name IS NULL\)\s+ORDER BY [^]* LIMIT 1\) "first\d+_0"/,
+				);
+				expect(branched).toMatch(
+					/CROSS JOIN LATERAL \(SELECT COUNT\(\*\)[^]* AND \(\(t0\.name IS NULL\) OR \(NOT \(t0\.name IS NULL\)\)\)\s*\) "aggregate\d+_0"/,
+				);
+
+				const lone = yield* execute({ fields: [field("events", events), field("slug", slug)] });
+				expect(lone).not.toContain("JOIN LATERAL");
+
+				const fused = yield* execute({
+					fields: [
+						field("slug", slug),
+						field("events", events),
+						field("total", count(source, scope)),
+						field("again", latest(column(source, "createdAt"))),
+					],
+				});
 				expect(fused.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
 				expect(fused.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
-				expect(fused.match(/LIMIT 1\)/g)).toHaveLength(1);
+				expect(fused).not.toMatch(/IS NULL\)\s+ORDER BY/);
 				expect(fused).toMatch(/THEN "aggregate\d+_0"\."v0"/);
 			}),
 		testTimeout,

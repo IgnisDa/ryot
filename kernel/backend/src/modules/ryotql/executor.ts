@@ -264,6 +264,10 @@ const compileCast = (
 	if (sourceKind === expr.target) {
 		return compileExpression(expr.expr, ctx);
 	}
+	// A local date renders as a valid date or null, so its cast needs no check.
+	if (expr.target === "date" && expr.expr.type === "localDate") {
+		return sql`(${compileExpression(expr.expr, ctx)})::timestamp with time zone`;
+	}
 	if (sourceKind === "json") {
 		if (expr.target === "text") {
 			return bindCastOperand(
@@ -993,30 +997,40 @@ const querySetSql = (
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
 		return sql`${joinType} ${tableSource(scope, join.table.alias, joined)} ${sql.raw(joined.sqlAlias)} ON ${condition(join.on, joinCtx)}`;
 	});
-	const groups = [...scope.groups].flatMap(([key, group]) =>
-		page?.groups === undefined || page.groups.has(key) ? [group] : [],
-	);
-	const aggregates = groups.map((group) => {
+	const included = <Group>(groups: ReadonlyMap<string, Group>) =>
+		[...groups].flatMap(([key, group]) =>
+			page?.groups === undefined || page.groups.has(key) ? [group] : [],
+		);
+	// A guard reads unguarded laterals only, so guarded ones follow them and skip rows it rejects.
+	const guardCondition = (guard: undefined | Predicate) =>
+		guard ? [compilePredicate(guard, { ...ctx, fused: true })] : [];
+	const aggregates = included(scope.groups).map((group) => {
 		const groupCtx: Context = { ...ctx, scope: group.scope };
 		const measures = [...group.measures.values()].map(
 			({ alias, aggregation }) =>
 				sql`${compileAggregation(aggregation, groupCtx)} AS ${identifier(alias)}`,
 		);
-		return sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx)}) ${identifier(group.alias)}`;
+		return {
+			guard: group.guard,
+			join: sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx, guardCondition(group.guard))}) ${identifier(group.alias)}`,
+		};
 	});
-	const firsts = [...scope.firsts].flatMap(([key, group]) => {
-		if (page?.groups !== undefined && !page.groups.has(key)) {
-			return [];
-		}
+	const firsts = included(scope.firsts).map((group) => {
 		const groupCtx: Context = { ...ctx, fused: true, scope: group.scope };
 		const values = [...group.values.values()].map(
 			({ alias, select }) => sql`${compileExpression(select, groupCtx)} AS ${identifier(alias)}`,
 		);
 		const orders = appendPrimaryKeyOrders(group.query, group.scope, group.orderBy);
-		return [
-			sql`LEFT JOIN LATERAL (SELECT ${sql.join(values, sql`, `)} ${querySetSql(group.query, groupCtx)} ORDER BY ${expressionOrderSql(orders, groupCtx)} LIMIT 1) ${identifier(group.alias)} ON true`,
-		];
+		return {
+			guard: group.guard,
+			join: sql`LEFT JOIN LATERAL (SELECT ${sql.join(values, sql`, `)} ${querySetSql(group.query, groupCtx, guardCondition(group.guard))} ORDER BY ${expressionOrderSql(orders, groupCtx)} LIMIT 1) ${identifier(group.alias)} ON true`,
+		};
 	});
+	const laterals = [...aggregates, ...firsts];
+	const ordered = [
+		...laterals.filter((lateral) => lateral.guard === undefined),
+		...laterals.filter((lateral) => lateral.guard !== undefined),
+	].map((lateral) => lateral.join);
 	const conditions = [
 		...(query.where ? [condition(query.where, ctx)] : []),
 		...additionalConditions,
@@ -1024,8 +1038,7 @@ const querySetSql = (
 	return sql`
 		FROM ${rootSource} ${sql.raw(root.sqlAlias)}
 		${sql.join(joins, sql` `)}
-		${sql.join(aggregates, sql` `)}
-		${sql.join(firsts, sql` `)}
+		${sql.join(ordered, sql` `)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
 };

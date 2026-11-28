@@ -45,6 +45,7 @@ export type AggregateGroup = {
 	readonly alias: string;
 	readonly scope: PlannedScope;
 	readonly query: CorrelatedQuerySet;
+	readonly guard: undefined | Predicate;
 	readonly measures: ReadonlyMap<
 		string,
 		{ readonly alias: string; readonly aggregation: AggregationSpec }
@@ -69,6 +70,7 @@ type FirstGroup = {
 	readonly alias: string;
 	readonly scope: PlannedScope;
 	readonly query: CorrelatedQuerySet;
+	readonly guard: undefined | Predicate;
 	readonly orderBy: FirstExpression["orderBy"];
 	readonly values: ReadonlyMap<
 		string,
@@ -460,6 +462,28 @@ const isAncestorAlias = (scope: undefined | AliasScope, alias: string): boolean 
 
 type Planner = { nextId: number };
 
+/** How often a scope reads a lateral, and the branch guards of those reads; none when one is unguarded. */
+type Reads = { count: number; guards: undefined | Map<string, Predicate> };
+
+const noReads = (): Reads => ({ count: 0, guards: new Map() });
+
+const addRead = (reads: Reads, guard: undefined | Predicate) => {
+	reads.count += 1;
+	if (guard === undefined) {
+		reads.guards = undefined;
+	} else {
+		reads.guards?.set(stableStringify(guard), guard);
+	}
+};
+
+const readsGuard = (reads: Reads): undefined | Predicate => {
+	const guards = reads.guards === undefined ? [] : [...reads.guards.values()];
+	if (guards.length < 2) {
+		return guards[0];
+	}
+	return { type: "or", predicates: guards };
+};
+
 type ScopeInput = {
 	readonly include?: true;
 	readonly query: QuerySet;
@@ -499,11 +523,11 @@ const planScope = (
 	const correlated = new Map<string, { extras: Node[]; query: CorrelatedQuerySet }>();
 	const fused = new Map<
 		string,
-		{ query: CorrelatedQuerySet; measures: Map<string, AggregationSpec> }
+		{ reads: Reads; query: CorrelatedQuerySet; measures: Map<string, AggregationSpec> }
 	>();
 	const firsts = new Map<
 		string,
-		{ reads: number; expr: FirstExpression; values: Map<string, ScalarExpression> }
+		{ reads: Reads; expr: FirstExpression; values: Map<string, ScalarExpression> }
 	>();
 	const addCorrelated = (query: Correlated) => {
 		const key = stableStringify(query.query);
@@ -518,41 +542,34 @@ const planScope = (
 			correlatedAliasScope(node.query, aliasScope),
 			kindResolver,
 		) !== "json";
-	// An aggregate or `first` read only in a conditional's branch runs only where the branch is taken.
-	const branchReads: Array<{
-		readonly node: Node;
-		readonly query: Correlated;
-		readonly aggregate?: AggregationSpec;
-	}> = [];
-	const visit = (node: Node, fusable: boolean, branch = false): void => {
+	// A read inside a conditional's branch is guarded by the condition of the outermost conditional
+	// holding it. That condition is read outside every branch, so no guard reads a guarded lateral.
+	const visit = (node: Node, fusable: boolean, guard?: Predicate): void => {
 		const { row, element, aggregate, correlated: query } = operands(node);
-		if (node.type === "conditional") {
-			visit(node.condition, fusable, branch);
-			visit(node.whenTrue, fusable, true);
-			visit(node.whenFalse, fusable, true);
+		if (node.type === "conditional" && guard === undefined) {
+			visit(node.condition, fusable);
+			visit(node.whenTrue, fusable, node.condition);
+			visit(node.whenFalse, fusable, { type: "not", predicate: node.condition });
 		} else {
-			row.forEach((child) => visit(child, fusable, branch));
+			row.forEach((child) => visit(child, fusable, guard));
 		}
 		element.forEach((child) => visit(child, false));
 		if (!query) {
 			return;
 		}
-		if (fusable && branch && (aggregate || fusableFirst(node))) {
-			branchReads.push({ node, query, ...(aggregate ? { aggregate } : {}) });
-			return;
-		}
 		if (aggregate && fusable) {
 			const key = stableStringify(query.query);
-			const group = fused.get(key) ?? { query: query.query, measures: new Map() };
+			const group = fused.get(key) ?? { reads: noReads(), query: query.query, measures: new Map() };
 			group.measures.set(stableStringify(aggregate), aggregate);
+			addRead(group.reads, guard);
 			fused.set(key, group);
 			return;
 		}
 		if (fusable && fusableFirst(node)) {
 			const key = firstGroupKey(node);
-			const group = firsts.get(key) ?? { reads: 0, expr: node, values: new Map() };
-			group.reads += 1;
+			const group = firsts.get(key) ?? { expr: node, reads: noReads(), values: new Map() };
 			group.values.set(stableStringify(node.select), node.select);
+			addRead(group.reads, guard);
 			firsts.set(key, group);
 			return;
 		}
@@ -565,25 +582,22 @@ const planScope = (
 		visit(join.type === "jsonElements" ? join.expr : join.on, false);
 	}
 	input.nodes.forEach((node) => visit(node, true));
+	// A lateral runs for every row its guard admits; a value read once inside a branch stays a scalar
+	// subquery in the `CASE` instead.
+	for (const [key, group] of fused) {
+		const [aggregation] = group.measures.values();
+		if (group.reads.guards !== undefined && group.reads.count < 2 && aggregation) {
+			fused.delete(key);
+			addCorrelated({ query: group.query, extras: aggregationNodes(aggregation) });
+		}
+	}
 	for (const [key, group] of firsts) {
-		if (group.reads < 2) {
+		if (group.reads.count < 2) {
 			firsts.delete(key);
 			addCorrelated({
 				query: group.expr.query,
 				extras: [group.expr.select, ...group.expr.orderBy.map((order) => order.expr)],
 			});
-		}
-	}
-	// A branch read joins a lateral that reads outside a branch already run for every row.
-	for (const { node, query, aggregate } of branchReads) {
-		const group = aggregate ? fused.get(stableStringify(query.query)) : undefined;
-		const first = node.type === "first" ? firsts.get(firstGroupKey(node)) : undefined;
-		if (aggregate && group) {
-			group.measures.set(stableStringify(aggregate), aggregate);
-		} else if (node.type === "first" && first) {
-			first.values.set(stableStringify(node.select), node.select);
-		} else {
-			addCorrelated(query);
 		}
 	}
 	const scope: { -readonly [Key in keyof PlannedScope]: PlannedScope[Key] } = {
@@ -641,6 +655,7 @@ const planScope = (
 			key,
 			{
 				query: group.query,
+				guard: readsGuard(group.reads),
 				alias: `aggregate${id}_${index}`,
 				measures: new Map(
 					[...group.measures].map(([measureKey, aggregation], measure) => [
@@ -669,6 +684,7 @@ const planScope = (
 				query: group.expr.query,
 				orderBy: group.expr.orderBy,
 				alias: `first${id}_${index}`,
+				guard: readsGuard(group.reads),
 				values: new Map(
 					[...group.values].map(([valueKey, select], value) => [
 						valueKey,
@@ -692,18 +708,28 @@ const planScope = (
 	return scope;
 };
 
-// Fused aggregates and firsts a filter or ordering reads have to run before a page can be chosen.
+// Fused aggregates and firsts a filter or ordering reads have to run before a page can be chosen,
+// with those their guards read.
 export const referencedGroups = (nodes: readonly Node[], scope: PlannedScope) => {
 	const keys = new Set<string>();
+	const reference = (key: string, guard: undefined | Predicate) => {
+		if (!keys.has(key)) {
+			keys.add(key);
+			if (guard) {
+				visit(guard);
+			}
+		}
+	};
 	const visit = (node: Node): void => {
 		const { row, element, correlated: query } = operands(node);
 		[...row, ...element].forEach(visit);
-		const key = query ? stableStringify(query.query) : undefined;
-		if (key !== undefined && scope.groups.has(key)) {
-			keys.add(key);
+		const group = query ? scope.groups.get(stableStringify(query.query)) : undefined;
+		if (query && group) {
+			reference(stableStringify(query.query), group.guard);
 		}
-		if (node.type === "first" && scope.firsts.has(firstGroupKey(node))) {
-			keys.add(firstGroupKey(node));
+		const first = node.type === "first" ? scope.firsts.get(firstGroupKey(node)) : undefined;
+		if (node.type === "first" && first) {
+			reference(firstGroupKey(node), first.guard);
 		}
 	};
 	nodes.forEach(visit);
