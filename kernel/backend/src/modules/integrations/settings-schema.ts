@@ -1,5 +1,5 @@
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
 import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 
 export const resolveIntegrationSettingsSchema = <Lot, Schema>(
@@ -24,5 +24,5 @@ export const isIntegrationSettingsTooLarge = (integration: {
 			provider: integration.provider,
 			providerSpecifics: integration.providerSpecifics,
 		},
-		SANDBOX_LIMITS.integrations.settingsBytes,
+		INTEGRATION_LIMITS.settingsBytes,
 	);

@@ -8,6 +8,8 @@ import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
 
+export const INTEGRATION_LIMITS = { pageSize: 20, settingsBytes: 16 * 1024 } as const;
+
 export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),

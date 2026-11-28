@@ -21,11 +21,7 @@ import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
-import {
-	SANDBOX_LIMITS,
-	sandboxContextBytes,
-	sandboxContextError,
-} from "@ryot-app/sandbox/protocol/limits";
+import { SANDBOX_LIMITS, sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -194,7 +190,7 @@ const runsOf = (subject: FoldSubjectInput) =>
 
 /**
  * Installs a fold over `count` new subjects, recording every run's subjects after checking that its
- * input fits the sandbox's bound for its principal.
+ * input fits the context bound the run declares.
  */
 const setup = Effect.fn(function* (fold: SubjectFold = countingFold, count?: number) {
 	const packageId = testPluginPackageId();
@@ -203,9 +199,7 @@ const setup = Effect.fn(function* (fold: SubjectFold = countingFold, count?: num
 	const recorded: Array<Recorded> = [];
 	yield* Ref.set(yield* InstalledFold, (call) =>
 		Effect.gen(function* () {
-			expect(
-				sandboxContextError(call.input, sandboxContextBytes(call.principal.subject)),
-			).toBeNull();
+			expect(sandboxContextError(call.input, call.contextBytes)).toBeNull();
 			const input = yield* Schema.decodeUnknownEffect(FoldInput)(call.input).pipe(Effect.orDie);
 			const subjects = input.subjects.map(({ changes, subjectEntityId }) => ({
 				changes,

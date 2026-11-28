@@ -632,6 +632,7 @@ export class Folds extends Context.Service<Folds>()(
 					{
 						lane,
 						principal: run.binding.principal,
+						contextBytes: FOLD_LIMITS.inputBytes,
 						executionId: `fold-${yield* random.uuidV4()}`,
 						input: { subjects: run.subjects.map(({ input }) => input) },
 					},

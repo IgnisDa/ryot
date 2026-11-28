@@ -155,13 +155,15 @@ scripts resolve by immutable revision ID, script slug, and content hash.
 Ingestion readiness uses configured-key metadata from the exact revision and configuration owner,
 without decrypting values. It checks availability, not ciphertext authentication. Startup validates
 retained encryption-key references; execution configuration reads still authenticate ciphertext.
+Configuration is capped at `PLUGIN_CONFIG_MAX_BYTES` (64 KiB of JSON) when saved or resolved for an
+installation, and sandbox reads fail when the resolved configuration exceeds it.
 
 ## User preferences
 
 `userSettingsSchema` declares non-secret per-user preferences. `plugin_installation.user_settings`
 stores explicit choices, while schema defaults supply missing values. `PluginUserSettingsWriter` owns
-every write: it validates against the active persisted schema, caps the stored document at the sandbox
-user-settings limit (64 KiB), locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
+every write: it validates against the active persisted schema, caps the stored document at
+`PLUGIN_USER_SETTINGS_MAX_BYTES` (64 KiB), locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
 resets replace the document under the exclusive ingestion lock. A returned settings patch merges
 top-level keys under the shared ingestion lock and the user write lock, after admitting the
 subject's account. It resolves the installation from the plugin and execution user,

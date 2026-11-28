@@ -1,6 +1,7 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
+import { INTEGRATION_LIMITS } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	builtinSavedViewReference,
 	definitionKey,
@@ -41,7 +42,6 @@ import {
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import type { ClientArtifact } from "@ryot-app/plugin-client-contract";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema, Stream } from "effect";
@@ -3181,7 +3181,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					) {
 						return yield* archiveError(
 							"invalid_entry",
-							`Backup integration settings exceed ${SANDBOX_LIMITS.integrations.settingsBytes} UTF-8 bytes`,
+							`Backup integration settings exceed ${INTEGRATION_LIMITS.settingsBytes} UTF-8 bytes`,
 						);
 					}
 					yield* persistence.restoreForUser({

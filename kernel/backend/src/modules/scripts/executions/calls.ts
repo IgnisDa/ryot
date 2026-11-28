@@ -36,6 +36,7 @@ export type ScriptCall = {
 	readonly input: unknown;
 	readonly lane: ExecutionLane;
 	readonly executionId: string;
+	readonly contextBytes?: number;
 	readonly principal: ScriptExecutionPrincipal;
 };
 
@@ -97,6 +98,7 @@ export class ScriptCalls extends Context.Service<ScriptCalls, { readonly run: Ru
 							startedAt,
 							lane: call.lane,
 							context: call.input,
+							...(call.contextBytes === undefined ? {} : { contextBytes: call.contextBytes }),
 							principal: call.principal,
 							executionId: call.executionId,
 							compiledCode: artifact.compiledCode,

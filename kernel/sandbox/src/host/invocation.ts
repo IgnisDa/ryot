@@ -45,6 +45,8 @@ export type SandboxRunInput = {
 	/** The property of the completed result whose value names the scratch files to harvest; the result itself when absent. */
 	readonly harvestRoot?: string;
 	readonly compiledCode: string;
+	/** The context's byte limit; `SANDBOX_LIMITS.execution.contextBytes` when absent. */
+	readonly contextBytes?: number;
 	readonly checkpoint?: JsonValue;
 	readonly compiledFormat: number;
 	readonly principal: SandboxPrincipal;

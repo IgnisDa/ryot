@@ -1,9 +1,9 @@
 import { expect } from "bun:test";
 
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import { PLUGIN_CONFIG_MAX_BYTES } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -170,7 +170,7 @@ layer(revisionDatabaseLayer)((test) => {
 							scope: "installation",
 							pluginRevisionId: installed.revisionId,
 							pluginInstallationId: installed.installation.id,
-							properties: { note: "x".repeat(SANDBOX_LIMITS.pluginConfigBytes) },
+							properties: { note: "x".repeat(PLUGIN_CONFIG_MAX_BYTES) },
 						}),
 					),
 				);

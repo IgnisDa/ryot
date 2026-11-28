@@ -1,6 +1,4 @@
-import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { jsonByteLength } from "@ryot-app/ts-utils/json";
@@ -13,15 +11,11 @@ const CONCURRENT_HOST_CALLS = 4;
 export const SANDBOX_LIMITS = {
 	ryotqlResultBytes: MiB,
 	journalBytes: 100 * MiB,
-	userSettingsBytes: 64 * KiB,
-	pluginConfigBytes: 64 * KiB,
 	replay: { shortWaitMs: 1_000 },
 	admission: { waitingRuns: 64 },
-	oauthTokenResponseBytes: 64 * KiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 1_000 },
 	diagnostics: { messageBytes: 64 * KiB },
-	integrations: { pageSize: 20, settingsBytes: 16 * KiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	journalReads: { count: 2_048, sliceBytes: MiB, totalBytes: 200 * MiB },
 	isolate: { cpuMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB },
@@ -39,7 +33,6 @@ export const SANDBOX_LIMITS = {
 		resultBytes: 4 * MiB,
 		requestBytes: 2 * MiB,
 		contextBytes: 64 * KiB,
-		projectionContextBytes: FOLD_LIMITS.inputBytes,
 	},
 	bridge: {
 		requestBytes: MiB,
@@ -149,11 +142,6 @@ export const sandboxWorkflowJournalByteError = (
 		? `Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`
 		: null;
 };
-
-export const sandboxContextBytes = (subject: SandboxExecutionSubject) =>
-	subject.type === "projection"
-		? SANDBOX_LIMITS.execution.projectionContextBytes
-		: SANDBOX_LIMITS.execution.contextBytes;
 
 export const sandboxContextError = (
 	context: unknown,

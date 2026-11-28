@@ -10,13 +10,8 @@ import { Result, Schema } from "effect";
 import { isBoolean, regExpExec, uncurry } from "../guest/primordials";
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
 
-const maxContextBytes = SANDBOX_LIMITS.execution.projectionContextBytes;
-
 const numberIsSafeInteger = Number.isSafeInteger.bind(Number);
 const mathCeil = Math.ceil;
-const jsonStringify = JSON.stringify.bind(JSON);
-const encoder = new TextEncoder();
-const encodeText = encoder.encode.bind(encoder);
 const stringEndsWith = uncurry(String.prototype, "endsWith", isBoolean);
 const base64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
@@ -94,6 +89,7 @@ const filesystemHintsSchema = Schema.Struct({
 });
 
 export const SandboxInvocationSchema = Schema.Struct({
+	context: JsonValue,
 	scriptId: Schema.String,
 	startedAt: Schema.String,
 	executionId: Schema.String,
@@ -106,18 +102,6 @@ export const SandboxInvocationSchema = Schema.Struct({
 	filesystem: Schema.optional(filesystemHintsSchema),
 	workflowExecutionId: Schema.optional(Schema.String),
 	inlineDurableCapabilities: Schema.optional(Schema.Array(Schema.String)),
-	context: JsonValue.pipe(
-		Schema.check(
-			Schema.makeFilter((value) => {
-				const serialized = jsonStringify(value);
-				return (
-					(typeof serialized === "string" &&
-						encodeText(serialized).byteLength <= maxContextBytes) ||
-					`Sandbox invocation context exceeds ${maxContextBytes} UTF-8 bytes`
-				);
-			}),
-		),
-	),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(

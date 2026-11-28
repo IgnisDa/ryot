@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { PLUGIN_USER_SETTINGS_MAX_BYTES } from "@ryot-app/contract/modules/plugins/user-settings";
 import type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	SandboxExecutionSubject,
@@ -26,7 +27,6 @@ import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferenc
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -1055,7 +1055,7 @@ describe("getUserSettings", () => {
 	layer(
 		hostFunctionsLayer({
 			executionSettings: () => ({
-				userSettings: { timezone: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },
+				userSettings: { timezone: "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES) },
 			}),
 		}),
 	)((test) => {
@@ -1079,7 +1079,7 @@ describe("getUserSettings", () => {
 						}),
 					);
 					expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
-						`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`,
+						`Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
 					);
 				}),
 			testTimeout,

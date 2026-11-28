@@ -8,6 +8,7 @@ import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestio
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import {
 	type CreateIntegrationBody,
+	INTEGRATION_LIMITS,
 	type IntegrationExtraSettings,
 	IntegrationNotFoundError,
 	type IntegrationProvider,
@@ -26,7 +27,6 @@ import { entitlementRequiredReason, isEntitled } from "@ryot-app/contract/schema
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -97,7 +97,7 @@ const requireSettingsWithinLimit = (
 				new IntegrationRequestError({
 					reason: {
 						code: "integration-settings-too-large",
-						maxBytes: SANDBOX_LIMITS.integrations.settingsBytes,
+						maxBytes: INTEGRATION_LIMITS.settingsBytes,
 					},
 				}),
 			)

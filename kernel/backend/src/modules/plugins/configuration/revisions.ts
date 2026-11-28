@@ -1,6 +1,9 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { DbError } from "@ryot-app/contract/errors";
-import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import {
+	PLUGIN_CONFIG_MAX_BYTES,
+	pluginConfigEnvironmentKey,
+} from "@ryot-app/contract/modules/plugins/plugin-config";
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -8,7 +11,6 @@ import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
@@ -49,10 +51,10 @@ const attribution = (
 	payloadFingerprint: row.payloadFingerprint,
 });
 
-export const pluginConfigTooLargeMessage = `Plugin config exceeds ${SANDBOX_LIMITS.pluginConfigBytes} UTF-8 bytes`;
+export const pluginConfigTooLargeMessage = `Plugin config exceeds ${PLUGIN_CONFIG_MAX_BYTES} UTF-8 bytes`;
 
 export const isPluginConfigTooLarge = (properties: Readonly<Record<string, unknown>>) =>
-	exceedsJsonBytes(properties, SANDBOX_LIMITS.pluginConfigBytes);
+	exceedsJsonBytes(properties, PLUGIN_CONFIG_MAX_BYTES);
 
 const encodePointerSegment = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 

@@ -15,7 +15,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Schema } from "effect";
 
-import { SANDBOX_LIMITS } from "../protocol/limits";
+import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxExecutionAuthority } from "./authority";
 import { compileTestScript } from "./compile.test-support";
@@ -637,7 +637,7 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 	);
 
 	test.effect(
-		"accepts a projection context up to the fold input bound and no other subject's past the script bound",
+		"accepts a context up to the bound its run declares and none past the default bound",
 		() => {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));
 			const executionIds: string[] = [];
@@ -646,31 +646,21 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 				Effect.gen(function* () {
 					const service = yield* SandboxExecutor;
 					const compiled = yield* compileTestScript(capsDefinitionSource);
-					const run = (context: unknown, subject: SandboxPrincipal["subject"]) => {
-						const executionId = testExecutionId("native-service-projection");
+					const run = (context: unknown, contextBytes?: number) => {
+						const executionId = testExecutionId("native-service-context");
 						executionIds.push(executionId);
 						const input = makeRunInput(compiled, executionId, context, ownerId);
-						return service.run({ ...input, principal: { ...input.principal, subject } });
+						return service.run(contextBytes === undefined ? input : { ...input, contextBytes });
 					};
 					const base = { tail: 0, pad: "", count: 0, unit: "a" };
-					const pad = "a".repeat(
-						SANDBOX_LIMITS.execution.projectionContextBytes -
-							encodedBytes(yield* encodeContext(base)),
-					);
-					const projection = { userId: ownerId, type: "projection" as const };
-					expect(yield* run({ ...base, pad }, projection)).toMatchObject({
-						value: "",
-						success: true,
-					});
-					expect(yield* Effect.flip(run({ ...base, pad: `${pad}a` }, projection))).toMatchObject({
+					const pad = "a".repeat(MiB - encodedBytes(yield* encodeContext(base)));
+					expect(yield* run({ ...base, pad }, MiB)).toMatchObject({ value: "", success: true });
+					expect(yield* Effect.flip(run({ ...base, pad: `${pad}a` }, MiB))).toMatchObject({
 						kind: "invalid-input",
 					});
 					expect(
 						yield* Effect.flip(
-							run(
-								{ ...base, pad: "a".repeat(SANDBOX_LIMITS.execution.contextBytes) },
-								makeUserSubject(ownerId),
-							),
+							run({ ...base, pad: "a".repeat(SANDBOX_LIMITS.execution.contextBytes) }),
 						),
 					).toMatchObject({ kind: "invalid-input" });
 				}),

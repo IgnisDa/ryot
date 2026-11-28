@@ -1,5 +1,7 @@
 import { type PluginPackageId, pluginPackageSegments } from "../../schema/brands";
 
+export const PLUGIN_CONFIG_MAX_BYTES = 64 * 1024;
+
 const normalizeEnvironmentSegment = (value: string) =>
 	value
 		.replaceAll(/([a-z0-9])([A-Z])/g, "$1_$2")
