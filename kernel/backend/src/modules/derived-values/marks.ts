@@ -25,11 +25,12 @@ export type FoldSubject = { readonly userId: UserId; readonly entityId: EntityId
 
 export type ResolvedFold = { readonly subject: FoldSubject; readonly declaration: FoldDeclaration };
 
-/** What a transaction's writes left to fold. */
-type PendingFolds = {
-	readonly refolds: Array<FoldSubject>;
-	readonly replays: Array<FoldSubject>;
-	readonly events: Map<string, FoldMark>;
+/** An entity whose content changed, with the properties whose values changed. */
+export type ChangedEntity = {
+	readonly id: EntityId;
+	readonly entitySchemaSlug: string;
+	readonly properties: ReadonlyArray<string>;
+	readonly entitySchemaPluginId: null | string;
 };
 
 /** One changed event: its image before the transaction first changed it, null for a create, and where it is now, null once deleted. */
@@ -40,9 +41,18 @@ type FoldMark = {
 	readonly before: null | FoldEventRow;
 };
 
+/** What a transaction's writes left to fold. */
+type PendingFolds = {
+	readonly refolds: Array<FoldSubject>;
+	readonly replays: Array<FoldSubject>;
+	readonly events: Map<string, FoldMark>;
+	readonly contents: Array<{ readonly subject: FoldSubject; readonly entity: ChangedEntity }>;
+};
+
 const pendingFolds = writeState((): PendingFolds => ({
 	refolds: [],
 	replays: [],
+	contents: [],
 	events: new Map(),
 }));
 
@@ -198,6 +208,15 @@ const folds = (declaration: undefined | FoldDeclaration, source: FoldSource) =>
 	declaration !== undefined &&
 	declaration.pluginId === source.eventSchemaPluginId &&
 	declaration.eventSchemaSlugs.includes(source.eventSchemaSlug);
+
+/** Whether a fold reads a property whose value the entity's content change changed. */
+const readsChange = (declaration: FoldDeclaration, entity: ChangedEntity) =>
+	declaration.pluginId === entity.entitySchemaPluginId &&
+	declaration.entityProperties.some(
+		(read) =>
+			read.entitySchemaSlug === entity.entitySchemaSlug &&
+			read.properties.some((property) => entity.properties.includes(property)),
+	);
 
 export const sourceEntities = (source: FoldSource) =>
 	source.sessionEntityId ? [source.entityId, source.sessionEntityId] : [source.entityId];
@@ -526,17 +545,20 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				pending.events.clear();
 				const replays = pending.replays.splice(0);
 				const refolds = pending.refolds.splice(0);
+				const contents = pending.contents.splice(0);
 				const subjects = new Map<string, QueuedSubject>();
 				const users = new Set([
 					...marks.map((mark) => mark.userId),
 					...replays.map((subject) => subject.userId),
 					...refolds.map((subject) => subject.userId),
+					...contents.map(({ subject }) => subject.userId),
 				]);
 				for (const user of [...users].sort()) {
 					const userId = UserId.make(user);
 					const changed = marks.filter((mark) => mark.userId === user);
 					const replayed = replays.filter((subject) => subject.userId === user);
 					const refolded = refolds.filter((subject) => subject.userId === user);
+					const contented = contents.filter(({ subject }) => subject.userId === user);
 					const known = yield* declarations(
 						userId,
 						[
@@ -547,6 +569,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 							),
 							...replayed.map((subject) => subject.entityId),
 							...refolded.map((subject) => subject.entityId),
+							...contented.map(({ subject }) => subject.entityId),
 						],
 						transaction,
 					);
@@ -588,6 +611,12 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 							queued(declaration);
 						}
 					}
+					for (const { entity, subject } of contented) {
+						const declaration = known.get(subject.entityId);
+						if (declaration && readsChange(declaration, entity)) {
+							queued(declaration).replay = true;
+						}
+					}
 				}
 				const queued = [...subjects.entries()]
 					.sort(([left], [right]) => left.localeCompare(right))
@@ -604,11 +633,18 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				return queued.map(({ subject }): FoldSubject => subject);
 			});
 
-			/** Refolds the subjects whose values an entity's content feeds: its own and those of its events. */
+			/**
+			 * Replays the subjects that may read the entity, its own and those of its events, whose folds
+			 * read a property the change changed.
+			 */
 			const entityChanged = Effect.fn("FoldMarks.entityChanged")(function* (
 				transaction: WriteTransaction,
-				entityId: EntityId,
+				entity: ChangedEntity,
 			) {
+				if (entity.entitySchemaPluginId === null || entity.properties.length === 0) {
+					return;
+				}
+				const entityId = entity.id;
 				const rows = yield* session.run((db) =>
 					db.execute<{ userId: string; entityId: string }>(
 						sql`select distinct v.user_id as "userId", v.subject_entity_id as "entityId"
@@ -621,11 +657,10 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						"objects",
 					),
 				);
-				yield* markSubjects(
-					transaction,
-					rows.map((row) => ({
-						userId: UserId.make(row.userId),
-						entityId: EntityId.make(row.entityId),
+				pendingFolds(transaction).contents.push(
+					...rows.map((row) => ({
+						entity,
+						subject: { userId: UserId.make(row.userId), entityId: EntityId.make(row.entityId) },
 					})),
 				);
 			});

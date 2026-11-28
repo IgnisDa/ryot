@@ -63,15 +63,18 @@ Every write runs in one write transaction. Whoever opens it creates a `WriteTran
 to every write in it; fold marks, event group captures and reference clears are kept per transaction
 through `writeState`, never in ambient context. Each event create, update, delete, merge move and
 reference clear records the event's image before the transaction first changes it; entity deletes
-record the events whose subject survives the cascade. After the transaction's work and before the
+record the events whose subject survives the cascade. An entity update that changes properties records
+them with the subjects that may read them: the entity's own and those of the projected events on it or
+in its session. After the transaction's work and before the
 event-group check, the kernel reads the current image of each changed event, routes both images to
 their subjects, and queues each subject. No fold runs inside a transaction.
 
 Queuing stores each subject's change list in `derived_change`, one row per event with its image before
 the first change, marks the subject row `pending`, bumps its `revision`, and queues a `fold` job. A
 later write to the same subject keeps an event's stored image and bumps the row's `version`, so the
-list coalesces. A subject without a row, or marked whole (an entity content change, a merge or a `replay` fold
-request), sets the row's `replay` flag instead of storing changes. A relationship write, a `refresh` fold
+list coalesces. A subject without a row, or marked whole (a change to an entity property its fold
+declares in `entityProperties`, a merge or a `replay` fold request), sets the row's `replay` flag
+instead of storing changes; a change to the name or any other property folds nothing. A relationship write, a `refresh` fold
 request and a passed refresh time mark the subject with no change, which refreshes link outputs. A fold job holds up to 25 subjects of one fold; a
 queued job with the same subjects absorbs a new one, and jobs run four at a time.
 

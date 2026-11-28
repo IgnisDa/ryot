@@ -1000,15 +1000,43 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 	);
 });
 
-it("folds media history on every library member schema", () => {
-	const fold = { scriptSlug: "fold.media-history", eventSchemaSlugs: mediaFoldEventSchemaSlugs };
-	expect(
-		Object.fromEntries(
-			mediaPlugin.entitySchemas.flatMap((schema) =>
-				"fold" in schema ? [[schema.slug, schema.fold] as const] : [],
-			),
+const mediaFold = (
+	...entityProperties: ReadonlyArray<{
+		readonly entitySchemaSlug: string;
+		readonly properties: ReadonlyArray<string>;
+	}>
+) => ({
+	entityProperties,
+	scriptSlug: "fold.media-history",
+	eventSchemaSlugs: mediaFoldEventSchemaSlugs,
+});
+const episodeReads = (entitySchemaSlug: string) => ({
+	entitySchemaSlug,
+	properties: ["airingAt", "episodeNumber", "publishDate"],
+});
+const titleReads = (entitySchemaSlug: string, ...status: ReadonlyArray<string>) => ({
+	entitySchemaSlug,
+	properties: [...status, "publishDate", "publishYear"],
+});
+
+it("folds media history on every library member schema, replaying on what the fold reads", () => {
+	const folds = new Map(
+		mediaPlugin.entitySchemas.flatMap((schema) =>
+			"fold" in schema ? [[schema.slug, schema.fold] as const] : [],
 		),
-	).toEqual(Object.fromEntries(mediaLibraryMemberEntitySchemaSlugs.map((slug) => [slug, fold])));
+	);
+	expect([...folds.keys()].sort()).toEqual([...mediaLibraryMemberEntitySchemaSlugs].sort());
+	expect(folds.get("show")).toEqual(
+		mediaFold(titleReads("show", "productionStatus"), episodeReads("show-episode")),
+	);
+	expect(folds.get("podcast")).toEqual(
+		mediaFold(titleReads("podcast", "productionStatus"), episodeReads("podcast-episode")),
+	);
+	expect(folds.get("book")).toEqual(mediaFold(titleReads("book")));
+	expect(folds.get("show-episode")).toEqual(
+		mediaFold({ properties: ["publishDate"], entitySchemaSlug: "show-episode" }),
+	);
+	expect(folds.get("person")).toEqual(mediaFold());
 });
 
 it("does not automatically retry external pushes or notifications", () => {

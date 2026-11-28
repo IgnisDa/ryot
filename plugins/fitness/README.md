@@ -384,7 +384,9 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
-- `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`.
+- `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`
+  with `entityProperties` naming only the workout's `startedAt`: a change to a workout's start replays
+  the exercises whose sets it holds, and no other workout or exercise change folds anything.
   `backend/exercise-records.sandbox.ts` computes statistics and badges per recorded kind into separate
   projection rows, without changing source events or replaying historical hooks. It runs right after
   each write that changes a set, including a workout time correction, which moves its sets. Sets order by

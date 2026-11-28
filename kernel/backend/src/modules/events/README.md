@@ -10,10 +10,13 @@ An event schema declares `projection: { propertiesSchema }` to receive a derived
 schema must be strict, non-empty, contain at most 20 fields, and have no field names in common with
 the source event schema.
 
-An entity schema declares `fold: { scriptSlug, eventSchemaSlugs }`, and its entities are the fold's
-subjects. An event of a listed slug, owned by the same plugin, belongs to its session entity when the
-session's schema folds that slug, and otherwise to its own entity. The script must be owned by that
-plugin; validation limits it to read-only host capabilities and disallows workflow dependencies.
+An entity schema declares `fold: { scriptSlug, eventSchemaSlugs, entityProperties }`, and its entities
+are the fold's subjects. An event of a listed slug, owned by the same plugin, belongs to its session
+entity when the session's schema folds that slug, and otherwise to its own entity. `entityProperties`
+lists `{ entitySchemaSlug, properties }` for the properties of the plugin's entities the fold reads: of
+its subjects and of the entities and sessions its events are on. Validation requires each to be a
+declared property of a declared schema. The script must be owned by that plugin; validation limits it
+to read-only host capabilities and disallows workflow dependencies.
 
 ## Event IDs and ordering
 

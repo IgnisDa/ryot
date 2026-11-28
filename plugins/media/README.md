@@ -762,8 +762,10 @@ Shows without a completion anchor have no next-up; earlier gaps are skipped.
 
 ### The fold
 
-Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSchemaSlugs }` over its
-history schemas. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
+Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSchemaSlugs,
+entityProperties }` over its history schemas, naming what the fold reads of entities: a title's
+`publishDate` and `publishYear`, and for a Show or Podcast its `productionStatus` and its episodes'
+`airingAt`, `publishDate` and `episodeNumber`. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
 Podcast, its required episodes with `backend/fold/recipes.ts`. An episode with a parent session belongs
 to the parent's fold, and a sessionless special to its own. `backend/fold/history.ts` derives automatic
 completions, and `backend/fold/consumption.ts` allocates consumption contributions. Each run returns
@@ -791,15 +793,17 @@ changes do not rewrite past completions. A replay restores an occurrence where i
 cover its frozen inventory, or else at its recorded closing event while its inventory is covered, so
 replaying the fold's own completions changes nothing and a corrected source keeps the completion it
 supports. Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect live coverage without
-creating history. A content change of a title, such as a new status, replays it for every user, and
-one of an episode replays the titles of the users with events on it. Other users' summaries follow
+creating history. A change to one of the declared properties of a title, such as a new status,
+replays it for every user, and one of an episode replays the titles of the users with events on it;
+other content changes, such as a new overview or images, fold nothing. Other users' summaries follow
 episode changes through all-users `refresh` fold requests, which refold without replaying history:
 `media-entity-updated` returns one for an episode's title when the episode's `airingAt`,
 `publishDate` or `episodeNumber` changes, and `media-relationship-sync` one for the titles whose
 container links are created or deleted, since an inventory change alone completes nothing. One
 request holds at most 100 entities, so relationship sync batches are capped at 100 items.
 
-A full replay (a new subject, a revision whose fold changed, a content change) reads the whole history.
+A full replay (a new subject, a revision whose fold changed, a change to a declared property) reads the
+whole history.
 `backend/fold/incremental.ts` handles a change list without it, and the value carries no events or
 coverage state between runs, so its size does not grow with an unfinished run or with the episodes a
 Show or Podcast covers:

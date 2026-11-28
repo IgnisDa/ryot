@@ -402,6 +402,18 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 						return yield* fail(`Entity fold input schema ${slug} is not declared`);
 					}
 				}
+				for (const read of entity.fold.entityProperties) {
+					const fields = manifest.entitySchemas.find(({ slug }) => slug === read.entitySchemaSlug)
+						?.propertiesSchema.fields;
+					const missing = read.properties.find(
+						(property) => fields === undefined || !Object.hasOwn(fields, property),
+					);
+					if (missing !== undefined) {
+						return yield* fail(
+							`Entity fold reads ${read.entitySchemaSlug} property ${missing}, which is not declared`,
+						);
+					}
+				}
 			}
 		}
 		for (const relationship of manifest.relationshipSchemas) {

@@ -35,7 +35,7 @@ export default defineScript({
 				entitySchemas: [
 					{
 						...testPluginEntitySchema({ slug: "item" }),
-						fold: { scriptSlug: "fold", eventSchemaSlugs: ["entry"] },
+						fold: { scriptSlug: "fold", entityProperties: [], eventSchemaSlugs: ["entry"] },
 						eventSchemas: [
 							{
 								slug: "entry",

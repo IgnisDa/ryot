@@ -41,7 +41,11 @@ export const fitnessEntitySchemas = [
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
 		name: catalogMessage("entity-schema.exercise.name"),
-		fold: { eventSchemaSlugs: ["workout-set"], scriptSlug: "fold.exercise-records" },
+		fold: {
+			eventSchemaSlugs: ["workout-set"],
+			scriptSlug: "fold.exercise-records",
+			entityProperties: [{ properties: ["startedAt"], entitySchemaSlug: "workout" }],
+		},
 		editor: {
 			relationships: [
 				{ slug: "exercise-targets", direction: "outgoing" as const },

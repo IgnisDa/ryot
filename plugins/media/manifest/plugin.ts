@@ -22,6 +22,7 @@ import {
 	ResolveEpisodesInput,
 	ResolveEpisodesOutput,
 } from "../shared/integration-operations";
+import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
 import {
 	MediaActivityDeleteInput,
 	MediaActivityEditOutput,
@@ -81,6 +82,34 @@ import { mediaSignalSchedules } from "./signal-schedules";
 import { mediaUserStatePolicy } from "./user-state";
 import { watchProviderUserSettingFields } from "./watch-provider-settings";
 
+/**
+ * What the history fold reads of a title: its release date, and for a show or podcast its production
+ * status and its episodes' releases and numbers.
+ */
+const foldEntityProperties = (schema: ReturnType<typeof mediaEntitySchemas>[number]) => {
+	const episodic = [showEpisodicKindConfig, podcastEpisodicKindConfig].find(
+		({ parentSchemaSlug }) => parentSchemaSlug === schema.slug,
+	);
+	const [read, ...reads] = [
+		...(episodic ? ["productionStatus"] : []),
+		"publishDate",
+		"publishYear",
+	].filter((property) => Object.hasOwn(schema.propertiesSchema.fields, property));
+	return [
+		...(read === undefined
+			? []
+			: [{ entitySchemaSlug: schema.slug, properties: [read, ...reads] as const }]),
+		...(episodic
+			? [
+					{
+						entitySchemaSlug: episodic.episodeSchemaSlug,
+						properties: ["airingAt", "episodeNumber", "publishDate"] as const,
+					},
+				]
+			: []),
+	];
+};
+
 const entitySchemas = mediaEntitySchemas().map(
 	(
 		schema,
@@ -96,7 +125,11 @@ const entitySchemas = mediaEntitySchemas().map(
 		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
 			? Object.assign({}, browsed, {
 					userState: mediaUserStatePolicy(schema.slug),
-					fold: { scriptSlug: "fold.media-history", eventSchemaSlugs: mediaFoldEventSchemaSlugs },
+					fold: {
+						scriptSlug: "fold.media-history",
+						eventSchemaSlugs: mediaFoldEventSchemaSlugs,
+						entityProperties: foldEntityProperties(schema),
+					},
 				})
 			: browsed;
 		const projected = [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].some(

@@ -514,9 +514,12 @@ annotations. See
 
 ### Folds
 
-Set `fold: { scriptSlug, eventSchemaSlugs }` on an entity schema to derive values from its subjects'
-events after each write that changes them. An event of a listed slug belongs to its session entity when
-the session's schema folds that slug, and otherwise to its own entity. Set
+Set `fold: { scriptSlug, eventSchemaSlugs, entityProperties }` on an entity schema to derive values
+from its subjects' events after each write that changes them. An event of a listed slug belongs to its
+session entity when the session's schema folds that slug, and otherwise to its own entity.
+`entityProperties` lists `{ entitySchemaSlug, properties }` for every property of the plugin's entities
+the fold reads, whether of a subject or of an entity or session its events are on: a change to one
+replays the subjects that read it, and other content changes, such as new images, fold nothing. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
 The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from

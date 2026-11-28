@@ -89,7 +89,11 @@ const foldedPackage = (packageId: PluginPackageId, version: string, scriptHash =
 		entitySchemas: [
 			{
 				...entity,
-				fold: { scriptSlug: "folded.task", eventSchemaSlugs: ["changed"] as const },
+				fold: {
+					scriptSlug: "folded.task",
+					eventSchemaSlugs: ["changed"] as const,
+					entityProperties: [{ properties: ["kind"] as const, entitySchemaSlug: "folded-entity" }],
+				},
 				eventSchemas: [
 					{
 						slug: "changed",
@@ -282,7 +286,11 @@ const writer = (apply: ApplyFoldChanges) =>
 /** Creates one `changed` event per item in one write. */
 const createEvents = Effect.fn(function* (
 	pluginId: Effect.Success<ReturnType<typeof setup>>["installed"]["pluginId"],
-	items: ReadonlyArray<{ readonly value: string; readonly entityId: EntityId }>,
+	items: ReadonlyArray<{
+		readonly value: string;
+		readonly entityId: EntityId;
+		readonly sessionEntityId?: EntityId;
+	}>,
 ) {
 	const events = yield* EventsRepository;
 	const created = yield* Effect.forEach(items, (item) =>
@@ -291,10 +299,11 @@ const createEvents = Effect.fn(function* (
 	yield* write((transaction) =>
 		events.createEvents(
 			transaction,
-			created.map(({ id, value, entityId }) => ({
+			created.map(({ id, value, entityId, sessionEntityId }) => ({
 				id,
 				userId,
 				entityId,
+				sessionEntityId,
 				eventSchemaName,
 				propertiesSchema,
 				properties: { value },
@@ -1411,6 +1420,39 @@ layer(testLayer)((test) => {
 				yield* runFoldJob([first]);
 				expect(recorded).toEqual([
 					{ changes: [], subjectEntityId: first },
+					{ changes: null, subjectEntityId: first },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"replays a subject when an entity it or its events are on changes a property its fold reads, and only then",
+		() =>
+			Effect.gen(function* () {
+				const { first, second, recorded, installed } = yield* setup();
+				yield* createEvents(installed.pluginId, [{ value: "own", entityId: first }]);
+				yield* createEvents(installed.pluginId, [
+					{ value: "session", entityId: second, sessionEntityId: first },
+				]);
+				const entities = yield* EntitiesRepository;
+				const update = (entityId: EntityId, properties: Record<string, string>) =>
+					write((transaction) =>
+						entities.updateEntity(transaction, {
+							entityId,
+							properties,
+							name: "Renamed",
+							populatedAt: null,
+						}),
+					);
+				recorded.length = 0;
+				yield* update(first, { name: "First" });
+				yield* update(second, { name: "Second" });
+				expect(recorded).toEqual([]);
+				yield* update(second, { kind: "one", name: "Second" });
+				yield* update(first, { kind: "two", name: "First" });
+				expect(recorded).toEqual([
+					{ changes: null, subjectEntityId: first },
 					{ changes: null, subjectEntityId: first },
 				]);
 			}),

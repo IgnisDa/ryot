@@ -395,9 +395,20 @@ export const PluginEntityEditor = strictStruct({
 
 export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
 
+/**
+ * `entityProperties` names the properties of the plugin's entities that the fold reads: of its
+ * subjects, and of the entities and sessions its events are on. A change to one replays the subjects
+ * that read it; any other content change leaves their values as they are.
+ */
 export const PluginEntityFold = strictStruct({
 	scriptSlug: Schema.NonEmptyString,
 	eventSchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+	entityProperties: Schema.Array(
+		strictStruct({
+			entitySchemaSlug: pluginManifestSlug,
+			properties: Schema.NonEmptyArray(Schema.NonEmptyString),
+		}),
+	),
 });
 
 export type PluginEntityFold = Schema.Schema.Type<typeof PluginEntityFold>;

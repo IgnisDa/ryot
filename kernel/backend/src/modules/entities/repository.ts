@@ -872,7 +872,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				yield* session.requireTransaction;
 				const [current] = yield* session.run((db) =>
 					db
-						.select({ name: schema.entity.name, properties: schema.entity.properties })
+						.select({
+							name: schema.entity.name,
+							properties: schema.entity.properties,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
+							entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+						})
 						.from(schema.entity)
 						.where(eq(schema.entity.id, input.entityId))
 						.limit(1)
@@ -884,6 +889,13 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const contentChanged =
 					current.name !== input.name ||
 					stableStringify(current.properties) !== stableStringify(input.properties);
+				const changedProperties = [
+					...new Set([...Object.keys(current.properties), ...Object.keys(input.properties)]),
+				].filter(
+					(key) =>
+						Object.hasOwn(current.properties, key) !== Object.hasOwn(input.properties, key) ||
+						stableStringify(current.properties[key]) !== stableStringify(input.properties[key]),
+				);
 				const [updated] = yield* session.run((db) =>
 					db
 						.update(schema.entity)
@@ -905,9 +917,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!updated) {
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
-				if (contentChanged) {
-					yield* folds.entityChanged(transaction, input.entityId);
-				}
+				yield* folds.entityChanged(transaction, {
+					id: input.entityId,
+					properties: changedProperties,
+					entitySchemaSlug: current.entitySchemaSlug,
+					entitySchemaPluginId: current.entitySchemaPluginId,
+				});
 
 				return toListedEntity(updated);
 			});
