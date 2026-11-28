@@ -4,7 +4,7 @@ import {
 	SandboxExecutionSubject,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Schema } from "effect";
 
 import {
@@ -13,8 +13,8 @@ import {
 } from "#modules/scripts/authorization/principal";
 
 export const ScriptExecutionWorkflowPayload = Schema.Struct({
+	input: JsonValue,
 	lane: ExecutionLane,
-	input: jsonValueSchema,
 	scriptId: SandboxScriptId,
 	executionId: Schema.String,
 	subject: SandboxExecutionSubject,

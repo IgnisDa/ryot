@@ -12,8 +12,7 @@ import {
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type WorkflowDurableCallRequest,
 	workflowDurableCallRequestSchema,
@@ -103,12 +102,12 @@ const ObservedWorkflowReplay = Schema.Union([
 		data: Schema.optionalKey(SandboxBoundaryReason),
 	}),
 	Schema.Struct({
-		output: jsonValueSchema,
+		output: JsonValue,
 		state: Schema.Literal("completed"),
 		changes: Schema.optionalKey(ChangeSet),
 	}),
 	Schema.Struct({
-		checkpoint: jsonValueSchema,
+		checkpoint: JsonValue,
 		state: Schema.Literal("checkpoint"),
 		changes: Schema.optionalKey(ChangeSet),
 	}),
@@ -130,8 +129,8 @@ const SettledWorkflowRequest = Schema.Struct({
 });
 
 export const ScriptExecutionWorkflow = Workflow.make("ScriptExecutionWorkflow", {
+	success: JsonValue satisfies DurableSchema,
 	error: SandboxRunError satisfies DurableSchema,
-	success: jsonValueSchema satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 	payload: ScriptExecutionWorkflowPayload satisfies DurableSchema,
 });
@@ -140,7 +139,7 @@ const sandboxFailure = (kind: SandboxFailureKind, message: string) =>
 	new SandboxRunError({ kind, message });
 
 const decodeDurableResult = (value: unknown) =>
-	Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
+	Schema.decodeUnknownEffect(JsonValue)(value).pipe(
 		Effect.mapError((error) =>
 			sandboxFailure(
 				"invalid-output",
@@ -840,7 +839,7 @@ const validatePendingInline = Effect.fnUntraced(function* (
 	return pending;
 });
 
-const ActivityResult = OutputWithChanges(jsonValueSchema);
+const ActivityResult = OutputWithChanges(JsonValue);
 
 const changesFailure = (error: DbError | ScriptChangesRejected) => {
 	if (error instanceof DbError) {
@@ -894,10 +893,10 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 					Schema.Union([
 						Schema.Struct({
 							revision: Schema.Int,
-							checkpoint: jsonValueSchema,
+							checkpoint: JsonValue,
 							state: Schema.Literal("active"),
 						}),
-						Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
+						Schema.Struct({ output: JsonValue, state: Schema.Literal("completed") }),
 					]),
 				),
 			)(yield* checkpointStore.load).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")))

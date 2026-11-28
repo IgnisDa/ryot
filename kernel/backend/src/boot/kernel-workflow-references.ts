@@ -18,9 +18,9 @@ import {
 	SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -293,7 +293,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const results = yield* Effect.forEach(exits, (exit) =>
 							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
 						);
-						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(results).pipe(
+						return yield* Schema.decodeUnknownEffect(JsonValue)(results).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -453,7 +453,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-							return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+							return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 								Effect.mapError(
 									(error) =>
 										new SandboxRunError({
@@ -497,7 +497,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 							);
-						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeEffect(JsonValue)(result).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -595,7 +595,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						Effect.provideContext(populationServices),
 						Effect.provideService(DatabaseSession, database),
 					);
-					return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
+					return yield* Schema.decodeUnknownEffect(JsonValue)(result).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),

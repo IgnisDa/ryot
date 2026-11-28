@@ -11,6 +11,7 @@ import {
 	PluginRevisionId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import {
@@ -19,7 +20,6 @@ import {
 	providerDetailsResultSchema,
 	providerRelatedResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Duration, Effect, Result, Schema } from "effect";
@@ -74,7 +74,7 @@ type ValidatedEntityDetails = {
 	readonly relatedEntityGroups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>;
 };
 
-const SandboxJsonObjectSchema = Schema.Record(Schema.String, jsonValueSchema);
+const SandboxJsonObjectSchema = Schema.Record(Schema.String, JsonValue);
 const decodeProviderDetailsResult = Schema.decodeUnknownEffect(providerDetailsResultSchema);
 
 type ChildEntitySetScope = {

@@ -4,13 +4,13 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import { AutomationExecutionId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Message, unavailableMessage } from "@ryot-app/i18n/message";
 import {
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
@@ -179,7 +179,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					source: run.source,
 					sourcePayloadHandle,
 					runId: payload.runId,
-				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)));
+				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(JsonValue)));
 				const result = yield* sandbox
 					.executeWorkflow({
 						input,

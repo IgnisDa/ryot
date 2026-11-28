@@ -1,7 +1,7 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
-import { isJsonValue } from "@ryot-app/contract/schema/json";
-import { hostFailure, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
+import { hostFailure } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowDurableResultSchema,
 	type WorkflowHostRequest,
@@ -66,7 +66,7 @@ const decodeJournalEntry = Schema.decodeUnknownEffect(
 const decodeJournalReadArgs = Schema.decodeUnknownOption(journalReadArgsSchema, strictOptions);
 const decodeInlineBatch = Schema.decodeUnknownOption(InlineBatchSchema, strictOptions);
 export const decodeHostCallArgs = Schema.decodeUnknownOption(
-	Schema.Array(jsonValueSchema),
+	Schema.Array(JsonValue),
 	strictOptions,
 );
 const decodeArtifactReadRangeArgs = Schema.decodeUnknownOption(
