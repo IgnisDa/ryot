@@ -13,25 +13,24 @@ import {
 	coalesce,
 	column,
 	concat,
-	conditional,
 	entitySchemaPredicate,
 	eq,
 	field,
 	gt,
 	inArray,
-	isNull,
 	jsonPath,
 	literal,
-	localDate,
-	lt,
 	not,
-	or,
 	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
-import { reportingTimeZone } from "@ryot-app/ryotql/authoring";
 
 import { libraryLinkExists, libraryLinkSource } from "../shared/entity-selections";
+import {
+	joinedLibraryLink,
+	librarySummary,
+	storedLibrarySummaryValue,
+} from "../shared/library-summary";
 import {
 	occursAt,
 	podcastEpisodicKindConfig,
@@ -168,13 +167,11 @@ const flatReleases = () => {
 	});
 };
 
-const summaryValue = (membership: TableReference, name: string) =>
-	jsonPath(column(membership, "projection"), name);
-
 const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	const entity = table("entity", "entity");
 	const library = libraryLinkSource(entity, "staleLibrary", "in-media-library");
-	const lastActivityAt = summaryValue(library.link, "lastActivityAt");
+	const link = joinedLibraryLink(library.link);
+	const summary = librarySummary(link);
 	return {
 		dueAt: "dueAt",
 		delayDays: days,
@@ -195,15 +192,19 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 					column(entity, "entitySchemaSlug"),
 					builtinMediaEntitySchemaSlugs.map((slug) => literal(slug)),
 				),
-				eq(castText(summaryValue(library.link, "lifecycleState")), literal(state)),
+				eq(summary.lifecycleState, literal(state)),
 			),
 			output: {
 				type: "rows",
 				fields: [
-					field("dueAt", castDate(lastActivityAt)),
+					field("dueAt", summary.lastActivityAt),
 					field(
 						"occurrence",
-						concat(column(entity, "id"), literal(`:${state}:`), castText(lastActivityAt)),
+						concat(
+							column(entity, "id"),
+							literal(`:${state}:`),
+							castText(storedLibrarySummaryValue(link, "lastActivityAt")),
+						),
 					),
 					field("days", literal(days)),
 					field("lifecycleState", literal(state)),
@@ -214,21 +215,15 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	} satisfies PluginSignalSchedule;
 };
 
-/**
- * Due when the title's earliest unaired release arrives: its earliest instant when that falls before
- * the reporting day of its earliest date-only release, otherwise that date.
- */
+/** Due when the title's stored next release arrives. */
 const episodesAvailable = (
 	config: typeof showEpisodicKindConfig | typeof podcastEpisodicKindConfig,
 ) => {
 	const parent = table("entity", config.parentSchemaSlug);
 	const library = libraryLinkSource(parent, "availableLibrary", "in-media-library");
-	const date = castDate(summaryValue(library.link, "nextAiringDate"));
-	const instant = castDate(summaryValue(library.link, "nextAiringAt"));
-	const timedFirst = or(
-		isNull(date),
-		lt(castDate(localDate(instant, { timeZone: reportingTimeZone })), date),
-	);
+	const link = joinedLibraryLink(library.link);
+	const summary = librarySummary(link);
+	const stored = (name: "date" | "instant") => storedLibrarySummaryValue(link, "nextRelease", name);
 	return {
 		dueAt: "dueAt",
 		precision: "date",
@@ -244,27 +239,21 @@ const episodesAvailable = (
 			where: and(
 				library.where,
 				entitySchemaPredicate(parent, config.parentSchemaSlug, self),
-				eq(castText(summaryValue(library.link, "lifecycleState")), literal("caught_up")),
+				eq(summary.lifecycleState, literal("caught_up")),
 				not(libraryLinkExists(parent, "availableMonitoring", "media-monitoring")),
 			),
 			output: {
 				type: "rows",
 				fields: [
-					field("dueAt", date),
-					field("instantAt", conditional(timedFirst, instant, literal(null))),
+					field("dueAt", coalesce(summary.nextRelease.date, summary.nextRelease.instant)),
+					field("instantAt", summary.nextRelease.instant),
 					field("entityName", column(parent, "name")),
 					field(
 						"occurrence",
 						concat(
 							column(parent, "id"),
 							literal(":"),
-							castText(
-								conditional(
-									timedFirst,
-									summaryValue(library.link, "nextAiringAt"),
-									summaryValue(library.link, "nextAiringDate"),
-								),
-							),
+							castText(coalesce(stored("instant"), stored("date"))),
 						),
 					),
 				],

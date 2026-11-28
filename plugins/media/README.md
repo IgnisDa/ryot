@@ -170,7 +170,7 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
 - `upcoming-recipes.ts` feeds the home Upcoming rail from four sources: unwatched regular show and
   podcast episodes of in-progress, caught-up or monitored titles; anime airings after the latest
   watched episode for in-progress or monitored anime; and monitored, incomplete flat releases
-  (anime premieres included). States come from the stored library summary. Dates use server-local today through the typed `daysAhead` argument in the account reporting
+  (anime premieres included). States come from the library summary. Dates use server-local today through the typed `daysAhead` argument in the account reporting
   timezone; anime airings use that civil-midnight instant window, excluding the
   provider's UTC-midnight premiere entry that the release source already lists. Undated items
   never appear, and stored dates are shown without waiting on provider freshness. Each source
@@ -225,7 +225,7 @@ the user's linked titles and their episodes:
   state has had no activity for 7 or 14 days. The occurrence includes the latest activity, so new
   activity starts a new period. Both require a validated Pro key.
 - `show-episodes-available` and `podcast-episodes-available` emit `media.episodes-available` when the
-  stored next airing of an unmonitored caught-up series arrives; monitored series already receive
+  stored next release of an unmonitored caught-up series arrives; monitored series already receive
   `media.released`. Monitoring is never enabled implicitly.
 
 ## Images And Providers
@@ -771,22 +771,15 @@ the completions to change, one contribution per consumption event, the library s
 `in-media-library` link, and the fold's value.
 
 The library summary holds the lifecycle state, release date and latest activity, and for a Show or
-Podcast its next airing, its aired, upcoming, completed and in-progress regular-episode counts, and
-its next-up episode. Show and Podcast card presentations read the state and counts from it, and
-lifecycle lists read the next-up episode, only while the link's projection status is `ready`. A
-write leaves the summary `pending` with its last output until its fold writes, and a failed fold
-leaves it `failed`, so while the summary is pending, failed or missing they are computed live. An airing changes them without a fold, so once the summary's next airing passes, the
-aired and upcoming counts and the next-up episode are computed live. The completed and in-progress
-counts change only when an episode the user has progress on airs, so they stay stored until the
-summary's next tracked airing passes. Each stores the earliest airtime and the earliest date of an
-episode without one among the upcoming regular episodes, or those with progress, and passes once
-either arrives by the rule that decides whether an episode has aired. So does the state, except that a `caught_up` title turns
-`in_progress` when an episode without progress airs: once the summary's next airing passes, a stored
-`caught_up` reads as `in_progress`.
-Titles outside the library, and library titles whose stored state and counts do not apply, compute
-those live only when the user has an event the live computation reads: one in the title's session,
-or a progress or completion of one of its aired regular episodes. Otherwise they present as untracked
-with no completed or in-progress episodes. Outside the library, aired and upcoming counts are live.
+Podcast its aired, upcoming, completed and in-progress regular-episode counts, its next-up episode and
+its next release: the release instant, else the date, of its first upcoming regular episode in
+release order. The fold returns that release as its refresh time, so the kernel refolds the title
+when it arrives and, for example, a `caught_up` summary turns `in_progress` with the new episode
+counted. `librarySummary` in `shared/library-summary.ts` is the one reader: lifecycle lists, card
+presentations and Upcoming read the stored summary once the title has folded, including while it is
+`pending` or `failed`, and compute the summary the fold would store from the user's history and the
+title's episodes only for a title that has never folded or is outside the library. Browse and the
+signal schedules read only the stored summary, since a signal schedule cannot read the clock.
 
 The fold replays history in order, resetting coverage at each explicit or automatic cycle boundary. A
 new Show or Podcast completion requires a terminal production status (`Ended`, `Canceled`, or
@@ -1020,7 +1013,7 @@ and lifecycle status remain separate. Episodic activity never replaces missing f
 provider runtime. Library rating and completion columns read live source/canonical rows; browse
 `userRating` (a `rating` browse field), library summaries, card presentations, and analytics share
 `plugins/media/shared/user-rating.ts` for the review rating value and its per-entity average; relationship
-projections cache only lifecycle fields, episode counts and the next-up episode. Pending folds yield null completion totals/dates. The last
+projections cache only lifecycle fields, episode counts, the next-up episode and the next release. Pending folds yield null completion totals/dates. The last
 completion timestamp uses only timed evidence; date-only completions do not invent an instant.
 
 Domain recipes author static documents. Factories configure schema references and plugin identity;

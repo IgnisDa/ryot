@@ -34,7 +34,7 @@ import {
 	type Table,
 } from "./entity-selections";
 import { episodicEpisodeSelection } from "./episodic-recipes";
-import { libraryMembershipJoin, libraryNextUpEpisodeId, librarySummary } from "./library-summary";
+import { joinedLibraryLink, libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	type EpisodicKindConfig,
 	EpisodicLifecycleStateSchema,
@@ -77,8 +77,8 @@ const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly str
 
 /**
  * In-library shows or podcasts in one of `states`, most recent lifecycle activity first, each with
- * its next episode from `libraryNextUpEpisodeId`. `latestActivityAt` is the latest aggregate
- * lifecycle signal, so for `backlog` it is the backlog event itself.
+ * its library summary's next episode. `latestActivityAt` is the latest aggregate lifecycle signal,
+ * so for `backlog` it is the backlog event itself.
  */
 export const episodicByLifecycleStateRecipe = (input: {
 	readonly config: EpisodicKindConfig;
@@ -122,7 +122,11 @@ export const episodicByLifecycleStateRecipe = (input: {
 	});
 	const entity = table("entity", "entity");
 	const library = libraryMembershipJoin(entity, "listLibrary");
-	const summary = librarySummary(library.membership);
+	const summary = librarySummary(joinedLibraryLink(library.membership), {
+		entity,
+		kind: input.config,
+		alias: "listSummary",
+	});
 	const nextEpisode = table("entity", "listNextUp");
 	return defineRecipe({
 		parameters: inputParameters.schema,
@@ -160,10 +164,7 @@ export const episodicByLifecycleStateRecipe = (input: {
 					nextUp: selectedInclude(nextEpisode, {
 						limit: 1,
 						orderBy: [ascending(column(nextEpisode, "id"))],
-						where: eq(
-							column(nextEpisode, "id"),
-							libraryNextUpEpisodeId(input.config, library.membership, entity, "listNextUp"),
-						),
+						where: eq(column(nextEpisode, "id"), summary.nextUpEpisodeId),
 						selection: {
 							...episodicEpisodeSelection(
 								nextEpisode,
@@ -227,7 +228,11 @@ export const flatByLifecycleStateRecipe = (input: {
 	});
 	const entity = table("entity", "entity");
 	const library = libraryMembershipJoin(entity, "listLibrary");
-	const summary = librarySummary(library.membership);
+	const summary = librarySummary(joinedLibraryLink(library.membership), {
+		entity,
+		kind: "flat",
+		alias: "listSummary",
+	});
 	const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
 	return defineRecipe({
 		parameters: inputParameters.schema,

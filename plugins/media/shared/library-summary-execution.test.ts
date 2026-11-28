@@ -45,10 +45,11 @@ import { showRecipes } from "./show-recipes";
 const kinds = { show: showEpisodicKindConfig, podcast: podcastEpisodicKindConfig };
 type Kind = keyof typeof kinds;
 
-/** The state and counts computed live from history and episodes, as presentations did. */
+/** The state and counts computed live from history and episodes, as the fold computes them. */
 const liveRecipe = (config: EpisodicKindConfig, ids: readonly string[]) => {
 	const entity = table("entity", "entity");
-	const counts = episodicEpisodeCounts(config, entity, "live");
+	const lifecycle = episodicLifecycleExpressions(config, entity, "live");
+	const counts = episodicEpisodeCounts(config, entity, "live", lifecycle.aired);
 	return defineRecipe({
 		queries: {
 			items: selectedRows(entity, {
@@ -60,13 +61,10 @@ const liveRecipe = (config: EpisodicKindConfig, ids: readonly string[]) => {
 				selection: {
 					id: selectedField(column(entity, "id"), Schema.String),
 					airedEpisodes: selectedField(counts.airedEpisodes, Schema.Finite),
+					state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
 					watchedEpisodes: selectedField(counts.watchedEpisodes, Schema.Finite),
 					upcomingEpisodes: selectedField(counts.upcomingEpisodes, Schema.Finite),
 					inProgressEpisodes: selectedField(counts.inProgressEpisodes, Schema.Finite),
-					state: selectedField(
-						episodicLifecycleExpressions(config, entity, "live").state,
-						EpisodicLifecycleStateSchema,
-					),
 				},
 			}),
 		},
@@ -106,7 +104,7 @@ const presented = (user: MediaUser, kind: Kind, ids: readonly string[]) =>
 const live = (user: MediaUser, kind: Kind, ids: readonly string[]) =>
 	Effect.map(executeRecipe(user, liveRecipe(kinds[kind], ids), {}), ({ items }) => items.items);
 
-/** Asserts the presentation equals the live computation and returns it. */
+/** Asserts the presentation equals the live computation, as it does after a fold, and returns it. */
 const expectLive = (user: MediaUser, kind: Kind, ids: readonly string[]) =>
 	Effect.gen(function* () {
 		const shown = yield* presented(user, kind, ids);
@@ -187,7 +185,7 @@ const hours = (count: number) => new Date(Date.now() + count * 3_600_000);
 
 layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true })((test) => {
 	test.effect(
-		"presents stored show counts and next episodes equal to live ones through history, new episodes and airings",
+		"presents stored show counts and next episodes equal to live ones after each fold through history, new episodes and releases",
 		() =>
 			Effect.gen(function* () {
 				yield* insertEpisodicTitle("series", "show", [
@@ -268,6 +266,7 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 				});
 
 				yield* moveAiring({ days: -1, user: "owner", parentId: "series", entityId: "series-e4" });
+				yield* fold;
 				expect(yield* expectLive("owner", "show", ["series"])).toEqual([
 					{
 						id: "series",
@@ -283,7 +282,7 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 	);
 
 	test.effect(
-		"presents stored podcast counts and next episodes equal to live ones as an episode airs",
+		"presents stored podcast counts and next episodes equal to live ones once the fold an airing refreshes runs",
 		() =>
 			Effect.gen(function* () {
 				yield* insertEpisodicTitle("cast", "podcast", [
@@ -308,6 +307,11 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 					},
 				]);
 				yield* moveAiring({ days: 0, user: "owner", parentId: "cast", entityId: "cast-e3" });
+				expect((yield* presented("owner", "podcast", ["cast"]))[0]).toMatchObject({
+					airedEpisodes: 2,
+					upcomingEpisodes: 1,
+				});
+				yield* foldLibrarySummary("owner", "cast", "podcast");
 				expect(yield* expectNextUpLive("owner", "podcast", "cast")).toBe("cast-e2");
 				expect((yield* expectLive("owner", "podcast", ["cast"]))[0]).toMatchObject({
 					airedEpisodes: 3,
@@ -320,55 +324,57 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 			}),
 	);
 
-	test.effect("presents live progress once an episode the user watched before it aired airs", () =>
-		Effect.gen(function* () {
-			yield* insertEpisodicTitle("early", "show", [
-				{ days: -5, id: "early-e1" },
-				{ days: 3, id: "early-e2" },
-				{ days: 9, id: "early-e3" },
-			]);
-			yield* linkToLibrary("owner", "in-media-library", ["early"]);
-			yield* insertEvents(watch("complete", "early", ["early-e1", "early-e2"], -4));
-			yield* foldLibrarySummary("owner", "early", "show");
-			expect(yield* expectLive("owner", "show", ["early"])).toEqual([
-				{
-					id: "early",
+	test.effect(
+		"counts an episode the user watched before it aired once the fold its release refreshes runs",
+		() =>
+			Effect.gen(function* () {
+				yield* insertEpisodicTitle("early", "show", [
+					{ days: -5, id: "early-e1" },
+					{ days: 3, id: "early-e2" },
+					{ days: 9, id: "early-e3" },
+				]);
+				yield* linkToLibrary("owner", "in-media-library", ["early"]);
+				yield* insertEvents(watch("complete", "early", ["early-e1", "early-e2"], -4));
+				yield* foldLibrarySummary("owner", "early", "show");
+				expect(yield* expectLive("owner", "show", ["early"])).toEqual([
+					{
+						id: "early",
+						airedEpisodes: 1,
+						state: "caught_up",
+						watchedEpisodes: 1,
+						upcomingEpisodes: 2,
+						inProgressEpisodes: 0,
+					},
+				]);
+				yield* moveAiring({ days: -1, user: "owner", parentId: "early", entityId: "early-e2" });
+				expect((yield* presented("owner", "show", ["early"]))[0]).toMatchObject({
 					airedEpisodes: 1,
-					state: "caught_up",
 					watchedEpisodes: 1,
-					upcomingEpisodes: 2,
-					inProgressEpisodes: 0,
-				},
-			]);
-			yield* moveAiring({
-				days: -1,
-				tracked: true,
-				user: "owner",
-				parentId: "early",
-				entityId: "early-e2",
-			});
-			expect(yield* expectLive("owner", "show", ["early"])).toEqual([
-				{
-					id: "early",
-					airedEpisodes: 2,
-					state: "caught_up",
-					watchedEpisodes: 2,
-					upcomingEpisodes: 1,
-					inProgressEpisodes: 0,
-				},
-			]);
-		}),
+				});
+				yield* foldLibrarySummary("owner", "early", "show");
+				expect(yield* expectLive("owner", "show", ["early"])).toEqual([
+					{
+						id: "early",
+						airedEpisodes: 2,
+						state: "caught_up",
+						watchedEpisodes: 2,
+						upcomingEpisodes: 1,
+						inProgressEpisodes: 0,
+					},
+				]);
+			}),
 	);
 
 	test.effect(
-		"presents stored counts equal to live ones while a timed episode dated today has not aired, and live ones once it airs",
+		"stores the earliest timed release as the next one and keeps a caught-up summary until the fold that release refreshes shows the new episode",
 		() =>
 			Effect.gen(function* () {
 				const airingAt = hours(2);
+				const laterAt = hours(3);
 				yield* insertEpisodicTitle("tonight", "show", [
 					{ days: -5, id: "tonight-e1" },
 					{ days: 0, airingAt, id: "tonight-e2" },
-					{ days: 0, id: "tonight-e3", airingAt: hours(3) },
+					{ days: 0, id: "tonight-e3", airingAt: laterAt },
 					{ days: 7, id: "tonight-e4" },
 				]);
 				yield* linkToLibrary("owner", "in-media-library", ["tonight"]);
@@ -376,19 +382,18 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 				expect(yield* foldLibrarySummary("owner", "tonight", "show")).toMatchObject({
 					airedEpisodes: 1,
 					upcomingEpisodes: 3,
-					nextAiringAt: airingAt.toISOString(),
-					nextAiringDate: utcDay(7).toISOString(),
+					lifecycleState: "caught_up",
+					nextRelease: { instant: airingAt.toISOString() },
 				});
-				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
-					{
-						id: "tonight",
-						airedEpisodes: 1,
-						state: "caught_up",
-						watchedEpisodes: 1,
-						upcomingEpisodes: 3,
-						inProgressEpisodes: 0,
-					},
-				]);
+				const caughtUp = {
+					id: "tonight",
+					airedEpisodes: 1,
+					watchedEpisodes: 1,
+					upcomingEpisodes: 3,
+					inProgressEpisodes: 0,
+					state: "caught_up" as const,
+				};
+				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([caughtUp]);
 				expect(yield* expectNextUpLive("owner", "show", "tonight")).toBeNull();
 
 				yield* moveAiring({
@@ -397,40 +402,17 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 					airingAt: hours(-1),
 					entityId: "tonight-e2",
 				});
-				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
-					{
-						id: "tonight",
-						airedEpisodes: 2,
-						watchedEpisodes: 1,
-						upcomingEpisodes: 2,
-						state: "in_progress",
-						inProgressEpisodes: 0,
-					},
-				]);
-				expect(yield* expectNextUpLive("owner", "show", "tonight")).toBe("tonight-e2");
-
-				yield* moveAiring({
-					tracked: true,
-					user: "owner",
-					parentId: "tonight",
-					airingAt: hours(-1),
-					entityId: "tonight-e3",
+				expect(yield* presented("owner", "show", ["tonight"])).toEqual([caughtUp]);
+				expect(yield* listedNextUp("owner", "show", "tonight")).toBeNull();
+				expect(yield* foldLibrarySummary("owner", "tonight", "show")).toMatchObject({
+					lifecycleState: "in_progress",
+					nextRelease: { instant: laterAt.toISOString() },
 				});
-				expect(yield* expectLive("owner", "show", ["tonight"])).toEqual([
-					{
-						id: "tonight",
-						airedEpisodes: 3,
-						watchedEpisodes: 2,
-						upcomingEpisodes: 1,
-						state: "in_progress",
-						inProgressEpisodes: 0,
-					},
-				]);
 			}),
 	);
 
 	test.effect(
-		"presents live state, counts and next episodes while a stale summary is pending or failed",
+		"presents the stored summary while it is pending or failed, and the live one until a title first folds",
 		() =>
 			Effect.gen(function* () {
 				yield* insertEpisodicTitle("queued", "show", [
@@ -440,25 +422,25 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 				]);
 				yield* linkToLibrary("owner", "in-media-library", ["queued"]);
 				yield* insertEvents(watch("complete", "queued", ["queued-e1"], -8));
+				expect(yield* expectLive("owner", "show", ["queued"])).toEqual([
+					{
+						id: "queued",
+						airedEpisodes: 3,
+						watchedEpisodes: 1,
+						upcomingEpisodes: 0,
+						state: "in_progress",
+						inProgressEpisodes: 0,
+					},
+				]);
+				expect(yield* expectNextUpLive("owner", "show", "queued")).toBe("queued-e2");
 				yield* foldLibrarySummary("owner", "queued", "show");
 				yield* insertEvents(watch("complete", "queued", ["queued-e2"], -5));
-				expect((yield* presented("owner", "show", ["queued"]))[0]).toMatchObject({
-					watchedEpisodes: 1,
-				});
-				expect(yield* listedNextUp("owner", "show", "queued")).toBe("queued-e2");
 				for (const status of ["pending", "failed"] as const) {
 					yield* markLibrarySummary("owner", "queued", status);
-					expect(yield* expectLive("owner", "show", ["queued"])).toEqual([
-						{
-							id: "queued",
-							airedEpisodes: 3,
-							watchedEpisodes: 2,
-							upcomingEpisodes: 0,
-							state: "in_progress",
-							inProgressEpisodes: 0,
-						},
-					]);
-					expect(yield* expectNextUpLive("owner", "show", "queued")).toBe("queued-e3");
+					expect((yield* presented("owner", "show", ["queued"]))[0]).toMatchObject({
+						watchedEpisodes: 1,
+					});
+					expect(yield* listedNextUp("owner", "show", "queued")).toBe("queued-e2");
 				}
 			}),
 	);

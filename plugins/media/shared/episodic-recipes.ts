@@ -15,7 +15,6 @@ import {
 	eq,
 	eventOrderDescending,
 	exists,
-	first,
 	groupAscending,
 	groupDescending,
 	gt,
@@ -63,7 +62,7 @@ import {
 	type Table,
 } from "./entity-selections";
 import { historyCategory, mediaEventHistoryRecipe } from "./history-recipes";
-import { currentLibrarySummaryValue, libraryProgressSummaryValue } from "./library-summary";
+import { librarySummary, ownLibraryLink } from "./library-summary";
 import {
 	entitySchemaIs,
 	episodeDisplayStateExpression,
@@ -74,7 +73,6 @@ import {
 	type EpisodicEpisodeCounts,
 	episodicEpisodeCounts,
 	episodicEpisodeQuery,
-	episodicHistoryExists,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
 	EpisodicLifecycleStateSchema,
@@ -841,7 +839,12 @@ export const mediaEpisodicRecipes = <
 							Schema.NullOr(Schema.Finite),
 						),
 						...episodicCountSelection(
-							episodicEpisodeCounts(config.config, entity, `${config.alias}Summary`),
+							episodicEpisodeCounts(
+								config.config,
+								entity,
+								`${config.alias}Summary`,
+								lifecycle.aired,
+							),
 						),
 						ownedEpisodes: selectedField(
 							ownedEpisodeCount(config.config, entity, `${config.alias}Owned`),
@@ -1084,58 +1087,15 @@ export const mediaEpisodicRecipes = <
 		});
 	};
 	const presentationEntity = table("entity", "entity");
-	// The kernel joins a row's correlated aggregates laterally, computing them for every row, so each
-	// live fallback is a scalar subquery over its own alias of the row, run only where it is read.
-	const presentationLive = (
-		name: string,
-		expression: (row: Table) => ScalarExpression,
-	): ScalarExpression => {
-		const row = table("entity", `${config.alias}Presentation${name}`);
-		return first(row, {
-			select: expression(row),
-			orderBy: [ascending(column(row, "id"))],
-			where: eq(column(row, "id"), column(presentationEntity, "id")),
-		});
-	};
-	const presentationCount = (name: keyof EpisodicEpisodeCounts) =>
-		presentationLive(
-			name,
-			(row) => episodicEpisodeCounts(config.config, row, `${config.alias}Presentation`)[name],
-		);
-	const presentationHistory = episodicHistoryExists(
-		config.config,
-		presentationEntity,
-		`${config.alias}PresentationHistory`,
-	);
-	const storedPresentationCount = (name: "airedEpisodes" | "upcomingEpisodes") =>
-		currentLibrarySummaryValue(presentationEntity, name);
-	const ownPresentationCount = (name: "watchedEpisodes" | "inProgressEpisodes") =>
-		coalesce(
-			libraryProgressSummaryValue(presentationEntity, name),
-			conditional(presentationHistory, presentationCount(name), literal(0)),
-		);
+	const presentationSummary = librarySummary(ownLibraryLink(presentationEntity), {
+		kind: config.config,
+		entity: presentationEntity,
+		alias: `${config.alias}Presentation`,
+	});
 	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
 			...entityIdentitySelection(presentationEntity),
-			state: selectedField(
-				coalesce(
-					libraryProgressSummaryValue(presentationEntity, "lifecycleState"),
-					conditional(
-						presentationHistory,
-						presentationLive(
-							"State",
-							(row) =>
-								episodicLifecycleExpressions(
-									config.config,
-									row,
-									`${config.alias}PresentationLifecycle`,
-								).state,
-						),
-						literal("untracked"),
-					),
-				),
-				EpisodicLifecycleStateSchema,
-			),
+			state: selectedField(presentationSummary.lifecycleState, EpisodicLifecycleStateSchema),
 			...mediaPresentationImageSelection(presentationEntity),
 			publishDate: selectedField(
 				propertyText(presentationEntity, "publishDate"),
@@ -1149,18 +1109,7 @@ export const mediaEpisodicRecipes = <
 				propertyText(presentationEntity, "productionStatus"),
 				Schema.NullOr(Schema.String),
 			),
-			...episodicCountSelection({
-				watchedEpisodes: ownPresentationCount("watchedEpisodes"),
-				inProgressEpisodes: ownPresentationCount("inProgressEpisodes"),
-				airedEpisodes: coalesce(
-					storedPresentationCount("airedEpisodes"),
-					presentationCount("airedEpisodes"),
-				),
-				upcomingEpisodes: coalesce(
-					storedPresentationCount("upcomingEpisodes"),
-					presentationCount("upcomingEpisodes"),
-				),
-			}),
+			...episodicCountSelection(presentationSummary),
 			...config.presentationFields(presentationEntity),
 		},
 	});

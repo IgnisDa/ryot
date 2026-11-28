@@ -234,21 +234,19 @@ const seedSchedules = Effect.gen(function* () {
 	yield* linkToLibrary("other", "media-monitoring", ["foreign-show", "foreign-movie"]);
 	yield* storeLibrarySummary("owner", "quiet-show", {
 		lifecycleState: "caught_up",
-		nextAiringDate: utcDay(1).toISOString(),
+		nextRelease: { date: utcDay(1).toISOString() },
 	});
 	yield* storeLibrarySummary("owner", "late-show", {
 		lifecycleState: "caught_up",
-		nextAiringAt: utcDay(4).toISOString(),
-		nextAiringDate: utcDay(2).toISOString(),
+		nextRelease: { date: utcDay(2).toISOString() },
 	});
 	yield* storeLibrarySummary("owner", "tonight-show", {
 		lifecycleState: "caught_up",
-		nextAiringAt: utcDay(4).toISOString(),
-		nextAiringDate: utcDay(6).toISOString(),
+		nextRelease: { instant: utcDay(4).toISOString() },
 	});
 	yield* storeLibrarySummary("owner", "watched-show", {
 		lifecycleState: "caught_up",
-		nextAiringAt: utcDay(2.5).toISOString(),
+		nextRelease: { instant: utcDay(2.5).toISOString() },
 	});
 	yield* storeLibrarySummary("owner", "stalled-movie", {
 		lifecycleState: "in_progress",

@@ -52,7 +52,12 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
-import { libraryMembershipJoin, librarySummary } from "./library-summary";
+import {
+	joinedLibraryLink,
+	libraryMembershipJoin,
+	librarySummary,
+	type LibrarySummaryKind,
+} from "./library-summary";
 import {
 	episodeDisplayStateExpression,
 	episodeReleaseCandidates,
@@ -108,12 +113,16 @@ const WINDOW_EPISODE_LIMIT = 100;
 const WINDOW_TITLE_LIMIT = 1000;
 const inDateWindow = (date: ScalarExpression) =>
 	and(gte(castDate(date), reportingToday), lte(castDate(date), lastDay));
-const followed = (entity: Table, alias: string) => {
+const followed = (entity: Table, alias: string, kind: LibrarySummaryKind) => {
 	const library = libraryMembershipJoin(entity, `${alias}Library`);
 	return {
 		join: library.join,
-		lifecycleState: librarySummary(library.membership).lifecycleState,
 		monitored: libraryLinkExists(entity, `${alias}Monitoring`, "media-monitoring"),
+		lifecycleState: librarySummary(joinedLibraryLink(library.membership), {
+			kind,
+			entity,
+			alias: `${alias}Summary`,
+		}).lifecycleState,
 	};
 };
 
@@ -121,7 +130,7 @@ const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 	const alias = `upcoming${config.kind}`;
 	const parent = table("entity", alias);
 	const episode = table("entity", `${alias}Episode`);
-	const follow = followed(parent, alias);
+	const follow = followed(parent, alias, config);
 	const scope = episodicEpisodeQuery(config, parent, episode, `${alias}Episode`, "any");
 	return {
 		parent,
@@ -269,7 +278,7 @@ const animeWindow = (
 
 const animeTitles = (input: UpcomingInput) => {
 	const anime = table("entity", "upcomingAnime");
-	const follow = followed(anime, "upcomingAnime");
+	const follow = followed(anime, "upcomingAnime", "flat");
 	const entry = jsonElement();
 	const airingAt = castDate(jsonPath(entry, "airingAt"));
 	const inWindow = animeWindow(anime, entry, airingAt, input);
@@ -321,7 +330,7 @@ const animeTitles = (input: UpcomingInput) => {
 
 const releaseTitles = (input: UpcomingInput) => {
 	const entity = table("entity", "upcomingRelease");
-	const follow = followed(entity, "upcomingRelease");
+	const follow = followed(entity, "upcomingRelease", "flat");
 	const date = occursAt(entity);
 	return selectedRows(entity, {
 		limit: TITLE_LIMIT,

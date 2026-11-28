@@ -410,24 +410,19 @@ export const foldLibrarySummary = (user: MediaUser, entityId: string, slug: stri
 /**
  * Moves the earliest upcoming date-only episode of `parentId` to `days` from today, or the earliest
  * timed one to `airingAt`, without folding, which is how time passing looks to a reader: the
- * summary's stored next airing date or instant, which the fold took from that episode, moves with it,
- * as does its next tracked airing when the user has progress on it.
+ * summary's stored next release, which the fold took from that episode, moves with it.
  */
 export const moveAiring = (
 	input: ({ readonly days: number } | { readonly airingAt: Date }) & {
 		readonly user: MediaUser;
 		readonly parentId: string;
 		readonly entityId: string;
-		readonly tracked?: boolean;
 	},
 ) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const timed = "airingAt" in input;
 		const at = `'${(timed ? input.airingAt : utcDay(input.days)).toISOString()}'`;
-		const stored = (input.tracked ? ["nextAiring", "nextTrackedAiring"] : ["nextAiring"])
-			.map((name) => `'${name}${timed ? "At" : "Date"}', ${at}::text`)
-			.join(", ");
 		const target = linkId(input.user, input.parentId, "in-media-library");
 		yield* session.run((db) =>
 			Effect.all([
@@ -435,7 +430,7 @@ export const moveAiring = (
 					`update entity set properties = jsonb_set(properties, '{${timed ? "airingAt" : "publishDate"}}', to_jsonb(${at}::text)) where id = '${input.entityId}'`,
 				),
 				db.execute(
-					`update derived_value set value = value || jsonb_build_object(${stored}) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
+					`update derived_value set value = value || jsonb_build_object('nextRelease', jsonb_build_object('${timed ? "instant" : "date"}', ${at}::text)) where user_id = '${input.user}' and kind = 'relationship' and target_id = '${target}'`,
 				),
 			]),
 		);

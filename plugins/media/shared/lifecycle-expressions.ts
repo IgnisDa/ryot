@@ -479,18 +479,9 @@ export const episodeReleaseOrder = (episode: TableReference) => {
 	] as const;
 };
 
-type Release = { readonly date: ScalarExpression; readonly instant: ScalarExpression };
-
 const instantHasArrived = (instant: ScalarExpression) => lte(instant, now());
 
 const dateHasArrived = (date: ScalarExpression) => lte(date, reportingToday);
-
-/**
- * Whether a release in a set has arrived, given the set's earliest instant and the earliest date
- * among its releases without an instant.
- */
-export const releaseHasArrived = (release: Release) =>
-	or(instantHasArrived(release.instant), dateHasArrived(release.date));
 
 /**
  * `occursAt` holds an episode's release instant when it has one and its publish date otherwise, so
@@ -653,6 +644,8 @@ export const episodicEpisodeQuery = (
  * A parent's regular episodes of one airing. Its measures share one query set, so they fuse into one
  * pass over the episodes.
  */
+export type EpisodicEpisodeWalk = ReturnType<typeof episodicEpisodeWalk>;
+
 export const episodicEpisodeWalk = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
@@ -722,7 +715,8 @@ const latestAggregateSignalExpressions = (
  * The parent's state from its latest aggregate signal: the parent's own state when that signal is a
  * parent event, otherwise `caught_up` once current-cycle coverage over the required (aired) episodes
  * is complete and `in_progress` before. A season with nothing aired holds no required episode, so it
- * neither satisfies nor blocks coverage; empty coverage is never complete.
+ * neither satisfies nor blocks coverage; empty coverage is never complete. `aired` is its walk over the
+ * required episodes, which `episodicEpisodeCounts` can share.
  */
 export const episodicLifecycleExpressions = (
 	config: EpisodicKindConfig,
@@ -749,7 +743,7 @@ export const episodicLifecycleExpressions = (
 			),
 		),
 	);
-	return { state, latestSignal };
+	return { state, latestSignal, aired: required };
 };
 
 const episodeStateFromLatest = (latestEventSchemaSlug: ScalarExpression) =>
@@ -838,16 +832,16 @@ export type EpisodicEpisodeCounts = Readonly<
 >;
 
 /**
- * A parent's aired and upcoming regular episodes, and the aired ones watched or in progress. The aired
- * walk is `episodicLifecycleExpressions`' coverage walk under the same alias, so they fuse.
+ * A parent's aired and upcoming regular episodes, and the aired ones watched or in progress, counted on
+ * `aired`, a walk over the aired regular episodes such as `episodicLifecycleExpressions`' own.
  */
 export const episodicEpisodeCounts = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
 	alias: string,
+	aired: EpisodicEpisodeWalk,
 	newCycle?: Predicate,
 ): EpisodicEpisodeCounts => {
-	const aired = episodicEpisodeWalk(config, parent, `${alias}Aired`, "aired");
 	const state = episodeDisplayStateExpression(
 		aired.episode,
 		parent,
@@ -863,40 +857,23 @@ export const episodicEpisodeCounts = (
 };
 
 /**
- * Whether the user has an event `episodicLifecycleExpressions` or the watched and in-progress
- * `episodicEpisodeCounts` read for `parent`: one in its session, or a progress or completion of one
- * of its aired regular episodes. Without one, its state is untracked and both counts are zero.
+ * The release of a parent's first unaired regular episode in `episodeReleaseOrder`: its instant when it
+ * has one, and otherwise its date. Both are null when no regular episode is unaired.
  */
-export const episodicHistoryExists = (
+export const episodicNextRelease = (
 	config: EpisodicKindConfig,
 	parent: TableReference,
 	alias: string,
 ) => {
-	const sessionEvent = table("event", `${alias}Session`);
 	const episode = table("entity", `${alias}Episode`);
-	const episodeEvent = table("event", `${alias}EpisodeEvent`);
-	const aired = episodicEpisodeQuery(config, parent, episode, `${alias}Episode`);
-	return or(
-		exists(sessionEvent, {
-			where: and(
-				eq(column(sessionEvent, "sessionEntityId"), column(parent, "id")),
-				sameSchemaOwner(sessionEvent, "eventSchemaPluginId", parent),
-			),
-		}),
-		exists(episode, {
-			joins: aired.joins,
-			where: and(
-				aired.where,
-				exists(episodeEvent, {
-					where: and(
-						eq(column(episodeEvent, "entityId"), column(episode, "id")),
-						sameSchemaOwner(episodeEvent, "eventSchemaPluginId", episode),
-						eventSlugIsOneOf(episodeEvent, lifecycleEventSlugs),
-					),
-				}),
-			),
-		}),
-	);
+	const { joins, where } = episodicEpisodeQuery(config, parent, episode, alias, "upcoming");
+	const release = episodeReleaseTime(episode);
+	const next = (select: ScalarExpression) =>
+		first(episode, { joins, where, select, orderBy: episodeReleaseOrder(episode) });
+	return {
+		instant: next(release.instant),
+		date: next(conditional(isNull(release.instant), release.date, literal(null))),
+	};
 };
 
 /**
