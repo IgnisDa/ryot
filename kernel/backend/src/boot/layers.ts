@@ -62,10 +62,6 @@ import {
 	ProviderEntitySearchServiceLive,
 } from "#modules/entities/providers/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import {
-	EntitiesServiceMigrationLive,
-	EntitiesServiceRuntimeLive,
-} from "#modules/entities/service-layer";
 import { EventMutationsLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -255,7 +251,6 @@ const ServicesLive = Layer.mergeAll(
 	BackupServicesLive,
 	ChangeSetsLive,
 	CollectionsServiceLive,
-	EntitiesServiceRuntimeLive,
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
@@ -411,7 +406,6 @@ const RuntimeLive = Layer.mergeAll(
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
 	SavedViewsServiceLive,
-	EntitiesServiceMigrationLive,
 ).pipe(Layer.provide(ContentLifecycleRepositoriesLive));
 
 export const SchemaMigrationLive = MigrationsComplete.layer;
