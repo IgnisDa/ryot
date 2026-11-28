@@ -55,7 +55,7 @@ commit did not write: `skipped` with the policy's `policy-rejected` reason, or `
 coalesced event's outcome is recorded the same way after its commit. A record or run that fails
 otherwise records its operations `unsuccessful` with its failure stage's code, and a generic record
 with a failure records each intent that has neither a result nor an outcome `unsuccessful` with its
-first failure's code.
+first failure's code, in one activity that reads the record's results and outcomes as sets.
 
 Collection memberships commit in the record's change set, built by `CollectionsService`: each names
 the user's collection by trimmed name, created with the record when no collection has that name, a

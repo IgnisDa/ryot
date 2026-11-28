@@ -142,6 +142,8 @@ const chunkFixture = Effect.fnUntraced(function* (
 			projectBatch: () => Effect.succeed(true),
 			registerBatch: () => Effect.succeed(true),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
+			recordedOutcomeIds: (_scope, ids) =>
+				Effect.sync(() => new Set(ids.filter((id) => outcomes.has(id)))),
 			getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
 			recordIssue: (_scope, issue) =>
 				Effect.sync(() => {

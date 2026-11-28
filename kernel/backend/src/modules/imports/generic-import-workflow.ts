@@ -936,28 +936,52 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 					}
 				}
 			}
-			if (
-				failureCode !== null &&
-				(yield* repository.getIngestionRunControl(scope))?.status === "running"
-			) {
+			if (failureCode !== null) {
+				const reason = { key: null, code: failureCode };
 				const candidates = operations.filter((operation) =>
 					genericImportItemIntents(item).some(
 						(intent) => intent.operationId === operation.operationId,
 					),
 				);
-				const committed = yield* keys.importItems({
-					runId: scope.runId,
-					userId: scope.userId,
-					itemIdentities: candidates.map((operation) => operation.itemIdentity),
+				yield* makeActivity({
+					error: ImportRunError,
+					name: `record-unsuccessful-intents-${index}`,
+					execute: database
+						.transaction(
+							Effect.gen(function* () {
+								if ((yield* repository.getIngestionRunControl(scope))?.status !== "running") {
+									return;
+								}
+								const committed = new Set(
+									(yield* keys.importItems({
+										runId: scope.runId,
+										userId: scope.userId,
+										itemIdentities: candidates.map((operation) => operation.itemIdentity),
+									})).map(({ itemIdentity }) => itemIdentity),
+								);
+								const recorded = yield* repository.recordedOutcomeIds(
+									scope,
+									candidates.map((operation) => operation.operationId),
+								);
+								for (const operation of candidates) {
+									if (
+										committed.has(operation.itemIdentity) ||
+										recorded.has(operation.operationId)
+									) {
+										continue;
+									}
+									yield* repository.recordOutcome(scope, {
+										...operation,
+										reason,
+										result: "unsuccessful",
+										inputFingerprint: payload.inputFingerprint,
+									});
+									yield* repository.recordIssue(scope, operationIssue(operation, "error", reason));
+								}
+							}),
+						)
+						.pipe(Effect.mapError(toWorkflowError)),
 				});
-				for (const operation of candidates) {
-					if (
-						!committed.some((value) => value.itemIdentity === operation.itemIdentity) &&
-						!(yield* repository.getOutcome(scope, operation.operationId))
-					) {
-						yield* record(operation, "unsuccessful", { key: null, code: failureCode });
-					}
-				}
 			}
 		}
 		const summary = yield* makeActivity({
