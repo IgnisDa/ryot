@@ -1,7 +1,6 @@
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import type { RuntimeSandboxHostImplementationMap } from "#modules/scripts/host/runtime-host-functions";
-import { DatabaseSession } from "#platform/db/session";
 
 import type { ScriptHostImplementationMaps } from "./host-implementations";
 
@@ -31,9 +30,4 @@ export const unusedSandboxHostImplementations = (
 		getCurrentIntegration: unusedHostCall,
 		invalidateOAuthAccessToken: unusedHostCall,
 	},
-});
-
-/** A session whose host calls run without a caller transaction, for sandboxes with no database. */
-export const detachedHostCallSession = Layer.mock(DatabaseSession)({
-	carry: Effect.succeed(<A, E, R>(work: Effect.Effect<A, E, R>) => work),
 });

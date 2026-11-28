@@ -172,7 +172,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const artifacts = yield* ExecutableArtifacts;
 	const sandbox = yield* SandboxExecutor;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
-	const carry = yield* Effect.flatMap(DatabaseSession, (session) => session.carry);
 	const jobId = yield* CurrentJobId;
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
@@ -224,8 +223,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 						capabilities: inlineCapabilities,
 						// Host calls run on the resident sidecar's fibers, which keep the job that started it.
 						settle: (requests, wait, checkpoint) =>
-							carry(
-								dispatcher.settleInline(
+							dispatcher
+								.settleInline(
 									requests,
 									payload.context,
 									payload.principal,
@@ -234,8 +233,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 									payload.startedAt,
 									wait,
 									checkpoint,
-								),
-							).pipe(Effect.provideService(CurrentJobId, jobId)),
+								)
+								.pipe(Effect.provideService(CurrentJobId, jobId)),
 					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);

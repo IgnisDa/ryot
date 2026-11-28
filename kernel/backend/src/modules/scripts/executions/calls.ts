@@ -43,7 +43,7 @@ type Run = (call: ScriptCall) => Effect.Effect<SandboxExecutionResult>;
 /**
  * Runs a pinned script once on the plain host, with no workflow, journal, or durable host. A run
  * holds one sandbox lease and releases it before returning, so no caller holds a lease while
- * another script waits for one. Host calls run in the caller's database transaction.
+ * another script waits for one.
  */
 export class ScriptCalls extends Context.Service<ScriptCalls, { readonly run: Run }>()(
 	"@ryot-app/kernel-backend/modules/scripts/executions/calls/ScriptCalls",

@@ -83,7 +83,7 @@ idempotent dispatch: durable ownership is not a single-flight guarantee.
 
 `ScriptCalls` is the one executor for scripts that run once: operations, policies, folds, after-hook
 attempts, and bootstrap scripts. It runs a pinned script on the plain host, with no workflow, journal,
-durable host, or workflow reference, and host calls run in the caller's database transaction.
+durable host, or workflow reference, and never inside a database transaction.
 `ScriptExecutionWorkflow` remains only for plugin workflows with steps, HTTP parking, and workflow
 children. Every host read declares a result bound that its producer enforces (see the
 [sandbox limits](../../../../sandbox/README.md#limits)), so the plain host serves all of them; only

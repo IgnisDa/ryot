@@ -34,10 +34,7 @@ import { WorkflowEngineLive } from "#boot/workflow-engine";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
-import {
-	detachedHostCallSession,
-	unusedSandboxHostImplementations,
-} from "#modules/scripts/host/host-implementations.test-support";
+import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {
 	SandboxHostCallScopeLive,
 	SandboxHostConfigLive,
@@ -188,7 +185,6 @@ const makeHeadroomLayer = Layer.provideMerge(
 					Layer.provideMerge(
 						Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations()),
 					),
-					Layer.provide(detachedHostCallSession),
 				),
 			).pipe(
 				Layer.provideMerge(

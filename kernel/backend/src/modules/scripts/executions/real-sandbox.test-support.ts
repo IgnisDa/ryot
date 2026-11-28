@@ -14,10 +14,7 @@ import {
 	makeUserPluginRevision,
 } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
-import {
-	detachedHostCallSession,
-	unusedSandboxHostImplementations,
-} from "#modules/scripts/host/host-implementations.test-support";
+import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {
 	SandboxHostCallScopeLive,
 	SandboxHostConfigLive,
@@ -111,7 +108,6 @@ export const realSandboxLayer = (
 					Layer.provideMerge(
 						Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations()),
 					),
-					Layer.provide(detachedHostCallSession),
 				),
 			).pipe(
 				Layer.provideMerge(
