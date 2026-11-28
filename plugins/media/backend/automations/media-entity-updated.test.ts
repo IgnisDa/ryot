@@ -248,17 +248,54 @@ it("stays silent for initial population and special seasons", () =>
 		),
 	));
 
-it("refreshes library summaries of the population root, including on first population", () =>
+it("refreshes library summaries of an episode's title when a property they read changes, including on first population", () =>
 	Effect.runPromise(
 		Effect.all([
-			execute(input({ after: { entitySchemaSlug: "show-episode" } })),
-			execute(input({ rootPreviouslyPopulated: false })),
+			...["airingAt", "publishDate", "episodeNumber"].map((property) =>
+				execute(
+					input({
+						changedProperties: [property],
+						after: { entitySchemaSlug: "show-episode" },
+						before: { entitySchemaSlug: "show-episode" },
+					}),
+				),
+			),
+			execute(
+				input({
+					rootPreviouslyPopulated: false,
+					changedProperties: ["airingAt"],
+					after: { entitySchemaSlug: "podcast-episode" },
+					before: { entitySchemaSlug: "podcast-episode" },
+				}),
+			),
 		]).pipe(
 			Effect.map((results) => {
-				expect(results.map(({ folds }) => folds)).toEqual([
-					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
-					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
-				]);
+				expect(results.map(({ folds }) => folds)).toEqual(
+					Array.from({ length: 4 }, () => ({
+						mode: "refresh",
+						scope: "all-users",
+						entityIds: [EntityId.make("show-1")],
+					})),
+				);
+			}),
+		),
+	));
+
+it("requests no fold for title updates, which refold through their own content, or episode changes summaries do not read", () =>
+	Effect.runPromise(
+		Effect.all([
+			execute(input({ changedProperties: ["airingAt"] })),
+			execute(input({ rootPreviouslyPopulated: false })),
+			execute(
+				input({
+					changedProperties: ["images"],
+					after: { entitySchemaSlug: "show-episode" },
+					before: { entitySchemaSlug: "show-episode" },
+				}),
+			),
+		]).pipe(
+			Effect.map((results) => {
+				expect(results.map(({ folds }) => folds)).toEqual([undefined, undefined, undefined]);
 			}),
 		),
 	));
@@ -271,14 +308,18 @@ it.effect(
 				category: "change",
 				resource: "entity",
 				operation: "update",
-				changedProperties: [],
+				changedProperties: ["publishDate"],
 				after: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
 				before: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
 			}),
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
 			Effect.map(({ folds, signals }) => {
-				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
+				expect(folds).toEqual({
+					mode: "refresh",
+					scope: "all-users",
+					entityIds: [EntityId.make("show-1")],
+				});
 				expect(signals).toEqual([]);
 			}),
 		),

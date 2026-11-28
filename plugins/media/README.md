@@ -798,12 +798,15 @@ changes do not rewrite past completions. A replay restores an occurrence where i
 cover its frozen inventory, or else at its recorded closing event while its inventory is covered, so
 replaying the fold's own completions changes nothing and a corrected source keeps the completion it
 supports. Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect live coverage without
-creating history. The fold reads changes from outside its own events, such as a new status or
-inventory, because `media-entity-updated` and `media-relationship-sync` return an all-users fold
-request for the library titles they touch. One request holds at most 100 entities, so relationship
-sync batches are capped at 100 items.
+creating history. A content change of a title, such as a new status, replays it for every user, and
+one of an episode replays the titles of the users with events on it. Other users' summaries follow
+episode changes through all-users `refresh` fold requests, which refold without replaying history:
+`media-entity-updated` returns one for an episode's title when the episode's `airingAt`,
+`publishDate` or `episodeNumber` changes, and `media-relationship-sync` one for the titles whose
+container links are created or deleted, since an inventory change alone completes nothing. One
+request holds at most 100 entities, so relationship sync batches are capped at 100 items.
 
-A full replay (a new subject, a revision whose fold changed, a fold request) reads the whole history.
+A full replay (a new subject, a revision whose fold changed, a content change) reads the whole history.
 `backend/fold/incremental.ts` handles a change list without it:
 
 - An append, every changed event created after every existing consumption event, continues each

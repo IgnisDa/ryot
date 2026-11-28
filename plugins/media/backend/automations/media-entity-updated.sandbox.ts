@@ -16,7 +16,6 @@ export const manifest = defineManifest({
 	inputProjection: {
 		entity: {
 			parentEntityProperties: ["seasonNumber"],
-			compareProperties: [{ property: "images", equality: "unordered-array" }],
 			properties: [
 				"productionStatus",
 				"publishYear",
@@ -24,6 +23,12 @@ export const manifest = defineManifest({
 				"chapters",
 				"episodeNumber",
 				"publishDate",
+			],
+			compareProperties: [
+				{ property: "images", equality: "unordered-array" },
+				{ equality: "json", property: "airingAt" },
+				{ equality: "json", property: "publishDate" },
+				{ equality: "json", property: "episodeNumber" },
 			],
 		},
 	},
@@ -43,6 +48,9 @@ const parentMediaSlugs = new Set([
 	"visual-novel",
 ]);
 
+/** Episode properties a title's library summary reads; the kernel refolds a title whose own content changes. */
+const summaryProperties = ["airingAt", "publishDate", "episodeNumber"];
+
 const stringValue = (value: JsonValue | undefined) => (typeof value === "string" ? value : null);
 const numberValue = (value: JsonValue | undefined) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -55,10 +63,16 @@ export default defineAutomation({
 			if (source.resource !== "entity" || source.operation !== "update") {
 				return {};
 			}
-			const folds = yield* libraryTitleFolds(
-				host,
-				new Set([source.population?.scopeEntity.id ?? source.after.id]),
-			);
+			const episode =
+				source.after.entitySchemaSlug === "show-episode" ||
+				source.after.entitySchemaSlug === "podcast-episode";
+			const folds =
+				episode && summaryProperties.some((name) => source.changedProperties.includes(name))
+					? yield* libraryTitleFolds(
+							host,
+							new Set([source.population?.scopeEntity.id ?? source.after.id]),
+						)
+					: {};
 			if (!source.population?.rootPreviouslyPopulated) {
 				return { changes: folds };
 			}
@@ -120,11 +134,7 @@ export default defineAutomation({
 				}
 			}
 
-			if (
-				(after.entitySchemaSlug === "show-episode" ||
-					after.entitySchemaSlug === "podcast-episode") &&
-				!isSpecialSeason(season)
-			) {
+			if (episode && !isSpecialSeason(season)) {
 				const episodeNumber =
 					numberValue(after.properties["episodeNumber"]) ??
 					numberValue(before.properties["episodeNumber"]);

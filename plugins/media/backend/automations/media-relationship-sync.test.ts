@@ -16,6 +16,7 @@ import definition, { manifest } from "./media-relationship-sync.sandbox";
 type Population = typeof AutomationPopulationContext.Encoded;
 
 const input = (overrides: {
+	update?: boolean;
 	isLeader?: boolean;
 	followers?: number;
 	afterCount?: number;
@@ -44,12 +45,8 @@ const input = (overrides: {
 			createdCount: overrides.createdCount ?? 1,
 		},
 	};
-	const item = (id: string, isLeader: boolean) => ({
-		category: "change",
-		operation: "create",
-		resource: "relationship",
-		population: { ...population, batch: { ...population.batch, isLeader } },
-		after: {
+	const item = (id: string, isLeader: boolean) => {
+		const snapshot = {
 			id,
 			properties: {},
 			sourceEntityId: "source-1",
@@ -58,8 +55,16 @@ const input = (overrides: {
 			updatedAt: "2026-07-20T10:00:00.000Z",
 			relationshipSchemaPluginId: "media-owner",
 			relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
-		},
-	});
+		};
+		return {
+			category: "change",
+			resource: "relationship",
+			population: { ...population, batch: { ...population.batch, isLeader } },
+			...(overrides.update
+				? { after: snapshot, before: snapshot, operation: "update", changedProperties: [] }
+				: { after: snapshot, operation: "create" }),
+		};
+	};
 	return automationContext({
 		category: "change",
 		operation: "batch",
@@ -201,16 +206,18 @@ it("stays silent without the leader, on first population, without net changes, a
 		).pipe(Effect.map((signals) => expect(signals).toEqual([[], [], [], [], []]))),
 	));
 
-it("refreshes library summaries of the population root, including on first population", () =>
+it("refreshes library summaries of the population root when links are created, including on first population, and not when they are only updated", () =>
 	Effect.runPromise(
 		Effect.all([
 			execute(input({ followers: 1 })),
 			execute(input({ rootPreviouslyPopulated: false })),
+			execute(input({ update: true, followers: 1 })),
 		]).pipe(
 			Effect.map((results) => {
 				expect(results.map(({ folds }) => folds)).toEqual([
-					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
-					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ mode: "refresh", scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ mode: "refresh", scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					undefined,
 				]);
 			}),
 		),
@@ -245,7 +252,11 @@ it.effect(
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
 			Effect.map(({ folds, signals }) => {
-				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
+				expect(folds).toEqual({
+					mode: "refresh",
+					scope: "all-users",
+					entityIds: [EntityId.make("show-1")],
+				});
 				expect(signals).toEqual([]);
 			}),
 		),

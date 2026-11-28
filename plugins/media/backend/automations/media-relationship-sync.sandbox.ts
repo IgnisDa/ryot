@@ -31,10 +31,13 @@ export default defineAutomation({
 			const folds = yield* libraryTitleFolds(
 				host,
 				new Set(
-					source.items.map(
-						(item) =>
-							item.population?.scopeEntity.id ??
-							(item.operation === "delete" ? item.before : item.after).sourceEntityId,
+					source.items.flatMap((item) =>
+						item.operation === "update"
+							? []
+							: [
+									item.population?.scopeEntity.id ??
+										(item.operation === "delete" ? item.before : item.after).sourceEntityId,
+								],
 					),
 				),
 			);

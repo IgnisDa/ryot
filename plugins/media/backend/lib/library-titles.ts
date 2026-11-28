@@ -89,13 +89,18 @@ export const libraryTitleIds = Effect.fn(function* (
 	return titles;
 });
 
-/** Refolds the library titles of `entityIds` for every user, so their summaries follow provider changes. */
+/**
+ * Refreshes the library summaries of the titles of `entityIds` for every user, without replaying their
+ * history, so the summaries follow provider changes to the episodes they read.
+ */
 export const libraryTitleFolds = Effect.fn(function* (
 	host: Pick<ScriptHost, "executeRyotql">,
 	entityIds: ReadonlySet<string>,
 ) {
 	const titles = [...(yield* libraryTitleIds(host, entityIds))].map((id) => EntityId.make(id));
 	const changes: ChangeSet =
-		titles.length === 0 ? {} : { folds: { mode: "replay", entityIds: titles, scope: "all-users" } };
+		titles.length === 0
+			? {}
+			: { folds: { mode: "refresh", entityIds: titles, scope: "all-users" } };
 	return changes;
 });
