@@ -147,8 +147,8 @@ final draft once more under the catalog lock. Entity policies run before event p
 each saved entity as the entity policies left it. A policy batch stops calling policies once none of
 its items is still active.
 
-The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
-settings patch, source writes (event group capture, then each clear's and merge's account admission,
+The commit transaction applies, in order: the catalog lock, the receipt's `load`, the precondition's
+`check`, the settings patch, source writes (event group capture, then each clear's and merge's account admission,
 locks and state recheck, which a change set with only entity saves skips, then the root entity with
 entity creates and updates as one set, relationships, the events relationship changes record,
 events, baselines), ensures, entity deletes (which fail when an event still references a deleted
@@ -171,10 +171,12 @@ back the commit.
 
 `CommitOptions.precondition` holds `{ check, written }` for writers whose durable state decides
 whether to write. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
-`check` also runs in the events transaction before policies are matched. False commits the check's
-own writes and records an empty result without running policies. When policies ran, `check`
-runs again in the commit transaction after the receipt's `load`, before any source write, so a write a
-concurrent writer superseded records an empty result instead. `written` receives the commit's result
+`check` also runs in the events transaction, after its catalog lock and the receipt's `load`, before
+policies are matched. False commits the check's own writes and records an empty result without
+running policies; a failure other than `DbError` refuses the commit, which writes nothing and fails
+with it (the error type is the precondition's own). When policies ran, `check` runs again in the
+commit transaction the same way, before any source write, so a write a concurrent writer superseded
+records an empty result or is refused instead. `written` receives the commit's result
 after every other write, when the commit wrote anything, so a writer records its own ledger from what
 was planned (a signal's trigger and runs) in the same transaction. Locks taken by `check` (account
 admission first) precede the commit's stream and entity reference locks.
@@ -299,7 +301,7 @@ updates share one entity lifecycle batch, and a change set without relationships
 relationship batch.
 
 Each commit transaction first takes the catalog lock of the change set's user
-(`LifecyclePlanner.lockCatalog`, after the receipt's `load` and the precondition's `check`): the
+(`LifecyclePlanner.lockCatalog`, before the receipt's `load` and the precondition's `check`): the
 ingestion fence, every installed plugin's shared configuration lock, and shared row locks on those
 plugins and installations, held to the transaction's end. The user's installed plugins are then read
 once for the transaction (`DefinitionCatalog.userPlugins` under its `WriteTransaction`), and every

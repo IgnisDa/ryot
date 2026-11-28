@@ -175,9 +175,9 @@ export type ScriptLifecycleCommand = DomainLifecycleCommand & {
  * identity rather than prefixing it with the command's. `queueFolds` queues the folds the commit
  * marks whatever its lane.
  */
-export type CommitOptions = {
+export type CommitOptions<E = never> = {
 	readonly queueFolds?: true;
-	readonly precondition?: CommitPrecondition;
+	readonly precondition?: CommitPrecondition<E>;
 	readonly entities?: { readonly verbatimIdentities: true };
 	readonly relationships?: { readonly verbatimIdentities: true };
 	readonly events?: { readonly independent?: true; readonly verbatimIdentities?: true };
@@ -193,12 +193,13 @@ type Writer =
 
 /**
  * Durable state the commit consults: `check` runs before preparation and again in the commit
- * transaction, each time given that transaction's `WriteTransaction`, where false records an empty
- * result; `written` runs after every write of a commit that wrote anything, with what it wrote.
+ * transaction after its catalog lock, each time given that transaction's `WriteTransaction`, where
+ * false records an empty result and a failure fails the commit; `written` runs after every write of
+ * a commit that wrote anything, with what it wrote.
  */
-type CommitPrecondition = {
+type CommitPrecondition<E> = {
 	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
-	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, DbError>;
+	readonly check: (transaction: WriteTransaction) => Effect.Effect<boolean, E | DbError>;
 };
 
 const parts = (changes: ChangeSet) => [
@@ -331,20 +332,37 @@ const expectedFields = (input: Changes, eventId: EventId) => {
 	return undefined;
 };
 
-/** The result a receipt recorded, or the empty result a false precondition records; null commits. */
-const settledByReceipt = <A>(
+/**
+ * What settles a commit before it writes: the result a receipt recorded or a false precondition
+ * records, or the precondition's refusal; null commits.
+ */
+const settledByReceipt = <A, E>(
 	receipt: CommitReceipt<CommitResult, A>,
 	transaction: WriteTransaction,
-	precondition?: CommitPrecondition,
+	precondition?: CommitPrecondition<E>,
 ) =>
-	Effect.gen(function* () {
+	Effect.gen(function* (): Effect.fn.Return<
+		null | { readonly value: A } | { readonly refused: E },
+		DbError
+	> {
 		const stored = yield* receipt.load;
 		if (stored !== null) {
-			return stored;
+			return { value: stored };
 		}
-		return precondition && !(yield* precondition.check(transaction))
-			? yield* receipt.record(emptyCommitResult)
-			: null;
+		if (!precondition) {
+			return null;
+		}
+		const checked = yield* precondition.check(transaction).pipe(
+			Effect.map((holds) => ({ holds })),
+			Effect.catchIf(
+				(error): error is E => !(error instanceof DbError),
+				(refused) => Effect.succeed({ refused }),
+			),
+		);
+		if ("refused" in checked) {
+			return checked;
+		}
+		return checked.holds ? null : { value: yield* receipt.record(emptyCommitResult) };
 	});
 
 /**
@@ -452,7 +470,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				input: Changes,
 				command: DomainLifecycleCommand,
 				pluginRevision: null | ScriptPluginRevision,
-				options: CommitOptions,
+				options: CommitOptions<unknown>,
 			) {
 				const { userId } = input;
 				const pluginId = pluginRevision?.id ?? null;
@@ -1312,12 +1330,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					createCount: creates.length,
 				};
 			});
-			const apply = Effect.fnUntraced(function* <A>(
+			const apply = Effect.fnUntraced(function* <A, Refusal = never>(
 				input: Changes,
 				command: DomainLifecycleCommand,
 				writer: Writer,
 				receipt: CommitReceipt<CommitResult, A>,
-				options: CommitOptions,
+				options: CommitOptions<Refusal>,
 			) {
 				const script = writer.kind === "script" ? writer : null;
 				const pluginRevision = script?.authority.pluginRevision ?? null;
@@ -1448,27 +1466,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}),
 					);
 					if (groups.length > 0) {
-						const { population } = command;
 						const work = yield* relationships.persistPlannedReconciliation(
 							transaction,
 							groups,
-							population
-								? {
-										...command,
-										population: {
-											...population,
-											batch: {
-												afterCount: 0,
-												beforeCount: 0,
-												isLeader: true,
-												createdCount: 0,
-												deletedCount: 0,
-												updatedCount: 0,
-												id: stableStringify([command.causation.executionId, command.itemIdentity]),
-											},
-										},
-									}
-								: command,
+							command,
 							scope,
 						);
 						dispatch.push(...work.dispatch);
@@ -1559,8 +1560,8 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					dispatch: [],
 				});
 				const unchecked = (writes: WriteTransaction) =>
-					Effect.map(settledByReceipt(receipt, writes, precondition), (value) =>
-						value === null ? null : settled(value),
+					Effect.map(settledByReceipt(receipt, writes, precondition), (stopped) =>
+						stopped === null || "refused" in stopped ? stopped : settled(stopped.value),
 					);
 				const transaction = <X, E, R>(
 					work: (transaction: WriteTransaction) => Effect.Effect<X, E, R>,
@@ -1582,11 +1583,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction((writes) =>
 						Effect.gen(function* () {
+							yield* lockCatalog(writes);
 							const stopped = yield* unchecked(writes);
 							if (stopped !== null) {
 								return { committed: stopped, kind: "committed" as const };
 							}
-							yield* lockCatalog(writes);
 							const planned = yield* prepared.planPolicies(writes);
 							if (
 								unmatchedPolicies([
@@ -1614,11 +1615,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const validated = yield* prepared.validatePolicies(started.planned);
 					return yield* transaction((writes) =>
 						Effect.gen(function* () {
+							yield* lockCatalog(writes);
 							const stopped = yield* unchecked(writes);
 							if (stopped !== null) {
 								return stopped;
 							}
-							yield* lockCatalog(writes);
 							return yield* writeAll(writes, validated);
 						}),
 					).pipe(
@@ -1651,6 +1652,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						),
 					),
 				);
+				if ("refused" in committed) {
+					return yield* Effect.fail(committed.refused);
+				}
 				yield* lifecycle
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
@@ -1684,11 +1688,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					},
 				});
 			};
-			const commitKernel = <A>(
+			const commitKernel = <A, E>(
 				input: Changes,
 				command: DomainLifecycleCommand,
 				receipt: CommitReceipt<CommitResult, A>,
-				options: CommitOptions,
+				options: CommitOptions<E>,
 			) =>
 				Effect.gen(function* () {
 					const part = scriptOnlyPart(input);
@@ -1706,10 +1710,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 				});
 			/** Commits a kernel writer's changes; script authority checks do not apply. */
-			const commit = Effect.fn("ChangeSets.commit")(function* (
+			const commit = Effect.fn("ChangeSets.commit")(function* <E = never>(
 				input: Changes,
 				command: DomainLifecycleCommand,
-				options: CommitOptions = {},
+				options: CommitOptions<E> = {},
 			) {
 				return yield* commitKernel(
 					input,
@@ -1723,21 +1727,28 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			 * result or a failed precondition ends the commit before preparation, and again inside the
 			 * transaction, where no write precedes it.
 			 */
-			const commitOnce = Effect.fn("ChangeSets.commitOnce")(function* <A>(
+			const commitOnce = Effect.fn("ChangeSets.commitOnce")(function* <A, E = never>(
 				input: Changes,
 				command: DomainLifecycleCommand,
 				receipt: CommitReceipt<CommitResult, A>,
-				options: CommitOptions = {},
+				options: CommitOptions<E> = {},
 			) {
 				const settled =
 					options.precondition === undefined && receipt.peek
-						? yield* receipt.peek
-						: yield* inTransaction(
+						? Effect.map(receipt.peek, (value) => (value === null ? null : { value }))
+						: inTransaction(
 								Effect.suspend(() =>
 									settledByReceipt(receipt, new WriteTransaction(), options.precondition),
 								),
 							);
-				return settled ?? (yield* commitKernel(input, command, receipt, options));
+				const stopped = yield* settled;
+				if (stopped === null) {
+					return yield* commitKernel(input, command, receipt, options);
+				}
+				if ("refused" in stopped) {
+					return yield* Effect.fail(stopped.refused);
+				}
+				return stopped.value;
 			});
 			/** Commits independent event creates once per key, held by the account's idempotency key. */
 			const commitEventsKeyed = Effect.fn("ChangeSets.commitEventsKeyed")(function* (

@@ -7,6 +7,7 @@ import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
 import type {
@@ -60,6 +61,10 @@ export const makePlannedRelationshipReconciliation = (
 	) {
 		yield* assertActiveTransaction;
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
+		const populationBatchId = stableStringify([
+			command.causation.executionId,
+			command.itemIdentity,
+		]);
 		const pinOf = yield* primitives.verifyWrites(
 			groups.map((group) => ({ command, scopeUserId, owner: group.relationshipSchema.owner })),
 			transaction,
@@ -249,6 +254,7 @@ export const makePlannedRelationshipReconciliation = (
 				}
 				const population = relationshipPopulation(
 					item.command,
+					populationBatchId,
 					counts,
 					existing.length,
 					changedIndex === 0,

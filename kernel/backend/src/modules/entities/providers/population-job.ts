@@ -39,6 +39,7 @@ import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	commitPopulation,
+	commitRelatedPopulation,
 	populationCommand,
 	upsertedEntity,
 	writeChildEntitySet,
@@ -265,9 +266,6 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 			],
 		},
 	});
-	if (result === null) {
-		return yield* Effect.die("A root upsert has no related generation to lose");
-	}
 	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
@@ -358,9 +356,6 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 			...(options.level === "full" ? { population: { claims: [root] } } : {}),
 		},
 	});
-	if (result === null) {
-		return yield* Effect.die("A root stamp has no related generation to lose");
-	}
 	return yield* upsertedEntity(result, command.itemIdentity);
 });
 
@@ -437,7 +432,7 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 	entityId: EntityId,
 	generation: string,
 ) {
-	const stamped = yield* commitPopulation({
+	const stamped = yield* commitRelatedPopulation({
 		owner: payload,
 		command: payload.command,
 		generation: { entityId, generation },

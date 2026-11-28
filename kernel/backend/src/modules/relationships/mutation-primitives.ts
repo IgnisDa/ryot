@@ -606,8 +606,10 @@ export const makeRelationshipMutationPrimitives = ({
 	};
 };
 
+/** A population command's context with the relationship batch `id` its counts describe. */
 export const relationshipPopulation = (
 	command: DomainLifecycleCommand,
+	id: string,
 	counts: Pick<
 		NonNullable<AutomationPopulationContext["batch"]>,
 		"createdCount" | "updatedCount" | "deletedCount"
@@ -618,16 +620,12 @@ export const relationshipPopulation = (
 	command.population
 		? {
 				...command.population,
-				...(command.population.batch
-					? {
-							batch: {
-								...command.population.batch,
-								...counts,
-								isLeader,
-								beforeCount,
-								afterCount: beforeCount + counts.createdCount - counts.deletedCount,
-							},
-						}
-					: {}),
+				batch: {
+					...counts,
+					id,
+					isLeader,
+					beforeCount,
+					afterCount: beforeCount + counts.createdCount - counts.deletedCount,
+				},
 			}
 		: undefined;

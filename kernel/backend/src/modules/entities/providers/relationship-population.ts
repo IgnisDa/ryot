@@ -24,7 +24,7 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { makeProviderExecutionReads } from "./execution-reads";
 import {
-	commitPopulation,
+	commitRelatedPopulation,
 	populationCommand,
 	type PopulationOwner,
 	upsertedEntity,
@@ -103,7 +103,7 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 		input.group.relationshipSchemaSlug,
 	);
 	const primary = { kind: "existing" as const, entityId: input.primaryEntityId };
-	const swept = yield* commitPopulation({
+	const swept = yield* commitRelatedPopulation({
 		owner: input.owner,
 		generation: { generation: input.generation, entityId: input.primaryEntityId },
 		command: populationCommand(
@@ -242,7 +242,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		stableStringify([input.command.itemIdentity, ...itemIdentity, providerSlug, externalId]);
 	const owner = definitionOwner(input.pluginId);
 	const primary = { kind: "existing" as const, entityId: input.primaryEntityId };
-	const result = yield* commitPopulation({
+	const result = yield* commitRelatedPopulation({
 		owner: input.owner,
 		command: populationCommand(input.command, itemIdentity, input.population),
 		generation: { entityId: input.primaryEntityId, generation: input.paging.generation },

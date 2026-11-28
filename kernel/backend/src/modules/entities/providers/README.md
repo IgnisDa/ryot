@@ -38,12 +38,14 @@ lower priority: a bulk import is not waiting on a screen.
 
 Provider details are fetched and validated before database work. Population writes are provider data,
 not mutation requests: they plan no before-policies, so the provider's `details` script shapes them.
-Every population write is one `ChangeSets` commit (`commitPopulation`) of global entity upserts,
-global relationship groups and `population` bookkeeping, in the entity scope's user or global scope,
-with verbatim item identities and queued folds. Its precondition requires the request attempt to
-still own its population (`EnrichmentRequests.ownsPopulation`) and, for a related write, the entity
-to still hold the write's related generation: a released request writes nothing and fails, and a
-superseded generation writes nothing and reports it. Population commits the root entity, then each
+Every population write is one `ChangeSets` commit of global entity upserts, global relationship
+groups and `population` bookkeeping, in the entity scope's user or global scope, with verbatim item
+identities and queued folds. Its precondition requires the request attempt to still own its
+population (`EnrichmentRequests.ownsPopulation`), refusing the commit when it does not, so a released
+request writes nothing and fails. `commitPopulation` writes the root, child sets and claims;
+`commitRelatedPopulation` writes related pages, sweeps and the related stamp, and its precondition
+also requires the entity to still hold the write's related generation: a superseded generation
+writes nothing and returns null. Population commits the root entity, then each
 child-entity set (its children and its authoritative child relationships, keeping the properties of
 those that exist), then the base population timestamp, each in its own commit. It publishes
 `populated` before starting related work. Lifecycle dispatch and live-update broadcasts happen after
