@@ -254,6 +254,18 @@ export const librarySummaryNextRelease = (
 	return row.nextReleaseDate === null ? null : { date: row.nextReleaseDate };
 };
 
+/**
+ * When the fold refolds the title on its own: when its next release arrives, at its instant or from
+ * the start of its date's calendar day.
+ */
+export const librarySummaryRefresh = (row: LibrarySummarySourceRow) => {
+	const nextRelease = librarySummaryNextRelease(row);
+	if (nextRelease === null) {
+		return undefined;
+	}
+	return "instant" in nextRelease ? nextRelease : { date: nextRelease.date.slice(0, 10) };
+};
+
 export const librarySummaryProperties = (row: LibrarySummarySourceRow) => {
 	const nextRelease = librarySummaryNextRelease(row);
 	return {

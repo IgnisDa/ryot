@@ -11,8 +11,8 @@ import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backen
 import { consumptionEventSlugs } from "../shared/consumption-projection";
 import {
 	librarySummaryKind,
-	librarySummaryNextRelease,
 	librarySummaryProperties,
+	librarySummaryRefresh,
 	librarySummarySourceRecipe,
 } from "../shared/library-summary";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
@@ -132,14 +132,9 @@ export default defineScript({
 			const properties = summary
 				? librarySummaryProperties(summary)
 				: { lifecycleState: "untracked" };
-			const nextRelease = summary ? librarySummaryNextRelease(summary) : null;
+			const refresh = summary ? librarySummaryRefresh(summary) : undefined;
 			return {
-				...(nextRelease === null
-					? {}
-					: {
-							refresh:
-								"instant" in nextRelease ? nextRelease : { date: nextRelease.date.slice(0, 10) },
-						}),
+				...(refresh === undefined ? {} : { refresh }),
 				changes: derived.changes,
 				events: derived.contributions,
 				relationships: links.map((relationshipId) => ({ properties, relationshipId })),

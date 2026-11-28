@@ -30,6 +30,11 @@ import {
 	utcDay,
 } from "../tests/media-database";
 import {
+	librarySummaryKind,
+	librarySummaryRefresh,
+	librarySummarySourceRecipe,
+} from "./library-summary";
+import {
 	episodicEpisodeCounts,
 	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
@@ -408,6 +413,34 @@ layer(mediaDatabaseLayer("media_library_summary"), { excludeTestServices: true }
 					lifecycleState: "in_progress",
 					nextRelease: { instant: laterAt.toISOString() },
 				});
+			}),
+	);
+
+	test.effect(
+		"refolds a title when its next release arrives: at a timed release's instant, else from a dated one's day",
+		() =>
+			Effect.gen(function* () {
+				const airingAt = utcDay(2 + 20 / 24);
+				yield* insertEpisodicTitle("dated", "show", [
+					{ days: -5, id: "dated-e1" },
+					{ days: 4, id: "dated-e2" },
+					{ days: 6, id: "dated-e3", airingAt: utcDay(6) },
+				]);
+				yield* insertEpisodicTitle("timed", "show", [
+					{ days: 2, airingAt, id: "timed-e1" },
+					{ days: 3, id: "timed-e2" },
+				]);
+				yield* insertEpisodicTitle("finished", "show", [{ days: -5, id: "finished-e1" }]);
+				const rows = yield* executeRecipe(
+					"owner",
+					librarySummarySourceRecipe({ kind: librarySummaryKind("show") }),
+					{ entityIds: ["dated", "timed", "finished"] },
+				);
+				expect(rows.map((row) => [row.id, librarySummaryRefresh(row)])).toEqual([
+					["dated", { date: utcDay(4).toISOString().slice(0, 10) }],
+					["finished", undefined],
+					["timed", { instant: airingAt.toISOString() }],
+				]);
 			}),
 	);
 
