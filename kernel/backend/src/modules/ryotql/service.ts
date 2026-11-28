@@ -56,6 +56,7 @@ import {
 	bindDocument as bindAuthoredDocument,
 	cursorBindingKey,
 	validateAuthoredDocument,
+	type ValidatedRyotQLDocument,
 } from "@ryot-app/ryotql/binding";
 import type { RyotQLAudience } from "@ryot-app/ryotql/catalog";
 import { type ExpandedRyotQLDocument, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
@@ -488,15 +489,24 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				transaction: EffectPgDatabase,
 				scope: RyotQLAuthorityScope,
 				request: ExecutionRequest,
-				path: readonly string[] = [],
-				budget: {
-					rows: number;
-					sources: number;
-					identities: string[];
-					revisions: Record<string, number>;
-				} = { rows: 0, sources: 0, revisions: {}, identities: [] },
-				forbiddenSource?: SavedViewReference,
-				executionNow?: Date,
+				{
+					path = [],
+					executionNow,
+					forbiddenSource,
+					authored: validatedSelection,
+					budget = { rows: 0, sources: 0, revisions: {}, identities: [] },
+				}: {
+					readonly executionNow?: Date;
+					readonly path?: readonly string[];
+					readonly authored?: ValidatedRyotQLDocument;
+					readonly forbiddenSource?: undefined | SavedViewReference;
+					readonly budget?: {
+						rows: number;
+						sources: number;
+						identities: string[];
+						revisions: Record<string, number>;
+					};
+				} = {},
 			): Effect.fn.Return<
 				{
 					readonly execution: QueryExecution;
@@ -537,9 +547,11 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									),
 								),
 							};
-				const authored = yield* Effect.fromResult(validateAuthoredDocument(selected)).pipe(
-					Effect.mapError((error) => invalidQuery(error.message)),
-				);
+				const authored =
+					validatedSelection ??
+					(yield* Effect.fromResult(validateAuthoredDocument(selected)).pipe(
+						Effect.mapError((error) => invalidQuery(error.message)),
+					));
 				const now = executionNow ?? DateTime.toDateUtc(yield* DateTime.now);
 				let ownerId: string | undefined;
 				if (scope.type === "user") {
@@ -619,12 +631,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						membership.push({ collectionId: source.id, propertiesSchema: source.membership });
 						subjectAlias = "subject";
 						const collection = yield* Effect.fromResult(
-							Result.flatMap(validateAuthoredDocument(collectionSubjectDocument), (validated) =>
-								bindAuthoredDocument(
-									validated,
-									{ arguments: { collectionId: source.id } },
-									{ now, reportingTimeZone: owner?.preferences.reportingTimeZone ?? "UTC" },
-								),
+							bindAuthoredDocument(
+								collectionSubjectDocument,
+								{ arguments: { collectionId: source.id } },
+								{ now, reportingTimeZone: owner?.preferences.reportingTimeZone ?? "UTC" },
 							),
 						).pipe(Effect.orDie);
 						const validated = validateRyotQLDocument(collection.document, scope);
@@ -638,10 +648,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							transaction,
 							scope,
 							{ source: { kind: "savedView", query: source.query, reference: source.reference } },
-							[...path, resolved.identity],
-							budget,
-							forbiddenSource,
-							now,
+							{ budget, forbiddenSource, executionNow: now, path: [...path, resolved.identity] },
 						);
 						selection = prepared.document;
 						membership.push(...prepared.membership);
@@ -774,6 +781,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				request: ExecutionRequest,
 				resultBytes?: number,
 			) {
+				let authored: undefined | ValidatedRyotQLDocument;
 				if (request.source.kind === "inline" && request.source.document.controls === undefined) {
 					const unresolvedSources = new Set<string>();
 					const { query, document } = request.source;
@@ -786,11 +794,12 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 										Object.entries(document.queries).filter(([name]) => name === query),
 									),
 								};
-					const authored = validateAuthoredDocument(selected);
-					if (Result.isFailure(authored)) {
-						return yield* invalidQuery(authored.failure.message);
+					const validated = validateAuthoredDocument(selected);
+					if (Result.isFailure(validated)) {
+						return yield* invalidQuery(validated.failure.message);
 					}
-					const bound = bindAuthoredDocument(authored.success, request, {
+					authored = validated.success;
+					const bound = bindAuthoredDocument(validated.success, request, {
 						reportingTimeZone: "UTC",
 						now: DateTime.toDateUtc(yield* DateTime.now),
 						resolveSourceEntity: (reference) => {
@@ -802,8 +811,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						if (Result.isFailure(bound)) {
 							return yield* invalidQuery(bound.failure.message);
 						}
-						const validated = validateRyotQLDocument(bound.success.document, scope);
-						if (validated.error !== null) {
+						const checked = validateRyotQLDocument(bound.success.document, scope);
+						if (checked.error !== null) {
 							if (
 								scope.type === "user" &&
 								scope.accessClass === "demo" &&
@@ -816,14 +825,19 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									reason: { code: "demo-operation-protected" },
 								});
 							}
-							return yield* invalidQuery(validated.error);
+							return yield* invalidQuery(checked.error);
 						}
 					}
 				}
 
 				return yield* runRead(RYOTQL_STATEMENT_TIMEOUT_MS, (transaction) =>
 					Effect.gen(function* () {
-						const prepared = yield* prepareRequest(transaction, scope, request);
+						const prepared = yield* prepareRequest(
+							transaction,
+							scope,
+							request,
+							authored === undefined ? {} : { authored },
+						);
 						const result = yield* runDocument(transaction, prepared.scope, prepared.document, {
 							resultBytes,
 							execution: prepared.execution,
@@ -921,10 +935,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									...(request.query === undefined ? {} : { query: request.query }),
 								},
 							},
-							[],
-							{ rows: 0, sources: 0, revisions: {}, identities: [] },
-							undefined,
-							now,
+							{ executionNow: now },
 						);
 						const result = yield* runDocument(transaction, prepared.scope, prepared.document, {
 							resultBytes,
@@ -1050,9 +1061,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							transaction,
 							{ userId, type: "user", language: null, audience: "plugin", accessClass: "standard" },
 							request,
-							[],
-							{ rows: 0, sources: 0, revisions: {}, identities: [] },
-							forbiddenSource,
+							{ forbiddenSource },
 						),
 					).pipe(Effect.asVoid),
 				describe: (

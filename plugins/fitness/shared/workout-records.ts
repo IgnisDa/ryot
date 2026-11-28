@@ -12,6 +12,8 @@ export const WorkoutSetMeasurementsSchema = Schema.Struct({
 
 export type WorkoutSetMeasurements = Schema.Schema.Type<typeof WorkoutSetMeasurementsSchema>;
 
+export const exerciseFoldEventSchemaSlugs = ["workout-set"] as const;
+
 export const personalBestTypes = [
 	"time",
 	"pace",

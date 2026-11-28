@@ -2,6 +2,7 @@ import { reviewRatingField } from "@ryot-app/plugin-kit/schema";
 
 import { catalogMessage } from "../../shared/messages.generated";
 import { exerciseTargetKinds } from "../../shared/taxonomy";
+import { exerciseFoldEventSchemaSlugs } from "../../shared/workout-records";
 import {
 	exercisePropertiesSchema,
 	measurementEntryPropertiesSchema,
@@ -41,16 +42,16 @@ export const fitnessEntitySchemas = [
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
 		name: catalogMessage("entity-schema.exercise.name"),
-		fold: {
-			eventSchemaSlugs: ["workout-set"],
-			scriptSlug: "fold.exercise-records",
-			entityProperties: [{ properties: ["startedAt"], entitySchemaSlug: "workout" }],
-		},
 		editor: {
 			relationships: [
 				{ slug: "exercise-targets", direction: "outgoing" as const },
 				{ direction: "outgoing" as const, slug: "exercise-uses-equipment" },
 			],
+		},
+		fold: {
+			scriptSlug: "fold.exercise-records",
+			eventSchemaSlugs: exerciseFoldEventSchemaSlugs,
+			entityProperties: [{ properties: ["startedAt"], entitySchemaSlug: "workout" }],
 		},
 		eventSchemas: [
 			{

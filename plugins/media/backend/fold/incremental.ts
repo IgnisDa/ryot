@@ -24,7 +24,7 @@ export type MediaHistoryReads<E, R> = {
 	readonly uncovered: (input: {
 		readonly excluded: ReadonlyArray<string>;
 	}) => Effect.Effect<boolean, E, R>;
-	/** An entity's unsourced completions that occurred at or before `until`. */
+	/** An entity's completions that occurred at or before `until`. */
 	readonly completions: (input: {
 		readonly until: string;
 		readonly entityId: string;

@@ -29,7 +29,11 @@ import { EventId } from "@ryot-app/plugin-kit/schema";
 import { projectionNumber, property, propertyDate, propertyNumber } from "./entity-selections";
 import { type ExerciseKind, exerciseKindSchema } from "./exercise-kinds";
 import { catalogMessage } from "./messages.generated";
-import { type PersonalBest, personalBestTypes } from "./workout-records";
+import {
+	exerciseFoldEventSchemaSlugs,
+	type PersonalBest,
+	personalBestTypes,
+} from "./workout-records";
 
 const workoutRecordPageSize = 100;
 const unorderedLast = 2147483647;
@@ -64,7 +68,9 @@ const candidateExpressions: Record<
 
 const candidateExpression = (event: Table, type: PersonalBest) => candidateExpressions[type](event);
 
-const fitnessFolds = [{ entitySchemaSlug: "exercise", eventSchemaSlugs: ["workout-set"] }];
+const fitnessFolds = [
+	{ entitySchemaSlug: "exercise", eventSchemaSlugs: exerciseFoldEventSchemaSlugs },
+];
 
 const self = { kind: "self" } as const;
 const event = table("event", "workoutRecord");
@@ -99,7 +105,7 @@ const recordRows = (exerciseId: ScalarExpression, range?: Predicate) =>
 			foldSubjectEventPredicate(event, {
 				folds: fitnessFolds,
 				subject: exerciseId,
-				eventSchemaSlugs: ["workout-set"],
+				eventSchemaSlugs: exerciseFoldEventSchemaSlugs,
 			}),
 			eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 			eq(column(workout, "entitySchemaSlug"), literal("workout")),
