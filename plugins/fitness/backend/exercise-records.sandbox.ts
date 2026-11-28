@@ -1,19 +1,20 @@
-import { readAllPages } from "@ryot-app/plugin-backend-sdk/core";
+import { readAllPages, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	foldChangeImages,
-	foldEachSubject,
 	type FoldEventImage,
 	FoldInput,
 	FoldOutput,
+	foldSubjects,
 } from "@ryot-app/plugin-backend-sdk/folds";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../shared/exercise-kinds";
 import {
-	workoutRecordPageRecipe,
-	type WorkoutRecordRange,
+	workoutRecordRangeArguments,
+	workoutRecordRangeRecipe,
+	workoutRecordsRecipe,
 	workoutStartsRecipe,
 } from "../shared/workout-record-recipes";
 import {
@@ -28,8 +29,6 @@ export const manifest = defineManifest({
 	name: "Fold exercise records",
 	slug: "fold.exercise-records",
 });
-
-const reference = { kind: "self" } as const;
 
 const SetProperties = Schema.Struct({
 	exerciseKind: exerciseKindSchema,
@@ -58,71 +57,69 @@ const recordSetOf = Effect.fnUntraced(function* (image: FoldEventImage, startedA
 	} satisfies RecordSet;
 });
 
+const replay = (exerciseId: string, host: ScriptHost) =>
+	readAllPages((after) =>
+		executeRyotqlRecipe(
+			host.executeRyotql,
+			workoutRecordsRecipe,
+			{ exerciseId },
+			{ pages: { records: { after } } },
+		),
+	).pipe(
+		Effect.map((sets) => {
+			const replayed = replayExerciseRecords(sets);
+			return { changes: [], relationships: [], value: replayed.value, events: replayed.events };
+		}),
+	);
+
 export default defineScript({
 	manifest,
 	input: FoldInput,
 	output: FoldOutput,
-	run: foldEachSubject((input, host) =>
-		Effect.gen(function* () {
-			const sets = (range?: WorkoutRecordRange) =>
-				readAllPages((after) =>
-					executeRyotqlRecipe(
-						host.executeRyotql,
-						workoutRecordPageRecipe(range === undefined ? { reference } : { range, reference }),
-						{ exerciseId: input.subjectEntityId },
-						{ pages: { records: { after: after } } },
+	run: foldSubjects({
+		value: ExerciseRecordsValue,
+		replay: ({ subjectEntityId }, host) => replay(subjectEntityId, host),
+		update: ({ value, changes, subjectEntityId }, host) =>
+			Effect.gen(function* () {
+				const { added, retracted } = foldChangeImages(changes);
+				const workoutIds = [
+					...new Set(
+						added.flatMap(({ sessionEntityId }) => (sessionEntityId ? [sessionEntityId] : [])),
 					),
+				];
+				const starts = new Map(
+					workoutIds.length === 0
+						? []
+						: (yield* readAllPages((after) =>
+								executeRyotqlRecipe(
+									host.executeRyotql,
+									workoutStartsRecipe,
+									{ workoutIds },
+									{ pages: { workouts: { after } } },
+								),
+							)).map(({ id, startedAt }) => [id, startedAt] as const),
 				);
-			const encode = Schema.encodeEffect(Schema.toCodecJson(ExerciseRecordsValue));
-			const replay = Effect.gen(function* () {
-				const replayed = replayExerciseRecords(yield* sets());
-				return {
-					changes: [],
-					relationships: [],
-					events: replayed.events,
-					value: yield* encode(replayed.value),
-				};
-			});
-			const previous = Schema.decodeUnknownOption(ExerciseRecordsValue)(input.value);
-			if (input.changes === null || Option.isNone(previous)) {
-				return yield* replay;
-			}
-			const { added, retracted } = foldChangeImages(input.changes);
-			const workoutIds = [
-				...new Set(
-					added.flatMap(({ sessionEntityId }) => (sessionEntityId ? [sessionEntityId] : [])),
-				),
-			];
-			const starts = new Map(
-				workoutIds.length === 0
-					? []
-					: (yield* readAllPages((after) =>
+				if (workoutIds.some((workoutId) => !starts.has(workoutId))) {
+					return yield* replay(subjectEntityId, host);
+				}
+				const updated = yield* updateExerciseRecords({
+					value,
+					retracted: yield* Effect.forEach(retracted, (image) => recordSetOf(image, null)),
+					added: yield* Effect.forEach(
+						added.filter(({ sessionEntityId }) => sessionEntityId !== null),
+						(image) => recordSetOf(image, starts.get(image.sessionEntityId ?? "") ?? null),
+					),
+					later: (range) =>
+						readAllPages((after) =>
 							executeRyotqlRecipe(
 								host.executeRyotql,
-								workoutStartsRecipe({ reference }),
-								{ workoutIds },
-								{ pages: { workouts: { after } } },
+								workoutRecordRangeRecipe,
+								{ ...workoutRecordRangeArguments(range), exerciseId: subjectEntityId },
+								{ pages: { records: { after } } },
 							),
-						)).map(({ id, startedAt }) => [id, startedAt] as const),
-			);
-			if (workoutIds.some((workoutId) => !starts.has(workoutId))) {
-				return yield* replay;
-			}
-			const updated = yield* updateExerciseRecords({
-				value: previous.value,
-				later: (range) => sets(range),
-				retracted: yield* Effect.forEach(retracted, (image) => recordSetOf(image, null)),
-				added: yield* Effect.forEach(
-					added.filter(({ sessionEntityId }) => sessionEntityId !== null),
-					(image) => recordSetOf(image, starts.get(image.sessionEntityId ?? "") ?? null),
-				),
-			});
-			return {
-				changes: [],
-				relationships: [],
-				events: updated.events,
-				value: yield* encode(updated.value),
-			};
-		}),
-	),
+						),
+				});
+				return { changes: [], relationships: [], value: updated.value, events: updated.events };
+			}),
+	}),
 });

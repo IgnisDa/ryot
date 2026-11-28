@@ -766,8 +766,11 @@ Every media schema declares `fold: { scriptSlug: "fold.media-history", eventSche
 entityProperties }` over its history schemas, naming what the fold reads of entities: a title's
 `publishDate` and `publishYear`, and for a Show or Podcast its `productionStatus` and its episodes'
 `airingAt`, `publishDate` and `episodeNumber`. `backend/media-fold.sandbox.ts` reads the subject, its history and, for a Show or
-Podcast, its required episodes with `backend/fold/recipes.ts`. An episode with a parent session belongs
-to the parent's fold, and a sessionless special to its own. `backend/fold/history.ts` derives automatic
+Podcast, its required episodes with the static documents in `backend/fold/recipes.ts`; the history
+read routes events with the kernel's `foldSubjectEventPredicate` and narrows them by typed
+parameters. An episode with a parent session belongs to the parent's fold, and a sessionless special
+to its own. `foldSubjects` replays a title without a stored value and fails a run whose stored value
+does not decode. `backend/fold/history.ts` derives automatic
 completions, and `backend/fold/consumption.ts` allocates consumption contributions. Each run returns
 the completions to change, one contribution per consumption event, the library summary for each
 `in-media-library` link, and the fold's value.
@@ -821,7 +824,7 @@ Show or Podcast covers:
   the title. Coverage before the appended events is judged as before, so an append that completes or
   progresses no episode cannot; one that does can only restore a lapsed occurrence while the value
   is `waiting`, complete a title that just became terminal, or complete a terminal title once no
-  required episode is left uncovered in the current cycle, which `mediaFoldUncoveredRecipe` reads
+  required episode is left uncovered in the current cycle, which the kind's `uncovered` recipe reads
   from the written history, counting the episodes the append progresses as covered. Suppressed,
   overridden or lapsed occurrences elsewhere do not replay it. The append still advances `counted`
   to the latest episode completion it sources, and an explicit title completion ends `waiting`.

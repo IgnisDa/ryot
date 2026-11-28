@@ -35,8 +35,10 @@ It returns `FoldOutput`, whose `subjects` holds exactly one result per input sub
 - `changes`: at most 500 `EventChange` items, the schema of a change set's `events.changes`; a
   create names an existing entity. These fold-owned events skip before-policies and after-hooks.
 
-`foldEachSubject` from `@ryot-app/plugin-backend-sdk/folds` builds a run from a per-subject fold that
-returns `FoldResult`, a result without its subject ID.
+`foldSubjects` from `@ryot-app/plugin-backend-sdk/folds` builds a run from per-subject `replay` and
+`update` handlers and a value schema that decodes stored and absorbed values strictly. Change images
+carry ISO UTC timestamps; `foldSubjectEventPredicate` and `foldEventImageSelection` in
+`@ryot-app/ryotql-recipes/fold-events` read a subject's events with the same routing and images.
 
 With a change list the fold returns only outputs that changed. The kernel deletes the outputs of events
 whose change has no `after` and of links that no longer leave the subject, then upserts what was

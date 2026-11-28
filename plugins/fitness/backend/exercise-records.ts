@@ -69,8 +69,8 @@ const compareText = (left: string, right: string) => {
 };
 
 const positionOf = (set: RecordSet): SetPosition => [
-	new Date(Date.parse(set.occurredAt)).toISOString(),
-	set.startedAt === null ? null : new Date(Date.parse(set.startedAt)).toISOString(),
+	set.occurredAt,
+	set.startedAt,
 	set.sessionEntityId,
 	set.exerciseOrder ?? unorderedLast,
 	set.setOrder ?? unorderedLast,

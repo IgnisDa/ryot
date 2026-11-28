@@ -526,10 +526,13 @@ The fold is a read-only script of the same plugin using `FoldInput` and `FoldOut
 `@ryot-app/plugin-backend-sdk/folds`. One run folds up to `FOLD_LIMITS.runSubjects` subjects, which
 share the run's sandbox budgets: it receives `{ subjects }`, each `{ subjectEntityId, value, absorbed,
 changes }`, and returns `{ subjects }` with exactly one result per subject, carrying its
-`subjectEntityId` and next `value`. Write `run: foldEachSubject((subject, host) => ...)` to fold one
-subject at a time and return its `FoldResult`, or handle `subjects` directly to batch reads across
-them. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
-mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
+`subjectEntityId` and next `value`. Write `run: foldSubjects({ value, replay, update })` to fold one
+subject at a time, or handle `subjects` directly to batch reads across them. `foldSubjects` decodes each
+subject's stored value and absorbed values with the `value` schema, failing the run on one that does
+not decode, calls `replay` for a subject without a value or with `changes: null` and `update`
+otherwise, and encodes the value each returns. `absorbed` lists the values of subjects merged or
+restored into this one, each with `ids` mapping the entity and event IDs it holds to their new ones;
+carry over whatever must survive.
 
 `changes` selects the mode:
 
@@ -544,6 +547,13 @@ mapping the entity and event IDs it holds to their new ones; carry over whatever
   without an `after` and keeps every output you do not return. An empty list means nothing in the
   subject's history changed: its links changed, a fold request asked for it, or its refresh time
   passed.
+
+Change images carry ISO UTC `occurredAt` and `orderCreatedAt`. To read a subject's history, filter
+the `event` table with `foldSubjectEventPredicate(event, { subject, eventSchemaSlugs, folds })` from
+`@ryot-app/plugin-kit/ryotql`, where `folds` lists the plugin's fold declarations, so the read routes
+events to subjects as the kernel does, and select `foldEventImageSelection(event, entity)` to read
+them as change images, with the same timestamps. Keep the recipe a static document and pass bounds and
+filters as parameters.
 
 `foldChangeImages` splits a change list into retracted and added images. Incremental results must
 equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and

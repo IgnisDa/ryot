@@ -81,8 +81,10 @@ the original result.
 
 Fold scripts use `FoldInput`, `FoldOutput`, `FoldSubjectInput`, `FoldResult`, `FoldEventChange`,
 `FoldEventImage` and `FOLD_LIMITS` from `@ryot-app/plugin-backend-sdk/folds`. A run lists several
-subjects; `foldEachSubject` turns a per-subject fold returning `FoldResult` into the run's `run`, and
-`foldChangeImages` splits a change list. See
+subjects; `foldSubjects({ value, replay, update })` builds the run's `run` from per-subject handlers,
+decoding stored and absorbed values strictly with `value`, and `foldChangeImages` splits a change list.
+`foldSubjectEventPredicate` and `foldEventImageSelection` from `ryotql` read a subject's events as the
+kernel routes them. See
 [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and

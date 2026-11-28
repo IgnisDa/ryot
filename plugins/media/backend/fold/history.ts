@@ -167,9 +167,9 @@ const written = (event: FoldEvent): WrittenOutput => ({
 	entityId: event.entityId,
 	orderKey: event.orderKey,
 	properties: event.properties,
+	occurredAt: event.occurredAt,
+	orderCreatedAt: event.orderCreatedAt,
 	sessionEntityId: event.sessionEntityId,
-	occurredAt: new Date(time(event.occurredAt)).toISOString(),
-	orderCreatedAt: new Date(time(event.orderCreatedAt)).toISOString(),
 });
 
 const optional = (key: string, value: JsonValue | undefined, keep: boolean) =>

@@ -21,18 +21,23 @@ export {
 	reportingTimeZone,
 } from "@ryot-app/ryotql/authoring";
 export {
+	type FoldDeclarations,
+	foldEventImageSelection,
+	foldSubjectEventPredicate,
+} from "@ryot-app/ryotql-recipes/fold-events";
+export {
 	eventReadRecipe,
 	entityReadRecipe,
 	type EventReadResult,
 	type EntityReadResult,
 } from "@ryot-app/ryotql-recipes/scripts";
+
 export {
 	eventIsAfter,
 	latestEventField,
 	eventOrderAscending,
 	eventOrderDescending,
 } from "@ryot-app/ryotql-recipes/event-expressions";
-
 export {
 	ProjectionProcessing,
 	projectionProcessing,

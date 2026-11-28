@@ -399,8 +399,12 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   maximum there and the largest changed candidate, so only those later sets are read (none when no
   changed set sets a best), and later bests above that range carry the maximum forward. It reads the
   start of every added set's workout and replays when one of those workouts is missing. Deleting the
-  earliest heavy set of a long history can still read most of it. A value stays visible while its plugin revision is
-  active; pending or failed status is noted until processing finishes.
+  earliest heavy set of a long history can still read most of it. Both reads are static documents in
+  `shared/workout-record-recipes.ts` that route sets with the kernel's `foldSubjectEventPredicate`;
+  the later-sets read takes each record type's widest changed bound as `<type>Above` and
+  `<type>AtMost` arguments. `foldSubjects` replays an exercise without a stored value and fails a run
+  whose stored value does not decode. A value stays visible while its plugin revision is active;
+  pending or failed status is noted until processing finishes.
 
 Domain recipes author static documents with typed flat parameters. Factories configure plugin
 identity and schemas; runtime IDs, lists, filters, searches, and reporting choices remain arguments.

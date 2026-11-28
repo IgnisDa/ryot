@@ -21,14 +21,17 @@ export const FoldAbsorbed = strictStruct({
 	ids: Schema.Record(Schema.String, Schema.String),
 });
 
-/** An event as the fold sees it: `orderKey` and `orderCreatedAt` fall back to its ID and creation time. */
+/**
+ * An event as the fold sees it, with ISO UTC timestamps: `orderKey` and `orderCreatedAt` fall back to
+ * its ID and creation time.
+ */
 export const FoldEventImage = strictStruct({
 	id: EventId,
 	entityId: EntityId,
 	revision: Schema.Int,
 	orderKey: Schema.String,
-	occurredAt: Schema.String,
-	orderCreatedAt: Schema.String,
+	occurredAt: IsoUtcString,
+	orderCreatedAt: IsoUtcString,
 	eventSchemaSlug: Schema.String,
 	entitySchemaSlug: Schema.String,
 	sessionEntityId: Schema.NullOr(EntityId),
