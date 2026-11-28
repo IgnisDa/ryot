@@ -1,4 +1,4 @@
-import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import type { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
@@ -9,15 +9,14 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Function, Layer, Schema } from "effect";
 
 import { changeSetsTestLayer } from "#modules/changes/change-sets.test-support";
-import { unrecordedChanges } from "#modules/changes/receipts";
-import { ChangeSets } from "#modules/changes/service";
+import { ChangeSets, type ScriptLifecycleCommand } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { unrecorded } from "#modules/mutations/idempotency";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -75,15 +74,19 @@ export const eventGroupWorkflowLayer = changeSetsTestLayer.pipe(
 );
 export const commitChanges = (payload: {
 	readonly input: ChangeSet;
-	readonly command: DomainLifecycleCommand;
+	readonly command: ScriptLifecycleCommand;
 }) =>
 	Effect.flatMap(ChangeSets, (changes) =>
-		changes.commitScript(payload.input, payload.command, unrecordedChanges),
+		changes.commitScript(
+			payload.input,
+			payload.command,
+			unrecorded(Function.identity<CommittedChanges>),
+		),
 	);
 
 export const commitUserCommand = (payload: {
 	readonly input: ChangeSet;
-	readonly command: DomainLifecycleCommand;
+	readonly command: ScriptLifecycleCommand;
 }) =>
 	commitChanges(payload).pipe(
 		Effect.map(({ events, entityId }) => {

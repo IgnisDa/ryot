@@ -25,10 +25,10 @@ record.
 
 When `changes` is non-empty, `OperationsService` commits it through `ChangeSets.commitScript` under the
 operation's execution ID, with `api` or `integration` causation, initiator, and integration
-attribution, so retries derive the same entity and event IDs. A keyed invocation records its `{ output, committed }` receipt inside the
-commit transaction, after taking the key's lock, so a retry after commit returns the receipt and a
-concurrent retry commits nothing. Without changes, the receipt is recorded after the run. HTTP answers
-`{ result, committed }`; agent tools return the output.
+attribution, so retries derive the same entity and event IDs. An invocation answers `PluginInvokeResult`
+(`{ result, committed }`) to HTTP and agent tools alike. A keyed invocation records it inside the commit
+transaction through `keyedReceipt`, after taking the key's lock, so a retry after commit returns it and
+a concurrent retry commits nothing. Without changes, it is recorded after the run.
 
 ## Operation failures
 

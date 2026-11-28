@@ -34,7 +34,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Function, Layer, Result, Schema } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -85,7 +85,13 @@ import {
 	type PreparedEventChanges,
 } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import {
+	type CommitReceipt,
+	idempotencyIdentity,
+	IdempotencyKeys,
+	keyedReceipt,
+	unrecorded,
+} from "#modules/mutations/idempotency";
 import { NotificationsService } from "#modules/notifications/service";
 import {
 	PluginUserSettingsPatchError,
@@ -131,7 +137,7 @@ import {
 	sortedOutcomes,
 	toCreateEventsResponse,
 } from "./outcomes";
-import { type CommitReceipt, type CommitResult, keyedReceipt } from "./receipts";
+import { type CommitResult, emptyCommitResult } from "./receipts";
 
 export const ChangeSetFailure = Schema.Union([
 	DbError,
@@ -158,6 +164,11 @@ export const ChangeSetFailure = Schema.Union([
 	PluginUserSettingsPatchError,
 	ChangeSetRejected,
 ]);
+
+/** A command whose write context is the writing script's principal. */
+export type ScriptLifecycleCommand = DomainLifecycleCommand & {
+	readonly writeContext: ScriptExecutionPrincipal;
+};
 
 /**
  * `verbatimIdentities` keeps each entity (global upserts included), event or relationship item's own
@@ -320,25 +331,9 @@ const expectedFields = (input: Changes, eventId: EventId) => {
 	return undefined;
 };
 
-const emptyResult: CommitResult = {
-	merged: [],
-	signals: [],
-	cleared: [],
-	deleted: [],
-	entities: [],
-	outcomes: [],
-	relationships: [],
-	committed: { events: [] },
-};
-
-const unrecorded: CommitReceipt<CommitResult> = {
-	record: Effect.succeed,
-	load: Effect.succeed(null),
-};
-
 /** The result a receipt recorded, or the empty result a false precondition records; null commits. */
 const settledByReceipt = <A>(
-	receipt: CommitReceipt<A>,
+	receipt: CommitReceipt<CommitResult, A>,
 	transaction: WriteTransaction,
 	precondition?: CommitPrecondition,
 ) =>
@@ -348,7 +343,7 @@ const settledByReceipt = <A>(
 			return stored;
 		}
 		return precondition && !(yield* precondition.check(transaction))
-			? yield* receipt.record(emptyResult)
+			? yield* receipt.record(emptyCommitResult)
 			: null;
 	});
 
@@ -1328,7 +1323,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				input: Changes,
 				command: DomainLifecycleCommand,
 				writer: Writer,
-				receipt: CommitReceipt<A>,
+				receipt: CommitReceipt<CommitResult, A>,
 				options: CommitOptions,
 			) {
 				const script = writer.kind === "script" ? writer : null;
@@ -1655,7 +1650,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								return settled(
 									stored ??
 										(yield* receipt.record({
-											...emptyResult,
+											...emptyCommitResult,
 											outcomes: rejectedOutcomes(rejection, prepared.createCount),
 										})),
 								);
@@ -1699,7 +1694,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			const commitKernel = <A>(
 				input: Changes,
 				command: DomainLifecycleCommand,
-				receipt: CommitReceipt<A>,
+				receipt: CommitReceipt<CommitResult, A>,
 				options: CommitOptions,
 			) =>
 				Effect.gen(function* () {
@@ -1723,7 +1718,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				command: DomainLifecycleCommand,
 				options: CommitOptions = {},
 			) {
-				return yield* commitKernel(input, command, unrecorded, options);
+				return yield* commitKernel(
+					input,
+					command,
+					unrecorded(Function.identity<CommitResult>),
+					options,
+				);
 			});
 			/**
 			 * Commits a kernel writer's changes at most once against the receipt's durable state. A recorded
@@ -1733,7 +1733,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			const commitOnce = Effect.fn("ChangeSets.commitOnce")(function* <A>(
 				input: Changes,
 				command: DomainLifecycleCommand,
-				receipt: CommitReceipt<A>,
+				receipt: CommitReceipt<CommitResult, A>,
 				options: CommitOptions = {},
 			) {
 				const settled =
@@ -1777,13 +1777,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			 */
 			const commitScript = Effect.fn("ChangeSets.commitScript")(function* <A>(
 				input: undefined | ChangeSet,
-				command: DomainLifecycleCommand,
-				receipt: CommitReceipt<A>,
+				command: ScriptLifecycleCommand,
+				receipt: CommitReceipt<CommittedChanges, A>,
 			) {
 				if (input === undefined || isEmptyChangeSet(input)) {
 					return yield* inTransaction(
 						Effect.gen(function* () {
-							return (yield* receipt.load) ?? (yield* receipt.record(emptyResult));
+							return (yield* receipt.load) ?? (yield* receipt.record(emptyCommitResult.committed));
 						}),
 					);
 				}
@@ -1792,9 +1792,6 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					return stored;
 				}
 				const principal = command.writeContext;
-				if (!principal) {
-					return yield* new DbError({ message: "A change set requires its writer's principal" });
-				}
 				const authorized = authorizeChangeSet(input, principal);
 				if (Result.isFailure(authorized)) {
 					return yield* authorized.failure;
@@ -1821,7 +1818,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						fromScriptChangeSet(input, userId, pluginRevision?.id ?? null, principal.providerId),
 						command,
 						{ principal, authority, kind: "script" },
-						receipt,
+						{ ...receipt, record: (result) => receipt.record(result.committed) },
 						{},
 					),
 				);

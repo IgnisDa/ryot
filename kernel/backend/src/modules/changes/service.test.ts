@@ -7,6 +7,7 @@ import type {
 	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { ChangeSet, ChangeSetEntityUpdate } from "@ryot-app/contract/modules/changes/change-set";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
@@ -36,7 +37,17 @@ import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recor
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema, type Tracer } from "effect";
+import {
+	Context,
+	Deferred,
+	Effect,
+	Fiber,
+	Function,
+	Layer,
+	Ref,
+	Schema,
+	type Tracer,
+} from "effect";
 
 import {
 	AutomationPolicyExecutionError,
@@ -52,6 +63,7 @@ import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { unrecorded } from "#modules/mutations/idempotency";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -77,9 +89,8 @@ import { workflowEngineTestLayer } from "#testing/effect";
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
 import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
-import { unrecordedChanges } from "./receipts";
 import { ScriptChangesLayer } from "./script-changes";
-import { ChangeSets } from "./service";
+import { ChangeSets, type ScriptLifecycleCommand } from "./service";
 
 type StagedWrites = {
 	readonly events: number;
@@ -154,10 +165,14 @@ const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => 
 
 const commitUserCommand = (payload: {
 	readonly input: ChangeSet;
-	readonly command: DomainLifecycleCommand;
+	readonly command: ScriptLifecycleCommand;
 }) =>
 	Effect.flatMap(ChangeSets, (changes) =>
-		changes.commitScript(payload.input, payload.command, unrecordedChanges),
+		changes.commitScript(
+			payload.input,
+			payload.command,
+			unrecorded(Function.identity<CommittedChanges>),
+		),
 	).pipe(
 		Effect.map(({ events, entityId }) => {
 			assert(entityId);
@@ -372,7 +387,7 @@ layer(testLayer(false))((test) => {
 				const { entityId } = yield* changeSets.commitScript(
 					{ ...input.input, relationships: {} },
 					input.command,
-					unrecordedChanges,
+					unrecorded(Function.identity<CommittedChanges>),
 				);
 				assert(entityId);
 				expect((yield* (yield* EntitiesRepository).getById(entityId))?.properties).toEqual({
@@ -518,7 +533,7 @@ layer(testLayer(false))((test) => {
 				const committed = yield* commands.commitScript(
 					{ events: eventCreate({ kind: "existing", entityId: target }) },
 					input.command,
-					unrecordedChanges,
+					unrecorded(Function.identity<CommittedChanges>),
 				);
 				expect(committed.entityId).toBeUndefined();
 				expect(committed.events.map(({ itemIdentity }) => itemIdentity)).toEqual(["event"]);
@@ -531,7 +546,7 @@ layer(testLayer(false))((test) => {
 							writeContext: input.command.writeContext,
 							accountUserId: input.command.accountUserId,
 						},
-						unrecordedChanges,
+						unrecorded(Function.identity<CommittedChanges>),
 					),
 				);
 				expect(rejected).toEqual(new EventBadRequest({ reason: { code: "root-entity-required" } }));
@@ -1145,9 +1160,9 @@ const nextCommand = (input: Fixture, principal = input.command.writeContext) => 
 	accountUserId: input.command.accountUserId,
 });
 
-const commit = (input: ChangeSet, lifecycle: DomainLifecycleCommand) =>
+const commit = (input: ChangeSet, lifecycle: ScriptLifecycleCommand) =>
 	Effect.flatMap(ChangeSets, (changes) =>
-		changes.commitScript(input, lifecycle, unrecordedChanges),
+		changes.commitScript(input, lifecycle, unrecorded(Function.identity<CommittedChanges>)),
 	);
 
 const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "before" } = {}) => {
@@ -2042,7 +2057,7 @@ layer(testLayer(false))((test) => {
 								accountUserId: input.command.accountUserId,
 							},
 							{
-								...unrecordedChanges,
+								...unrecorded(Function.identity<CommittedChanges>),
 								load: Effect.gen(function* () {
 									if ((yield* Ref.updateAndGet(count, (value) => value + 1)) === 2) {
 										if (

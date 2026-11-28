@@ -37,12 +37,13 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes } from "#modules/changes/changes";
-import type { CommitReceipt, CommitResult } from "#modules/changes/receipts";
+import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
+	type CommitReceipt,
 	type IdempotencyIdentity,
 	idempotencyIdentity,
 	IdempotencyKeys,
@@ -110,7 +111,10 @@ const editorReceipt = <A>(
 	response: Schema.Codec<A, unknown>,
 	written: (result: CommitResult) => A | null,
 	unwritten: Unrecorded["kind"],
-): CommitReceipt<Unrecorded | { readonly response: A; readonly kind: "recorded" }> => ({
+): CommitReceipt<
+	CommitResult,
+	Unrecorded | { readonly response: A; readonly kind: "recorded" }
+> => ({
 	record: (result) => {
 		const value = written(result);
 		return value === null

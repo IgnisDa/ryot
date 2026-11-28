@@ -9,6 +9,7 @@ import {
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { type PluginHookTarget, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationHookSlug,
@@ -41,6 +42,7 @@ import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { CommitReceipt } from "#modules/mutations/idempotency";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
@@ -53,11 +55,7 @@ import {
 	scriptCallsLayer,
 	unavailableScriptCallsLayer,
 } from "#modules/scripts/executions/calls.test-support";
-import {
-	type ChangeSetReceipt,
-	ScriptChanges,
-	type ScriptChangesInput,
-} from "#modules/scripts/executions/script-changes";
+import { ScriptChanges, type ScriptChangesInput } from "#modules/scripts/executions/script-changes";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -1957,7 +1955,7 @@ const recordedScriptChanges = Layer.effectContext(
 		const session = yield* DatabaseSession;
 		const commits = yield* Ref.make<ReadonlyArray<ScriptChangesInput>>([]);
 		const commit = Effect.fnUntraced(function* <A>(
-			input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> },
+			input: ScriptChangesInput & { readonly receipt: CommitReceipt<CommittedChanges, A> },
 		) {
 			return yield* session
 				.transaction(

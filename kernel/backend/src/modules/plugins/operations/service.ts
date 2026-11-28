@@ -1,11 +1,15 @@
 import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import { DbError } from "@ryot-app/contract/errors";
-import { CommittedChanges, OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
+import {
+	type CommittedChanges,
+	OutputWithChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
 	PluginInvocationError,
+	PluginInvokeResult,
 	PluginNotFoundError,
 	PluginOperationRejected,
 	PluginRequestError,
@@ -32,6 +36,8 @@ import {
 	type IdempotencyIdentity,
 	idempotencyIdentity,
 	IdempotencyKeys,
+	keyedReceipt,
+	unrecorded,
 } from "#modules/mutations/idempotency";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
@@ -74,9 +80,6 @@ type DispatchInput = {
 	readonly integrationId?: IntegrationId;
 };
 const OperationRunResult = OutputWithChanges(JsonValue);
-
-const OperationReceipt = Schema.Struct({ output: JsonValue, committed: CommittedChanges });
-type OperationReceipt = typeof OperationReceipt.Type;
 
 const invalidOutput = (message: string) =>
 	new PluginInvocationError({
@@ -175,9 +178,9 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				run: typeof OperationRunResult.Type,
 			) {
 				const { resultIdentity } = input;
-				const receipt = (committed: CommittedChanges): OperationReceipt => ({
+				const result = (committed: CommittedChanges): PluginInvokeResult => ({
 					committed,
-					output: run.output,
+					result: run.output,
 				});
 				return yield* changes
 					.commit({
@@ -188,20 +191,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						occurredAt: yield* sandboxStartedAt,
 						receipt:
 							resultIdentity === null
-								? {
-										load: Effect.succeed(null),
-										record: (committed) => Effect.succeed(receipt(committed)),
-									}
-								: {
-										record: (committed) =>
-											keys
-												.record(resultIdentity, OperationReceipt, receipt(committed))
-												.pipe(Effect.as(receipt(committed))),
-										load: keys.lockedRead(resultIdentity, OperationReceipt).pipe(
-											Effect.catchTag("IdempotencyConflict", Effect.die),
-											Effect.map((stored) => stored?.response ?? null),
-										),
-									},
+								? unrecorded(result)
+								: keyedReceipt(keys, resultIdentity, PluginInvokeResult, result),
 					})
 					.pipe(Effect.mapError(commitFailure));
 			});
@@ -572,7 +563,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				const { resultIdentity } = authorized;
 				if (resultIdentity) {
 					const completed = yield* keys
-						.read(resultIdentity, OperationReceipt)
+						.read(resultIdentity, PluginInvokeResult)
 						.pipe(Effect.catchTag("IdempotencyConflict", Effect.die));
 					if (completed) {
 						return completed.response;

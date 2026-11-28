@@ -260,12 +260,14 @@ invalid output stays `invalid`. The `EntityUserDataService` refusals of the enti
 change (`event-stale`, `policy-rejected`).
 
 `commitOnce` and `commitScript` make a commit exactly-once against the caller's durable state through
-a `CommitReceipt` (`receipts.ts`). `receipt.load` returns a result an earlier commit recorded: it is
-read once before preparation (so a replay runs no policies) and again first in the commit transaction,
-where a stored result ends the commit before any write. A receipt with `peek` is read before
-preparation without a transaction or lock instead. `receipt.record` runs after every write, so the
-result commits with the changes it describes. An absent or empty script change set only runs
-`load`/`record` in a transaction. Script receipts per caller:
+a `CommitReceipt` ([mutation admission](../mutations/README.md#idempotency-keys)): a kernel writer's
+receipt records the `CommitResult` (`receipts.ts`), a script's its `CommittedChanges`. `receipt.load`
+returns a result an earlier commit recorded: it is read once before preparation (so a replay runs no
+policies) and again first in the commit transaction, where a stored result ends the commit before any
+write. A receipt with `peek` is read before preparation without a transaction or lock instead.
+`receipt.record` runs after every write, so the result commits with the changes it describes. An
+absent or empty script change set only runs `load`/`record` in a transaction. Script receipts per
+caller:
 
 | Caller                        | Receipt                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------- |

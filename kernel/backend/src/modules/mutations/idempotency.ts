@@ -47,6 +47,25 @@ const encode = <Response>(
 		),
 		Effect.mapError(() => new DbError({ message: `Invalid response for ${identity.key}` })),
 	);
+/**
+ * Durable state that records a commit's result in its transaction. `load` runs first and returns the
+ * value a previous commit recorded, which ends the commit without writing; `record` runs after every
+ * write. `peek` reads the same value without a transaction or lock, before preparation.
+ */
+export type CommitReceipt<Result, A> = {
+	readonly load: Effect.Effect<A | null, DbError>;
+	readonly peek?: Effect.Effect<A | null, DbError>;
+	readonly record: (result: Result) => Effect.Effect<A, DbError>;
+};
+
+/** No durable state: the commit answers `toResponse` of its result. */
+export const unrecorded = <Result, A>(
+	toResponse: (result: Result) => A,
+): CommitReceipt<Result, A> => ({
+	load: Effect.succeed(null),
+	record: (result) => Effect.succeed(toResponse(result)),
+});
+
 const ImportItemResult = Schema.Literals(["created", "updated", "unchanged"]);
 export type ImportItemResult = typeof ImportItemResult.Type;
 
@@ -191,3 +210,29 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+/** A receipt held by the account's idempotency key; a replay with a different request is a defect. */
+export const keyedReceipt = <Result, A>(
+	keys: IdempotencyKeys["Service"],
+	identity: IdempotencyIdentity,
+	response: Schema.Codec<A, unknown>,
+	toResponse: (result: Result) => A,
+): CommitReceipt<Result, A> => {
+	const stored = (
+		read: Effect.Effect<null | { readonly response: A }, DbError | IdempotencyConflict>,
+	) =>
+		read.pipe(
+			Effect.catchTag("IdempotencyConflict", () =>
+				Effect.die("A keyed commit received a different request on replay"),
+			),
+			Effect.map((value) => value?.response ?? null),
+		);
+	return {
+		peek: stored(keys.read(identity, response)),
+		load: stored(keys.lockedRead(identity, response)),
+		record: (result) => {
+			const value = toResponse(result);
+			return keys.record(identity, response, value).pipe(Effect.as(value));
+		},
+	};
+};

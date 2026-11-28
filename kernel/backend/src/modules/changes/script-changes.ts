@@ -8,16 +8,21 @@ import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { Message } from "@ryot-app/i18n/message";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Function, Layer, Schema } from "effect";
 
 import {
 	AutomationPolicyExecutionError,
 	isTransientPolicyFailure,
 } from "#modules/automations/lifecycle/policies";
-import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import {
+	type CommitReceipt,
+	idempotencyIdentity,
+	IdempotencyKeys,
+	keyedReceipt,
+	unrecorded,
+} from "#modules/mutations/idempotency";
 import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
 import {
-	type ChangeSetReceipt,
 	ScriptChanges,
 	type ScriptChangesInput,
 	ScriptChangesRejected,
@@ -25,7 +30,6 @@ import {
 import { scriptChangesCommand } from "#modules/scripts/host/execution-context";
 
 import { ChangeSetRejected } from "./authority";
-import { type CommitReceipt, keyedReceipt, unrecordedChanges } from "./receipts";
 import { type ChangeSetFailure, ChangeSets } from "./service";
 
 const isCommitConflict = Schema.is(
@@ -88,32 +92,24 @@ export const ScriptChangesLayer = Layer.effect(
 	Effect.gen(function* () {
 		const changeSets = yield* ChangeSets;
 		const keys = yield* IdempotencyKeys.make;
-		const commitOnce = Effect.fnUntraced(function* <A>(
-			input: ScriptChangesInput & { readonly receipt: CommitReceipt<A> },
+		const commit = Effect.fnUntraced(function* <A>(
+			input: ScriptChangesInput & { readonly receipt: CommitReceipt<CommittedChanges, A> },
 		) {
-			const command = yield* scriptChangesCommand({
+			const command = scriptChangesCommand({
 				...input,
 				executionId: AutomationExecutionId.make(input.executionId),
-			}).pipe(Effect.orDie);
+			});
 			return yield* changeSets
 				.commitScript(input.changes, command, input.receipt)
 				.pipe(Effect.mapError(rejection));
 		});
-		const commit = <A>(input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> }) =>
-			commitOnce({
-				...input,
-				receipt: {
-					load: input.receipt.load,
-					record: (result) => input.receipt.record(result.committed),
-				},
-			});
 		const commitKeyed = (input: ScriptChangesInput) => {
 			const userId = sandboxSubjectUserId(input.principal.subject);
-			return commitOnce({
+			return commit({
 				...input,
 				receipt:
 					userId === null
-						? unrecordedChanges
+						? unrecorded(Function.identity<CommittedChanges>)
 						: keyedReceipt(
 								keys,
 								idempotencyIdentity({
@@ -123,7 +119,7 @@ export const ScriptChangesLayer = Layer.effect(
 									request: input.changes ?? null,
 								}),
 								CommittedChanges,
-								(result) => result.committed,
+								(committed: CommittedChanges) => committed,
 							),
 			});
 		};

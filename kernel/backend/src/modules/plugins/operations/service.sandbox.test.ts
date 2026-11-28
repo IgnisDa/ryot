@@ -198,7 +198,7 @@ layer(
 		"runs an operation on the plain host and commits nothing",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* invoke("read")).toEqual({ output: "read", committed: { events: [] } });
+				expect(yield* invoke("read")).toEqual({ result: "read", committed: { events: [] } });
 				const session = yield* DatabaseSession;
 				const rows = yield* Effect.forEach(
 					[workflowExecution, sandboxJournalEntry, sandboxWorkflowReference],

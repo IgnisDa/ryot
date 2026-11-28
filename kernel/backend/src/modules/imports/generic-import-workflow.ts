@@ -37,7 +37,7 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowE
 
 import type { Changes } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
-import { keyedReceipt } from "#modules/changes/receipts";
+import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets, type CommitOptions } from "#modules/changes/service";
 import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -46,7 +46,7 @@ import { awaitEntityImport } from "#modules/entities/providers/entity-import-job
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import { idempotencyIdentity, IdempotencyKeys, keyedReceipt } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	sameRevisionPin,
@@ -140,7 +140,7 @@ export const commitImportItem = Effect.fn("imports.commitImportItem")(function* 
 		yield* IdempotencyKeys.make,
 		identity,
 		ImportItemCommitted,
-		(result) => ({
+		(result: CommitResult) => ({
 			events: toCreateEventsResponse(result.outcomes),
 			entities: result.entities.map(({ entity, itemIdentity }) => ({
 				itemIdentity,
