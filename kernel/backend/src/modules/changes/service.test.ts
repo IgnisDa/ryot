@@ -10,7 +10,6 @@ import type {
 import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { ChangeSet, ChangeSetEntityUpdate } from "@ryot-app/contract/modules/changes/change-set";
 import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
-import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -86,6 +85,7 @@ import { WriteTransaction } from "#platform/db/write-transaction";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
+import { CommitConflict } from "./conflict";
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
 import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
@@ -736,7 +736,7 @@ layer(testLayer(false))((test) => {
 					});
 					assertExitFails(
 						yield* Effect.exit(commitUserCommand({ input: staleInput, command: nextCommand() })),
-						new EntityStale({ reason: { code: "entity-stale", entityId: original.entityId } }),
+						new CommitConflict({ reason: { code: "entity-stale", entityId: original.entityId } }),
 					);
 					const partial = yield* input.session.run((db) =>
 						db
@@ -903,7 +903,7 @@ layer(testLayer(false))((test) => {
 								},
 							}),
 						),
-						new EntityStale({ reason: { code: "entity-stale", entityId: changedEntityId } }),
+						new CommitConflict({ reason: { code: "entity-stale", entityId: changedEntityId } }),
 					);
 					const sourceEvidenceAfter = yield* input.session.run((db) =>
 						db
@@ -1657,7 +1657,7 @@ layer(testLayer(false))((test) => {
 					yield* Effect.exit(
 						commit(yield* entityUpdates([[target, original, "Stale"]]), nextCommand(input)),
 					),
-					new EntityStale({ reason: { entityId: target, code: "entity-stale" } }),
+					new CommitConflict({ reason: { entityId: target, code: "entity-stale" } }),
 				);
 				expect(yield* read).toMatchObject({ name: "Renamed" });
 			}),

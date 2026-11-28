@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
@@ -12,6 +11,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { CommitConflict } from "#modules/changes/conflict";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
@@ -373,7 +373,7 @@ layer(services)((test) => {
 					).pipe(Effect.exit);
 					assertExitFails(
 						exit,
-						new EntityUserDataBadRequest({
+						new CommitConflict({
 							reason: { code: "child-mapping-conflict", entityIds: [input.sourcePartId] },
 						}),
 					);

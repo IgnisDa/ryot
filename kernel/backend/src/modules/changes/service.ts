@@ -6,16 +6,12 @@ import {
 	EntityNotFound,
 	EntityStale,
 } from "@ryot-app/contract/modules/entities/schemas";
-import {
-	EntityUserDataBadRequest,
-	EntityUserDataNotFound,
-} from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import {
 	CreateEventsResponse,
 	EventBadRequest,
 	EventCreateItemError,
 	type EventCreateItemOutcome,
-	EventNotFound,
 	EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
 import {
@@ -141,6 +137,7 @@ import {
 	sortedOutcomes,
 	toCreateEventsResponse,
 } from "./outcomes";
+import { CommitConflict, commitConflicts } from "./conflict";
 import { type CommitResult, emptyCommitResult } from "./receipts";
 
 export const ChangeSetFailure = Schema.Union([
@@ -148,14 +145,11 @@ export const ChangeSetFailure = Schema.Union([
 	NotFound,
 	BadRequest,
 	ValidationFailed,
+	CommitConflict,
 	EntityBadRequest,
 	EntityNotFound,
-	EntityStale,
 	EntityUserDataBadRequest,
-	EntityUserDataNotFound,
 	EventBadRequest,
-	EventNotFound,
-	EventStale,
 	EventCreateItemError,
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -538,9 +532,15 @@ const rematchOnce = <A, E, R>(work: Effect.Effect<A, E | EntityMatchAppeared, R>
 	work.pipe(
 		Effect.retry({ times: 1, while: (error) => error instanceof EntityMatchAppeared }),
 		Effect.catchTag("EntityMatchAppeared", () =>
-			Effect.fail(new EntityBadRequest({ reason: { code: "mutation-conflict" } })),
+			Effect.fail(new CommitConflict({ reason: { code: "mutation-conflict" } })),
 		),
 	);
+
+/** A commit's value, or its precondition's refusal as its failure. */
+const settledOutcome = <A, E>(
+	outcome: { readonly value: A } | { readonly refused: E },
+): Effect.Effect<A, E> =>
+	"refused" in outcome ? Effect.fail(outcome.refused) : Effect.succeed(outcome.value);
 
 export class ChangeSets extends Context.Service<ChangeSets>()(
 	"@ryot-app/kernel-backend/modules/changes/service/ChangeSets",
@@ -597,8 +597,8 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					return owner !== null && owner !== userId;
 				});
 				if (otherUserEntity) {
-					return yield* new EntityNotFound({
-						reason: { code: "entity-not-found", entityId: otherUserEntity[1] },
+					return yield* new CommitConflict({
+						reason: { code: "entity-not-found", entityIds: [otherUserEntity[1]] },
 					});
 				}
 				const otherUserEvent = referenced.events.find(([, eventId]) => {
@@ -606,7 +606,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					return found !== undefined && found.userId !== userId;
 				});
 				if (otherUserEvent) {
-					return yield* new EventNotFound({
+					return yield* new CommitConflict({
 						reason: { code: "event-not-found", eventId: otherUserEvent[1] },
 					});
 				}
@@ -1893,15 +1893,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							}),
 						),
 					),
-					Effect.catchTag("WrittenRefusal", (error) => Effect.fail(error.refused)),
+					Effect.catchTag("WrittenRefusal", (error) => Effect.succeed({ refused: error.refused })),
 				);
 				if ("refused" in committed) {
-					return yield* Effect.fail(committed.refused);
+					return committed;
 				}
 				yield* lifecycle
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return committed.value;
+				return { value: committed.value };
 			});
 			// A field `expected` covers part of an event; a concurrent change outside it leaves the caller's intent valid.
 			const retryWhileExpectedHolds = <A, E, R>(input: Changes, work: Effect.Effect<A, E, R>) => {
@@ -1945,11 +1945,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							message: `${part} requires a script writer`,
 						});
 					}
-					return yield* rematchOnce(
-						retryWhileExpectedHolds(
-							input,
-							apply(input, command, { kind: "kernel" }, receipt, options),
-						),
+					return yield* settledOutcome(
+						yield* rematchOnce(
+							retryWhileExpectedHolds(
+								input,
+								apply(input, command, { kind: "kernel" }, receipt, options),
+							),
+						).pipe(Effect.catchTags(commitConflicts)),
 					);
 				});
 			/** Commits a kernel writer's changes; script authority checks do not apply. */
@@ -2064,14 +2066,16 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						yield* rejectForeignReferences(input, userId, pluginRevision.id);
 					}
 				}
-				return yield* rematchOnce(
-					apply(
-						fromScriptChangeSet(input, userId, pluginRevision?.id ?? null, principal.providerId),
-						command,
-						{ principal, authority, kind: "script" },
-						{ ...receipt, record: (result) => receipt.record(result.committed) },
-						{},
-					),
+				return yield* settledOutcome(
+					yield* rematchOnce(
+						apply(
+							fromScriptChangeSet(input, userId, pluginRevision?.id ?? null, principal.providerId),
+							command,
+							{ principal, authority, kind: "script" },
+							{ ...receipt, record: (result) => receipt.record(result.committed) },
+							{},
+						),
+					).pipe(Effect.catchTags(commitConflicts)),
 				);
 			});
 			return { commit, commitOnce, commitScript, commitEventsKeyed };

@@ -2,7 +2,6 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import type { DbError } from "@ryot-app/contract/errors";
-import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	IngestionIssue,
 	IngestionOutcome,
@@ -26,6 +25,7 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { CommitConflict } from "#modules/changes/conflict";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
@@ -835,7 +835,7 @@ layer(
 							.from(tables.entity)
 							.where(eq(tables.entity.name, name)),
 					);
-				const conflict = new EntityBadRequest({ reason: { code: "mutation-conflict" } });
+				const conflict = new CommitConflict({ reason: { code: "mutation-conflict" } });
 				assertExitFails(
 					yield* commitRevoking(
 						session.run((db) =>

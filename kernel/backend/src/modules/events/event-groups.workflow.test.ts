@@ -3,7 +3,6 @@ import { expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
-import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
@@ -14,6 +13,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
+import { CommitConflict } from "#modules/changes/conflict";
 import {
 	commitEventChanges,
 	createEvents,
@@ -170,7 +170,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					yield* Effect.exit(
 						commitEventChanges(fixture.userId, fixture.command, [eventDelete(member.eventId)]),
 					),
-					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
+					new CommitConflict({ reason: { code: "mutation-conflict" } }),
 				);
 				const database = yield* DatabaseSession;
 				expect(
@@ -296,7 +296,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				};
 				assertExitFails(
 					yield* Effect.exit(commitUserCommand({ input, command: failedCommand })),
-					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
+					new CommitConflict({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(
 					(yield* (yield* EntitiesRepository).getByIdForUser({
@@ -509,7 +509,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 							},
 						}),
 					),
-					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
+					new CommitConflict({ reason: { code: "mutation-conflict" } }),
 				);
 				const database = yield* DatabaseSession;
 				expect(
@@ -584,7 +584,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect(outcomes.filter(Exit.isSuccess)).toHaveLength(1);
 				const failed = outcomes.find(Exit.isFailure);
 				assert(failed);
-				assertExitFails(failed, new EventBadRequest({ reason: { code: "mutation-conflict" } }));
+				assertExitFails(failed, new CommitConflict({ reason: { code: "mutation-conflict" } }));
 				const database = yield* DatabaseSession;
 				expect(
 					yield* database.run((db) =>

@@ -18,6 +18,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
+import { CommitConflict } from "#modules/changes/conflict";
 import { insertManagedAsset } from "#lib/domain/managed-asset-writes.test-support";
 import {
 	decidingPolicies,
@@ -211,7 +212,7 @@ describe("Relationships lifecycle owner", () => {
 								Effect.flip,
 							),
 						).toEqual(
-							new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+							new CommitConflict({ reason: { code: "concurrent-relationship-change" } }),
 						);
 						expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 					}),
@@ -700,7 +701,7 @@ describe("Relationships lifecycle owner", () => {
 						);
 						assertExitFails(
 							exit,
-							new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+							new CommitConflict({ reason: { code: "concurrent-relationship-change" } }),
 						);
 						expect((yield* repository.findRelationship(policyInput))?.properties).toEqual({
 							rank: 9,

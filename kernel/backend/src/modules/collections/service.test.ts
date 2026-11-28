@@ -13,7 +13,6 @@ import {
 import {
 	EntityBadRequest,
 	EntityNotFound,
-	EntityStale,
 	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
@@ -41,6 +40,7 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 
+import { CommitConflict } from "#modules/changes/conflict";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes, RelationshipEvent } from "#modules/changes/changes";
 import { type CommitResult, emptyCommitResult } from "#modules/changes/receipts";
@@ -224,7 +224,7 @@ const makeServiceLayer = (
 			readonly create?: (input: EntityWrite) => Effect.Effect<ListedEntity, EntityBadRequest>;
 			readonly update?: (
 				input: EntityWrite,
-			) => Effect.Effect<ListedEntity, EntityStale | EntityBadRequest>;
+			) => Effect.Effect<ListedEntity, CommitConflict | EntityBadRequest>;
 		};
 	} = {},
 ) =>
@@ -853,7 +853,7 @@ layer(
 	makeServiceLayer({
 		entities: {
 			update: () =>
-				Effect.fail(new EntityStale({ reason: { code: "entity-stale", entityId: collectionId } })),
+				Effect.fail(new CommitConflict({ reason: { code: "entity-stale", entityId: collectionId } })),
 		},
 	}),
 )((test) => {

@@ -3,13 +3,14 @@ import { AppContract } from "@ryot-app/contract/contract";
 import type { PolicyFailure } from "@ryot-app/contract/modules/changes/policies";
 import {
 	EntityUserDataBadRequest,
-	type EntityUserDataNotFound,
+	EntityUserDataNotFound,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { apiLifecycleCommand } from "#modules/automations/lifecycle/api-command";
 import type { Changes } from "#modules/changes/changes";
+import type { CommitConflict } from "#modules/changes/conflict";
 import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 
@@ -18,6 +19,18 @@ const stateConflict = () =>
 
 const relationshipMergeFailed = () =>
 	Effect.fail(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
+
+/** The user data no longer allows the clear or merge, or one of its entities is gone. */
+const userDataConflict = ({
+	reason,
+}: CommitConflict): Effect.Effect<never, EntityUserDataBadRequest | EntityUserDataNotFound> => {
+	if (reason.code === "child-mapping-conflict") {
+		return Effect.fail(new EntityUserDataBadRequest({ reason }));
+	}
+	return reason.code === "entity-not-found"
+		? Effect.fail(new EntityUserDataNotFound({ reason }))
+		: stateConflict();
+};
 
 const unexpected = <E extends { readonly _tag: string }>(
 	error: E,
@@ -43,8 +56,7 @@ const commitUserData = <A>(
 		return value;
 	}).pipe(
 		Effect.catchTags({
-			EventStale: stateConflict,
-			EventNotFound: stateConflict,
+			CommitConflict: userDataConflict,
 			EventBadRequest: stateConflict,
 			EventCreateItemError: stateConflict,
 			RelationshipBadRequest: relationshipMergeFailed,

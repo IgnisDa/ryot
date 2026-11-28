@@ -39,6 +39,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { Changes } from "#modules/changes/changes";
+import type { CommitConflict } from "#modules/changes/conflict";
 import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -605,17 +606,27 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						: remove({ ...input, submission: input.submission }),
 				).pipe(
 					Effect.catchTags({
-						EntityStale: () => Effect.succeed({ output: stale }),
+						CommitConflict: ({ reason }: CommitConflict) => {
+							if (reason.code !== "entity-not-found") {
+								return Effect.succeed({ output: stale });
+							}
+							const { submission } = input;
+							let entityId: undefined | EntityId;
+							if (submission.action === "delete") {
+								entityId = submission.entityId;
+							} else if (submission.target.kind === "update") {
+								entityId = submission.target.entityId;
+							}
+							return entityId !== undefined && reason.entityIds.includes(entityId)
+								? Effect.fail(new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }))
+								: Effect.succeed({
+										output: invalid(kernelMessage("error.entity-editor.target-not-found")),
+									});
+						},
 						PolicyRejected: (error: PolicyRejected) =>
 							error.reason.code === "invalid-properties"
 								? Effect.succeed({
 										output: invalid(kernelMessage("error.entity-editor.invalid-properties")),
-									})
-								: Effect.fail(error),
-						RelationshipNotFound: (error: RelationshipNotFound) =>
-							error.reason.code === "entity-not-found"
-								? Effect.succeed({
-										output: invalid(kernelMessage("error.entity-editor.target-not-found")),
 									})
 								: Effect.fail(error),
 						EntityBadRequest: (error: EntityBadRequest) => {
@@ -623,18 +634,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							if (reason !== null) {
 								return Effect.succeed({ output: invalid(reason) });
 							}
-							return error.reason.code === "mutation-conflict"
-								? Effect.succeed({ output: stale })
-								: Effect.fail(error);
+							return Effect.fail(error);
 						},
 						RelationshipBadRequest: (error: RelationshipBadRequest) => {
 							const reason = invalidRelationshipReason(error);
-							if (reason !== null) {
-								return Effect.succeed({ output: invalid(reason) });
-							}
-							return error.reason.code === "concurrent-relationship-change"
-								? Effect.succeed({ output: stale })
-								: Effect.fail(error);
+							return reason === null
+								? Effect.fail(error)
+								: Effect.succeed({ output: invalid(reason) });
 						},
 					}),
 					Effect.catchIf((error) => !isEditorFailure(error), Effect.die),
