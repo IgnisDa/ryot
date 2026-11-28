@@ -2,11 +2,8 @@ import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
-import {
-	jsonByteLength,
-	SANDBOX_COMPILER_LIMITS,
-	utf8ByteLength,
-} from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { jsonByteLength } from "@ryot-app/ts-utils/json";
 
 export const KiB = 1024;
 export const MiB = 1024 * KiB;

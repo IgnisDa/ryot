@@ -8,8 +8,8 @@ import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { exceedsJsonBytes } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -52,7 +52,7 @@ const attribution = (
 export const pluginConfigTooLargeMessage = `Plugin config exceeds ${SANDBOX_LIMITS.pluginConfigBytes} UTF-8 bytes`;
 
 export const isPluginConfigTooLarge = (properties: Readonly<Record<string, unknown>>) =>
-	(jsonByteLength(properties) ?? Infinity) > SANDBOX_LIMITS.pluginConfigBytes;
+	exceedsJsonBytes(properties, SANDBOX_LIMITS.pluginConfigBytes);
 
 const encodePointerSegment = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
