@@ -91,14 +91,14 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
-`unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`, and
-`asset-forbidden`. `verifyManagedAssets(host.verifyManagedAssets, locators)` from `core` fails a forbidden asset with the
+`unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`,
+`changes-conflict`, and `asset-forbidden`. `verifyManagedAssets(host.verifyManagedAssets, locators)` from `core` fails a forbidden asset with the
 typed `ManagedAssetForbiddenError`.
 Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
 a host call with a message reason, `data` is that stamped `Message` and `message` is its key.
 
 An operation that refuses a request for a deterministic, user-correctable reason fails with
-`new OperationRejectedError({ reason })` from `@ryot-app/plugin-backend-sdk/operation`, where
+`reject(reason)` from `@ryot-app/plugin-backend-sdk/operation`, an `OperationRejectedError` whose
 `reason` is a `LocalMessage`; its `data` is the local `operation-rejected` boundary reason, and the
 kernel stamps the run's plugin namespace when it records the failure. It reaches the caller as an
 HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
@@ -106,7 +106,10 @@ HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
 provider scripts, which report failures through their results. Outputs are success-only: a refusal
 is always this error. An operation that may find its baseline stale returns its changes with the
 baselines it read (`entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)`), and the
-commit reports the conflict as HTTP 409 `changes-conflict`.
+commit reports the conflict as HTTP 409 `changes-conflict`. One that already finds while reading
+that its baseline is gone or no longer matches fails with `new StaleBaselineError({ conflict })`,
+whose `changes-conflict` boundary reason reaches the caller as the same HTTP 409 with that
+`CommitConflictCode`, instead of returning changes bound to fail.
 
 ## Agent scripts
 

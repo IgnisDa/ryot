@@ -2527,6 +2527,7 @@
 		"description": "Shown when saving a plugin's user settings. {maxBytes} is the maximum size in bytes."
 	},
 	"error.sandbox.asset-forbidden": "A file in this request is not available to you.",
+	"error.sandbox.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.entitlement-required": {
 		"message": "{entitlement, select, pro {This requires Ryot Pro.} other {This requires a subscription.}}",
 		"description": "{entitlement} is the code of the missing subscription."

@@ -248,7 +248,7 @@ export const namespacePairRecipe = (input: {
 const operationSource = (label: string) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { deleteEventChange, existingEntity, updateEventChange, type ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
+import { createEventChange, deleteEventChange, existingEntity, updateEventChange, type ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
@@ -267,7 +267,7 @@ const changesFor = (input: typeof Input.Type): ChangeSet | undefined => {
     return { globalEntities: [{ name: "Forbidden global bottle", entitySchemaSlug: "bottle", externalId: input.externalId ?? "forbidden", properties: {}, populatedAt: null }] };
   }
   if (input.action === "create-event" && input.entityId) {
-    return { events: { changes: [{ kind: "create" as const, itemIdentity: "tasted", eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } }] } };
+    return { events: { changes: [createEventChange("tasted", { eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } })] } };
   }
   if (input.action === "update-event" && input.eventId) {
     return { events: { changes: [updateEventChange(EventId.make(input.eventId), { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } })] } };

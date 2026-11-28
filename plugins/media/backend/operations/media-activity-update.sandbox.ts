@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	entityEventScopeRevisionRecipe,
 	executeRyotqlRecipe,
@@ -30,7 +30,6 @@ import {
 } from "../../shared/media-activity-operations";
 import { catalogMessage } from "../../shared/messages.generated";
 import { resolveEpisodeParentRecipe } from "../contracts/episode-parent-recipe";
-import { reject } from "../lib/failures";
 import {
 	activityCombinations,
 	type EditTarget,

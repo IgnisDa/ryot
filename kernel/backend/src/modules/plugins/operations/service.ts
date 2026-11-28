@@ -144,6 +144,11 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					yield* Effect.annotateCurrentSpan("plugin.rejection", result.error.message);
 					return yield* new PluginOperationRejected({ reason: result.error.data.reason });
 				}
+				if (result.error?.data?.code === "changes-conflict") {
+					return yield* new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: result.error.data.conflict },
+					});
+				}
 				if (result.error) {
 					return yield* new PluginInvocationError({
 						reason: {

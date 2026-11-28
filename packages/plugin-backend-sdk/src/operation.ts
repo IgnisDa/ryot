@@ -1,6 +1,9 @@
-import { OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
+import {
+	CommitConflictCode,
+	OutputWithChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
-import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { OperationManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
@@ -38,4 +41,17 @@ export class OperationRejectedError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("OperationRejectedError", { reason: LocalMessage }) {
 	readonly data = { reason: this.reason, code: "operation-rejected" } as const;
+}
+
+export const reject = (reason: LocalMessage) => Effect.fail(new OperationRejectedError({ reason }));
+
+/**
+ * The baseline an operation read is gone or no longer matches what it read before. It reaches the
+ * caller as the HTTP 409 `changes-conflict` the commit of stale changes raises, with `conflict`.
+ */
+export class StaleBaselineError extends Schema.TaggedError<
+	StaleBaselineError,
+	{ readonly brand: unique symbol }
+>()("StaleBaselineError", { conflict: CommitConflictCode }) {
+	readonly data = { conflict: this.conflict, code: "changes-conflict" } as const;
 }

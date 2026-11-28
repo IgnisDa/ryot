@@ -66,6 +66,7 @@ export {
 export {
 	rootEntity,
 	existingEntity,
+	createEventChange,
 	updateEventChange,
 	deleteEventChange,
 	entityUpdateTarget,

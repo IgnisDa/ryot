@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { EntitlementRequiredError } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -681,29 +682,22 @@ describe("workout editor save", () => {
 				expect(denied.calls).toEqual([]);
 			}),
 		));
-	it("leaves a workout another user cannot see to the commit's entity check", () =>
+	it("fails a workout another user cannot see as a stale baseline", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host } = harness({ baseline, current: null, exercises: [] });
-				expect(yield* run(yield* input(true), host)).toEqual({
-					output: {},
-					changes: {
-						entity: {
-							name: baseline.entity.name,
-							entitySchemaSlug: "workout",
-							properties: baseline.entity.properties,
-							target: {
-								kind: "update",
-								entityId: baseline.entity.id,
-								expected: {
-									name: baseline.entity.name,
-									updatedAt: baseline.entity.updatedAt,
-									properties: baseline.entity.properties,
-								},
-							},
-						},
-					},
-				});
+				expect(yield* Effect.flip(run(yield* input(true), host))).toEqual(
+					new StaleBaselineError({ conflict: "entity-not-found" }),
+				);
+			}),
+		));
+	it("fails an edit of an occurrence the workout no longer records as a stale baseline", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { host } = harness({ baseline, occurrences: [] });
+				expect(yield* Effect.flip(run(yield* input(true), host))).toEqual(
+					new StaleBaselineError({ conflict: "event-not-found" }),
+				);
 			}),
 		));
 	it("leaves a kept set that vanished to the commit's baseline checks", () =>

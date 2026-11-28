@@ -572,7 +572,8 @@ returns the delete of a visible review without a precondition; an ID that resolv
 no changes and a count of zero. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
 change fails the commit with `changes-conflict` instead of being merged; a single-record delete
-under a snapshot whose record no longer exists reports the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
+under a snapshot whose record no longer exists fails with `StaleBaselineError`, which reaches the
+caller as the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
 through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another
 episode of the same show (across seasons) or podcast, which must be visible to the caller; moving to the
 record's own episode changes nothing, and any other record or parent is refused. Reviews that name the moved

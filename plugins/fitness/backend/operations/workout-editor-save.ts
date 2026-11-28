@@ -1,5 +1,6 @@
 import {
 	type ChangeSet,
+	createEventChange,
 	deleteEventChange,
 	EntitlementRequiredError,
 	entityUpdateTarget,
@@ -16,7 +17,7 @@ import {
 	verifyManagedAssets,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { reject, StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	continuationCursor,
 	entityEventScopeRevisionRecipe,
@@ -93,8 +94,7 @@ const invalidMessages = {
 	"invalid-exercise-kind": "rejection.workout-save.invalid-exercise-kind",
 } as const satisfies Record<string, keyof Catalog>;
 
-const invalid = (code: InvalidCode) =>
-	Effect.fail(new OperationRejectedError({ reason: catalogMessage(invalidMessages[code]) }));
+const invalid = (code: InvalidCode) => reject(catalogMessage(invalidMessages[code]));
 
 const proRequired = () => Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }));
 
@@ -563,19 +563,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			{ kind: entitySchemaSlug, entityId: baseline.entity.id },
 		))
 	) {
-		const { entity } = baseline;
-		const changes = {
-			entity: {
-				entitySchemaSlug,
-				name: entity.name,
-				properties: entity.properties,
-				target: entityUpdateTarget(entity),
-			},
-		} satisfies ChangeSet;
-		return { changes, output: {} } satisfies {
-			readonly changes: ChangeSet;
-			readonly output: WorkoutEditorSaveOutput;
-		};
+		return yield* new StaleBaselineError({ conflict: "entity-not-found" });
 	}
 	const graphIssue = validateGraph(data, baseline);
 	if (graphIssue !== undefined) {
@@ -689,7 +677,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 				(item) => item.properties.exerciseOrder === occurrence.sourceExerciseOrder,
 			);
 			if (occurrence.sourceExerciseOrder !== undefined && !previous) {
-				return yield* invalid("invalid-source");
+				return yield* new StaleBaselineError({ conflict: "event-not-found" });
 			}
 			if (previous) {
 				const originalSets =
@@ -722,20 +710,20 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 				if (!firstSet) {
 					continue;
 				}
-				creates.push({
-					kind: "create",
-					session: rootEntity,
-					occurredAt: data.startedAt,
-					eventSchemaSlug: "workout-exercise",
-					itemIdentity: `occurrence:${occurrence.clientId}`,
-					entity: existingEntity(EntityId.make(occurrence.exerciseId)),
-					properties: {
-						targets: [],
-						exerciseOrder,
-						equipment: [],
-						exerciseKind: firstSet.exerciseKind,
-					},
-				});
+				creates.push(
+					createEventChange(`occurrence:${occurrence.clientId}`, {
+						session: rootEntity,
+						occurredAt: data.startedAt,
+						eventSchemaSlug: "workout-exercise",
+						entity: existingEntity(EntityId.make(occurrence.exerciseId)),
+						properties: {
+							targets: [],
+							exerciseOrder,
+							equipment: [],
+							exerciseKind: firstSet.exerciseKind,
+						},
+					}),
+				);
 			}
 		}
 		for (const previous of recorded) {
@@ -758,15 +746,15 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			});
 			const original = baseline?.sets.find(({ id }) => id === set.eventId);
 			if (original === undefined || original.entityId !== occurrence.exerciseId) {
-				creates.push({
-					kind: "create",
-					session: rootEntity,
-					properties: setProperties,
-					eventSchemaSlug: "workout-set",
-					itemIdentity: `set:${set.clientId}`,
-					occurredAt: original?.occurredAt ?? set.occurredAt,
-					entity: existingEntity(EntityId.make(occurrence.exerciseId)),
-				});
+				creates.push(
+					createEventChange(`set:${set.clientId}`, {
+						session: rootEntity,
+						properties: setProperties,
+						eventSchemaSlug: "workout-set",
+						occurredAt: original?.occurredAt ?? set.occurredAt,
+						entity: existingEntity(EntityId.make(occurrence.exerciseId)),
+					}),
+				);
 			} else {
 				if (!jsonValueEquals(workoutEditableSetProperties(original.properties), setProperties)) {
 					updates.push(
@@ -789,14 +777,14 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 	}
 	const removed = baseline?.sets.filter(({ id }) => !retained.has(id)) ?? [];
 	if (data.kind === "workout" && data.target.kind === "create") {
-		creates.push({
-			kind: "create",
-			entity: rootEntity,
-			occurredAt: submittedAt,
-			itemIdentity: "complete",
-			eventSchemaSlug: "workout-completed",
-			properties: { workoutName: data.name },
-		});
+		creates.push(
+			createEventChange("complete", {
+				entity: rootEntity,
+				occurredAt: submittedAt,
+				eventSchemaSlug: "workout-completed",
+				properties: { workoutName: data.name },
+			}),
+		);
 	}
 	const changes = {
 		...(relationships.length > 0 ? { relationships: { upserts: relationships } } : {}),

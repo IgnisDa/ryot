@@ -1814,6 +1814,7 @@
 	"error.mutations.submission-expired": "此更改提交时间过久。请重试。",
 	"error.plugins.user-settings-too-large": "这些设置超出 {maxBytes, number} 字节的限制。",
 	"error.sandbox.asset-forbidden": "此请求中的某个文件对你不可用。",
+	"error.sandbox.changes-conflict": "保存期间你的数据已更改。请刷新后重试。",
 	"error.sandbox.entitlement-required": "{entitlement, select, pro {此功能需要 Ryot Pro。} other {此功能需要订阅。}}",
 	"error.sandbox.execution-limit": "运行超出了执行限制。",
 	"error.sandbox.installation-unavailable": "此插件安装不可用。",

@@ -1,7 +1,7 @@
-import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
+import { createEventChange, existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -25,7 +25,6 @@ import {
 } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 import { requireReviewConsumption } from "./media-review-consumption";
 
 const reviewTargetRecipe = (() => {
@@ -93,17 +92,15 @@ export default defineOperation({
 				changes: {
 					events: {
 						changes: [
-							{
-								kind: "create",
+							createEventChange(`review:${target.id}`, {
 								eventSchemaSlug: "review",
-								itemIdentity: `review:${target.id}`,
 								entity: existingEntity(EntityId.make(target.id)),
 								properties: {
 									...reviewProperties(input),
 									...(position ? { position } : {}),
 									...(consumptionEventId ? { consumptionEventId } : {}),
 								},
-							},
+							}),
 						],
 					},
 				},

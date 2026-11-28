@@ -1806,6 +1806,7 @@
 	"error.mutations.submission-expired": "Esta alteração foi enviada há tempo demais. Tente novamente.",
 	"error.plugins.user-settings-too-large": "Estas definições excedem o limite de {maxBytes, number} bytes.",
 	"error.sandbox.asset-forbidden": "Um ficheiro nesta solicitação não está disponível para si.",
+	"error.sandbox.changes-conflict": "Os seus dados mudaram durante a gravação. Atualize e tente novamente.",
 	"error.sandbox.entitlement-required": "{entitlement, select, pro {Isso requer o Ryot Pro.} other {Isso requer uma assinatura.}}",
 	"error.sandbox.execution-limit": "A execução excedeu seus limites.",
 	"error.sandbox.installation-unavailable": "Esta instalação do plugin não está disponível.",

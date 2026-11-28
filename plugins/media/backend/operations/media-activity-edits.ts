@@ -4,6 +4,7 @@ import {
 	type ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Array, Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -31,7 +32,6 @@ import {
 import type { MediaEventSnapshot } from "../../shared/media-activity-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 type EditableCombination = readonly [entitySchemaSlug: string, eventSchemaSlug: string];
 

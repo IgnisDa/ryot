@@ -323,8 +323,10 @@ budgets. The draft's retained submission freezes data, baseline, ID, and timesta
 settings changes. The operation reads only and returns the entity, sets, relationships, and any
 new-workout completion event as one change set, which the kernel commits atomically; asset uploads
 are separate. The client takes the saved workout's ID from the commit's root entity. A baseline that
-is gone or missing a kept set is left to the change set's entity update target, `expected` set IDs
-and scope baseline, so the commit reports the conflict. An invalid save or a forbidden managed asset
+is gone, or a source exercise position the workout no longer records, fails with
+`StaleBaselineError`; a baseline missing a kept set is left to the change set's entity update target,
+`expected` set IDs and scope baseline, so the commit reports the conflict. Both reach the client as a
+`changes-conflict`. An invalid save or a forbidden managed asset
 is refused with `OperationRejectedError` and a `rejection.workout-save.*` message; the output is
 success-only.
 

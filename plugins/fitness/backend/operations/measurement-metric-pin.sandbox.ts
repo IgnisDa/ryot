@@ -1,7 +1,7 @@
 import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, reject } from "@ryot-app/plugin-backend-sdk/operation";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
@@ -32,11 +32,11 @@ export default defineOperation({
 				return { output };
 			}
 			if (input.pinned && pinnedIds.length >= MEASUREMENT_PIN_LIMIT) {
-				return yield* new OperationRejectedError({
-					reason: catalogMessage("rejection.measurement-metric.pin-limit", {
+				return yield* reject(
+					catalogMessage("rejection.measurement-metric.pin-limit", {
 						limit: MEASUREMENT_PIN_LIMIT,
 					}),
-				});
+				);
 			}
 			const changes = yield* measurementMetricPinChanges(
 				{ pinned: input.pinned, metric: existingEntity(EntityId.make(input.metricId)) },

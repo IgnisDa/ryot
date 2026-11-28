@@ -930,7 +930,7 @@ commit's conflict code.
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
 references, `entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)` and
 `expectedRelationshipProperties(properties, checked)` baselines,
-`updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
+`createEventChange(itemIdentity, event)`, `updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
 `EventDelete`, `EventChange`, `RelationshipUpsert`, `SignalChange` and `GlobalRelationship`. Every part names schemas of the writing plugin by slug, and every slug must be declared
 by its revision.
 
@@ -954,10 +954,12 @@ A `{ kind: "root" }` reference requires `entity`. User entities never carry prov
 ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after
 the commit. A part the writer may not write fails the whole change set.
 
-Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
-receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502); outputs are
-success-only. A baseline that changed is reported by the commit of the returned changes as HTTP 409
-`changes-conflict`. A signal notification automation passes `notifySignals(signals)` from
+Refuse a request that cannot succeed as submitted with `reject(message)` from
+`@ryot-app/plugin-backend-sdk/operation`; the caller receives the message (HTTP 422) instead of a
+generic runtime failure (HTTP 502); outputs are success-only. A baseline that changed is reported by
+the commit of the returned changes as HTTP 409 `changes-conflict`; a baseline the operation already
+finds gone or changed while reading fails with `StaleBaselineError({ conflict })`, which the caller
+receives as the same conflict. A signal notification automation passes `notifySignals(signals)` from
 `automation` as the `run` of `defineAutomation`: each signal schema slug names a properties schema and
 a `notify` formatter, the formatted message is returned as a change-set notification, and undecodable
 properties fail with `SignalNotificationError`. Import
@@ -1049,10 +1051,7 @@ names, stays English.
 Backend code rejects an operation with a message from its own catalog:
 
 ```ts
-return (
-  yield *
-  new OperationRejectedError({ reason: catalogMessage("rejection.review.duplicate", { title }) })
-);
+reject(catalogMessage("rejection.review.duplicate", { title }));
 ```
 
 The same applies to every other text a plugin's backend hands to the kernel: a before-stage policy

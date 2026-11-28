@@ -34,8 +34,10 @@ concurrent retry commits nothing. Without changes, the receipt is recorded after
 
 `OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is
 `operation-rejected` becomes HTTP 422 `PluginOperationRejected`, whose reason is the script's local
-message stamped with the plugin's namespace. HTTP, page and agent-tool invocations, including
-idempotent background submissions, share this dispatch. Every other sandbox failure remains HTTP 502
+message stamped with the plugin's namespace. A boundary reason of `changes-conflict`, the stale
+baseline an operation found while reading, becomes HTTP 409 `PluginConflictError` with its conflict
+code, as a stale commit does. HTTP, page and agent-tool invocations, including idempotent background
+submissions, share this dispatch. Every other sandbox failure remains HTTP 502
 `PluginInvocationError` with `runtime-failed`, because proxies may replace 502 bodies and the client
 treats them as transport failures.
 

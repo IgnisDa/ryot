@@ -1,5 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { reject } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -20,7 +21,6 @@ import {
 import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { reject } from "../lib/failures";
 
 const reviewConsumptionRecipe = (() => {
 	const inputParameters = parameters({

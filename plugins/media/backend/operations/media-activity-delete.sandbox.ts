@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, StaleBaselineError } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
 	MediaActivityDeleteInput,
@@ -27,18 +27,18 @@ export default defineOperation({
 				activityCombinations,
 				catalogMessage("rejection.record.activity-only-delete"),
 			);
-			const output = { count: targets.length };
-			if (targets.length > 0) {
-				return {
-					output,
-					changes: deleteTargetChanges(
-						targets.map(({ id }) => id),
-						input.expected,
-					),
-				};
+			if (targets.length === 0 && input.expected !== undefined) {
+				return yield* new StaleBaselineError({ conflict: "event-not-found" });
 			}
-			return input.expected === undefined
+			const output = { count: targets.length };
+			return targets.length === 0
 				? { output }
-				: { output, changes: deleteTargetChanges(input.eventIds, input.expected) };
+				: {
+						output,
+						changes: deleteTargetChanges(
+							targets.map(({ id }) => id),
+							input.expected,
+						),
+					};
 		}),
 });
