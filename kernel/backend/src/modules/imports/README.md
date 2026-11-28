@@ -34,14 +34,18 @@ the ingestion identity of the subject entity's operation. Provider entities reso
 activities first; the record's entities, relationships and events then commit as one change set in
 one activity, under the command identity `<record>`. `commitImportItem` holds the commit's result in
 the account's idempotency key under that identity, so an activity retried after its commit replays
-the result instead of writing again. An intent's `entityId` or `match` is resolved inside the
-commit: a found entity is kept with an `unchanged` import item, and an `existingOnly` intent that
-finds none fails the record. A provider-resolved entity whose intent also has a `match` is preferred
-by that match, so the one name-matching rule decides whether it is used. Validation decides how the
-events commit: a standalone record's events are independent creates with their own outcomes, and a
-record that contains declared event-group schemas commits its complete event group all-or-nothing.
-Event preparation can span pages, but the record commits atomically. Coalesced events commit
-afterwards, each in its own activity.
+the result instead of writing again. Before its providers resolve, a record is checked only against
+the import's own rules: unique entity aliases, a subject and memberships naming one of them, an
+`existingOnly` intent naming an entity ID or match, coalescing only for admitted integrations, and no
+`global` scope for a private plugin. Its commit checks everything it writes under the plugin's
+authority. An intent's `entityId` or `match` is resolved inside the commit: a found entity is kept
+with an `unchanged` import item, and an `existingOnly` intent that finds none fails the record. A
+provider-resolved entity whose intent also has a `match` is preferred by that match, so the one
+name-matching rule decides whether it is used. The record's event schemas
+decide how its events commit: a standalone record's events are independent creates with their own
+outcomes, and a record with an event of a declared event group commits its events all-or-nothing,
+which needs a user-owned subject and no coalesced event. Event preparation can span pages, but the
+record commits atomically. Coalesced events commit afterwards, each in its own activity.
 
 `commitImportItem` serves both sources. The transaction that records an item's result also records,
 under the run's projection lock its precondition takes, the outcome and issue of each event the

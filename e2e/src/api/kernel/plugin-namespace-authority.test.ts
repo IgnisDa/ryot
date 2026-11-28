@@ -107,7 +107,7 @@ describe("plugin namespace authority", () => {
 						{
 							unit: "entities",
 							recordKind: "bottle",
-							counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
+							counts: { created: 1, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 1 },
 						},
 						{
 							unit: "events",
@@ -131,7 +131,7 @@ describe("plugin namespace authority", () => {
 							}
 							return 0;
 						}),
-				).toEqual(["foreign-entity", "foreign-event", "global-entity"]);
+				).toEqual(["foreign-event", "global-entity"]);
 				expect(
 					detail.issues.items.every(({ data }) => data.reason.code === "database-commit-failed"),
 				).toBe(true);

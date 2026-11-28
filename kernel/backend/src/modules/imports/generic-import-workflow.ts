@@ -55,7 +55,6 @@ import {
 	sameRevisionPin,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
@@ -391,76 +390,41 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 
 type GenericImportDefinitions = ReturnType<typeof definitionLookup>;
 
-/** Checks an item against its writer's authority and definitions, answering how its events commit. */
-const validateGenericItem = Effect.fn("imports.validateGenericItem")(function* (
+/**
+ * How an item's events commit: an item with an event of a declared event group commits its events
+ * all-or-nothing, and needs a user-owned subject and no coalesced event; any other item's events are
+ * independent creates. The commit checks everything else the item writes.
+ */
+const genericItemEvents = Effect.fn("imports.genericItemEvents")(function* (
 	item: GenericImportWriteItem,
 	userId: UserId,
 	definitions: GenericImportDefinitions,
-	pluginRevision: ScriptPluginRevision,
+	pluginId: PluginId,
 ) {
-	const entitiesRepository = yield* EntitiesRepository;
-	const scope = yield* (yield* SandboxRepository)
-		.getSchemaScope(pluginRevision.revisionId)
-		.pipe(Effect.mapError((error) => new ImportRunError({ message: error.message })));
-	const owner = definitionOwner(pluginRevision.id);
-	for (const entity of item.entities) {
-		if (
-			!scope.entitySchemaSlugs.includes(entity.entitySchemaSlug) ||
-			(pluginRevision.scope === "user" && entity.scope === "global")
-		) {
-			return yield* new ImportRunError({
-				message: "Import entity exceeds the invoking plugin's write authority",
-			});
-		}
-	}
-	const entitySchemasByAlias = new Map(
-		item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
+	const subjectIds = item.events.flatMap(({ subjectEntityId }) =>
+		subjectEntityId === undefined ? [] : [EntityId.make(subjectEntityId)],
 	);
-	if (!entitySchemasByAlias.has(item.subjectEntityAlias)) {
-		return yield* new ImportRunError({
-			message: "Import subject references an unknown entity alias",
-		});
-	}
-	yield* Effect.forEach(
-		item.entities,
-		(entity) =>
-			definitions.validateEntityProperties(
-				{ owner, slug: entity.entitySchemaSlug },
-				entity.properties,
-			),
-		{ discard: true },
-	);
-	let grouped = false;
-	for (const event of item.events) {
-		const subject =
-			event.subjectEntityId !== undefined
-				? yield* entitiesRepository.getByIdForUser({
-						userId,
-						entityId: EntityId.make(event.subjectEntityId),
-					})
-				: null;
-		if (event.subjectEntityId !== undefined && !subject) {
-			return yield* new ImportRunError({
-				message: "Import event references an unknown subject entity",
-			});
+	const subjects =
+		subjectIds.length === 0
+			? undefined
+			: yield* (yield* EntitiesRepository).getEntityScopesForUser(subjectIds, userId);
+	const owner = definitionOwner(pluginId);
+	const grouped = item.events.some((event) => {
+		let entitySchemaSlug: string | undefined;
+		if (event.subjectEntityId === undefined) {
+			entitySchemaSlug = item.entities.find(
+				({ alias }) => alias === event.entityAlias,
+			)?.entitySchemaSlug;
+		} else {
+			const subject = subjects?.get(EntityId.make(event.subjectEntityId));
+			entitySchemaSlug =
+				subject?.entitySchemaPluginId === pluginId ? subject.entitySchemaSlug : undefined;
 		}
-		if (subject && subject.entitySchemaPluginId !== pluginRevision.id) {
-			return yield* new ImportRunError({
-				message: "Import event subject belongs to another definition owner",
-			});
-		}
-		const entitySchemaSlug =
-			subject?.entitySchemaSlug ?? entitySchemasByAlias.get(event.entityAlias);
-		if (!entitySchemaSlug) {
-			return yield* new ImportRunError({
-				message: "Import event references an unknown entity alias or subject",
-			});
-		}
-		const entitySchema = definitions.getEntitySchema({
-			owner,
-			slug: EntitySchemaSlug.make(entitySchemaSlug),
-		});
-		grouped ||= Object.values(entitySchema?.eventSchemas ?? {}).some(
+		const entitySchema =
+			entitySchemaSlug === undefined
+				? undefined
+				: definitions.getEntitySchema({ owner, slug: EntitySchemaSlug.make(entitySchemaSlug) });
+		return Object.values(entitySchema?.eventSchemas ?? {}).some(
 			(schema) =>
 				schema.eventGroup !== undefined &&
 				(schema.slug === event.eventSchemaSlug ||
@@ -468,58 +432,12 @@ const validateGenericItem = Effect.fn("imports.validateGenericItem")(function* (
 						(dependent) => dependent.eventSchemaSlug === event.eventSchemaSlug,
 					)),
 		);
-		yield* definitions.validateEventProperties(
-			{
-				owner,
-				slug: EventSchemaSlug.make(event.eventSchemaSlug),
-				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
-			},
-			event.properties,
-		);
-	}
-	for (const relationship of item.relationships) {
-		const sourceEntitySchemaSlug = entitySchemasByAlias.get(relationship.sourceAlias);
-		const targetEntitySchemaSlug = entitySchemasByAlias.get(relationship.targetAlias);
-		if (!sourceEntitySchemaSlug || !targetEntitySchemaSlug) {
-			return yield* new ImportRunError({
-				message: "Import relationship references an unknown entity alias",
-			});
-		}
-		const relationshipSchema = definitions.getRelationshipSchema({
-			owner,
-			slug: relationship.relationshipSchemaSlug,
-		});
-		if (!relationshipSchema) {
-			return yield* new ImportRunError({
-				message: `Relationship schema '${relationship.relationshipSchemaSlug}' not found`,
-			});
-		}
-		if (
-			relationshipSchema.sourceEntitySchemaSlug !== null &&
-			relationshipSchema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug
-		) {
-			return yield* new ImportRunError({
-				message: "Import relationship source entity schema does not match",
-			});
-		}
-		if (
-			relationshipSchema.targetEntitySchemaSlug !== null &&
-			relationshipSchema.targetEntitySchemaSlug !== targetEntitySchemaSlug
-		) {
-			return yield* new ImportRunError({
-				message: "Import relationship target entity schema does not match",
-			});
-		}
-		yield* definitions.validateRelationshipProperties(
-			{ owner, slug: relationship.relationshipSchemaSlug },
-			relationship.properties,
-		);
-	}
-	if (grouped && item.events.some((event) => event.coalescing !== undefined)) {
-		return yield* new ImportRunError({ message: "Event-group imports cannot coalesce events" });
-	}
+	});
 	if (!grouped) {
-		return "standalone" as const;
+		return { independent: true, verbatimIdentities: true } as const;
+	}
+	if (item.events.some((event) => event.coalescing !== undefined)) {
+		return yield* new ImportRunError({ message: "Event-group imports cannot coalesce events" });
 	}
 	const subject = item.entities.find((intent) => intent.alias === item.subjectEntityAlias);
 	if (!subject || subject.providerResolution || subject.scope === "global") {
@@ -527,7 +445,7 @@ const validateGenericItem = Effect.fn("imports.validateGenericItem")(function* (
 			message: "An event-group import requires a user-owned subject entity",
 		});
 	}
-	return "grouped" as const;
+	return { verbatimIdentities: true } as const;
 });
 
 const unknownAlias = (alias: string) =>
@@ -708,6 +626,14 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 					message: `Required import entity '${intent.alias}' was not found`,
 				});
 			}
+			if (pluginRevision.scope === "user" && intent.scope === "global") {
+				return yield* new ImportRunError({
+					message: "Import entity exceeds the invoking plugin's write authority",
+				});
+			}
+		}
+		if (!aliases.has(item.subjectEntityAlias)) {
+			return yield* unknownAlias(item.subjectEntityAlias);
 		}
 		for (const membership of item.collectionMemberships ?? []) {
 			if (!aliases.has(membership.entityAlias)) {
@@ -715,16 +641,6 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			}
 		}
 		const providers = item.entities.filter((intent) => intent.providerResolution);
-		if (providers.length > 0) {
-			yield* makeActivity({
-				error: ImportRunError,
-				name: `validate-generic-import-item-${index}`,
-				execute: validateGenericItem(item, userId, definitions, pluginRevision).pipe(
-					Effect.asVoid,
-					Effect.mapError(toWorkflowError),
-				),
-			});
-		}
 		const resolved = new Map<string, EntityId>();
 		for (const intent of providers) {
 			const entityId = yield* resolveProviderEntity(
@@ -743,17 +659,13 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			success: ImportItemCommitted,
 			name: `commit-generic-import-item-${index}`,
 			execute: Effect.gen(function* () {
-				const mode = yield* validateGenericItem(item, userId, definitions, pluginRevision);
 				return yield* commitImportItem(
 					yield* genericItemChanges(item, userId, command, owner, resolved, membershipFields),
 					genericImportRecordCommand(command, item),
 					{
 						entities: { verbatimIdentities: true },
 						relationships: { verbatimIdentities: true },
-						events:
-							mode === "grouped"
-								? { verbatimIdentities: true }
-								: { independent: true, verbatimIdentities: true },
+						events: yield* genericItemEvents(item, userId, definitions, pluginRevision.id),
 					},
 					outcomes,
 				);
