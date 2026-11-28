@@ -8,23 +8,43 @@ import { FieldSelection as ExecutableFieldSelection } from "@ryot-app/contract/m
 import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { Result, Schema } from "effect";
 
-import { bindDocument } from "./binding";
+import {
+	authoredValidationBranches,
+	bindDocument,
+	type BindingContext,
+	type StoredValidationContext,
+	validateAuthoredDocument,
+} from "./binding";
 import type { RyotQLAccess } from "./catalog";
 import { validateRyotQLDocument } from "./validator";
+
+export const bindAuthored = (
+	document: RyotQLDocument,
+	values: Omit<ExecutionRequest, "source">,
+	context: BindingContext,
+) =>
+	Result.flatMap(validateAuthoredDocument(document), (validated) =>
+		bindDocument(validated, values, context),
+	);
+
+export const authoredBranches = (document: RyotQLDocument, context: StoredValidationContext) =>
+	Result.flatMap(validateAuthoredDocument(document), (validated) =>
+		authoredValidationBranches(validated, context),
+	);
 
 export const validateAuthoredFixture = (
 	document: RyotQLDocument,
 	scope: RyotQLAccess,
 	values: Omit<ExecutionRequest, "source"> = {},
 ) => {
-	const bound = bindDocument(document, values, { now: new Date(0), reportingTimeZone: "UTC" });
+	const bound = bindAuthored(document, values, { now: new Date(0), reportingTimeZone: "UTC" });
 	return Result.isFailure(bound)
 		? { value: null, error: bound.failure.message }
 		: validateRyotQLDocument(bound.success.document, scope);
 };
 
 export const executableFixture = (document: RyotQLDocument) =>
-	Result.getOrThrow(bindDocument(document, {}, { now: new Date(0), reportingTimeZone: "UTC" }))
+	Result.getOrThrow(bindAuthored(document, {}, { now: new Date(0), reportingTimeZone: "UTC" }))
 		.document;
 
 export const executableFieldsFixture = (fields: readonly FieldSelection[]) => {

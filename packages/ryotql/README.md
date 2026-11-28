@@ -63,14 +63,17 @@ runs only for full recipes. `Recipe.Queries<typeof recipe>` preserves per-query 
 `/binding` exports pure Result-returning functions:
 
 - `validateAuthoredDocument(document)` checks grammar, parameter declarations, guarded uses, exhaustive
-  choices, control declarations, and default/maximum limits. It is not catalog or authority validation.
-  Documents are immutable, so it remembers the result per document object and checks each once.
-- `bindDocument(document, values, context)` validates arguments, applies defaults and request controls,
-  binds placeholders and pages, then strictly decodes an executable `language.RyotQLDocument`. It
-  returns `{ document, arguments }`; the latter contains the normalized, defaulted arguments.
+  choices, control declarations, and default/maximum limits, and returns the document as a
+  `ValidatedRyotQLDocument`. It is not catalog or authority validation. Callers validate a document
+  once where it enters, then bind or project the validated document as often as they need.
+- `bindDocument(document, values, context)` takes a validated document, validates arguments, applies
+  defaults and request controls, binds placeholders and pages, then strictly decodes an executable
+  `language.RyotQLDocument`. It returns `{ document, arguments }`; the latter contains the
+  normalized, defaulted arguments.
 - `authoredValidationBranches(document, context)` produces executable projections of every reachable
-  `choice` case and both `whenSet` outcomes. Repeated uses of a parameter select consistent cases.
-  `maximumBranches` is a required caller-owned resource budget; exceeding it rejects the write.
+  `choice` case and both `whenSet` outcomes of a validated document. Repeated uses of a parameter
+  select consistent cases. `maximumBranches` is a required caller-owned resource budget; exceeding
+  it rejects the write.
   Parameter samples represent declared kinds, not business-valid example arguments. Lists contain
   a sample element so their element kind is visible. Literal JSON remains opaque.
 - `cursorBindingKey({ sourceIdentity, ownerIdentity, arguments, filter?, sort? })` canonicalizes cursor

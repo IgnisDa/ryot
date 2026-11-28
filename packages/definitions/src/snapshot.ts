@@ -37,7 +37,11 @@ import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/sche
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { browseConsistencyIssue, browseIssue } from "@ryot-app/ryotql-recipes/browse-validation";
-import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import {
+	authoredValidationBranches,
+	storedValidationContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
 import { calendarSourceIssue } from "./row-source-validation";
@@ -267,7 +271,9 @@ const validateDefinitionSource = (
 			savedView.dataSources === null
 				? [null]
 				: Result.getOrThrow(
-						authoredValidationBranches(savedView.dataSources, storedValidationContext()),
+						Result.flatMap(validateAuthoredDocument(savedView.dataSources), (validated) =>
+							authoredValidationBranches(validated, storedValidationContext()),
+						),
 					);
 		for (const branch of branches) {
 			const issue = savedViewSourceIssue(savedView.renderer, savedView.settings, branch, {

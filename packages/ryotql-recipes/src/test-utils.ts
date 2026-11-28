@@ -17,7 +17,11 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { type AppSchema, mapAppSchemaText } from "@ryot-app/contract/schema/property-schema";
 import { type DisplayText, stampNamespace } from "@ryot-app/i18n/message";
 import type { Recipe } from "@ryot-app/ryotql";
-import { bindDocument, type BindingContext } from "@ryot-app/ryotql/binding";
+import {
+	bindDocument,
+	type BindingContext,
+	validateAuthoredDocument,
+} from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
 export const rowsResult = (items: readonly unknown[], pageInfo: RowsResult["pageInfo"]) => ({
@@ -95,10 +99,8 @@ export const bindRecipe = <Success, Parameters extends AppSchema<TestText>>(
 		),
 	);
 	const bound = Result.getOrThrow(
-		bindDocument(
-			stampTestDocument(recipe.document),
-			{ pages, ...requestValues, arguments: argumentsValue },
-			context,
+		Result.flatMap(validateAuthoredDocument(stampTestDocument(recipe.document)), (validated) =>
+			bindDocument(validated, { pages, ...requestValues, arguments: argumentsValue }, context),
 		),
 	);
 	return { ...recipe, document: bound.document };
@@ -126,7 +128,10 @@ export const bindTestRequest = (
 		throw new Error("Expected an execution request");
 	}
 	return Result.getOrThrow(
-		bindDocument(stampTestDocument(requireInlineDocument(request)), request, context),
+		Result.flatMap(
+			validateAuthoredDocument(stampTestDocument(requireInlineDocument(request))),
+			(validated) => bindDocument(validated, request, context),
+		),
 	).document;
 };
 

@@ -12,6 +12,7 @@ import {
 	authoredValidationBranches,
 	materializeValidationSample,
 	storedValidationContext,
+	validateAuthoredDocument,
 } from "@ryot-app/ryotql/binding";
 import type { RyotQLAccess } from "@ryot-app/ryotql/catalog";
 import { filterOperatorsFor, sampleFilterRule } from "@ryot-app/ryotql/filters";
@@ -72,7 +73,9 @@ export const storedValidationBranches = (
 	schemas: readonly ControlSchema[],
 	access: RyotQLAccess = savedViewDataSourceAccess,
 ): Result.Result<readonly ExecutableDocument[], Error> => {
-	const projections = authoredValidationBranches(document, storedValidationContext());
+	const projections = Result.flatMap(validateAuthoredDocument(document), (validated) =>
+		authoredValidationBranches(validated, storedValidationContext()),
+	);
 	if (Result.isFailure(projections)) {
 		return Result.fail(projections.failure);
 	}
