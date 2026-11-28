@@ -27,7 +27,6 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
-	type LifecyclePlan,
 	type LifecyclePlanner,
 	type LifecyclePlanningResult,
 	LifecycleWork,
@@ -244,12 +243,6 @@ export const policyRequestFixture = (
 	const { causation, occurredAt } = triggerFixture();
 	return { items, resource, causation, occurredAt, scopeUserId, references: {} };
 };
-
-export const planFixture = (id: string): LifecyclePlan => ({
-	runs: [],
-	wasCreated: true,
-	trigger: triggerFixture(id),
-});
 
 export const queuedRunFixture = (id: string) =>
 	AutomationRun.make({
