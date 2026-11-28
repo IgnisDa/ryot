@@ -66,16 +66,12 @@ export type FoldWriter = {
 	) => Effect.Effect<{ readonly value: A; readonly queued: ReadonlyArray<FoldSubject> }, DbError>;
 };
 
+/** A stored change a run read, at the version it read. */
+type Consumed = { readonly eventId: string; readonly version: number };
+
 type Binding = NonNullable<Effect.Success<ReturnType<FoldScripts["Service"]["resolve"]>>>;
 
 type Results = ReadonlyArray<{ readonly prepared: Prepared; readonly item: FoldSubjectOutput }>;
-
-/** A stored change a run read: its version then, and the image it consumed as the event's image now. */
-type Consumed = {
-	readonly eventId: string;
-	readonly version: number;
-	readonly after: null | FoldEventImage;
-};
 
 type Target = {
 	readonly id: string;
@@ -429,7 +425,7 @@ export class Folds extends Context.Service<Folds>()(
 							version: own.version,
 							revision: own.revision ?? 0,
 							absorbed: absorbedRows.map(({ targetId }) => targetId),
-							consumed: changes.map(({ after, eventId, version }) => ({ after, eventId, version })),
+							consumed: changes.map(({ eventId, version }) => ({ eventId, version })),
 						};
 						const list = changes.flatMap(({ after, before }) =>
 							stableStringify(before) === stableStringify(after) ? [] : [{ after, before }],
@@ -470,9 +466,10 @@ export class Folds extends Context.Service<Folds>()(
 
 			/**
 			 * Writes a run's outputs: replayed subjects replace theirs, incremental ones patch them. Each
-			 * subject consumes exactly what it read: its absorbed values, and each stored change unless a
-			 * write rewrote it since, which then keeps the image the run consumed as its image before. A
-			 * subject becomes ready only while no write marked it since the run read it.
+			 * subject consumes exactly what it read: its absorbed values and each stored change still at the
+			 * version it read. A subject becomes ready only while no write marked it since the run read it;
+			 * otherwise its script may have read part of that write, so its next fold replays. Returns each
+			 * subject's revision after the write.
 			 */
 			const write = Effect.fnUntraced(function* (
 				userId: UserId,
@@ -538,18 +535,11 @@ export class Folds extends Context.Service<Folds>()(
 				if (consumed.length > 0) {
 					yield* session.run((db) =>
 						db.execute(sql`
-							with consumed as (
-								select * from jsonb_to_recordset(${JSON.stringify(consumed)}::jsonb)
-									as c("entityId" text, "eventId" text, version integer, after jsonb)
-							), deleted as (
-								delete from derived_change d using consumed c
-								where d.user_id = ${userId} and d.subject_entity_id = c."entityId"
-									and d.event_id = c."eventId" and d.version = c.version
-							)
-							update derived_change d set before = c.after
-							from consumed c
+							delete from derived_change d
+							using jsonb_to_recordset(${JSON.stringify(consumed)}::jsonb)
+								as c("entityId" text, "eventId" text, version integer)
 							where d.user_id = ${userId} and d.subject_entity_id = c."entityId"
-								and d.event_id = c."eventId" and d.version <> c.version
+								and d.event_id = c."eventId" and d.version = c.version
 						`),
 					);
 				}
@@ -572,11 +562,11 @@ export class Folds extends Context.Service<Folds>()(
 						`),
 					);
 				}
-				yield* session.run((db) =>
-					db.execute(sql`
-						update derived_value v set value = coalesce(s.value, 'null'::jsonb),
+				const written = yield* session.run((db) =>
+					db.execute<{ targetId: string; revision: number }>(
+						sql`update derived_value v set value = coalesce(s.value, 'null'::jsonb),
 							status = case when v.revision = s.revision then 'ready' else v.status end,
-							replay = v.revision <> s.revision and (v.replay or s.replayed),
+							replay = v.revision <> s.revision,
 							revision = v.revision + 1, value_version = v.value_version + 1,
 							plugin_revision_id = ${revision}, updated_at = now()
 						from jsonb_to_recordset(${JSON.stringify(
@@ -584,12 +574,14 @@ export class Folds extends Context.Service<Folds>()(
 								value: subject.value,
 								entityId: entityIdOf(subject),
 								revision: subject.prepared.revision,
-								replayed: subject.prepared.input.changes === null,
 							})),
-						)}::jsonb) as s("entityId" text, value jsonb, revision integer, replayed boolean)
+						)}::jsonb) as s("entityId" text, value jsonb, revision integer)
 						where v.user_id = ${userId} and v.kind = 'subject' and v.target_id = s."entityId"
-					`),
+						returning v.target_id as "targetId", v.revision`,
+						"objects",
+					),
 				);
+				return new Map(written.map((row) => [row.targetId, row.revision]));
 			});
 
 			const commandOf = Effect.fnUntraced(function* (
@@ -639,7 +631,10 @@ export class Folds extends Context.Service<Folds>()(
 				});
 			});
 
-			/** Validates and writes a run's results, returning the changes each subject asked for. */
+			/**
+			 * Validates and writes a run's results, returning the changes each subject asked for and each
+			 * subject's revision after the write.
+			 */
 			const persist = Effect.fnUntraced(function* (
 				transaction: WriteTransaction,
 				run: Run,
@@ -648,7 +643,7 @@ export class Folds extends Context.Service<Folds>()(
 			) {
 				const changed: Array<Changed> = [];
 				if (results.length === 0) {
-					return changed;
+					return { changed, revisions: new Map<string, number>() };
 				}
 				const found = yield* outputTargets(
 					transaction,
@@ -698,8 +693,15 @@ export class Folds extends Context.Service<Folds>()(
 						});
 					}
 				}
-				yield* write(run.userId, run.pluginId, run.binding.pluginPin.revisionId, writes);
-				return changed;
+				return {
+					changed,
+					revisions: yield* write(
+						run.userId,
+						run.pluginId,
+						run.binding.pluginPin.revisionId,
+						writes,
+					),
+				};
 			});
 
 			/** Marks subjects' last folds failed; their next folds replay in full. */
@@ -717,13 +719,15 @@ export class Folds extends Context.Service<Folds>()(
 			/**
 			 * Writes a run's results in the writer's transaction and applies the changes they ask for. A
 			 * subject whose value another fold wrote since the run read it is lost and runs again from the
-			 * new state; one that asks for changes again after this fold already wrote it is marked failed.
+			 * new state. One that asks for changes again while only this fold's own writes marked it since
+			 * this fold wrote it, at the revision `written` expects, is marked failed. Returns the written
+			 * subjects' revisions.
 			 */
 			const commitRun = Effect.fnUntraced(function* (
 				transaction: WriteTransaction,
 				run: Run,
 				results: Results,
-				input: { readonly lane: ExecutionLane; readonly written: ReadonlySet<string> },
+				input: { readonly lane: ExecutionLane; readonly written: ReadonlyMap<string, number> },
 				apply: ApplyFoldChanges,
 			) {
 				const ids = run.subjects.map(({ entry }) => entry.subject.entityId).sort();
@@ -743,20 +747,18 @@ export class Folds extends Context.Service<Folds>()(
 				);
 				const kept = current.filter(
 					({ item, prepared }) =>
-						item.changes.length > 0 && input.written.has(prepared.entry.subject.entityId),
+						item.changes.length > 0 &&
+						input.written.get(prepared.entry.subject.entityId) === prepared.revision,
 				);
 				const applied = current.filter((result) => !kept.includes(result));
 				if (kept.length > 0) {
 					yield* failed(run.userId, subjectIds(kept));
 				}
-				yield* applyChanges(
-					transaction,
-					yield* persist(transaction, run, applied, input.lane),
-					apply,
-				);
+				const { changed, revisions } = yield* persist(transaction, run, applied, input.lane);
+				yield* applyChanges(transaction, changed, apply);
 				return {
+					revisions,
 					kept: subjectIds(kept),
-					applied: subjectIds(applied),
 					lost: subjectIds(
 						results.filter(({ prepared }) => {
 							const version = versions.get(prepared.entry.subject.entityId);
@@ -781,7 +783,7 @@ export class Folds extends Context.Service<Folds>()(
 				},
 				writer: FoldWriter,
 			) {
-				const written = new Set<string>();
+				const written = new Map<string, number>();
 				const kept: Array<string> = [];
 				let entityIds = input.entityIds;
 				while (entityIds.length > 0) {
@@ -797,17 +799,24 @@ export class Folds extends Context.Service<Folds>()(
 								writer.apply,
 							).pipe(asDbError),
 						);
-						for (const entityId of value.applied) {
-							written.add(entityId);
+						const own = new Set(
+							queued.flatMap(({ userId, entityId }) => (userId === input.userId ? [entityId] : [])),
+						);
+						for (const entityId of own) {
+							const revision = value.revisions.get(entityId) ?? written.get(entityId);
+							if (revision !== undefined) {
+								written.set(entityId, revision + 1);
+							}
+							next.add(entityId);
+						}
+						for (const [entityId, revision] of value.revisions) {
+							if (!own.has(EntityId.make(entityId))) {
+								written.set(entityId, revision);
+							}
 						}
 						kept.push(...value.kept);
 						for (const entityId of value.lost) {
 							next.add(EntityId.make(entityId));
-						}
-						for (const subject of queued) {
-							if (subject.userId === input.userId) {
-								next.add(subject.entityId);
-							}
 						}
 					}
 					entityIds = [...next].sort();

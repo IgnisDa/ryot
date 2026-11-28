@@ -91,13 +91,14 @@ A fold, an interactive commit's or a job's, holds no transaction while its scrip
    their subject rows, then writes the results of the subjects whose value version is still the one it
    read. Only folds bump it, so of two folds that read a subject together one writes and the other runs
    again from the new state. A written subject consumes exactly what the fold read: its absorbed values,
-   and each stored change still at the version it read. A change rewritten since stays pending, its
-   image before replaced by the image after the fold consumed, as do changes stored after the read.
-   The subject becomes `ready` only when no write marked it since the read; otherwise it stays
-   `pending`, and a subject that replayed replays again.
+   and each stored change still at the version it read; a change rewritten or stored since stays
+   pending. The subject becomes `ready` only when no write marked it since the read. Otherwise it
+   stays `pending` and its next fold replays in full, because the script's host reads may already have
+   seen part of that write.
 4. The changes the results ask for are applied in that transaction, which queues the subjects they
-   change, and the fold runs again for those. A subject that asks for changes again after the same fold
-   wrote it is marked `failed` and `replay`, and the fold fails.
+   change, and the fold runs again for those. A subject that asks for changes again while nothing but
+   the same fold's writes marked it since that fold wrote it is marked `failed` and `replay`, and the
+   fold fails.
 
 A job of several subjects that fails queues each subject as its own job, which leaves every subject
 `pending`, so one subject's failure stays its own; a single-subject job retries up to eight times,

@@ -1056,7 +1056,7 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"writes a fold's result when a write lands during its run, consuming only the changes it read",
+		"writes a fold's result when a write lands during its run, keeps the changes it did not read and replays next",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -1087,25 +1087,69 @@ layer(testLayer)((test) => {
 					yield* runFoldJob([first]);
 					expect(changeShape(recorded.at(-1)?.changes)).toEqual([["two", "two-b", 0, 1]]);
 					expect(yield* subjectValue(first)).toEqual({ values: ["one", "two-b"] });
-					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "pending" }]);
+					expect(yield* subjectState(first)).toEqual([{ replay: true, status: "pending" }]);
 					expect(yield* storedChanges(first)).toHaveLength(2);
 					yield* runFoldJob([first]);
-					expect(changeShape(recorded.at(-1)?.changes)).toEqual([
-						["two-b", "two-c", 1, 2],
-						[null, "three", null, 0],
-					]);
+					expect(recorded.at(-1)?.changes).toBeNull();
+					expect(yield* subjectValue(first)).toEqual({ values: ["one", "three", "two-c"] });
 					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
 					expect(yield* storedChanges(first)).toEqual([]);
-					const incremental = yield* derived(first);
-					expect(incremental.find(({ kind }) => kind === "subject")?.value).toEqual({
-						values: ["one", "three", "two-c"],
-					});
-					const marks = yield* FoldMarks;
-					yield* write((transaction) =>
-						marks.markSubjects(transaction, [{ userId, entityId: first }]),
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"lets a subject ask for changes again when another write marked it after the fold wrote it",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const eventId = EventId.make(yield* randomUuid);
+					const { runs, first, installed } = yield* setup((subject) =>
+						Effect.map(countingFold(subject), (output) => ({
+							...output,
+							changes: (subject.changes ?? []).some(
+								({ after }) => after?.properties["value"] === "trigger",
+							)
+								? [{ eventId, kind: "delete", itemIdentity: subject.subjectEntityId }]
+								: [],
+						})),
 					);
-					expect(recorded.at(-1)?.changes).toBeNull();
-					expect(yield* derived(first)).toEqual(incremental);
+					const { pluginId } = installed;
+					const services = yield* Effect.context<
+						EventMutations | EventsRepository | SecureRandom.SecureRandom
+					>();
+					const marks = yield* FoldMarks;
+					yield* write((transaction) => createValues(transaction, pluginId, first, ["one"]));
+					yield* background((transaction) =>
+						createValues(transaction, pluginId, first, ["trigger"]),
+					);
+					const refold = yield* writer((transaction) =>
+						marks.markRefolds(transaction, [{ userId, entityId: first }]),
+					);
+					const interfering = yield* Ref.make(true);
+					const interfered: FoldWriter = {
+						...refold,
+						commit: (work) =>
+							Effect.tap(refold.commit(work), () =>
+								Effect.flatMap(Ref.getAndSet(interfering, false), (interfere) =>
+									interfere
+										? background((transaction) =>
+												createValues(transaction, pluginId, first, ["trigger"]),
+											).pipe(Effect.asVoid, Effect.provideContext(services), Effect.orDie)
+										: Effect.void,
+								),
+							),
+					};
+					const folded = runs.length;
+					expect(
+						yield* (yield* Folds).fold(
+							{ userId, lane: "background", entityIds: [first] },
+							interfered,
+						),
+					).toBe(true);
+					expect(runs).toHaveLength(folded + 3);
+					expect(yield* subjectState(first)).toEqual([{ replay: false, status: "ready" }]);
 				}),
 			),
 		testTimeout,
