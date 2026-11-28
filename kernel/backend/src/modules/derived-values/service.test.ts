@@ -609,7 +609,9 @@ layer(testLayer)((test) => {
 					expect(yield* derived(first)).toEqual([
 						{ kind: "subject", targetId: first, value: { runs: 3 } },
 					]);
-					yield* write((transaction) => events.deleteEvent(transaction, { userId, eventId: kept }));
+					yield* write((transaction) =>
+						events.deletePreparedEvent(transaction, { userId, eventId: kept, expectedRevision: 0 }),
+					);
 					expect(recorded.at(-1)?.changes).toMatchObject([
 						{ after: null, before: { id: kept, properties: { value: "kept" } } },
 					]);
