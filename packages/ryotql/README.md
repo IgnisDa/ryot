@@ -117,7 +117,11 @@ by semantic/access validation again.
 ## Catalog and semantic validation
 
 `/catalog` declares every queryable table with its logical fields, kinds, nullability, primary key,
-and per-audience access. It holds no relation names, columns, or SQL; the kernel binds those.
+and per-audience access. It holds no relation names, columns, or SQL; the kernel binds those. A table
+whose writes record a data change declares `dataChanges` (`dataChangeTables`), with the
+`globalSchemaField` that names a global row's schema when it holds global rows; a field whose value
+reads global rows of every schema declares `readsEverySchema` (`everySchemaFields`). Signal
+schedule validation and read-set analysis derive their table and schema rules from these.
 `/validator` exports `validateRyotQLDocument(document, access)`, which checks an executable document
 against the catalog: table and field access, alias scope, correlation, aggregate and ordering rules,
 include bounds, and result limits. Stored documents use `savedViewDataSourceAccess`, the plugin

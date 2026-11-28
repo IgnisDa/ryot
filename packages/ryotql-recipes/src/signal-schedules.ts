@@ -3,6 +3,7 @@ import {
 	Predicate,
 	type ScalarExpression,
 	TableReference,
+	visitAuthoredNodes,
 } from "@ryot-app/contract/modules/ryotql/authored";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import type { RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
@@ -12,22 +13,24 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
-	castDate,
 	coalesce,
 	column,
 	defineRecipe,
 	field,
 	gte,
 	isNull,
-	lt,
 	or,
 	table,
 } from "@ryot-app/ryotql";
-import { dateAdd, parameters } from "@ryot-app/ryotql/authoring";
-import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
+import { parameters } from "@ryot-app/ryotql/authoring";
+import { everySchemaFields, getCatalogTable } from "@ryot-app/ryotql/catalog";
 import { Option, Result, Schema } from "effect";
 
-import { rowSourceTimeWindow } from "./row-source-time";
+import {
+	rowSourceDateWindow,
+	rowSourceInstantWindow,
+	rowSourceTimeWindow,
+} from "./row-source-time";
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
 const DUE_QUERY = "signalScheduleDue";
@@ -182,18 +185,24 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 		queries: {
 			[NEXT_QUERY]: nextQuery(dueAt, [
 				...(instantAt === null ? [] : [isNull(instantAt)]),
-				gte(dueAt, recipeParameters.value("end")),
-				lt(dueAt, recipeParameters.value("horizon")),
+				...rowSourceDateWindow(dueAt, {
+					start: recipeParameters.value("end"),
+					end: recipeParameters.value("horizon"),
+				}),
 			]),
 			...(instantAt === null
 				? {}
 				: {
-						[NEXT_INSTANT_QUERY]: nextQuery(instantAt, [
-							gte(dueAt, dateAdd(castDate(recipeParameters.value("instantEnd")), -1, "day")),
-							lt(dueAt, dateAdd(castDate(recipeParameters.value("instantHorizon")), 1, "day")),
-							gte(instantAt, recipeParameters.value("instantEnd")),
-							lt(instantAt, recipeParameters.value("instantHorizon")),
-						]),
+						[NEXT_INSTANT_QUERY]: nextQuery(
+							instantAt,
+							rowSourceInstantWindow(dueAt, {
+								at: instantAt,
+								bounds: {
+									start: recipeParameters.value("instantEnd"),
+									end: recipeParameters.value("instantHorizon"),
+								},
+							}),
+						),
 					}),
 			[DUE_QUERY]: {
 				decodeResult: (result: unknown) =>
@@ -239,15 +248,6 @@ export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleS
 	});
 	return Result.succeed(recipe);
 };
-
-/** The column naming a row's schema, for the tables whose rows can be global data. */
-const globalSchemaColumns: Readonly<Record<string, string>> = {
-	entity: "entitySchemaSlug",
-	relationship: "relationshipSchemaSlug",
-};
-
-/** Reads relationships of every schema that touch the entity. */
-const UNBOUNDED_FIELD = "relatedPopulationStatus";
 
 const QuerySet = Schema.Struct({
 	from: TableReference,
@@ -316,7 +316,7 @@ const allowedValues = (
 /**
  * The schemas whose global rows a query set's tables can read, or null when a table's are not
  * bounded. A table's rows are bounded by its query set's `where` and inner join conditions, and by
- * its own condition when left joined; event rows are never global.
+ * its own condition when left joined; a table whose rows are never global reads none.
  */
 const querySetSchemas = ({ from, where, joins = [] }: QuerySet): null | ReadonlySet<string> => {
 	const shared = [
@@ -336,17 +336,18 @@ const querySetSchemas = ({ from, where, joins = [] }: QuerySet): null | Readonly
 	];
 	const schemas = new Set<string>();
 	for (const { own, source } of tables) {
-		if (!("table" in source)) {
+		const dataChanges = "table" in source ? getCatalogTable(source.table)?.dataChanges : undefined;
+		if (dataChanges === undefined) {
 			return null;
 		}
-		if (source.table === "event") {
+		if (dataChanges.globalSchemaField === undefined) {
 			continue;
 		}
-		const slugColumn = globalSchemaColumns[source.table];
-		const allowed =
-			slugColumn === undefined
-				? undefined
-				: allowedValues({ type: "and", predicates: [...shared, ...own] }, source.alias, slugColumn);
+		const allowed = allowedValues(
+			{ type: "and", predicates: [...shared, ...own] },
+			source.alias,
+			dataChanges.globalSchemaField,
+		);
 		if (allowed === undefined) {
 			return null;
 		}
@@ -357,21 +358,23 @@ const querySetSchemas = ({ from, where, joins = [] }: QuerySet): null | Readonly
 	return schemas;
 };
 
-const documentReads = (value: unknown): ReadonlyArray<null | ReadonlySet<string>> => {
-	if (isUnknownArray(value)) {
-		return value.flatMap(documentReads);
-	}
-	if (!isObjectRecord(value) || value["type"] === "literal") {
-		return [];
-	}
-	const own =
-		value["type"] === "column" && value["field"] === UNBOUNDED_FIELD
-			? [null]
-			: Option.match(Schema.decodeUnknownOption(QuerySet)(value), {
-					onNone: () => [],
-					onSome: (querySet) => [querySetSchemas(querySet)],
-				});
-	return [...own, ...Object.values(value).flatMap(documentReads)];
+const documentReads = (value: unknown) => {
+	const reads: Array<null | ReadonlySet<string>> = [];
+	visitAuthoredNodes(value, (node) => {
+		if (
+			node["type"] === "column" &&
+			typeof node["field"] === "string" &&
+			everySchemaFields.has(node["field"])
+		) {
+			reads.push(null);
+			return;
+		}
+		const querySet = Schema.decodeUnknownOption(QuerySet)(node);
+		if (Option.isSome(querySet)) {
+			reads.push(querySetSchemas(querySet.value));
+		}
+	});
+	return reads;
 };
 
 /**
