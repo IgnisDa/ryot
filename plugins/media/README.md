@@ -496,9 +496,8 @@ monitoring memberships combine, with destination property values and ranks winni
 source-only values retained. Recorded show children match by season/episode number; podcast children
 also require a matching trimmed, case-insensitive title. Missing or ambiguous matches reject the
 whole operation; the failure names no affected identities, so the user refreshes or corrects metadata
-before trying again. Automatic completions move with their history, and the fold's frozen inventories and
-suppressed occurrences move with them, so an occurrence the user deleted on the source stays deleted on
-the destination. The operation returns an
+before trying again. Automatic completions move with their history, and the fold's occurrences move
+with them, so an occurrence the user deleted on the source stays deleted on the destination. The operation returns an
 `entities.clears` or `entities.merges` entry as its change set and an empty output; the kernel's
 [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md) runs it
 atomically under the operation's idempotency key with stale-state checks. The menu explains the
@@ -785,15 +784,18 @@ signal schedules read only the stored summary, since a signal schedule cannot re
 
 The fold replays history in order, resetting coverage at each explicit or automatic cycle boundary. A
 new Show or Podcast completion requires a terminal production status (`Ended`, `Canceled`, or
-`Cancelled`, case-insensitive) and either an episode the fold has not counted before or the title newly
-reaching that status, so unrelated edits to an old cycle cannot complete it. The fold's value holds
-each occurrence with its key, status, sources and frozen inventory, plus the coverage sources it has
-counted and whether the title was terminal. A frozen occurrence keeps its inventory, so later provider
-changes do not rewrite past completions. A replay restores an occurrence where its sources exactly
-cover its frozen inventory, or else at its recorded closing event while its inventory is covered, so
-replaying the fold's own completions changes nothing and a corrected source keeps the completion it
-supports. Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect live coverage without
-creating history. A change to one of the declared properties of a title, such as a new status,
+`Cancelled`, case-insensitive) and either a closing episode completion later in history than every
+one the previous fold counted or the title newly reaching that status, so an inventory change or an
+unrelated edit to an old cycle cannot complete it, and neither can a completion logged before the
+latest counted one. The fold's value holds each occurrence with its key and status; a coverage
+occurrence also keeps its closing source and how many episodes it required, and the value keeps the
+history position of the latest episode completion it counted (`counted`) and whether the title was
+terminal, so its size does not grow with the episodes a title covers. A replay restores a coverage
+occurrence at the first episode completion of a cycle that holds its closing source and has completed
+at least that many episodes, so replaying the fold's own completions changes nothing, later provider
+changes do not rewrite past completions, and a corrected source keeps the completion it supports.
+Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect
+live coverage without creating history. A change to one of the declared properties of a title, such as a new status,
 replays it for every user, and one of an episode replays the titles of the users with events on it;
 other content changes, such as a new overview or images, fold nothing. Other users' summaries follow
 episode changes through all-users fold requests, which refold without replaying history:
@@ -818,13 +820,14 @@ Show or Podcast covers:
   restore a lapsed coverage occurrence, complete a title that just became terminal, or complete a
   terminal title once no required episode is left uncovered in the current cycle, which
   `mediaFoldUncoveredRecipe` reads from the written history, counting the episodes the append
-  progresses as covered. The append still records the episode completions it sources as counted.
+  progresses as covered. The append still advances `counted` to the latest episode completion it
+  sources.
 
 Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
 history work; links refresh on every run.
 
 Completion time follows the closing coverage event; consumption sources are the ordered union of the
-supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
+sources of the episodes its cycle completed, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
 A fold runs right after the write that caused it, before the save returns, and commits its own writes.
 If it cannot finish, the write still stands and a `fold` job takes over; meanwhile the previous
 contributions and summaries stay visible and processing reads as pending. A subject that keeps failing
@@ -918,7 +921,7 @@ coverage-derived parent completions have only the parent episode basis and closi
 occurrence carries a `key` fixed when it is created from its source event; the completion stores it as
 `completionKey`, which identifies derived output. Editing a completion makes it explicit, and deleting
 it suppresses its occurrence. Source facts introduce no new typed entity references. Backups carry the
-fold's value, so a restored title keeps its suppressions and frozen inventories; a restored completion
+fold's value, so a restored title keeps its suppressions and coverage occurrences; a restored completion
 takes its source's new ID as its key when the title refolds.
 
 Migration ordering and identity: use one deterministic `sourceRun` per original source occurrence

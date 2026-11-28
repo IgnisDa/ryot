@@ -8,6 +8,7 @@ import {
 	compareHistory,
 	deriveHistory,
 	type FoldEvent,
+	latestPosition,
 	type MediaFoldValue,
 	sortedOccurrences,
 } from "./history";
@@ -204,15 +205,11 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		),
 		...derived.value.occurrences,
 	]);
+	const counted = latestPosition(input.previous.counted, derived.counted);
 	const value: MediaFoldValue = {
 		occurrences,
 		...(input.subject.episodic
-			? {
-					terminal: input.subject.terminal,
-					coverageSources: [
-						...new Set([...(input.previous.coverageSources ?? []), ...derived.coverageSources]),
-					].sort(),
-				}
+			? { terminal: input.subject.terminal, ...(counted ? { counted } : {}) }
 			: {}),
 	};
 	return {

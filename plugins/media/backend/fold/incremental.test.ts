@@ -423,8 +423,20 @@ describe("incremental media history", () => {
 			Effect.gen(function* () {
 				const history = Array.from({ length }, (_, index) => event(index));
 				const stored = yield* settle("full", subject, inventory, empty, history, { rows: 0 });
-				expect(Object.keys(stored.value).sort()).toEqual(
-					subject.episodic ? ["coverageSources", "occurrences", "terminal"] : ["occurrences"],
+				const last = event(length - 1);
+				expect(stored.value).toEqual(
+					subject.episodic
+						? {
+								occurrences: [],
+								terminal: false,
+								counted: {
+									id: last.id,
+									orderKey: last.orderKey,
+									occurredAt: last.occurredAt,
+									orderCreatedAt: last.orderCreatedAt,
+								},
+							}
+						: { occurrences: [] },
 				);
 				const appended = [...history, event(length)];
 				const counts = { rows: 0 };
@@ -471,7 +483,7 @@ describe("incremental media history", () => {
 				expect(rowsRead[1]).toBeGreaterThanOrEqual(steps[1]?.length ?? 0);
 				expect(
 					incremental.value.occurrences.filter(({ rule }) => rule === "coverage"),
-				).toHaveLength(1);
+				).toMatchObject([{ covered: 10, sourceEventId: storedId("event", 9) }]);
 			}),
 		testTimeout,
 	);

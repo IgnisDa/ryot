@@ -243,7 +243,7 @@ describe("media history fold", () => {
 	);
 
 	it.effect(
-		"completes an ended show once its aired episodes are covered and keeps the frozen inventory",
+		"completes an ended show once its aired episodes are covered and keeps it as its inventory changes",
 		() =>
 			Effect.gen(function* () {
 				const covered = yield* fold(
@@ -375,6 +375,50 @@ describe("media history fold", () => {
 	);
 
 	it.effect(
+		"completes a show again when its deleted closing episode is logged again before the deleted time",
+		() =>
+			Effect.gen(function* () {
+				const inventory = ["episode-1", "episode-2"];
+				const covered = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z"),
+						episode("episode-2", "complete", "2026-01-05T12:00:00.000Z"),
+					],
+					undefined,
+					show,
+					inventory,
+				);
+				const deleted = yield* fold(
+					covered.events.filter(({ id }) => id !== "complete-episode-2"),
+					covered.value,
+					show,
+					inventory,
+				);
+				expect(completions(deleted.events).map(({ entityId }) => entityId)).toEqual(["episode-1"]);
+				const relogged = yield* fold(
+					[
+						...deleted.events,
+						{
+							...episode("episode-2", "complete", "2026-01-03T12:00:00.000Z"),
+							id: "relog-episode-2",
+							orderKey: "relog-episode-2",
+						},
+					],
+					deleted.value,
+					show,
+					inventory,
+				);
+				expect(
+					completions(relogged.events).find(({ entityId }) => entityId === "show"),
+				).toMatchObject({
+					orderKey: "relog-episode-2~parent",
+					occurredAt: "2026-01-03T12:00:00.000Z",
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
 		"moves an automatic completion to the episode its progress moves to",
 		() =>
 			Effect.gen(function* () {
@@ -468,8 +512,9 @@ describe("media history fold", () => {
 				expect(
 					deduplicated.value.occurrences.find(({ rule }) => rule === "coverage"),
 				).toMatchObject({
+					covered: 3,
+					sourceEventId: "complete-episode-3",
 					key: parent.properties["completionKey"],
-					sources: ["complete-episode-1", "complete-episode-2", "complete-episode-3"],
 				});
 			}),
 		testTimeout,
@@ -528,8 +573,12 @@ describe("media history fold", () => {
 });
 
 describe("absorbFoldValues", () => {
+	const position = {
+		occurredAt: "2026-01-01T12:00:00.000Z",
+		orderCreatedAt: "2026-01-01T12:00:00.000Z",
+	};
 	const suppressed: MediaFoldValue = {
-		coverageSources: ["old-event"],
+		counted: { ...position, id: "old-event", orderKey: "old-event" },
 		occurrences: [
 			{
 				total: 120,
@@ -541,25 +590,24 @@ describe("absorbFoldValues", () => {
 				sourceEventId: "old-event",
 			},
 			{
+				covered: 2,
 				written: null,
 				silent: false,
 				status: "active",
 				rule: "coverage",
 				key: "coverage:old-event",
 				sourceEventId: "old-event",
-				sources: ["old-event", "kept-event"],
-				inventory: ["old-episode", "kept-episode"],
 			},
 		],
 	};
-	const ids = { "old-event": "new-event", "old-episode": "new-episode" };
+	const ids = { "old-event": "new-event" };
 
 	it("rewrites the IDs an absorbed value holds and clears what it wrote", () => {
 		const { renamedKeys, value: absorbed } = absorbFoldValues({ occurrences: [] }, [
 			{ ids, value: suppressed },
 		]);
 		expect(renamedKeys.get("progress:old-event")).toBe("progress:new-event");
-		expect(absorbed.coverageSources).toEqual(["new-event"]);
+		expect(absorbed.counted).toEqual({ ...position, id: "new-event", orderKey: "new-event" });
 		expect(absorbed.occurrences).toEqual([
 			{
 				total: 120,
@@ -571,14 +619,13 @@ describe("absorbFoldValues", () => {
 				sourceEventId: "new-event",
 			},
 			{
+				covered: 2,
 				written: null,
 				silent: false,
 				status: "active",
 				rule: "coverage",
 				key: "coverage:new-event",
 				sourceEventId: "new-event",
-				sources: ["new-event", "kept-event"],
-				inventory: ["new-episode", "kept-episode"],
 			},
 		]);
 	});
